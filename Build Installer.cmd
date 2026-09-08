@@ -1,4 +1,5 @@
 @echo off
+REM Clearspace | Builds the Clearspace installer.
 setlocal EnableExtensions
 cd /d "%~dp0"
 

@@ -1,3 +1,5 @@
+// Clearspace | Windows file icons and type names.
+
 using System.Collections.Concurrent;
 using System.IO;
 using System.Windows.Interop;
@@ -8,19 +10,6 @@ using Clearspace.Native;
 
 namespace Clearspace.Services;
 
-/// <summary>
-/// Resolves list icons.
-///
-/// The important part is the cache key. For an ordinary file the icon is determined
-/// entirely by its extension, so a folder containing 80,000 .jpg files needs exactly
-/// one shell call, not 80,000. SHGFI_USEFILEATTRIBUTES also tells the shell to answer
-/// from the registry rather than opening the file, so no disk access happens at all.
-///
-/// Clearspace intentionally uses type icons—even for executables and shortcuts—during
-/// initial listing. Asking the shell for a per-file icon makes a Downloads folder with
-/// thousands of installers perform thousands of synchronous shell calls and can stall
-/// or crash the UI. A per-file icon can be fetched later for an explicit preview.
-/// </summary>
 public static class IconService
 {
     private static readonly ConcurrentDictionary<string, ImageSource?> IconCache = new(StringComparer.OrdinalIgnoreCase);
@@ -31,9 +20,6 @@ public static class IconService
 
     public static ImageSource? GetIcon(FileSystemItem item)
     {
-        // A drive is navigable like a folder, but it should still read as a device.
-        // Ask the shell for the real root icon rather than applying the folder type
-        // icon we use for ordinary directories.
         if (item.IsDriveRoot)
             return IconCache.GetOrAdd($"drive:{item.FullPath}", _ => LoadIcon(item.FullPath, isFolder: true, useAttributes: false, large: true));
 
@@ -45,7 +31,6 @@ public static class IconService
 
         var extension = item.Extension;
 
-        // No extension means the shell has nothing to key off; treat it as generic.
         if (string.IsNullOrEmpty(extension))
             return IconCache.GetOrAdd(".__none__", _ => LoadIcon("file", isFolder: false, useAttributes: true));
 
@@ -81,10 +66,6 @@ public static class IconService
         });
     }
 
-    /// <summary>
-    /// Returns the actual high-resolution icon registered with Windows for this
-    /// path/type. Grid tiles use this instead of stretching a small details icon.
-    /// </summary>
     public static ImageSource? GetLargeIcon(FileSystemItem item)
     {
         var key = item.IsFolder
@@ -169,7 +150,6 @@ public static class IconService
                 System.Windows.Int32Rect.Empty,
                 BitmapSizeOptions.FromEmptyOptions());
 
-            // Freezing lets the same instance be shared across every row and any thread.
             source.Freeze();
             return source;
         }
@@ -183,24 +163,12 @@ public static class IconService
         }
     }
 
-    /// <summary>Assigns icons to a whole listing. Cheap because it is nearly all cache hits.</summary>
     public static void Populate(IReadOnlyList<FileSystemItem> items)
     {
         for (var i = 0; i < items.Count; i++)
             items[i].Icon = GetIcon(items[i]);
     }
 
-    /// <summary>
-    /// Pre-resolves the Details view's Type column for a whole listing.
-    ///
-    /// FileSystemItem.TypeName computes itself lazily on first read, which is fine
-    /// for a handful of rows but means the Type cell for each newly realized row
-    /// can trigger a fresh SHGetFileInfoW call exactly when it scrolls into view.
-    /// In a folder with many different file types that turns scrolling itself into
-    /// a source of shell calls. Doing it here, in a batch, up front and typically
-    /// off the UI thread, keeps every one of those calls out of the scroll path -
-    /// cheap either way, since the result is cached per extension, not per file.
-    /// </summary>
     public static void PopulateTypeNames(IReadOnlyList<FileSystemItem> items)
     {
         for (var i = 0; i < items.Count; i++)

@@ -1,3 +1,4 @@
+<!-- Clearspace | Main window layout and templates. -->
 <Window x:Class="Clearspace.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -16,13 +17,8 @@
 
     <Window.Resources>
 
-        <!-- Columns are assembled at runtime from the user's choice, so the view
-             starts empty and MainWindow fills it. Each column below is a keyed
-             resource marked x:Shared="False", so every rebuild gets fresh instances
-             rather than re-parenting ones already in use. -->
         <GridView x:Key="DetailsView" x:Shared="False" ColumnHeaderContainerStyle="{StaticResource ColumnHeader}" />
 
-        <!-- Name carries the per-row tag request, which is why it cannot be hidden. -->
         <GridViewColumn x:Key="Col.Name" x:Shared="False" Width="400" Header="Name">
                 <GridViewColumn.CellTemplate>
                     <DataTemplate>
@@ -55,8 +51,6 @@
                 </GridViewColumn.CellTemplate>
             </GridViewColumn>
 
-        <!-- Sync state stays compact in the list; hovering the icon reveals the
-             wording without spending a whole column on repeated OneDrive text. -->
         <GridViewColumn x:Key="Col.Status" x:Shared="False" Width="52" Header="Status">
             <GridViewColumn.CellTemplate>
                 <DataTemplate>
@@ -105,9 +99,6 @@
                         <Grid Margin="6,0,0,0"
                               Loaded="OnMusicRowLoaded"
                               DataContextChanged="OnMusicRowDataContextChanged">
-                            <!-- Track number until you hover, then the play button.
-                                 Folders get neither, which is part of telling them
-                                 apart at a glance. -->
                             <TextBlock Text="{Binding TrackNumberText}"
                                        HorizontalAlignment="Center"
                                        VerticalAlignment="Center"
@@ -153,8 +144,6 @@
                                                 <Setter Property="Visibility" Value="Visible" />
                                                 <Setter Property="Foreground" Value="{StaticResource Accent}" />
                                             </MultiDataTrigger>
-                                            <!-- Declared last so it wins: the loaded
-                                                 track's button is a pause button. -->
                                             <MultiDataTrigger>
                                                 <MultiDataTrigger.Conditions>
                                                     <Condition Binding="{Binding IsNowPlaying}" Value="True" />
@@ -177,8 +166,6 @@
                 <GridViewColumn.CellTemplate>
                     <DataTemplate>
                         <StackPanel Orientation="Horizontal">
-                            <!-- The icon is what separates an album folder from a
-                                 track. Without it every row reads the same. -->
                             <Image Source="{Binding Icon}"
                                    Width="16" Height="16"
                                    Margin="2,0,10,0"
@@ -219,8 +206,6 @@
         <GridViewColumn x:Key="Col.Album" x:Shared="False" Width="200" Header="Album">
                 <GridViewColumn.CellTemplate>
                     <DataTemplate>
-                        <!-- Folders say so plainly here, so an album folder is never
-                             mistaken for an untagged track with a blank album. -->
                         <TextBlock Foreground="{StaticResource InkMuted}"
                                    Margin="10,0,0,0"
                                    VerticalAlignment="Center"
@@ -307,8 +292,6 @@
             </GridViewColumn.CellTemplate>
         </GridViewColumn>
 
-        <!-- Tile. DataContextChanged, not Loaded: containers are recycled during
-             virtualisation, so the item changes without the visual reloading. -->
         <DataTemplate x:Key="TileTemplate">
             <Grid Margin="6,10"
                   Loaded="OnTileLoaded"
@@ -330,10 +313,6 @@
                                Margin="4"
                                RenderOptions.BitmapScalingMode="HighQuality" />
 
-                        <!-- Sync badge, bottom left so it never collides with the
-                             photo button opposite. An online-only tile also has no
-                             real preview behind it, which is the point: the pixels
-                             are not on this machine either. -->
                         <Border HorizontalAlignment="Left"
                                 VerticalAlignment="Bottom"
                                 Margin="6"
@@ -348,8 +327,6 @@
                                        Foreground="{Binding CloudStatusBrush}" />
                         </Border>
 
-                        <!-- The Photos folder type's one affordance: open the reel
-                             without giving up ordinary double-click behaviour. -->
                         <Button Click="OnViewPhotoClick"
                                 Content="&#xE8B3;"
                                 ToolTip="View in Clearspace"
@@ -416,7 +393,6 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <!-- ===== Toolbar ===== -->
         <Grid Grid.Row="0" Margin="10,10,14,8">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto" />
@@ -613,7 +589,6 @@
                                     <Setter Property="IsCheckable" Value="True" />
                                     <Setter Property="IsChecked" Value="{Binding IsVisible, Mode=TwoWay}" />
                                     <Setter Property="IsEnabled" Value="{Binding CanToggle}" />
-                                    <!-- Stay open so several can be ticked at once. -->
                                     <Setter Property="StaysOpenOnClick" Value="True" />
                                 </Style>
                             </ContextMenu.ItemContainerStyle>
@@ -646,7 +621,6 @@
             </StackPanel>
         </Grid>
 
-        <!-- ===== Body ===== -->
         <Grid Grid.Row="1">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="228" MinWidth="170" MaxWidth="400" />
@@ -779,11 +753,6 @@
                                         DragLeave="OnSidebarDragLeave"
                                         DragOver="OnSidebarDragOver"
                                         Drop="OnSidebarDrop">
-                                    <!-- Name and sync mark together. Known Folder
-                                         Move puts Desktop and Documents inside
-                                         OneDrive while leaving them looking exactly
-                                         like the local folders they replaced, so
-                                         the row is the only place that can say so. -->
                                     <Button.Content>
                                         <StackPanel Orientation="Horizontal">
                                             <TextBlock Text="{Binding DisplayName}"
@@ -945,9 +914,6 @@
                                 <Setter Property="ItemContainerStyle" Value="{StaticResource FileRow}" />
                                 <Style.Triggers>
                                     <DataTrigger Binding="{Binding IsMusicProfile}" Value="True">
-                                        <!-- Banding, not different columns: the column
-                                             set is now assembled in code from the
-                                             user's choice for this folder type. -->
                                         <Setter Property="AlternationCount" Value="2" />
                                         <Setter Property="ItemContainerStyle" Value="{StaticResource MusicRow}" />
                                     </DataTrigger>
@@ -962,8 +928,6 @@
                         </ListView.Style>
 
                         <ListView.ContextMenu>
-                            <!-- Context menus live in a separate popup window in WPF.
-                                 Bind back to the list so its selection state stays live. -->
                             <ContextMenu DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}">
                                 <MenuItem Header="Open" Command="{Binding OpenCommand}" />
                                 <Separator />
@@ -983,10 +947,6 @@
                                           IsEnabled="{Binding HasCloudSelection}"
                                           Visibility="{Binding IsCloudFolder, Converter={StaticResource BoolToVisible}}"
                                           Click="OnFreeUpSpace" />
-                                <!-- Built on open in code-behind. A submenu that mixes
-                                     the live tag list with commands cannot be driven by
-                                     ItemsSource, which owns the whole item collection.
-                                     The placeholder gives it something to open. -->
                                 <MenuItem Header="Tags" SubmenuOpened="OnTagsSubmenuOpened">
                                     <MenuItem Header="" />
                                 </MenuItem>
@@ -1013,10 +973,6 @@
                         </ListView.ContextMenu>
                     </ListView>
 
-                    <!-- Access refused. This sits over the list rather than in the
-                         status bar because an empty list plus one grey line reads as
-                         an empty folder, which is exactly the confusion that made
-                         protected folders look broken. -->
                     <Border Grid.Row="1"
                             Background="{StaticResource Base}"
                             BorderBrush="{StaticResource Line}"
@@ -1081,11 +1037,6 @@
                                         HorizontalAlignment="Right"
                                         VerticalAlignment="Center">
 
-                                <!-- Which account is behind this folder. Worth
-                                     naming rather than implying: a machine can hold
-                                     a personal account and a work tenant at once,
-                                     and a redirected Documents looks identical to
-                                     the local one it replaced. -->
                                 <Border Background="#14FFFFFF"
                                         CornerRadius="5"
                                         Padding="9,3"
@@ -1106,11 +1057,6 @@
                                     </StackPanel>
                                 </Border>
 
-                                <!-- The index is a background job that deliberately
-                                     announces itself nowhere else, so this badge is
-                                     the whole of its user interface: what it is doing
-                                     now, how much it holds, and - on hover - which
-                                     build is running and where the file lives. -->
                                 <Border Background="#14FFFFFF"
                                         CornerRadius="5"
                                         Padding="9,3"
@@ -1130,9 +1076,6 @@
                                     </StackPanel>
                                 </Border>
 
-                                <!-- Stays put while the walk runs, so there is a steady
-                                     signal that more results are still arriving even as
-                                     the count on the left keeps changing. -->
                                 <Border Background="{StaticResource AccentSoft}"
                                         CornerRadius="5"
                                         Padding="9,3"
@@ -1154,7 +1097,6 @@
                         </Grid>
                     </Border>
 
-                    <!-- ===== Now playing ===== -->
                     <Border Grid.Row="3"
                             Background="{StaticResource Base}"
                             BorderBrush="{StaticResource Line}"
@@ -1315,9 +1257,6 @@
             </Border>
         </Grid>
 
-        <!-- ===== Photo viewer ===== -->
-        <!-- Spans both rows so it covers the toolbar too: viewing a photo should
-             be the only thing on screen. -->
         <Border Grid.Row="0"
                 Grid.RowSpan="2"
                 Background="#F2141312"
@@ -1330,7 +1269,6 @@
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
 
-                <!-- Header -->
                 <Grid Grid.Row="0" Margin="20,14,16,10">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
@@ -1376,10 +1314,7 @@
                     </StackPanel>
                 </Grid>
 
-                <!-- Image surface -->
                 <Grid Grid.Row="1">
-                    <!-- Property elements must come before or after the content, never
-                         between children, so the menu is declared first. -->
                     <Grid.ContextMenu>
                         <ContextMenu>
                             <MenuItem Header="Copy image" Click="OnViewerCopyImage" InputGestureText="Ctrl+C" />
@@ -1410,8 +1345,6 @@
                                   PreviewMouseUp="OnViewerSurfaceMouseUp"
                                   LostMouseCapture="OnViewerSurfaceLostMouseCapture"
                                   PreviewMouseLeftButtonDown="OnViewerSurfaceDown">
-                        <!-- The image sizes itself explicitly so the crop overlay can
-                             sit exactly on top of it and map 1:1 to source pixels. -->
                         <Grid x:Name="ViewerStage"
                               HorizontalAlignment="Center"
                               VerticalAlignment="Center"
@@ -1464,7 +1397,6 @@
                                Visibility="{Binding Viewer.IsLoading, Converter={StaticResource BoolToVisible}}" />
                 </Grid>
 
-                <!-- Footer: crop confirmation, or the last status message -->
                 <Grid Grid.Row="2" Margin="20,8,20,16">
                     <TextBlock Text="{Binding Viewer.Status}"
                                VerticalAlignment="Center"

@@ -1,3 +1,5 @@
+// Clearspace | Vector icons used by the interface.
+
 using System.Collections.Concurrent;
 using System.Globalization;
 using System.Windows;
@@ -6,11 +8,6 @@ using Clearspace.Models;
 
 namespace Clearspace.Services;
 
-/// <summary>
-/// Vector fallbacks for file types whose registered Windows icon contains only
-/// small bitmap sizes. DrawingImage is resolution-independent, so WPF can render
-/// these at any grid zoom without interpolation blur.
-/// </summary>
 internal static class ScalableIconService
 {
     private static readonly Lazy<ImageSource> VideoIcon = new(CreateVideoIcon);
@@ -34,9 +31,6 @@ internal static class ScalableIconService
         {
             if (item.IsFolder)
             {
-                // Grid listings deliberately defer normal Shell icons. Typed
-                // folders still get the full Windows folder image plus a crisp
-                // vector badge immediately.
                 if (FolderIconService.HasType(item))
                     item.GridPlaceholder = FolderIconService.AddTypeBadge(item, IconService.GetLargeIcon(item));
                 continue;
@@ -54,7 +48,6 @@ internal static class ScalableIconService
     {
         var drawing = new DrawingGroup();
 
-        // Document page with a folded corner.
         var page = new StreamGeometry();
         using (var context = page.Open())
         {
@@ -84,8 +77,6 @@ internal static class ScalableIconService
             new Pen(new SolidColorBrush(Color.FromRgb(154, 156, 158)), .018),
             fold));
 
-        // A simple media mark, deliberately free of app branding so the icon is
-        // consistent even when file associations change.
         drawing.Children.Add(new GeometryDrawing(
             new SolidColorBrush(Color.FromRgb(43, 45, 48)),
             new Pen(new SolidColorBrush(Color.FromRgb(232, 143, 74)), .055),

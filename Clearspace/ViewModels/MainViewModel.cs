@@ -1,3 +1,5 @@
+// Clearspace | Main file-browser state and operations.
+
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
@@ -21,21 +23,16 @@ public sealed class MainViewModel : ObservableObject
 
     private CancellationTokenSource? _loadCancellation;
     private List<SidebarEntry> _driveEntries = [];
-    private readonly bool _isDemoMode;
 
-    // Subfolder search state. The crawl is debounced so typing does not launch a
-    // new walk of an entire drive on every keystroke.
     private readonly DispatcherTimer _searchDebounce;
     private CancellationTokenSource? _searchCancellation;
     private IReadOnlyList<FileSystemItem> _localMatches = [];
     private SearchQuery _pendingQuery = SearchQuery.Empty;
 
-    /// <summary>Upper bound on subfolder hits, so a broad query cannot exhaust memory.</summary>
     private const int MaxSearchResults = 10_000;
 
-    public MainViewModel(bool isDemoMode = false)
+    public MainViewModel()
     {
-        _isDemoMode = isDemoMode;
         Navigation = new NavigationService();
         Context = new ExplorerContext { Navigation = Navigation };
         Commands = new CommandManager(Context);
@@ -51,11 +48,8 @@ public sealed class MainViewModel : ObservableObject
             RefreshTagOptions();
         };
 
-        // Definitions can change from the tag dialog; keep the menu in step.
         TagService.Changed += (_, _) => RefreshTagOptions();
 
-        // The index runs on its own thread and is otherwise invisible, so this is
-        // the one thread of communication back to the window.
         FileIndexService.Changed += OnFileIndexChanged;
 
         Sidebar = new ObservableCollection<SidebarEntry>();
@@ -73,14 +67,6 @@ public sealed class MainViewModel : ObservableObject
             _ = RunTreeSearchAsync(_pendingQuery);
         };
 
-        // These three read their starting value straight into the backing field so
-        // the toggle shows the right state the instant the window appears. That
-        // means the property *setter* below never actually runs for whatever was
-        // true at launch, and with it skips whatever the setter is meant to do on
-        // a change - which is exactly the "shows on but does not work until you
-        // flip it off and on again" symptom, since flipping it is the first time
-        // the setter, and its side effects, ever fire. Re-applying the saved value
-        // here, through the property, makes startup behave like a fresh toggle.
         SearchEverywhere = SettingsService.GetSearchEverywhere();
         UseWindowsIndex = SettingsService.GetUseWindowsIndex();
         SearchFileContents = SettingsService.GetSearchFileContents();
@@ -95,18 +81,13 @@ public sealed class MainViewModel : ObservableObject
 
     public ObservableCollection<SidebarEntry> Sidebar { get; }
 
-    /// <summary>In-app playback, used by the Music folder type.</summary>
     public AudioPlayerViewModel Player { get; } = new();
 
-    /// <summary>Full-window image viewing, used by the Photos folder type.</summary>
     public PhotoViewerViewModel Viewer { get; } = new();
 
-    // ---------- Columns ----------
 
-    /// <summary>The column picker's contents for the current folder type.</summary>
     public ObservableCollection<ColumnOption> ColumnOptions { get; } = [];
 
-    /// <summary>Raised when the visible columns change and the view must rebuild them.</summary>
     public event EventHandler? ColumnsChanged;
 
     private List<string> _visibleColumns = [];
@@ -124,11 +105,6 @@ public sealed class MainViewModel : ObservableObject
             SettingsService.SetFolderColumnWidth(CurrentPath, columnId, width);
     }
 
-    /// <summary>
-    /// Commits the order produced by a header drag without rebuilding the details
-    /// view. That keeps the interaction smooth while making the order survive a
-    /// refresh, navigation away/back, and a restart.
-    /// </summary>
     public void SaveColumnOrder(IEnumerable<string> columnIds)
     {
         var visible = new HashSet<string>(_visibleColumns, StringComparer.OrdinalIgnoreCase);
@@ -150,8 +126,6 @@ public sealed class MainViewModel : ObservableObject
             ? AutomaticFolderTypeDetector.DetectFromName(CurrentPath) ?? DirectoryViewProfile.General
             : FolderProfile;
 
-        // This folder's own choice wins; otherwise fall back to what this kind of
-        // folder starts with.
         var saved = string.IsNullOrWhiteSpace(CurrentPath)
             ? null
             : SettingsService.GetFolderColumns(CurrentPath);
@@ -160,8 +134,6 @@ public sealed class MainViewModel : ObservableObject
 
         ColumnOptions.Clear();
 
-        // Catalogue order, not saved order, so the menu never reshuffles as you
-        // tick boxes. The saved list still controls the order in the list itself.
         foreach (var info in ColumnCatalog.All)
         {
             ColumnOptions.Add(new ColumnOption(
@@ -179,8 +151,6 @@ public sealed class MainViewModel : ObservableObject
         {
             if (!_visibleColumns.Contains(option.Id, StringComparer.OrdinalIgnoreCase))
             {
-                // Insert in catalogue order so a re-added column returns to a
-                // sensible place rather than the far right.
                 var target = ColumnCatalog.All
                     .TakeWhile(info => !info.Id.Equals(option.Id, StringComparison.OrdinalIgnoreCase))
                     .Select(info => _visibleColumns.FindIndex(id => id.Equals(info.Id, StringComparison.OrdinalIgnoreCase)))
@@ -202,7 +172,6 @@ public sealed class MainViewModel : ObservableObject
         ColumnsChanged?.Invoke(this, EventArgs.Empty);
     }
 
-    /// <summary>Drops this folder's override and returns to the folder type's defaults.</summary>
     public void ResetColumns()
     {
         if (!string.IsNullOrWhiteSpace(CurrentPath))
@@ -211,24 +180,18 @@ public sealed class MainViewModel : ObservableObject
         LoadColumns();
     }
 
-    /// <summary>
-    /// Plays a track in the transport bar. Invoked from the play button on a row,
-    /// never from double-click: double-click still hands the file to the shell.
-    /// </summary>
     public void PlayTrack(FileSystemItem item)
     {
         if (item.IsAudio)
             Player.Play(Items, item);
     }
 
-    /// <summary>Opens the in-app photo reel. Invoked from the button on a tile.</summary>
     public void ViewPhoto(FileSystemItem item)
     {
         if (item.IsImageFile)
             Viewer.Open(Items, item);
     }
 
-    // Named properties keep the XAML readable; they all resolve through the registry.
     public RichCommand BackCommand => Commands[CommandCode.NavigateBack];
     public RichCommand ForwardCommand => Commands[CommandCode.NavigateForward];
     public RichCommand UpCommand => Commands[CommandCode.NavigateUp];
@@ -252,9 +215,6 @@ public sealed class MainViewModel : ObservableObject
         private set => SetProperty(ref _items, value);
     }
 
-    // The complete directory snapshot is kept separate from Items. Searching never
-    // touches the disk or re-enumerates a directory: it only swaps the displayed
-    // slice of this already-sorted in-memory list.
     private IReadOnlyList<FileSystemItem> _directoryItems = [];
 
     private string _searchText = string.Empty;
@@ -273,17 +233,6 @@ public sealed class MainViewModel : ObservableObject
 
     public bool HasSearch => !string.IsNullOrWhiteSpace(SearchText);
 
-    /// <summary>
-    /// When on, a query naming tags or folder types is answered from the saved
-    /// indexes instead of the current listing, so results span every location
-    /// Clearspace knows about.
-    ///
-    /// Persisted, and read from settings on construction. This is a standing
-    /// preference about how you search rather than something scoped to one
-    /// session: someone who works across pinned locations wants it on every time,
-    /// and having to switch it back on at each launch is the kind of small tax
-    /// that makes a setting feel like it does not work.
-    /// </summary>
     private bool _searchEverywhere;
     public bool SearchEverywhere
     {
@@ -298,9 +247,7 @@ public sealed class MainViewModel : ObservableObject
         }
     }
 
-    // ---------- Tags ----------
 
-    /// <summary>Tag rows for the context menu, with check state for the selection.</summary>
     public ObservableCollection<TagOption> TagOptions { get; } = [];
 
     private void RefreshTagOptions()
@@ -331,7 +278,6 @@ public sealed class MainViewModel : ObservableObject
             : $"Removed {option.Tag.Name} from {count}.";
     }
 
-    /// <summary>Creates a tag and applies it to the selection in one step.</summary>
     public void CreateTagForSelection(string name)
     {
         if (string.IsNullOrWhiteSpace(name))
@@ -365,24 +311,18 @@ public sealed class MainViewModel : ObservableObject
         StatusText = $"Cleared tags on {paths.Length:N0} item{(paths.Length == 1 ? string.Empty : "s")}.";
     }
 
-    /// <summary>
-    /// Removes a tag definition and every assignment of it. The files themselves
-    /// are untouched; only the label goes away.
-    /// </summary>
     public void DeleteTag(TagDefinition tag)
     {
         TagService.Delete(tag.Id);
         RefreshVisibleTags();
         RefreshTagOptions();
 
-        // A search naming the deleted tag would now be stale.
         if (HasSearch)
             ApplySearchFilter(updateStatus: true);
 
         StatusText = $"Deleted the {tag.Name} tag.";
     }
 
-    /// <summary>Puts a tag filter into the search box.</summary>
     public void SearchByTag(TagDefinition tag)
     {
         SearchEverywhere = true;
@@ -412,9 +352,6 @@ public sealed class MainViewModel : ObservableObject
                 Context.CurrentPath = value;
                 OnPropertyChanged(nameof(Breadcrumbs));
 
-                // The Automatic label depends on the folder name, not just on the
-                // profile enum, so it needs a nudge even when FolderProfile itself
-                // stays Automatic across the navigation.
                 OnPropertyChanged(nameof(FolderProfileLabel));
             }
         }
@@ -460,7 +397,6 @@ public sealed class MainViewModel : ObservableObject
             OnPropertyChanged(nameof(IsPhotosProfile));
             OnPropertyChanged(nameof(IsMusicProfile));
 
-            // Each folder type carries its own column set.
             LoadColumns();
         }
     }
@@ -513,10 +449,6 @@ public sealed class MainViewModel : ObservableObject
     public double TileWidth => Math.Ceiling(132 * TileScale);
     public double TilePreviewSize => Math.Ceiling(104 * TileScale);
     public double TilePreviewAreaHeight => Math.Max(118, TilePreviewSize + 14);
-    // Labels deliberately remain at a stable font size as tiles zoom. Only the
-    // preview surface and its available layout space change.
-    // The two-line filename, drive capacity line and the fixed tile margins all
-    // need reserved space. Without it drive labels could be clipped at the bottom.
     public double TileHeight => Math.Ceiling(TilePreviewAreaHeight + 104);
     public string TileZoomText => $"{TileScale * 100:N0}%";
 
@@ -527,8 +459,6 @@ public sealed class MainViewModel : ObservableObject
         _restoringTileScale = true;
         try
         {
-            // A new location starts at the standard 100%. Once changed, its own
-            // value is remembered independently from every other grid.
             TileScale = SettingsService.GetFolderTileScale(path) ?? 1;
         }
         finally
@@ -537,13 +467,8 @@ public sealed class MainViewModel : ObservableObject
         }
     }
 
-    /// <summary>
-    /// Keep an upper safety bound for the in-memory listing. The grid itself is
-    /// virtualized, so this is no longer a visual-container limit.
-    /// </summary>
     private const int GridItemLimit = 3000;
 
-    /// <summary>Switches the view and remembers the choice for this folder.</summary>
     public void SetLayout(LayoutMode layout)
     {
         if (layout == LayoutMode.Grid && Items.Count > GridItemLimit)
@@ -557,8 +482,6 @@ public sealed class MainViewModel : ObservableObject
 
         Layout = layout;
 
-        // Grid folders deliberately skip the Shell's small list icons during
-        // navigation. Resolve them only if the user actually opens Details.
         if (layout == LayoutMode.Details)
             _ = EnsureItemIconsAsync();
 
@@ -593,10 +516,6 @@ public sealed class MainViewModel : ObservableObject
             _ = EnsureItemIconsAsync();
     }
 
-    /// <summary>
-    /// Applies a semantic folder type to every regular folder in the active
-    /// multi-selection. Files and drive roots are intentionally ignored.
-    /// </summary>
     public void SetFolderProfilesForSelection(DirectoryViewProfile profile)
     {
         var folders = Context.SelectedItems
@@ -613,8 +532,6 @@ public sealed class MainViewModel : ObservableObject
 
         SettingsService.SetFolderViewProfiles(folders, profile.ToString());
 
-        // The selected folder tiles are already on screen, so update their
-        // lightweight vector mark immediately instead of waiting for a refresh.
         foreach (var item in Context.SelectedItems.Where(item => item.IsStandardFolder))
         {
             item.Thumbnail = null;
@@ -639,19 +556,9 @@ public sealed class MainViewModel : ObservableObject
         _ => "Automatic"
     };
 
-    // ---------- File index ----------
 
     private DateTime _lastIndexReport = DateTime.MinValue;
 
-    /// <summary>
-    /// Raised on the index's own thread, so this hops to the dispatcher before
-    /// touching anything bound.
-    ///
-    /// A build reports every sixty-four directories, which is far more often than
-    /// a status line needs to change, so progress is throttled. The terminal
-    /// updates - the ones that leave the badge on its final count - are never
-    /// throttled, because a stale count is exactly what this exists to avoid.
-    /// </summary>
     private void OnFileIndexChanged(object? sender, EventArgs e)
     {
         var now = DateTime.UtcNow;
@@ -673,7 +580,6 @@ public sealed class MainViewModel : ObservableObject
         });
     }
 
-    /// <summary>What the index badge in the status bar says.</summary>
     public string IndexStatusText
     {
         get
@@ -683,11 +589,6 @@ public sealed class MainViewModel : ObservableObject
         }
     }
 
-    /// <summary>
-    /// Hovering the badge answers the two questions a background feature cannot
-    /// answer on its own: which build is running, and where its index actually
-    /// lives so it can be looked at.
-    /// </summary>
     public string IndexTooltip
     {
         get
@@ -696,9 +597,6 @@ public sealed class MainViewModel : ObservableObject
             {
                 $"Clearspace {BuildVersion}  ·  built {BuildStamp}",
                 string.Empty,
-                // Stated plainly rather than left to be discovered in Task Manager.
-                // Every filename in RAM is what makes search instant, and on a large
-                // machine that is the biggest allocation the app makes.
                 $"{FileIndexService.Count:N0} items  ·  about {FileSystemItem.FormatSize(FileIndexService.EstimatedBytes)} in memory"
             };
 
@@ -712,11 +610,6 @@ public sealed class MainViewModel : ObservableObject
         }
     }
 
-    /// <summary>
-    /// The running executable's own timestamp. Version numbers change when someone
-    /// remembers to change them; this changes on every single build, which is what
-    /// makes it a trustworthy answer to "am I actually running my new code".
-    /// </summary>
     public static string BuildStamp
     {
         get
@@ -790,11 +683,6 @@ public sealed class MainViewModel : ObservableObject
     }
 
     private bool _useWindowsIndex;
-    /// <summary>
-    /// Consult the Windows Search index for instant results, including matches on
-    /// text inside documents. The crawl runs regardless, so this trades nothing
-    /// away: it only makes the first results arrive sooner.
-    /// </summary>
     public bool UseWindowsIndex
     {
         get => _useWindowsIndex;
@@ -820,15 +708,6 @@ public sealed class MainViewModel : ObservableObject
 
     private bool _searchFileContents;
 
-    /// <summary>
-    /// Whether a search also looks inside documents.
-    ///
-    /// Clearspace's own index knows every filename on the machine and nothing at
-    /// all about what is written in them; only the Windows index has read the
-    /// files themselves. So this is the switch between "named for it" and
-    /// "mentions it", and turning it off makes searching purely a name question -
-    /// which is both narrower and, since it needs no query at all, faster.
-    /// </summary>
     public bool SearchFileContents
     {
         get => _searchFileContents;
@@ -874,11 +753,9 @@ public sealed class MainViewModel : ObservableObject
 
     public IReadOnlyList<Breadcrumb> Breadcrumbs => BuildBreadcrumbs(CurrentPath);
 
-    // ---------- Access and elevation ----------
 
     private bool _isCloudFolder;
 
-    /// <summary>True when this folder sits inside a cloud provider's sync root.</summary>
     public bool IsCloudFolder
     {
         get => _isCloudFolder;
@@ -887,12 +764,6 @@ public sealed class MainViewModel : ObservableObject
 
     private string _cloudRootName = string.Empty;
 
-    /// <summary>
-    /// The provider backing this folder, e.g. "OneDrive - Personal". Named rather
-    /// than implied: with Known Folder Move, Documents and Desktop are inside
-    /// OneDrive while still looking exactly like the local folders they replaced,
-    /// and a machine can have a personal account and a work tenant at once.
-    /// </summary>
     public string CloudRootName
     {
         get => _cloudRootName;
@@ -901,7 +772,6 @@ public sealed class MainViewModel : ObservableObject
 
     private string? _accessDeniedPath;
 
-    /// <summary>The folder Windows refused, or null when the last load succeeded.</summary>
     public string? AccessDeniedPath
     {
         get => _accessDeniedPath;
@@ -917,18 +787,12 @@ public sealed class MainViewModel : ObservableObject
 
     public bool IsAccessDenied => _accessDeniedPath is not null;
 
-    /// <summary>
-    /// Offering "open as administrator" from a window that is already elevated
-    /// would only buy a second identical refusal, so the button hides itself.
-    /// </summary>
     public bool CanRetryElevated => IsAccessDenied && !ElevationService.IsElevated;
 
-    /// <summary>Title bar text. An elevated instance says so, the way Explorer does not.</summary>
     public string WindowTitle => ElevationService.IsElevated
         ? "Clearspace \u00b7 Administrator"
         : "Clearspace";
 
-    /// <summary>Launches a second, elevated Clearspace on the folder that was refused.</summary>
     public void OpenCurrentElevated()
     {
         var target = AccessDeniedPath ?? CurrentPath;
@@ -940,18 +804,9 @@ public sealed class MainViewModel : ObservableObject
             StatusText = message;
     }
 
-    // ---------- Cloud files ----------
 
     public bool HasCloudSelection => Context.SelectedItems.Any(item => item.IsCloudItem);
 
-    /// <summary>
-    /// Pins the selection to this device, or releases it back to the provider.
-    ///
-    /// The walk runs off the UI thread because pinning a folder rewrites an
-    /// attribute on every descendant. Only the attributes change here; the sync
-    /// engine notices and moves the bytes afterwards, so the listing is refreshed
-    /// once at the end rather than polled.
-    /// </summary>
     public async Task SetCloudPinStateAsync(bool pinned)
     {
         var targets = Context.SelectedItems
@@ -988,30 +843,14 @@ public sealed class MainViewModel : ObservableObject
 
     public void Start(string? initialPath = null)
     {
-        if (_isDemoMode)
-        {
-            Navigation.Navigate(DemoWorkspace.HomePath);
-            return;
-        }
-
-        // An elevated relaunch hands over the folder that was refused, so the new
-        // window opens where the previous one stopped rather than at the profile.
         var start = !string.IsNullOrWhiteSpace(initialPath) && Directory.Exists(initialPath)
             ? initialPath
             : KnownFolders.Profile;
 
         Navigation.Navigate(start);
 
-        // Drives are discovered after the window is up. Querying IsReady or
-        // VolumeLabel can block for seconds on an empty optical drive or a
-        // disconnected network mapping, which is not something to pay for
-        // before the first frame.
         _ = LoadDrivesAsync();
 
-        // Started immediately, not on a delay. It loads the saved index first and
-        // only then waits before walking anything, so a machine that has indexed
-        // before is searchable as soon as the window is up rather than ten seconds
-        // later. All of it happens on the index's own background thread.
         FileIndexService.Start();
     }
 
@@ -1021,11 +860,6 @@ public sealed class MainViewModel : ObservableObject
 
         try
         {
-            // Cloud discovery rides along with the drive scan for the same reason
-            // the drive scan is here at all: it reads the registry and calls
-            // Directory.Exists on roots that may live on a disconnected mapping,
-            // and neither belongs in front of the first frame. RebuildSidebar
-            // below then fills in the sync marks.
             drives = await Task.Run(() =>
             {
                 _ = CloudStorageService.Roots;
@@ -1055,18 +889,6 @@ public sealed class MainViewModel : ObservableObject
             FolderSnapshotCache.Set(CurrentPath, sorted);
     }
 
-    /// <summary>
-    /// Applies an already-completed shell rename to the matching row in place,
-    /// rather than re-enumerating the whole folder just to relabel one item.
-    ///
-    /// A full <see cref="RefreshAsync"/> after every rename used to be the only
-    /// option, and it walks the entire directory again (disk I/O, icon lookups,
-    /// a full resort) no matter how big the folder is. That is unnoticeable with
-    /// a few dozen files and a visible stutter with tens of thousands. This
-    /// mutates the one row that changed and re-splices it into the already-sorted
-    /// in-memory list, which is the same trick <see cref="Sort"/> already uses to
-    /// avoid a disk walk on every column click.
-    /// </summary>
     public void ApplyRename(FileSystemItem item, string newFullPath)
     {
         var index = -1;
@@ -1081,8 +903,6 @@ public sealed class MainViewModel : ObservableObject
 
         if (index < 0)
         {
-            // Not part of the folder currently on screen (or the snapshot has
-            // already moved on) - only a real reload can still be trusted here.
             _ = RefreshAsync();
             return;
         }
@@ -1107,20 +927,12 @@ public sealed class MainViewModel : ObservableObject
         UpdateStatus();
     }
 
-    /// <summary>
-    /// Replaces the directory snapshot while preserving it as the source for
-    /// instant search. The visible list may be a smaller filtered projection.
-    /// </summary>
     private void SetDirectoryItems(IReadOnlyList<FileSystemItem> items)
     {
         _directoryItems = items;
         ApplySearchFilter(updateStatus: false);
     }
 
-    /// <summary>
-    /// Resolves each item's tags from the store. A dictionary lookup per item, so
-    /// it is cheap enough to run over a whole listing during load.
-    /// </summary>
     private static void ApplyTags(IReadOnlyList<FileSystemItem> items)
     {
         for (var i = 0; i < items.Count; i++)
@@ -1140,15 +952,9 @@ public sealed class MainViewModel : ObservableObject
             return;
         }
 
-        // Matches in the folder you are standing in appear immediately; the walk of
-        // everything beneath it streams in behind them.
         var seed = _directoryItems.Where(query.Matches).ToList();
 
-        // Everywhere is additive, not a replacement. Turning it on should only ever
-        // add results: previously it swapped the listing for index hits alone, so a
-        // file matching by name here disappeared the moment the query also named a
-        // tag, which looked like the toggle losing things.
-        if (!_isDemoMode && SearchEverywhere && query.HasIndexFilter)
+        if (SearchEverywhere && query.HasIndexFilter)
         {
             var known = new HashSet<string>(seed.Select(item => item.FullPath), StringComparer.OrdinalIgnoreCase);
 
@@ -1165,19 +971,9 @@ public sealed class MainViewModel : ObservableObject
         if (updateStatus)
             UpdateSearchStatus();
 
-        // The demo is intentionally self-contained. Its search remains instant
-        // within the visible sample data and never starts a crawl of real disks.
-        if (_isDemoMode)
-            return;
-
         _pendingQuery = query;
         _searchDebounce.Stop();
 
-        // The debounce exists to stop every keystroke from launching a walk of a
-        // whole drive. When the index answers, no walk happens at all, so almost
-        // all of that delay is pure added latency between typing a letter and
-        // seeing the result. What is left is just enough to coalesce a fast
-        // typist's burst into one query.
         _searchDebounce.Interval = FileIndexService.IsLive
             ? TimeSpan.FromMilliseconds(35)
             : TimeSpan.FromMilliseconds(350);
@@ -1185,21 +981,11 @@ public sealed class MainViewModel : ObservableObject
         _searchDebounce.Start();
     }
 
-    /// <summary>
-    /// The work that follows an index answer: icons, type names, and pruning any
-    /// result that no longer exists on disk.
-    ///
-    /// Deliberately not awaited. The results are already on screen; this only
-    /// refines them, and making the answer wait for it would be trading the thing
-    /// the index was built for.
-    /// </summary>
     private void FinishIndexResultsAsync(
         IReadOnlyList<FileSystemItem> indexed,
         List<FileSystemItem> found,
         CancellationToken token)
     {
-        // No cancellation token on the task itself: a cancelled Task.Run raises an
-        // unobserved exception, and App treats those as worth a dialog.
         _ = Task.Run(() =>
         {
             try
@@ -1207,12 +993,6 @@ public sealed class MainViewModel : ObservableObject
                 IconService.Populate(indexed);
                 IconService.PopulateTypeNames(indexed);
 
-                // The index is a snapshot of the last walk, so anything deleted
-                // while Clearspace was closed is still in it. Checking existence
-                // is bounded by how many results came back rather than by the size
-                // of the index, which is what makes it affordable at all - and it
-                // is the only thing that catches a stale entry before the next
-                // rebuild.
                 var missing = FileIndexService.PruneMissing(indexed);
 
                 if (missing.Count == 0 || token.IsCancellationRequested)
@@ -1235,13 +1015,10 @@ public sealed class MainViewModel : ObservableObject
             }
             catch (Exception)
             {
-                // Cosmetic and corrective work only. A failure here must never
-                // surface as an error over a search that already succeeded.
             }
         });
     }
 
-    /// <summary>Stops any running subfolder walk and the timer that would start one.</summary>
     private void CancelTreeSearch()
     {
         _searchDebounce.Stop();
@@ -1258,7 +1035,6 @@ public sealed class MainViewModel : ObservableObject
         }
         catch (ObjectDisposedException)
         {
-            // Already torn down.
         }
 
         previous.Dispose();
@@ -1266,24 +1042,12 @@ public sealed class MainViewModel : ObservableObject
     }
 
     private bool _isSearchingTree;
-    /// <summary>True while subfolders are still being walked.</summary>
     public bool IsSearchingTree
     {
         get => _isSearchingTree;
         private set => SetProperty(ref _isSearchingTree, value);
     }
 
-    /// <summary>
-    /// Where a subfolder walk should start.
-    ///
-    /// Normally just the current folder. With Everywhere on it is every ready local
-    /// drive as well, because tags and folder types only know about things you have
-    /// labelled: finding a file by name anywhere means actually reading the disks.
-    /// The current folder stays first so nearby hits appear before the wider sweep.
-    ///
-    /// Network drives are deliberately excluded. A disconnected share can block for
-    /// tens of seconds per directory and would make every search feel broken.
-    /// </summary>
     private IReadOnlyList<string> ResolveSearchRoots()
     {
         var roots = new List<string>();
@@ -1313,23 +1077,11 @@ public sealed class MainViewModel : ObservableObject
         return roots;
     }
 
-    /// <summary>
-    /// A progress sink that runs its callback on whichever thread reported to it.
-    /// <see cref="Progress{T}"/> always marshals to the thread that created it,
-    /// which is the right default for touching the UI and the wrong one for the
-    /// shell lookups a search batch needs doing first.
-    /// </summary>
     private sealed class InlineProgress<T>(Action<T> handler) : IProgress<T>
     {
         public void Report(T value) => handler(value);
     }
 
-    /// <summary>
-    /// Walks everything beneath the current folder, reporting hits in batches so
-    /// results appear while the walk is still running. A drive root can hold
-    /// millions of entries, so this must never block the UI or run to completion
-    /// before showing anything.
-    /// </summary>
     private async Task RunTreeSearchAsync(SearchQuery query)
     {
         var roots = ResolveSearchRoots();
@@ -1348,36 +1100,14 @@ public sealed class MainViewModel : ObservableObject
         var capped = false;
         var pendingPublish = false;
 
-        // Terms are read once: the property builds a fresh array on every access,
-        // and ranking asks for them on every publish.
         var rankTerms = query.Terms;
 
-        // When the results were actually on screen, as opposed to when the whole
-        // pipeline finished. Those stopped being the same number once the index
-        // started publishing directly and the Windows content index kept running
-        // behind it.
         long? shownMilliseconds = null;
 
-        // When the index covers every root and is live, there is nothing for a
-        // disk walk to add: it holds every name on those volumes and the watcher
-        // has been carrying changes since it was built. Skipping the walk is the
-        // whole point of having an index - answering instantly and then grinding
-        // across the drives anyway would be the worst of both.
         var indexAnswersEverything = roots.Count > 0 && roots.All(FileIndexService.Covers);
 
-        // Only claim to be searching if something is actually going to search.
         IsSearchingTree = !indexAnswersEverything;
 
-        // Results reach the list on a timer rather than on every batch.
-        //
-        // Assigning Items replaces the entire ItemsSource, and WPF answers that by
-        // throwing away every realized row and generating them again. The crawl
-        // flushes a batch every 128 hits or 200 ms, so a drive-wide search used to
-        // do that rebuild dozens of times - and each one also copied the whole
-        // result list, which at ten thousand hits is an 80 KB array per publish.
-        // Scrolling at the same time meant competing with a list that was being
-        // rebuilt underneath the scroll. Four publishes a second is still live,
-        // and costs a fraction of that.
         var publishTimer = new DispatcherTimer(DispatcherPriority.Background)
         {
             Interval = TimeSpan.FromMilliseconds(250)
@@ -1390,11 +1120,6 @@ public sealed class MainViewModel : ObservableObject
 
             pendingPublish = false;
 
-            // Not on every tick. Scoring thousands of results means a pass over
-            // each one's path, and a streaming crawl publishes four times a
-            // second - on the UI thread. Ranking happens where it is worth paying
-            // for: the index answer, which arrives complete, and the final publish
-            // once a crawl has finished streaming.
             if (rank)
                 SearchRanker.Rank(found, rankTerms, CurrentPath);
 
@@ -1408,7 +1133,6 @@ public sealed class MainViewModel : ObservableObject
         publishTimer.Tick += (_, _) => Publish(rank: false);
         publishTimer.Start();
 
-        // Marshals to the UI thread, so it now does bookkeeping only.
         var progress = new Progress<IReadOnlyList<FileSystemItem>>(batch =>
         {
             if (token.IsCancellationRequested)
@@ -1419,19 +1143,12 @@ public sealed class MainViewModel : ObservableObject
                 if (!seen.Add(item.FullPath))
                     continue;
 
-                // Resolved here rather than on a worker: this runs on the UI thread,
-                // so the tag store is only ever read from one thread at a time.
                 item.RefreshTags();
                 found.Add(item);
                 pendingPublish = true;
             }
         });
 
-        // Icons and type names are resolved on the crawl's own threads, before a
-        // batch is handed to the UI at all. Both go through the shell, and doing
-        // them in the UI callback (or worse, lazily, the first time a row scrolled
-        // into view) put a synchronous shell call in the middle of scrolling for
-        // every file type the search turned up.
         var populatedProgress = new InlineProgress<IReadOnlyList<FileSystemItem>>(batch =>
         {
             IconService.Populate(batch);
@@ -1439,14 +1156,6 @@ public sealed class MainViewModel : ObservableObject
             ((IProgress<IReadOnlyList<FileSystemItem>>)progress).Report(batch);
         });
 
-        // Clearspace's own file index answers from memory - no shell calls, no
-        // stat calls, no disk at all - so its hits are on screen before anything
-        // else has opened a directory.
-        //
-        // With the watcher running this is not merely a head start: when the index
-        // covers every root, the crawl below never runs at all and this is the
-        // whole answer. The Windows index still follows, because it knows what is
-        // inside documents and a name index never will.
         try
         {
             var indexed = await Task.Run(
@@ -1460,26 +1169,15 @@ public sealed class MainViewModel : ObservableObject
                     if (!seen.Add(item.FullPath))
                         continue;
 
-                    // On the UI thread, so the tag store stays single-threaded.
                     item.RefreshTags();
                     found.Add(item);
                 }
 
-                // Straight onto the screen rather than through the publish timer.
-                // That timer exists to keep a streaming crawl from rebuilding the
-                // list dozens of times a second; an index answer arrives once and
-                // complete, and making it wait for a tick would put back a quarter
-                // second of the delay this is all trying to remove.
                 SearchRanker.Rank(found, rankTerms, CurrentPath);
                 Items = found.ToArray();
                 pendingPublish = false;
                 shownMilliseconds ??= timer.ElapsedMilliseconds;
 
-                // Icons, type names, and checking that these files still exist all
-                // happen behind the results, not in front of them. None of it
-                // changes which rows match - only how they look and whether a
-                // stale one survives - and each item raises its own change
-                // notification, so the list fills itself in a moment later.
                 FinishIndexResultsAsync(indexed, found, token);
             }
         }
@@ -1490,24 +1188,14 @@ public sealed class MainViewModel : ObservableObject
         }
         catch (Exception)
         {
-            // An accelerator that fails costs speed, never results.
         }
 
-        // The Windows index is the only thing here that has read the files
-        // themselves, so it is worth querying when contents are wanted. When they
-        // are not, it is only worth querying for volumes Clearspace's own index
-        // does not already cover - otherwise it would be answering a name question
-        // that has already been answered, from disk, more slowly.
         var needsWindowsIndex = SearchFileContents || !indexAnswersEverything;
 
         if (needsWindowsIndex && WindowsSearchService.IsAvailable)
         {
             try
             {
-                // Turning a hit into a row costs several stat calls, and this used
-                // to run here, on the UI thread, once per hit: several thousand
-                // index results froze the window before any of them appeared. It
-                // belongs on the worker alongside the query itself.
                 var fromIndex = await Task.Run(() =>
                 {
                     var hits = WindowsSearchService.Search(
@@ -1523,9 +1211,6 @@ public sealed class MainViewModel : ObservableObject
                         if (item is null)
                             continue;
 
-                        // Structural filters only. These already matched by name or by
-                        // file contents, and a document containing a word will not have
-                        // that word in its filename.
                         if (!query.MatchesStructural(item))
                             continue;
 
@@ -1547,7 +1232,6 @@ public sealed class MainViewModel : ObservableObject
             }
             catch (Exception)
             {
-                // A stopped indexer must never break searching; the crawl covers it.
             }
         }
 
@@ -1567,7 +1251,6 @@ public sealed class MainViewModel : ObservableObject
         }
         catch (Exception)
         {
-            // A failed walk still leaves the local matches on screen.
         }
         finally
         {
@@ -1584,9 +1267,6 @@ public sealed class MainViewModel : ObservableObject
         if (token.IsCancellationRequested)
             return;
 
-        // Progress<T> posts its callbacks to the dispatcher, so the final batches
-        // can still be queued at this point. Publishing at a lower priority puts
-        // this behind all of them, which is what makes the last publish complete.
         var dispatcher = Application.Current?.Dispatcher;
 
         if (dispatcher is not null)
@@ -1600,14 +1280,8 @@ public sealed class MainViewModel : ObservableObject
             ? "across all drives"
             : "in this folder and subfolders";
 
-        // Worth saying out loud. The difference between an answer from memory and
-        // one from a disk walk is the difference between milliseconds and minutes,
-        // and it is the only way to tell at a glance that the index did its job.
         var source = indexAnswersEverything ? "  ·  from index" : string.Empty;
 
-        // Time to results, not time to the end of the pipeline. The Windows
-        // content index is queried after the index answer is already on screen, so
-        // including it reported a number the user never waited for.
         var elapsed = indexAnswersEverything && shownMilliseconds.HasValue
             ? shownMilliseconds.Value
             : timer.ElapsedMilliseconds;
@@ -1622,10 +1296,6 @@ public sealed class MainViewModel : ObservableObject
         };
     }
 
-    /// <summary>
-    /// Materialises search hits from the tag and folder-type indexes. Paths that no
-    /// longer exist are skipped rather than shown as dead rows.
-    /// </summary>
     private static IReadOnlyList<FileSystemItem> BuildIndexResults(SearchQuery query)
     {
         var results = new List<FileSystemItem>();
@@ -1638,8 +1308,6 @@ public sealed class MainViewModel : ObservableObject
 
             item.RefreshTags();
 
-            // Re-check the whole query: the index narrowed by tag or type, but any
-            // name, extension, or kind terms still have to hold.
             if (!query.Matches(item))
                 continue;
 
@@ -1679,12 +1347,6 @@ public sealed class MainViewModel : ObservableObject
         if (string.IsNullOrWhiteSpace(path))
             return;
 
-        if (_isDemoMode)
-        {
-            await LoadDemoAsync(path);
-            return;
-        }
-
         var navigationTimer = Stopwatch.StartNew();
         var keepCurrentItems = force &&
                                path.Equals(CurrentPath, StringComparison.OrdinalIgnoreCase) &&
@@ -1693,10 +1355,7 @@ public sealed class MainViewModel : ObservableObject
         var hasSnapshot = !force && FolderSnapshotCache.TryGet(path, out snapshot);
         long? readyMilliseconds = null;
 
-        // Cancel any in-flight listing so fast navigation never queues behind a
-        // slow network folder. The previous source is disposed here rather than in
-        // its own finally block, because that block runs while this field still
-        // references it and Cancel() on a disposed source throws.
+        // A new location replaces any pending load so stale results cannot reach the view.
         var previous = _loadCancellation;
         if (previous is not null)
         {
@@ -1706,7 +1365,6 @@ public sealed class MainViewModel : ObservableObject
             }
             catch (ObjectDisposedException)
             {
-                // Already torn down.
             }
 
             previous.Dispose();
@@ -1716,22 +1374,14 @@ public sealed class MainViewModel : ObservableObject
         _loadCancellation = cancellation;
         var token = cancellation.Token;
 
-        // Anything queued for the old folder is now worthless.
         ThumbnailService.CancelPending();
         MediaPropertyService.CancelPending();
 
-        // A subfolder walk belongs to the folder it started from. Left running it
-        // would keep streaming hits into the listing for the new location.
         CancelTreeSearch();
 
-        // Navigating away dismisses the photo reel, since it belongs to the folder
-        // being left. A refresh of the same folder must not, or saving a rotation
-        // would close the viewer you just rotated in. Playback survives either way.
         if (!path.Equals(CurrentPath, StringComparison.OrdinalIgnoreCase))
         {
             Viewer.Close();
-            // Search is scoped to one directory. Moving to another starts with its
-            // full listing rather than leaving behind a confusing old filter.
             if (HasSearch)
                 SearchText = string.Empty;
         }
@@ -1740,16 +1390,11 @@ public sealed class MainViewModel : ObservableObject
         RestoreFolderProfile(path);
         RestoreTileScale(path);
 
-        // Sync membership belongs to the location, not to each row, so it is
-        // resolved once per navigation. LoadColumns below reads it to decide
-        // whether the Status column is worth showing here.
         var cloudRoot = CloudStorageService.RootFor(path);
         IsCloudFolder = cloudRoot is not null;
         CloudRootName = cloudRoot?.Name ?? string.Empty;
         AccessDeniedPath = null;
 
-        // Columns are per folder, so they have to be re-read on every navigation,
-        // not only when the folder type happens to change.
         LoadColumns();
         AddressText = path;
         IsLoading = true;
@@ -1822,10 +1467,6 @@ public sealed class MainViewModel : ObservableObject
                 {
                     list.Add(item);
 
-                    // Do not render ordinary folders twice. A 4 ms threshold made
-                    // Pictures build a partial grid and immediately throw it away
-                    // for the complete grid. Progressive output is reserved for a
-                    // genuinely large or slow enumeration.
                     if (showPartial && !firstBatchReported &&
                         (list.Count >= 256 || firstBatchWatch.ElapsedMilliseconds >= 25))
                     {
@@ -1881,17 +1522,12 @@ public sealed class MainViewModel : ObservableObject
         }
         catch (OperationCanceledException)
         {
-            // Superseded by a newer navigation.
         }
         catch (UnauthorizedAccessException)
         {
             SetDirectoryItems([]);
             AccessDeniedPath = path;
 
-            // Worth distinguishing. Some paths are refused to administrators too:
-            // System Volume Information wants SYSTEM, and the compatibility
-            // junctions such as C:\Users\All Users carry a deny rule that no token
-            // gets past. Offering elevation there would only repeat the refusal.
             StatusText = ElevationService.IsElevated
                 ? "Windows refused this folder even with administrator rights"
                 : "You don't have permission to view this folder";
@@ -1914,52 +1550,6 @@ public sealed class MainViewModel : ObservableObject
                 Commands.RefreshState();
             }
         }
-    }
-
-    /// <summary>
-    /// Loads the README sample workspace synchronously from memory. No shell,
-    /// directory, thumbnail, cloud, or drive APIs are used on this path.
-    /// </summary>
-    private Task LoadDemoAsync(string path)
-    {
-        // A toolbar Home command normally supplies the real user profile. In the
-        // sample build it remains inside the synthetic workspace instead.
-        if (!DemoWorkspace.IsDemoPath(path) &&
-            !path.Equals(MyPcPath, StringComparison.OrdinalIgnoreCase) &&
-            !path.Equals(NetworkPath, StringComparison.OrdinalIgnoreCase) &&
-            !path.Equals(YourFilesPath, StringComparison.OrdinalIgnoreCase) &&
-            !path.Equals(PinnedPath, StringComparison.OrdinalIgnoreCase))
-        {
-            path = DemoWorkspace.HomePath;
-        }
-
-        CancelTreeSearch();
-        Viewer.Close();
-
-        if (HasSearch)
-            SearchText = string.Empty;
-
-        var view = DemoWorkspace.ViewFor(path);
-        CurrentPath = path;
-        AddressText = DemoWorkspace.AddressFor(path);
-        IsCloudFolder = false;
-        CloudRootName = string.Empty;
-        AccessDeniedPath = null;
-        FolderProfile = view.Profile;
-        Layout = view.Layout;
-        SetDirectoryItems(view.Items);
-        // Demo pages are deliberately a clean canvas for README screenshots.
-        // The regular app still keeps its useful hub summaries.
-        ClearHubInfo();
-        StatusText = view.Items.Count switch
-        {
-            0 => "This sample folder is empty",
-            _ => $"{view.Items.Count(item => item.IsFolder):N0} folders, {view.Items.Count(item => !item.IsFolder):N0} files · demo workspace"
-        };
-        TimingText = string.Empty;
-        IsLoading = false;
-        Commands.RefreshState();
-        return Task.CompletedTask;
     }
 
     private async Task LoadVirtualDrivesAsync(string path, Stopwatch stopwatch, CancellationToken token)
@@ -2066,10 +1656,6 @@ public sealed class MainViewModel : ObservableObject
         OnPropertyChanged(nameof(IsHub));
     }
 
-    /// <summary>
-    /// Picks the view for a folder: an explicit choice the user made here wins,
-    /// otherwise tiles for folders that are mostly pictures, otherwise details.
-    /// </summary>
     private static LayoutMode ResolveLayout(string path, IReadOnlyList<FileSystemItem> items)
     {
         var profileName = SettingsService.GetFolderViewProfile(path);
@@ -2136,9 +1722,6 @@ public sealed class MainViewModel : ObservableObject
         if (missing.Length == 0)
             return;
 
-        // Icons and type names are resolved together here, off the UI thread, for
-        // the same reason the initial load does: neither should be computed for
-        // the first time while a row is scrolling into view.
         var resolved = await Task.Run(() => missing
             .Select(item => (Icon: IconService.GetIcon(item), TypeName: IconService.GetTypeName(item)))
             .ToArray());
@@ -2160,9 +1743,6 @@ public sealed class MainViewModel : ObservableObject
     {
         if (string.IsNullOrWhiteSpace(path))
             return [];
-
-        if (DemoWorkspace.IsDemoPath(path))
-            return DemoWorkspace.BreadcrumbsFor(path);
 
         if (path.Equals(MyPcPath, StringComparison.OrdinalIgnoreCase))
             return [new Breadcrumb("This PC", MyPcPath)];
@@ -2240,8 +1820,6 @@ public sealed class MainViewModel : ObservableObject
                     break;
 
                 case "cloud":
-                    // No provider signed in means no heading at all, rather than an
-                    // empty section the user has to look at and cannot remove.
                     if (CloudStorageService.Roots.Count == 0)
                         break;
 
@@ -2267,21 +1845,11 @@ public sealed class MainViewModel : ObservableObject
 
     private static SidebarEntry Child(SidebarEntry entry) => WithCloud(entry with { IsChild = true });
 
-    /// <summary>
-    /// Tags a row with the provider that syncs it, if any. Applied to every leaf
-    /// row rather than only to known folders, because a pinned project folder can
-    /// sit inside OneDrive just as easily as Documents can.
-    ///
-    /// Skipped entirely until discovery has run, so the sidebar build in the
-    /// constructor never forces registry reads onto the UI thread. The rebuild
-    /// that follows drive discovery is what puts the marks on.
-    /// </summary>
     private static SidebarEntry WithCloud(SidebarEntry entry)
         => entry.IsHeader || entry.CloudProvider is not null || !CloudStorageService.IsDiscovered
             ? entry
             : entry with { CloudProvider = CloudStorageService.RootFor(entry.Path)?.Name };
 
-    /// <summary>A saved override wins over the known folder location.</summary>
     private static SidebarEntry Entry(string name, string defaultPath)
     {
         var path = SettingsService.GetSidebarOverride(name) ?? defaultPath;
@@ -2295,7 +1863,6 @@ public sealed class MainViewModel : ObservableObject
                 : null);
     }
 
-    /// <summary>Points a sidebar entry somewhere else and remembers it.</summary>
     public void SetSidebarLocation(string name, string path)
     {
         SettingsService.SetSidebarOverride(name, path);
@@ -2385,13 +1952,6 @@ public sealed class MainViewModel : ObservableObject
     {
         Sidebar.Clear();
 
-        if (_isDemoMode)
-        {
-            foreach (var entry in DemoWorkspace.Sidebar)
-                Sidebar.Add(entry);
-            return;
-        }
-
         foreach (var entry in BuildSidebarEntries(_driveEntries))
             Sidebar.Add(entry);
     }
@@ -2415,11 +1975,9 @@ public sealed class MainViewModel : ObservableObject
             }
             catch (IOException)
             {
-                // Drive disappeared between enumeration and query.
             }
             catch (UnauthorizedAccessException)
             {
-                // Mapped drive we cannot inspect.
             }
         }
 
@@ -2467,10 +2025,6 @@ public sealed class MainViewModel : ObservableObject
             .ToList();
     }
 
-    /// <summary>
-    /// One row per cloud root. These are real folders on disk, so they navigate
-    /// and enumerate like any other location; only the label is provider-supplied.
-    /// </summary>
     private static IEnumerable<SidebarEntry> BuildCloudEntries()
         => CloudStorageService.Roots.Select(root => new SidebarEntry(root.Name, root.Path, IsKnownFolder: true));
 
@@ -2487,7 +2041,6 @@ public sealed class MainViewModel : ObservableObject
 
 public sealed record Breadcrumb(string Name, string Path);
 
-/// <summary>A tag row in the context menu, with check state for the selection.</summary>
 public sealed class TagOption : ObservableObject
 {
     private readonly Action<TagOption> _onToggled;
@@ -2536,11 +2089,6 @@ public sealed record SidebarEntry(
     public bool HasHub => IsSection && !string.IsNullOrWhiteSpace(Path);
     public bool IsNestedPin => IsPinned;
 
-    /// <summary>
-    /// True when a provider syncs this location. Known Folder Move is the case
-    /// that matters: it relocates Desktop and Documents inside OneDrive without
-    /// changing anything the user sees, so the row has to say so itself.
-    /// </summary>
     public bool IsCloudBacked => !string.IsNullOrWhiteSpace(CloudProvider);
 
     public string CloudHint => IsCloudBacked

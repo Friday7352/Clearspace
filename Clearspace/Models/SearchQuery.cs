@@ -1,3 +1,5 @@
+// Clearspace | Search query parsing and matching.
+
 using System.IO;
 using Clearspace.Services;
 
@@ -13,29 +15,8 @@ public enum SearchKind
     Video
 }
 
-/// <summary>
-/// A parsed search box query.
-///
-/// A bare word matches broadly: the name, any tag on the item, or the folder type
-/// it has been given. Typing "work" finds files called work and everything tagged
-/// Work; typing "photos" finds folders typed as Photos. Nothing has to be prefixed.
-///
-/// Prefixes are still available when a word is ambiguous and you want to be exact:
-///
-///   tag:work          only items carrying that tag
-///   type:photos       only folders given that folder type
-///   ext:png           by extension
-///   is:folder         folder, file, image, audio, or video
-///
-/// Unknown prefixes fall back to plain text, so a filename containing a colon
-/// still finds itself rather than silently matching nothing.
-/// </summary>
 public sealed class SearchQuery
 {
-    /// <summary>
-    /// One bare word, together with whatever tags and folder types it could be
-    /// naming. Resolving once at parse time keeps matching to set lookups.
-    /// </summary>
     private sealed record TermFilter(
         string Text,
         IReadOnlyList<string> TagIds,
@@ -49,7 +30,6 @@ public sealed class SearchQuery
 
     public IReadOnlyList<string> Terms => TermFilters.Select(term => term.Text).ToArray();
 
-    /// <summary>Tags named explicitly with tag:. Every one must be present.</summary>
     public IReadOnlyList<string> TagIds { get; private init; } = [];
 
     public IReadOnlyList<DirectoryViewProfile> Profiles { get; private init; } = [];
@@ -60,11 +40,6 @@ public sealed class SearchQuery
 
     public bool IsEmpty => TermFilters.Count == 0 && !HasStructuredFilter;
 
-    /// <summary>
-    /// True when the query names tags or folder types, explicitly or by a bare word
-    /// that happens to match one. Those are answerable from the saved indexes,
-    /// which is what allows searching beyond the current folder.
-    /// </summary>
     public bool HasIndexFilter =>
         TagIds.Count > 0 ||
         Profiles.Count > 0 ||
@@ -100,8 +75,6 @@ public sealed class SearchQuery
             switch (prefix.ToLowerInvariant())
             {
                 case "tag" or "t":
-                    // Resolved now, so an unknown tag matches nothing rather than
-                    // silently behaving like no filter at all.
                     tags.Add(TagService.Resolve(value)?.Id ?? $"\u0000missing:{value}");
                     break;
 
@@ -144,7 +117,6 @@ public sealed class SearchQuery
         };
     }
 
-    /// <summary>Works out which tags and folder types a bare word could be naming.</summary>
     private static TermFilter BuildTerm(string text)
     {
         var tagIds = new List<string>();
@@ -160,7 +132,6 @@ public sealed class SearchQuery
 
         foreach (var profile in Enum.GetValues<DirectoryViewProfile>())
         {
-            // Automatic is the absence of a type, so it is not something to find.
             if (profile == DirectoryViewProfile.Automatic)
                 continue;
 
@@ -171,7 +142,6 @@ public sealed class SearchQuery
         return new TermFilter(text, tagIds, profiles);
     }
 
-    /// <summary>Splits on spaces but keeps "quoted phrases" together.</summary>
     private static List<string> Tokenize(string text)
     {
         var tokens = new List<string>();
@@ -208,8 +178,6 @@ public sealed class SearchQuery
 
     public bool Matches(FileSystemItem item)
     {
-        // Terms are ANDed with each other, but each one is ORed across name, tag,
-        // and folder type, so a single word can find any of the three.
         for (var i = 0; i < TermFilters.Count; i++)
         {
             if (!MatchesTerm(item, TermFilters[i]))
@@ -219,14 +187,6 @@ public sealed class SearchQuery
         return MatchesStructural(item);
     }
 
-    /// <summary>
-    /// Every filter except the name terms.
-    ///
-    /// Used for hits that arrived already matched, such as from the Windows index,
-    /// where a document may qualify because of its contents rather than its name.
-    /// Re-testing the name there would throw away exactly the results the index was
-    /// consulted for.
-    /// </summary>
     public bool MatchesStructural(FileSystemItem item)
     {
         if (Kind != SearchKind.Any && !MatchesKind(item))
@@ -284,11 +244,6 @@ public sealed class SearchQuery
         return wanted.Contains(profile);
     }
 
-    /// <summary>
-    /// Every path the saved indexes know about, without touching the disk. The
-    /// caller still runs <see cref="Matches"/> over these, so this only has to be
-    /// a superset. Only meaningful when <see cref="HasIndexFilter"/> is true.
-    /// </summary>
     public IEnumerable<string> IndexCandidates()
     {
         var candidates = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -299,15 +254,12 @@ public sealed class SearchQuery
         foreach (var typed in SettingsService.GetAllFolderViewProfiles())
             candidates.Add(typed.Key);
 
-        // An explicit tag: filter is a hard requirement, so narrowing here saves
-        // resolving items that could never match.
         foreach (var id in TagIds)
             candidates.IntersectWith(TagService.PathsWithTag(id));
 
         return candidates;
     }
 
-    /// <summary>A short description of the active filters, for the status line.</summary>
     public string Describe()
     {
         var parts = new List<string>();

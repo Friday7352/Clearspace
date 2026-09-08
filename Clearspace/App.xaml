@@ -1,3 +1,4 @@
+<!-- Clearspace | Application resources and styles. -->
 <Application x:Class="Clearspace.App"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -8,11 +9,6 @@
 
             <BooleanToVisibilityConverter x:Key="BoolToVisible" />
 
-            <!--
-                Palette: warm neutral dark, near monochrome.
-                Colour appears in exactly three places (focus ring, active sidebar
-                item, rename border) so the accent still reads as meaningful.
-            -->
             <SolidColorBrush x:Key="Base"          Color="#FF1A1917" />
             <SolidColorBrush x:Key="Surface"       Color="#FF232220" />
             <SolidColorBrush x:Key="Overlay"       Color="#FF2A2826" />
@@ -35,22 +31,11 @@
 
             <FontFamily x:Key="UIFont">Segoe UI Variable Text, Segoe UI</FontFamily>
 
-            <!--
-                Serif for content (file names, headings), sans for chrome (columns,
-                shortcuts, status). That pairing is what gives Anthropic's surfaces
-                their character. Copernicus itself is proprietary, so this is a
-                fallback chain: whichever is installed wins, and Cambria and Georgia
-                both ship with Windows so there is always a real serif at the end.
-                Drop Source Serif 4 or Newsreader into Windows Fonts to upgrade it.
-            -->
             <FontFamily x:Key="SerifFont">Source Serif 4, Source Serif Pro, Newsreader, Spectral, Cambria, Georgia</FontFamily>
             <FontFamily x:Key="DisplayFont">Source Serif 4, Newsreader, Cambria, Georgia</FontFamily>
             <FontFamily x:Key="MonoFont">Cascadia Mono, Consolas</FontFamily>
             <FontFamily x:Key="IconFont">Segoe Fluent Icons, Segoe MDL2 Assets</FontFamily>
 
-            <!-- ============ Scrollbars ============ -->
-            <!-- The stock WPF scrollbar is light grey with arrow buttons and would
-                 undo the rest of this on sight. -->
 
             <Style x:Key="ScrollThumb" TargetType="Thumb">
                 <Setter Property="OverridesDefaultStyle" Value="True" />
@@ -102,9 +87,6 @@
                                                       Style="{StaticResource ScrollPageButton}" />
                                     </Track.DecreaseRepeatButton>
                                     <Track.Thumb>
-                                        <!-- Without a floor the thumb shrinks toward
-                                             nothing in folders with tens of thousands
-                                             of items and stops being grabbable. -->
                                         <Thumb Style="{StaticResource ScrollThumb}" MinHeight="52" />
                                     </Track.Thumb>
                                     <Track.IncreaseRepeatButton>
@@ -147,7 +129,6 @@
                 </Style.Triggers>
             </Style>
 
-            <!-- ============ Buttons ============ -->
 
             <Style x:Key="IconButton" TargetType="Button">
                 <Setter Property="Background" Value="Transparent" />
@@ -312,7 +293,6 @@
                 </Setter>
             </Style>
 
-            <!-- ============ File list ============ -->
 
             <Style x:Key="FileRow" TargetType="ListViewItem">
                 <Setter Property="Background" Value="Transparent" />
@@ -346,16 +326,12 @@
                     </Setter.Value>
                 </Setter>
                 <Style.Triggers>
-                    <!-- Hidden items read as faded, the way Explorer shows them. -->
                     <DataTrigger Binding="{Binding IsHidden}" Value="True">
                         <Setter Property="Opacity" Value="0.45" />
                     </DataTrigger>
                 </Style.Triggers>
             </Style>
 
-            <!-- Alternating rows. Kept very faint on purpose: the band has to stay
-                 well below the hover and selection tones or a striped row reads as
-                 an already-selected one. -->
             <Style x:Key="MusicRow" TargetType="ListViewItem" BasedOn="{StaticResource FileRow}">
                 <Style.Triggers>
                     <Trigger Property="ItemsControl.AlternationIndex" Value="1">
@@ -388,9 +364,6 @@
                                                       VerticalAlignment="Center" />
                                 </Border>
 
-                                <!-- GridViewColumnHeader wires resizing to a thumb
-                                     with this exact name. Without it columns are
-                                     fixed, which is what my earlier template did. -->
                                 <Thumb x:Name="PART_HeaderGripper"
                                        HorizontalAlignment="Right"
                                        Width="9"
@@ -411,8 +384,6 @@
                                     <Setter Property="Foreground" Value="{StaticResource InkMuted}" />
                                 </Trigger>
                                 <Trigger Property="Role" Value="Padding">
-                                    <!-- The filler header past the last column has no
-                                         edge to drag. -->
                                     <Setter TargetName="PART_HeaderGripper" Property="Visibility" Value="Collapsed" />
                                 </Trigger>
                             </ControlTemplate.Triggers>
@@ -421,7 +392,6 @@
                 </Setter>
             </Style>
 
-            <!-- ============ Context menu ============ -->
 
             <Style TargetType="Separator">
                 <Setter Property="Height" Value="1" />
@@ -429,20 +399,12 @@
                 <Setter Property="Template">
                     <Setter.Value>
                         <ControlTemplate TargetType="Separator">
-                            <!-- Inset and faint. A divider should read as a pause,
-                                 not as a rule drawn across the menu. -->
                             <Border Height="1" Background="#14FFFFFF" />
                         </ControlTemplate>
                     </Setter.Value>
                 </Setter>
             </Style>
 
-            <!--
-                Menus do not use the implicit Separator style. MenuItem looks its
-                separators up by MenuItem.SeparatorStyleKey, so without this entry
-                every divider inside a context menu silently falls back to the stock
-                Windows one: full width, edge to edge, and far too bright.
-            -->
             <Style x:Key="{x:Static MenuItem.SeparatorStyleKey}" TargetType="Separator">
                 <Setter Property="Height" Value="1" />
                 <Setter Property="Margin" Value="14,5" />
@@ -479,8 +441,6 @@
                                         <ColumnDefinition Width="Auto" />
                                     </Grid.ColumnDefinitions>
 
-                                    <!-- Gutter appears only for checkable items, so
-                                         ordinary menus keep their tight left edge. -->
                                     <TextBlock x:Name="Check"
                                                Grid.Column="0"
                                                Text="&#xE73E;"
@@ -506,10 +466,6 @@
                                                VerticalAlignment="Center"
                                                FontSize="10.5"
                                                Foreground="{StaticResource InkDisabled}" />
-                                    <!-- A real submenu needs both this affordance and
-                                         PART_Popup below. The prior custom template
-                                         drew the row but accidentally removed WPF's
-                                         popup, leaving nested menus unopenable. -->
                                     <TextBlock x:Name="SubmenuArrow"
                                                Grid.Column="3"
                                                Text="&#xE76C;"
@@ -585,7 +541,6 @@
                 </Setter>
             </Style>
 
-            <!-- ============ Tiles (grid view) ============ -->
 
             <ItemsPanelTemplate x:Key="TilePanel">
                 <controls:VirtualizingWrapPanel
@@ -629,10 +584,7 @@
                 </Style.Triggers>
             </Style>
 
-            <!-- TileTemplate lives in MainWindow.xaml: it carries an event handler,
-                 which needs the window's code-behind. -->
 
-            <!-- ============ Media (player + viewer) ============ -->
 
             <Style x:Key="SliderThumb" TargetType="Thumb">
                 <Setter Property="OverridesDefaultStyle" Value="True" />
@@ -642,8 +594,6 @@
                 <Setter Property="Template">
                     <Setter.Value>
                         <ControlTemplate TargetType="Thumb">
-                            <!-- Always visible: a handle you have to hover to find is
-                                 a handle you cannot aim at. It grows on hover instead. -->
                             <Grid Background="Transparent">
                                 <Ellipse x:Name="Halo"
                                          Fill="{StaticResource Accent}"
@@ -666,8 +616,6 @@
                 </Setter>
             </Style>
 
-            <!-- The filled portion is the decrease button; that is the standard way
-                 to get a progress fill without a value-to-width converter. -->
             <Style x:Key="SliderFill" TargetType="RepeatButton">
                 <Setter Property="OverridesDefaultStyle" Value="True" />
                 <Setter Property="Focusable" Value="False" />
@@ -749,8 +697,6 @@
                 <Setter Property="Foreground" Value="{StaticResource InkMuted}" />
             </Style>
 
-            <!-- Large hit targets that stay put and grey out at the ends of the reel,
-                 rather than vanishing and shifting what your cursor is over. -->
             <Style x:Key="ViewerNavButton" TargetType="Button" BasedOn="{StaticResource IconButton}">
                 <Setter Property="Width" Value="52" />
                 <Setter Property="Height" Value="52" />
@@ -799,7 +745,6 @@
                 <Setter Property="Foreground" Value="{StaticResource Accent}" />
             </Style>
 
-            <!-- ============ Text entry ============ -->
 
             <Style x:Key="PlainTextBox" TargetType="TextBox">
                 <Setter Property="Background" Value="Transparent" />

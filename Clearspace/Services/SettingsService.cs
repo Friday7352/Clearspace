@@ -1,3 +1,5 @@
+// Clearspace | Persistent application settings.
+
 using System.IO;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -6,80 +8,34 @@ namespace Clearspace.Services;
 
 public sealed class SettingsData
 {
-    /// <summary>Folder path to layout name. Explorer calls this folder type discovery.</summary>
     public Dictionary<string, string> FolderLayouts { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 
-    /// <summary>Grid zoom is a per-location preference, separate from the chosen view.</summary>
     public Dictionary<string, double> FolderTileScales { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 
-    /// <summary>Folder path to its semantic view profile: General, Photos, or Music.</summary>
     public Dictionary<string, string> FolderViewProfiles { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 
-    /// <summary>
-    /// Whether the Windows Search index is consulted for instant results. The
-    /// filesystem crawl runs either way, so turning this off costs speed but never
-    /// completeness.
-    /// </summary>
     public bool UseWindowsIndex { get; set; } = true;
 
-    /// <summary>
-    /// Whether hidden and system items are listed. Global rather than per folder,
-    /// matching how Explorer treats it: it is a statement about how you want to
-    /// work, not about one location.
-    /// </summary>
     public bool ShowHiddenItems { get; set; }
 
-    /// <summary>
-    /// Whether a tag or folder-type query is answered from the saved indexes rather
-    /// than the current listing. Global for the same reason as the two above: it
-    /// describes how you want to search, not where you happen to be standing.
-    /// </summary>
     public bool SearchEverywhere { get; set; }
 
-    /// <summary>
-    /// Whether searching also looks inside documents, or matches names only.
-    ///
-    /// Separate from the index settings because it is a different question. Names
-    /// are answered from Clearspace's own index in memory; contents can only come
-    /// from the Windows index, which has run filters over the files themselves.
-    /// Wanting one is not wanting the other - "find the file called invoice" and
-    /// "find the file that mentions invoice" are different searches.
-    /// </summary>
     public bool SearchFileContents { get; set; } = true;
 
-    /// <summary>
-    /// Chosen detail columns per folder. Explorer works this way too: which columns
-    /// are useful is a property of what is in this particular folder, not of the
-    /// whole machine.
-    /// </summary>
     public Dictionary<string, List<string>> FolderColumns { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 
-    /// <summary>
-    /// Resized details columns per folder. Width is deliberately separate from the
-    /// selected-column list so an older settings file stays compatible and hiding a
-    /// column does not make it forget the width you gave it.
-    /// </summary>
     public Dictionary<string, Dictionary<string, double>> FolderColumnWidths { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 
-    /// <summary>
-    /// Chosen detail columns per view profile, not per folder. Columns describe the
-    /// kind of content, so setting them once for Music applies to every music
-    /// folder instead of needing to be redone in each one.
-    /// </summary>
     public Dictionary<string, List<string>> ProfileColumns { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 
-    /// <summary>Sidebar entry name to a user-chosen path, overriding the known folder.</summary>
     public Dictionary<string, string> SidebarOverrides { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 
-    /// <summary>Directory path to its display name in the persistent Pinned directories section.</summary>
     public Dictionary<string, string> PinnedDirectories { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 
     public List<PinnedCategory> PinnedCategories { get; set; } = [];
 
-    /// <summary>Path to its optional category identifier. Missing means ungrouped.</summary>
     public Dictionary<string, string> PinnedDirectoryCategories { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 
-    /// <summary>Stable pin order, independent of the display name.</summary>
     public List<string> PinnedDirectoryOrder { get; set; } = [];
 
     public List<SidebarSectionConfig> SidebarSections { get; set; } = [];
@@ -103,10 +59,6 @@ public sealed class SidebarSectionConfig
 
 public sealed record SidebarSectionInfo(string Id, string Name, bool IsCollapsed, bool IsCategory);
 
-/// <summary>
-/// Settings live in a plain JSON file the user can read and edit by hand.
-/// Writes are best-effort: a settings failure must never interrupt browsing.
-/// </summary>
 public static class SettingsService
 {
     private static readonly string Directory_ = Path.Combine(
@@ -138,7 +90,6 @@ public static class SettingsService
 
                 if (loaded is not null)
                 {
-                    // Deserialised dictionaries lose the comparer, so rebuild them.
                     loaded.FolderLayouts = new Dictionary<string, string>(loaded.FolderLayouts, StringComparer.OrdinalIgnoreCase);
                     loaded.FolderTileScales = new Dictionary<string, double>(loaded.FolderTileScales ?? [], StringComparer.OrdinalIgnoreCase);
                     loaded.FolderViewProfiles = new Dictionary<string, string>(loaded.FolderViewProfiles ?? [], StringComparer.OrdinalIgnoreCase);
@@ -168,7 +119,6 @@ public static class SettingsService
         }
         catch (Exception)
         {
-            // Corrupt or unreadable file; start clean rather than refusing to launch.
         }
 
         return new SettingsData();
@@ -183,7 +133,6 @@ public static class SettingsService
         }
         catch (Exception)
         {
-            // Read-only profile or a locked file. Settings stay in memory for this session.
         }
     }
 
@@ -219,10 +168,6 @@ public static class SettingsService
         Save();
     }
 
-    /// <summary>
-    /// Applies one folder type to several folders and writes settings only once.
-    /// This keeps a multi-select action responsive even for a large selection.
-    /// </summary>
     public static void SetFolderViewProfiles(IEnumerable<string> folders, string? profile)
     {
         var applyAutomatic = string.IsNullOrWhiteSpace(profile) ||
@@ -285,13 +230,8 @@ public static class SettingsService
         Save();
     }
 
-    /// <summary>
-    /// Every folder that has been given an explicit type, path to profile name.
-    /// Searching by folder type reads this rather than walking the disk.
-    /// </summary>
     public static IReadOnlyDictionary<string, string> GetAllFolderViewProfiles() => Current.FolderViewProfiles;
 
-    /// <summary>Saved column ids for one folder, or null when it has never been set.</summary>
     public static IReadOnlyList<string>? GetFolderColumns(string folder)
         => Current.FolderColumns.TryGetValue(folder, out var columns) && columns.Count > 0
             ? columns
@@ -311,7 +251,6 @@ public static class SettingsService
             Save();
     }
 
-    /// <summary>Saved width for one details column in one folder.</summary>
     public static double? GetFolderColumnWidth(string folder, string columnId)
         => Current.FolderColumnWidths.TryGetValue(folder, out var widths) &&
            widths.TryGetValue(columnId, out var width) &&
@@ -319,11 +258,6 @@ public static class SettingsService
             ? width
             : null;
 
-    /// <summary>
-    /// Records the finished size of a user-resized details column. The caller only
-    /// invokes this at the end of a drag, rather than writing settings for every
-    /// pixel the resize thumb moves through.
-    /// </summary>
     public static void SetFolderColumnWidth(string folder, string columnId, double width)
     {
         if (string.IsNullOrWhiteSpace(folder) || string.IsNullOrWhiteSpace(columnId) ||
@@ -343,7 +277,6 @@ public static class SettingsService
         Save();
     }
 
-    /// <summary>Saved column ids for a profile, or null when it has never been set.</summary>
     public static IReadOnlyList<string>? GetProfileColumns(string profile)
         => Current.ProfileColumns.TryGetValue(profile, out var columns) && columns.Count > 0
             ? columns
@@ -538,8 +471,6 @@ public static class SettingsService
     [
         ("files", "Your files"),
         ("favorites", "Favorites"),
-        // Rendered only when a provider is actually signed in, so a machine with
-        // no OneDrive never sees an empty heading.
         ("cloud", "Cloud"),
         ("this-pc", "This PC"),
         ("network", "Network")
@@ -559,8 +490,6 @@ public static class SettingsService
 
         Current.SidebarSectionOrder.RemoveAll(id => !known.Contains(id));
 
-        // A previously saved category predates the draggable sidebar. Keep it near
-        // Favorites on first launch rather than losing it or placing it at the end.
         foreach (var category in Current.PinnedCategories)
         {
             var categoryId = CategorySectionId(category.Id);

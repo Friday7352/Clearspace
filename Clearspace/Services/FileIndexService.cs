@@ -1,46 +1,24 @@
+// Clearspace | File-index lifecycle and queries.
+
 using System.Diagnostics;
 using System.IO;
 using Clearspace.Models;
 
 namespace Clearspace.Services;
 
-/// <summary>
-/// Owns the file index: what is indexed, when it is built, and how it is queried.
-///
-/// The published set is swapped wholesale rather than mutated, so searches read it
-/// without a lock and never see a volume half way through a rebuild. A build fills
-/// its own <see cref="VolumeIndex"/> in isolation and is published only when it is
-/// complete.
-/// </summary>
 public static class FileIndexService
 {
-    /// <summary>
-    /// Read on every search, replaced on every publish. Volatile because the
-    /// builder thread writes it and the UI thread reads it, and neither takes a
-    /// lock to do so.
-    /// </summary>
     private static volatile VolumeIndex[] _volumes = [];
 
     private static Thread? _worker;
     private static CancellationTokenSource? _cancellation;
     private static readonly Lock StartGate = new();
 
-    /// <summary>Changes since the volumes were walked. Empty is the normal state.</summary>
     private static readonly IndexOverlay Overlay = new();
 
     private static FileIndexWatcher? _watcher;
     private static bool _watching;
 
-    /// <summary>
-    /// How much memory the whole index may hold, sized to the machine it is on.
-    ///
-    /// A fixed number is the wrong shape here. Eight million files with long names
-    /// is around a gigabyte, and a cap set below that does not save memory - it
-    /// throws the whole drive out of the index and puts search back to crawling,
-    /// which is the opposite of the point. An eighth of available memory gives a
-    /// large machine room to index everything and still keeps this from being the
-    /// reason a small one starts paging.
-    /// </summary>
     private static readonly long MaxIndexBytes = ResolveMemoryBudget();
 
     private static long ResolveMemoryBudget()
@@ -62,52 +40,20 @@ public static class FileIndexService
         }
     }
 
-    /// <summary>
-    /// How stale a volume may be before it is walked again.
-    ///
-    /// While Clearspace runs, the watcher keeps the index current and this never
-    /// matters. It exists for the window when Clearspace is *not* running, which
-    /// nothing can observe: without the USN journal - which needs administrator
-    /// rights - a rescan is the only way to learn what happened while the app was
-    /// closed. An hour keeps that window short without walking the disk every time
-    /// the app is opened twice in a row.
-    /// </summary>
     private static readonly TimeSpan RebuildAfter = TimeSpan.FromHours(1);
 
-    /// <summary>
-    /// How long a build waits after launch. Loading a saved index does not wait at
-    /// all - this is only about not walking the disk while the app is still
-    /// opening its first folder.
-    /// </summary>
     private static readonly TimeSpan StartupBuildDelay = TimeSpan.FromSeconds(10);
 
-    /// <summary>
-    /// Raised when the index becomes available, grows, or finishes building.
-    ///
-    /// Raised on the builder's own thread, not the UI thread. A subscriber that
-    /// touches WPF must marshal to the dispatcher itself.
-    /// </summary>
     public static event EventHandler? Changed;
 
     public static bool IsBuilding { get; private set; }
 
-    /// <summary>
-    /// True when the index can be believed without checking the disk.
-    ///
-    /// This is the switch that lets search stop crawling. It needs three things:
-    /// something indexed, watchers actually running on it, and no overflow since
-    /// they started. Lose any of them and search goes back to walking the disk,
-    /// which is slower but never wrong.
-    /// </summary>
     public static bool IsLive => _volumes.Length > 0 && _watching && !Overlay.Overflowed;
 
-    /// <summary>How many changes have been seen since the volumes were walked.</summary>
     public static int PendingChanges => Overlay.Count;
 
-    /// <summary>A short line for the status bar, or empty when there is nothing to say.</summary>
     public static string Status { get; private set; } = string.Empty;
 
-    /// <summary>Total indexed entries across every volume.</summary>
     public static int Count
     {
         get
@@ -119,7 +65,6 @@ public static class FileIndexService
         }
     }
 
-    /// <summary>Roughly what the whole index costs in memory.</summary>
     public static long EstimatedBytes
     {
         get
@@ -131,13 +76,8 @@ public static class FileIndexService
         }
     }
 
-    /// <summary>Volumes that were too large for the memory budget, so are still crawled.</summary>
     public static IReadOnlyList<string> SkippedRoots { get; private set; } = [];
 
-    /// <summary>
-    /// True when this path sits on a volume the index covers and can be trusted
-    /// for. Callers use this to decide whether a disk walk is still needed.
-    /// </summary>
     public static bool Covers(string path)
     {
         if (string.IsNullOrWhiteSpace(path) || !IsLive)
@@ -152,11 +92,6 @@ public static class FileIndexService
         return false;
     }
 
-    /// <summary>
-    /// Loads whatever was saved, then builds anything missing or stale.
-    ///
-    /// Safe to call more than once; only the first call starts a worker.
-    /// </summary>
     public static void Start()
     {
         lock (StartGate)
@@ -171,8 +106,6 @@ public static class FileIndexService
             {
                 IsBackground = true,
                 Name = "Clearspace index",
-                // Belt and braces: the thread also enters Windows background mode
-                // inside Run, which is what actually lowers its disk priority.
                 Priority = ThreadPriority.Lowest
             };
 
@@ -180,7 +113,6 @@ public static class FileIndexService
         }
     }
 
-    /// <summary>Stops any in-flight build and writes what exists to disk.</summary>
     public static void Stop()
     {
         try
@@ -205,8 +137,6 @@ public static class FileIndexService
     {
         try
         {
-            // Loading is two large sequential reads, so this is the fast path and
-            // it runs before anything is walked.
             Report("Loading index…");
 
             var loaded = FileIndexStore.Load();
@@ -222,18 +152,9 @@ public static class FileIndexService
                 Report($"Index ready · {Count:N0} items");
             }
 
-            // The load above is not delayed: a machine that has indexed before
-            // should be searchable as soon as its window appears, and reading the
-            // saved index back is two large sequential reads.
-            //
-            // Only the *walk* waits. That is the expensive part, and it has no
-            // business competing with the app's first seconds on disk.
             if (token.WaitHandle.WaitOne(StartupBuildDelay))
                 return;
 
-            // Nothing is waiting on the index, so it yields the disk to whatever
-            // the user is actually doing. This is the difference between a build
-            // that goes unnoticed and one that makes the machine feel busy.
             FileIndexBuilder.EnterBackgroundMode();
 
             try
@@ -253,12 +174,9 @@ public static class FileIndexService
         }
         catch (OperationCanceledException)
         {
-            // Shutting down.
         }
         catch (Exception exception)
         {
-            // The index is an accelerator. Search works without it, so nothing
-            // here is ever worth taking down the app for.
             Trace.WriteLine($"Clearspace: file index failed. {exception}");
             Report(string.Empty);
         }
@@ -284,9 +202,6 @@ public static class FileIndexService
             if (existing is not null && DateTime.UtcNow - existing.BuiltUtc < RebuildAfter)
                 continue;
 
-            // Whatever is left of the budget once the volumes already held are
-            // accounted for. A rebuild of a volume we already have gets to spend
-            // what that volume is currently using, since it is about to replace it.
             var budget = MaxIndexBytes - EstimatedBytes + (existing?.EstimatedBytes ?? 0);
 
             if (budget <= 0)
@@ -302,11 +217,6 @@ public static class FileIndexService
             IsBuilding = true;
             Report($"Indexing {root}…");
 
-            // Watched from before the walk starts, not after it finishes. A walk of
-            // a large volume takes minutes, and anything created during it would
-            // otherwise fall in the gap between the snapshot and the first event.
-            // Changes seen during the walk may duplicate what the walk itself found;
-            // search de-duplicates by path, so that costs nothing.
             StartWatching([root]);
 
             VolumeIndex? built;
@@ -332,8 +242,6 @@ public static class FileIndexService
 
             if (built is null)
             {
-                // Too large to hold. Said out loud rather than left as a silently
-                // partial index, because search will eventually trust this.
                 if (!skipped.Contains(root, StringComparer.OrdinalIgnoreCase))
                     skipped.Add(root);
 
@@ -342,8 +250,6 @@ public static class FileIndexService
                 continue;
             }
 
-            // Published as one atomic swap, so a search either sees the whole
-            // volume or none of it - never a partial walk.
             var updated = _volumes
                 .Where(volume => !volume.Root.Equals(root, StringComparison.OrdinalIgnoreCase))
                 .Append(built)
@@ -368,14 +274,6 @@ public static class FileIndexService
         _watching = true;
     }
 
-    /// <summary>
-    /// Local fixed drives only.
-    ///
-    /// Network shares are excluded deliberately: a crawl over SMB is slow enough
-    /// to be felt even at background priority, and the result goes stale the
-    /// moment somebody else touches the share. Removable drives are excluded
-    /// because indexing something that will be unplugged is wasted work.
-    /// </summary>
     private static IEnumerable<string> EnumerateIndexableRoots()
     {
         DriveInfo[] drives;
@@ -409,11 +307,6 @@ public static class FileIndexService
         }
     }
 
-    /// <summary>
-    /// Answers a query from memory. No disk access at all: names come from the
-    /// pool, and size, dates and attributes were captured when the volume was
-    /// walked, so a result is complete without a single stat call.
-    /// </summary>
     public static IReadOnlyList<FileSystemItem> Search(
         SearchQuery query,
         IReadOnlyList<string> roots,
@@ -428,8 +321,6 @@ public static class FileIndexService
 
         var terms = query.Terms;
 
-        // A query with no name terms - "tag:work" on its own, say - has nothing
-        // for a name index to match. Those are answered from the tag index.
         if (terms.Count == 0)
             return [];
 
@@ -438,13 +329,9 @@ public static class FileIndexService
         for (var i = 0; i < terms.Count; i++)
             folded[i] = VolumeIndex.Fold(terms[i]);
 
-        // Over-fetch, because structural filters (kind, extension, tags) are
-        // applied after materialising and can reject most of a name match.
         var scanLimit = Math.Min(limit * 4, 200_000);
         var results = new List<FileSystemItem>();
 
-        // Paths can arrive twice: once from the walk and once from a change seen
-        // while the walk was still running.
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         foreach (var volume in volumes)
@@ -464,13 +351,9 @@ public static class FileIndexService
                 if (path.Length == 0)
                     continue;
 
-                // The index holds whole volumes, but a search is scoped: without
-                // Everywhere on it means this folder and below, not the drive.
                 if (!IsUnderAnyRoot(path, roots))
                     continue;
 
-                // Deleted since the walk. The entry is still in the index - the
-                // index is never edited - so the overlay is what removes it.
                 if (Overlay.IsRemoved(path))
                     continue;
 
@@ -486,7 +369,6 @@ public static class FileIndexService
             }
         }
 
-        // And anything created since the walk, which the index has never seen.
         if (results.Count < limit && !token.IsCancellationRequested)
         {
             var recent = new List<FileSystemItem>();
@@ -507,20 +389,6 @@ public static class FileIndexService
         return results;
     }
 
-    /// <summary>
-    /// Checks that results still exist, and records the ones that do not so later
-    /// searches skip them.
-    ///
-    /// This is the answer to the one gap a watcher cannot close. While Clearspace
-    /// runs, deletions arrive as events; while it is closed, nothing is listening,
-    /// so a file removed in the meantime is still sitting in the index when it
-    /// loads. Rescanning the volume to find out would cost minutes. Checking the
-    /// few thousand rows a search actually returned costs milliseconds, and it is
-    /// the same answer where it matters - the user never sees an entry that is not
-    /// in a result.
-    ///
-    /// Called off the UI thread, after the results are already on screen.
-    /// </summary>
     public static IReadOnlyList<FileSystemItem> PruneMissing(IReadOnlyList<FileSystemItem> items)
     {
         var missing = new List<FileSystemItem>();
@@ -534,7 +402,6 @@ public static class FileIndexService
             }
             catch (Exception)
             {
-                // Unreadable is not the same as gone; leave it alone.
                 continue;
             }
 
@@ -545,12 +412,6 @@ public static class FileIndexService
         return missing;
     }
 
-    /// <summary>
-    /// Whether a path sits inside one of the search roots.
-    ///
-    /// The separator check is what stops "C:\Users\Sam" from claiming
-    /// "C:\Users\Sammy": a prefix match alone is not containment.
-    /// </summary>
     private static bool IsUnderAnyRoot(string path, IReadOnlyList<string> roots)
     {
         for (var i = 0; i < roots.Count; i++)
@@ -575,8 +436,6 @@ public static class FileIndexService
     {
         try
         {
-            // Copied rather than held by reference: forty bytes, once per result
-            // that is actually returned, and it keeps this free of ref-local rules.
             var entry = volume.Entry(index);
 
             return new FileSystemItem
@@ -596,11 +455,6 @@ public static class FileIndexService
         }
     }
 
-    /// <summary>
-    /// Raw file times are stored, not DateTimes, so a build does not spend a
-    /// million conversions on values nobody looks at. This is that conversion,
-    /// done only for results actually returned.
-    /// </summary>
     private static DateTime ToDateTime(long fileTime)
     {
         if (fileTime <= 0)
@@ -636,7 +490,6 @@ public static class FileIndexService
         }
         catch (Exception)
         {
-            // A subscriber's failure is not the index's problem.
         }
     }
 }

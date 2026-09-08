@@ -1,3 +1,5 @@
+// Clearspace | Main window interaction handlers.
+
 using System.IO;
 using System.ComponentModel;
 using System.Diagnostics;
@@ -17,7 +19,7 @@ namespace Clearspace;
 
 public partial class MainWindow : Window
 {
-    private readonly MainViewModel _viewModel = new(App.IsDemoMode);
+    private readonly MainViewModel _viewModel = new();
     private FileSystemItem? _renameTarget;
     private SidebarEntry? _sidebarDragEntry;
     private Button? _sidebarDragSource;
@@ -41,11 +43,8 @@ public partial class MainWindow : Window
         InitializeComponent();
         DataContext = _viewModel;
 
-        // An elevated instance says so in the title bar. Two Clearspace windows
-        // with different rights are otherwise indistinguishable on the taskbar.
-        Title = App.IsDemoMode ? "Clearspace — Demo" : _viewModel.WindowTitle;
+        Title = _viewModel.WindowTitle;
 
-        // The view supplies the few behaviours actions cannot reach on their own.
         _viewModel.Context.SelectAll = () => FileList.SelectAll();
         _viewModel.Context.ClearSelection = () => FileList.UnselectAll();
         _viewModel.Context.InvertSelection = InvertSelection;
@@ -63,31 +62,17 @@ public partial class MainWindow : Window
         _viewModel.Viewer.FileChanged += (_, _) => _ = _viewModel.RefreshAsync();
         SizeChanged += (_, _) => UpdateViewerSize();
 
-        // The style trigger swaps View between the details GridView and null for
-        // tiles. DetailsView is x:Shared="False", so coming back from tiles builds
-        // a brand new empty GridView; without this the list would render column-less
-        // rows that are invisible but still selectable.
         DependencyPropertyDescriptor
             .FromProperty(ListView.ViewProperty, typeof(ListView))
             .AddValueChanged(FileList, (_, _) => ApplyColumns());
 
-        // GridView supports a real resize thumb but not Explorer-style column
-        // reordering. These handlers supply both, while saving only after the user
-        // has finished the resize or drop gesture.
         FileList.AddHandler(Thumb.DragCompletedEvent, new DragCompletedEventHandler(OnColumnResizeCompleted), true);
         FileList.AddHandler(UIElement.PreviewMouseLeftButtonDownEvent, new MouseButtonEventHandler(OnColumnHeaderMouseDown), true);
         FileList.AddHandler(UIElement.PreviewMouseMoveEvent, new MouseEventHandler(OnColumnHeaderMouseMove), true);
         FileList.AddHandler(UIElement.PreviewMouseLeftButtonUpEvent, new MouseButtonEventHandler(OnColumnHeaderMouseUp), true);
     }
 
-    // ---------- Columns ----------
 
-    /// <summary>
-    /// Rebuilds the details columns from the user's choice for this folder type.
-    /// GridViewColumn is a real element with a parent, so the columns are pulled
-    /// fresh from the resource dictionary (all marked x:Shared="False") rather than
-    /// reused, which would throw once a column had been added to a second view.
-    /// </summary>
     private void ApplyColumns()
     {
         if (FileList.View is not GridView view)
@@ -205,7 +190,6 @@ public partial class MainWindow : Window
 
     private void OnResetColumns(object sender, RoutedEventArgs e) => _viewModel.ResetColumns();
 
-    // ---------- Elevation and cloud files ----------
 
     private void OnOpenElevated(object sender, RoutedEventArgs e) => _viewModel.OpenCurrentElevated();
 
@@ -217,21 +201,12 @@ public partial class MainWindow : Window
 
     private void OnOpenIndexingOptions(object sender, RoutedEventArgs e) => _viewModel.OpenIndexingOptions();
 
-    // ---------- Tags ----------
 
-    /// <summary>
-    /// Rebuilds the Tags submenu each time it opens: the tag list, then the commands
-    /// that act on it. Check state has to be recomputed anyway, since it reflects
-    /// the current selection rather than the tag itself.
-    /// </summary>
     private void OnTagsSubmenuOpened(object sender, RoutedEventArgs e)
     {
         if (sender is not MenuItem menu)
             return;
 
-        // SubmenuOpened bubbles, so opening the nested Delete tag list raises it
-        // again on this item. Without this guard the rebuild below would clear the
-        // very submenu that was opening and collapse the whole menu.
         if (!ReferenceEquals(e.OriginalSource, menu))
             return;
 
@@ -244,7 +219,6 @@ public partial class MainWindow : Window
                 Header = option.Name,
                 IsCheckable = true,
                 IsChecked = option.IsApplied,
-                // Stay open so several tags can be set in one visit.
                 StaysOpenOnClick = true,
                 DataContext = option
             };
@@ -309,10 +283,6 @@ public partial class MainWindow : Window
 
     private void OnClearTags(object sender, RoutedEventArgs e) => _viewModel.ClearTagsOnSelection();
 
-    /// <summary>
-    /// The name panel is shared between categories and tags, so this flag decides
-    /// which one a confirmed name creates.
-    /// </summary>
     private bool _isNamingTag;
 
     private void OnLoaded(object sender, RoutedEventArgs e)
@@ -332,22 +302,14 @@ public partial class MainWindow : Window
     private static void ApplyDarkTitleBar(IntPtr handle)
     {
         var enabled = 1;
-        // Newer builds use attribute 20; older ones used 19. Both are ignored when
-        // unsupported, so setting each is safe.
         NativeMethods.DwmSetWindowAttribute(handle, NativeMethods.DWMWA_USE_IMMERSIVE_DARK_MODE, ref enabled, sizeof(int));
         NativeMethods.DwmSetWindowAttribute(handle, NativeMethods.DWMWA_USE_IMMERSIVE_DARK_MODE_LEGACY, ref enabled, sizeof(int));
 
-        // Windows 11 rounds the window itself; Windows 10 ignores this and stays square.
         var round = NativeMethods.DWMWCP_ROUND;
         NativeMethods.DwmSetWindowAttribute(handle, NativeMethods.DWMWA_WINDOW_CORNER_PREFERENCE, ref round, sizeof(int));
     }
 
-    // ---------- Key bindings ----------
 
-    /// <summary>
-    /// Every action declares its own chord, so this one handler is the entire
-    /// keyboard layer. New actions get their shortcut with no change here.
-    /// </summary>
     private void OnPreviewKeyDown(object sender, KeyEventArgs e)
     {
         if (e.Key == Key.F && (Keyboard.Modifiers & ModifierKeys.Control) != 0)
@@ -358,12 +320,9 @@ public partial class MainWindow : Window
             return;
         }
 
-        // Let text entry keep its own keys.
         if (Keyboard.FocusedElement is TextBox)
             return;
 
-        // The viewer owns the keyboard while it is up, so Delete and F2 cannot
-        // fire against a list the user cannot currently see.
         if (_viewModel.Viewer.IsOpen)
         {
             var viewer = _viewModel.Viewer;
@@ -417,8 +376,6 @@ public partial class MainWindow : Window
             return;
         }
 
-        // Space is play/pause whenever something is loaded, which is the one
-        // shortcut people expect a player to own.
         if (e.Key == Key.Space && _viewModel.Player.IsActive)
         {
             _viewModel.Player.TogglePlay();
@@ -452,10 +409,6 @@ public partial class MainWindow : Window
         SearchBox.Focus();
     }
 
-    /// <summary>
-    /// Standard mouse side buttons mirror Explorer navigation. In the photo reel
-    /// they move between photos instead, keeping the viewer open and useful.
-    /// </summary>
     private void OnWindowMouseDown(object sender, MouseButtonEventArgs e)
     {
         if (e.ChangedButton is not (MouseButton.XButton1 or MouseButton.XButton2))
@@ -485,7 +438,6 @@ public partial class MainWindow : Window
         e.Handled = true;
     }
 
-    // ---------- Navigation ----------
 
     private void OnSidebarClick(object sender, RoutedEventArgs e)
     {
@@ -515,11 +467,6 @@ public partial class MainWindow : Window
             _viewModel.ToggleSidebarSection(entry.SectionId);
     }
 
-    /// <summary>
-    /// Points a sidebar entry at a folder of the user's choosing. Known folders
-    /// already resolve to their real location, so this is for the cases Windows
-    /// does not model: a second Downloads folder, a project root, a network share.
-    /// </summary>
     private void OnChangeSidebarLocation(object sender, RoutedEventArgs e)
     {
         if (sender is not MenuItem { DataContext: SidebarEntry entry })
@@ -557,7 +504,6 @@ public partial class MainWindow : Window
             _viewModel.PinDirectory(selected.FullPath);
     }
 
-    // ---------- Sidebar categories and drag/drop ----------
 
     private void OnCreateCategory(object sender, RoutedEventArgs e) => BeginCategoryEdit(null, string.Empty);
 
@@ -704,9 +650,6 @@ public partial class MainWindow : Window
         if (sender is not Button button)
             return;
 
-        // Dragging real files onto a pinned or known-folder row means "put these
-        // there" - the same thing dropping them onto that folder in the file list
-        // would mean, just reached from the sidebar instead of by navigating first.
         if (IsFileDropOnSidebar(e, button, out var targetFolder))
         {
             ClearSidebarDropTarget(button);
@@ -759,11 +702,6 @@ public partial class MainWindow : Window
         }
     }
 
-    /// <summary>
-    /// True when the drag carries real files (not a sidebar reorder) and the
-    /// hovered row is a real, currently reachable folder rather than a section
-    /// header, a category, or the "Pinned" placeholder row.
-    /// </summary>
     private static bool IsFileDropOnSidebar(DragEventArgs e, Button targetButton, out string? targetFolder)
     {
         targetFolder = null;
@@ -855,18 +793,9 @@ public partial class MainWindow : Window
         e.Handled = true;
     }
 
-    // ---------- Drag and drop, to and from Clearspace ----------
-    //
-    // Dragging out uses CF_HDROP (DataFormats.FileDrop), the one format every
-    // Windows app - Explorer, Outlook, a browser upload dialog - already knows
-    // how to accept. Dropping in reads the same format, so a drag from Explorer
-    // and a drag from Clearspace's own list land in exactly the same handler.
 
     private void OnFileListPreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
-        // Only arm a drag when the press actually lands on a row. A click on the
-        // empty area below the last item is the start of a rubber-band selection,
-        // not a drag, and must be left alone.
         _isFileDragPending = FindAncestor<ListViewItem>(e.OriginalSource as DependencyObject) is not null;
         _fileDragStart = e.GetPosition(FileList);
     }
@@ -926,11 +855,6 @@ public partial class MainWindow : Window
             _ = _viewModel.RefreshAsync();
     }
 
-    /// <summary>
-    /// Where a drop would land, and what it would do. Shared by DragOver (to show
-    /// the right cursor and highlight) and Drop (to actually act), so the two can
-    /// never disagree about whether a drop is allowed.
-    /// </summary>
     private DragDropEffects ResolveFileDropEffects(DragEventArgs e, out string? targetFolder, out ListViewItem? targetRow)
     {
         targetFolder = null;
@@ -953,17 +877,11 @@ public partial class MainWindow : Window
         if (targetFolder is null)
             return DragDropEffects.None;
 
-        // A local copy, because an out parameter cannot be captured by the
-        // lambdas below.
         var destination = targetFolder;
 
-        // Refuse a folder dropped onto itself or one of its own descendants -
-        // the shell would refuse it too, but silently, after the drop already
-        // looked accepted.
         if (sourcePaths.Any(path => IsSameOrAncestorOf(path, destination)))
             return DragDropEffects.None;
 
-        // Nothing to do if every source item already lives in the target folder.
         if (sourcePaths.All(path =>
                 string.Equals(Path.GetDirectoryName(path), destination, StringComparison.OrdinalIgnoreCase)))
             return DragDropEffects.None;
@@ -974,9 +892,6 @@ public partial class MainWindow : Window
         if ((e.KeyStates & DragDropKeyStates.ControlKey) != 0)
             return DragDropEffects.Copy;
 
-        // No modifier held: match Explorer's own default - move within the same
-        // drive (cheap, a directory entry update), copy across drives (the source
-        // would otherwise vanish from a location the user may still want it).
         var sameDrive = sourcePaths.All(path =>
             string.Equals(Path.GetPathRoot(path), Path.GetPathRoot(destination), StringComparison.OrdinalIgnoreCase));
 
@@ -1024,20 +939,12 @@ public partial class MainWindow : Window
         _fileDropTarget = null;
     }
 
-    /// <summary>
-    /// Fires when a recycled tile is handed a new item, which is the moment that
-    /// tile becomes visible. Requesting here means only on-screen files ever have
-    /// a thumbnail extracted.
-    /// </summary>
     private void OnTileDataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
     {
         if (e.NewValue is FileSystemItem item)
             ThumbnailService.Request(item, ThumbnailSize);
     }
 
-    // An inherited DataContext can already be present by the time the template's
-    // DataContextChanged handler is attached. Loaded guarantees the first item is
-    // requested too; the service deduplicates it if both events fire.
     private void OnTileLoaded(object sender, RoutedEventArgs e)
     {
         if (sender is FrameworkElement { DataContext: FileSystemItem item })
@@ -1046,8 +953,7 @@ public partial class MainWindow : Window
         }
     }
 
-    // This is the source resolution, not the on-screen size. Request enough
-    // pixels for the largest supported zoom level so previews remain sharp.
+    // Decode enough source pixels for the largest tile size.
     private const int ThumbnailSize = 512;
 
     private void OnBreadcrumbClick(object sender, RoutedEventArgs e)
@@ -1058,12 +964,9 @@ public partial class MainWindow : Window
 
     private void OnItemDoubleClick(object sender, MouseButtonEventArgs e)
     {
-        // Ignore double-clicks on the header or empty space below the rows.
         if (FindAncestor<ListViewItem>(e.OriginalSource as DependencyObject) is null)
             return;
 
-        // Always the normal thing: folders navigate, files go to their default app.
-        // In-app playback and viewing are opt-in through their own buttons.
         _viewModel.OpenCommand.Execute(null);
     }
 
@@ -1072,13 +975,11 @@ public partial class MainWindow : Window
         if (sender is not FrameworkElement { DataContext: FileSystemItem item })
             return;
 
-        // If this row is already the one loaded, treat the button as play/pause.
         if (ReferenceEquals(_viewModel.Player.Current, item))
             _viewModel.Player.TogglePlay();
         else
             _viewModel.PlayTrack(item);
 
-        // Otherwise the click would also select the row underneath.
         e.Handled = true;
     }
 
@@ -1090,12 +991,9 @@ public partial class MainWindow : Window
         e.Handled = true;
     }
 
-    // ---------- Music ----------
 
     private void OnMusicRowDataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
     {
-        // Only Music folders pay for tag reads; elsewhere the columns would never
-        // show the result anyway.
         if (_viewModel.IsMusicProfile && e.NewValue is FileSystemItem item)
             MediaPropertyService.Request(item);
     }
@@ -1114,22 +1012,14 @@ public partial class MainWindow : Window
 
     private void OnPlayerStop(object sender, RoutedEventArgs e) => _viewModel.Player.Stop();
 
-    // While the thumb is held the ticker must not overwrite the value under the
-    // user's cursor; the seek is committed on release.
     private void OnSeekStart(object sender, MouseButtonEventArgs e) => _viewModel.Player.BeginScrub();
 
     private void OnSeekEnd(object sender, MouseButtonEventArgs e) => _viewModel.Player.EndScrub();
 
-    // ---------- Photo viewer ----------
 
     private Point _cropOrigin;
     private bool _isDraggingCrop;
 
-    /// <summary>
-    /// Sizes the image explicitly rather than letting Stretch do it, because the
-    /// crop overlay has to sit exactly on the pixels and map back to source
-    /// coordinates. Fit mode computes the scale that just fits the viewport.
-    /// </summary>
     private void UpdateViewerSize()
     {
         var viewer = _viewModel.Viewer;
@@ -1147,7 +1037,6 @@ public partial class MainWindow : Window
 
             scale = Math.Min(availableWidth / image.PixelWidth, availableHeight / image.PixelHeight);
 
-            // Never blow a small photo up just to fill the window.
             scale = Math.Min(scale, 1);
             viewer.SeedZoom(scale);
         }
@@ -1175,8 +1064,6 @@ public partial class MainWindow : Window
         if (viewer.Image is null)
             return;
 
-        // Which point of the image is under the cursor, as a 0..1 fraction. This
-        // survives the resize; pixel offsets would not.
         var onImage = e.GetPosition(ViewerImage);
         var fractionX = ViewerImage.ActualWidth > 0
             ? Math.Clamp(onImage.X / ViewerImage.ActualWidth, 0, 1)
@@ -1185,17 +1072,13 @@ public partial class MainWindow : Window
             ? Math.Clamp(onImage.Y / ViewerImage.ActualHeight, 0, 1)
             : 0.5;
 
-        // Where that point currently sits in the viewport, so it can be put back.
         var inViewport = e.GetPosition(ViewerScroll);
 
         viewer.ZoomBy(e.Delta > 0 ? 1.15 : 1 / 1.15);
 
-        // Resize and lay out now rather than waiting for the queued pass, because
-        // the offsets below have to be measured against the new size.
         UpdateViewerSize();
         ViewerScroll.UpdateLayout();
 
-        // The stage's margin offsets the image inside the scrollable content.
         var originX = ViewerStage.Margin.Left;
         var originY = ViewerStage.Margin.Top;
 
@@ -1203,21 +1086,10 @@ public partial class MainWindow : Window
         ViewerScroll.ScrollToVerticalOffset(fractionY * ViewerImage.ActualHeight + originY - inViewport.Y);
     }
 
-    /// <summary>
-    /// A click on the empty space around the photo dismisses the viewer, the same
-    /// as the close button. Clicks that land on the photo itself only take focus,
-    /// so the keyboard shortcuts keep working after using a toolbar button.
-    ///
-    /// This is a tunnelling handler on purpose. ScrollViewer has a class handler
-    /// for MouseLeftButtonDown that focuses itself and marks the event handled,
-    /// and class handlers run before instance ones, so a bubbling handler here
-    /// would never be called.
-    /// </summary>
     private void OnViewerSurfaceDown(object sender, MouseButtonEventArgs e)
     {
         ViewerScroll.Focus();
 
-        // Mid-crop the backdrop is part of the tool, not a way out.
         if (_viewModel.Viewer.IsCropping)
             return;
 
@@ -1237,11 +1109,6 @@ public partial class MainWindow : Window
         e.Handled = true;
     }
 
-    /// <summary>
-    /// Middle-mouse drag pans the viewer directly. It uses the ScrollViewer's
-    /// native offsets, so it remains smooth for very large images and does not
-    /// create another render layer or duplicate the bitmap.
-    /// </summary>
     private void OnViewerSurfaceMouseDown(object sender, MouseButtonEventArgs e)
     {
         if (e.ChangedButton != MouseButton.Middle ||
@@ -1313,7 +1180,6 @@ public partial class MainWindow : Window
 
     private void OnViewerDelete(object sender, RoutedEventArgs e) => _viewModel.Viewer.DeleteCurrent();
 
-    // ---------- Crop ----------
 
     private void OnViewerCrop(object sender, RoutedEventArgs e)
     {
@@ -1361,7 +1227,6 @@ public partial class MainWindow : Window
         CommitCropSelection();
     }
 
-    /// <summary>Converts the on-screen rectangle into source pixels.</summary>
     private void CommitCropSelection()
     {
         var image = _viewModel.Viewer.Image;
@@ -1447,7 +1312,6 @@ public partial class MainWindow : Window
         }
     }
 
-    // ---------- Address bar ----------
 
     private void OnAddressActivate(object sender, MouseButtonEventArgs e) => ShowAddressEditor();
 
@@ -1492,7 +1356,6 @@ public partial class MainWindow : Window
                 }
                 catch (Exception)
                 {
-                    // No association for this file type.
                 }
             }
             else
@@ -1514,7 +1377,6 @@ public partial class MainWindow : Window
 
     private static void SystemSounds_Beep() => System.Media.SystemSounds.Beep.Play();
 
-    // ---------- Rename ----------
 
     private void BeginRename(FileSystemItem? item)
     {
@@ -1526,7 +1388,6 @@ public partial class MainWindow : Window
         RenamePanel.Visibility = Visibility.Visible;
         RenameBox.Focus();
 
-        // Preselect the stem so the extension is easy to keep.
         var stemLength = item.IsFolder
             ? item.Name.Length
             : item.Name.Length - Path.GetExtension(item.Name).Length;
@@ -1575,12 +1436,8 @@ public partial class MainWindow : Window
         CancelRename();
 
         if (succeeded)
-            // Updates the one row that changed instead of re-walking the whole
-            // folder - the difference that matters once it holds a lot of files.
             _viewModel.ApplyRename(item, destination);
         else
-            // The shell may have refused (name collision, a locked file); make sure
-            // the list still matches disk rather than showing a rename that failed.
             _ = _viewModel.RefreshAsync();
     }
 
@@ -1591,15 +1448,12 @@ public partial class MainWindow : Window
         FileList.Focus();
     }
 
-    // ---------- Column sorting ----------
 
     private void HookColumnHeaders()
         => FileList.AddHandler(GridViewColumnHeader.ClickEvent, new RoutedEventHandler(OnColumnHeaderClick));
 
     private void OnColumnHeaderClick(object sender, RoutedEventArgs e)
     {
-        // Releasing a dragged header also raises Click. A reorder must never turn
-        // into an unexpected sort immediately afterwards.
         if (_suppressColumnSort)
         {
             _suppressColumnSort = false;

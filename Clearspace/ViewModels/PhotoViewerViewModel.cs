@@ -1,3 +1,5 @@
+// Clearspace | Photo viewer state and editing.
+
 using System.IO;
 using System.Windows;
 using System.Windows.Media;
@@ -7,14 +9,6 @@ using Clearspace.Services;
 
 namespace Clearspace.ViewModels;
 
-/// <summary>
-/// A small photo viewer: browse the folder's images, zoom, rotate, crop, and save.
-///
-/// Rotation is baked into the in-memory bitmap rather than applied as a render
-/// transform, so what a crop selection covers is exactly what gets written out.
-/// Decodes carry a generation number, so holding down an arrow key can never let
-/// a slow image land after a faster one requested later.
-/// </summary>
 public sealed class PhotoViewerViewModel : ObservableObject
 {
     private List<FileSystemItem> _photos = [];
@@ -24,10 +18,8 @@ public sealed class PhotoViewerViewModel : ObservableObject
     public const double MinZoom = 0.1;
     public const double MaxZoom = 8.0;
 
-    /// <summary>Native handle for shell dialogs raised from the viewer.</summary>
     public IntPtr OwnerHandle { get; set; }
 
-    /// <summary>Raised after a file is written so the list behind can refresh.</summary>
     public event EventHandler? FileChanged;
 
     private bool _isOpen;
@@ -54,14 +46,6 @@ public sealed class PhotoViewerViewModel : ObservableObject
 
     public bool HasImage => _image is not null;
 
-    /// <summary>
-    /// Swaps the displayed bitmap and announces it unconditionally.
-    ///
-    /// The Image setter goes through SetProperty, which suppresses the notification
-    /// when the value compares equal. An edit always produces a new object so that
-    /// should fire, but the display staying on the old orientation says otherwise,
-    /// and there is nothing to gain from routing edits through the guarded path.
-    /// </summary>
     private void ReplaceImage(BitmapSource image)
     {
         _image = image;
@@ -71,11 +55,9 @@ public sealed class PhotoViewerViewModel : ObservableObject
         OnPropertyChanged(nameof(PixelSizeText));
         OnPropertyChanged(nameof(Subtitle));
 
-        // Rotation swaps width and height, so the view has to re-measure.
         ZoomChanged?.Invoke(this, EventArgs.Empty);
     }
 
-    /// <summary>Raised when the zoom or the image changes and the view must resize.</summary>
     public event EventHandler? ZoomChanged;
 
     private FileSystemItem? _current;
@@ -118,7 +100,6 @@ public sealed class PhotoViewerViewModel : ObservableObject
 
     public string PixelSizeText => _image is null ? string.Empty : $"{_image.PixelWidth} × {_image.PixelHeight}";
 
-    /// <summary>False for formats WPF can read but not write, such as WebP and HEIC.</summary>
     public bool CanSaveInPlace => Current is not null && ImageEditService.CanSaveInPlace(Current.FullPath);
 
     private string _status = string.Empty;
@@ -141,7 +122,6 @@ public sealed class PhotoViewerViewModel : ObservableObject
         private set => SetProperty(ref _isLoading, value);
     }
 
-    // ---------- Zoom ----------
 
     private double _zoom = 1;
     public double Zoom
@@ -178,8 +158,6 @@ public sealed class PhotoViewerViewModel : ObservableObject
 
     public void ZoomBy(double factor)
     {
-        // Leaving fit mode needs a real starting number, which only the view knows,
-        // so it sets Zoom to the fit scale before calling here.
         IsFitToWindow = false;
         Zoom *= factor;
     }
@@ -190,7 +168,6 @@ public sealed class PhotoViewerViewModel : ObservableObject
         Zoom = value;
     }
 
-    /// <summary>Used by the view to seed the zoom when leaving fit mode.</summary>
     public void SeedZoom(double value) => _zoom = Math.Clamp(value, MinZoom, MaxZoom);
 
     public void FitToWindow()
@@ -205,7 +182,6 @@ public sealed class PhotoViewerViewModel : ObservableObject
         Zoom = 1;
     }
 
-    // ---------- Crop ----------
 
     private bool _isCropping;
     public bool IsCropping
@@ -236,7 +212,6 @@ public sealed class PhotoViewerViewModel : ObservableObject
         if (_image is null)
             return;
 
-        // Cropping at anything but fit is confusing to aim, so snap back first.
         FitToWindow();
         CropRegion = default;
         IsCropping = true;
@@ -250,7 +225,6 @@ public sealed class PhotoViewerViewModel : ObservableObject
         Status = string.Empty;
     }
 
-    // ---------- Browsing ----------
 
     public bool CanGoNext => _index >= 0 && _index < _photos.Count - 1;
 
@@ -305,12 +279,7 @@ public sealed class PhotoViewerViewModel : ObservableObject
         _ = LoadCurrentAsync();
     }
 
-    // ---------- Editing ----------
 
-    /// <summary>
-    /// Rotates and writes the result straight back to the file, which is what makes
-    /// a rotation stick between sessions.
-    /// </summary>
     public void Rotate(int degrees)
     {
         if (_image is null || Current is null)
@@ -336,11 +305,6 @@ public sealed class PhotoViewerViewModel : ObservableObject
         FileChanged?.Invoke(this, EventArgs.Empty);
     }
 
-    /// <summary>
-    /// Drops the cached thumbnail for this file so the tile behind the viewer
-    /// re-extracts it. Without this the grid keeps showing the old orientation
-    /// even though the file on disk has changed.
-    /// </summary>
     private void InvalidatePreview()
     {
         if (Current is null)
@@ -455,12 +419,10 @@ public sealed class PhotoViewerViewModel : ObservableObject
             return;
         }
 
-        // Stay at the same position so deleting a run of photos keeps moving forward.
         _index = Math.Min(_index, _photos.Count - 1);
         _ = LoadCurrentAsync();
     }
 
-    // ---------- Loading ----------
 
     private async Task LoadCurrentAsync()
     {
@@ -474,7 +436,6 @@ public sealed class PhotoViewerViewModel : ObservableObject
         Status = string.Empty;
         FitToWindow();
 
-        // Show the grid thumbnail immediately so the viewer never flashes empty.
         Image = item.Thumbnail as BitmapSource;
         IsLoading = true;
 
@@ -509,7 +470,6 @@ public sealed class PhotoViewerViewModel : ObservableObject
         }
     }
 
-    /// <summary>Decodes at full resolution: zoom and crop both need real pixels.</summary>
     private static BitmapSource? Decode(string path)
     {
         try
@@ -522,7 +482,6 @@ public sealed class PhotoViewerViewModel : ObservableObject
             image.CacheOption = BitmapCacheOption.OnLoad;
             image.EndInit();
 
-            // Freezing is what makes it legal to hand this to the UI thread.
             image.Freeze();
             return image;
         }

@@ -1,52 +1,22 @@
+// Clearspace | Index changes collected between rebuilds.
+
 using System.IO;
 using Clearspace.Models;
 
 namespace Clearspace.Services;
 
-/// <summary>
-/// Everything that has changed on disk since the volumes were walked.
-///
-/// This is what lets search trust the index without rebuilding it. A walk gives a
-/// snapshot; the overlay is the difference between that snapshot and now, and it
-/// is small because it only ever holds actual churn - the handful of files
-/// created, deleted or renamed while the app has been open.
-///
-/// The alternative was editing the index in place, which would mean a path-to-entry
-/// lookup over millions of paths, which is another dictionary the size of the index
-/// itself. Keeping the diff separate costs a set membership check per result and
-/// nothing else.
-/// </summary>
 internal sealed class IndexOverlay
 {
-    /// <summary>
-    /// Above this the overlay has stopped being a small diff, and rebuilding is
-    /// cheaper than carrying it. Reaching it drops the index out of trusted mode
-    /// rather than letting results quietly drift.
-    /// </summary>
     private const int MaxTracked = 100_000;
 
-    /// <summary>
-    /// How many deleted subtrees can be carried before rebuilding is cheaper.
-    ///
-    /// Exact-path removals are a set lookup, but a removed *folder* has to be
-    /// tested as a prefix against every result a search returns. A handful of
-    /// those is free; thousands would turn each search into a nested loop over
-    /// results times deletions, which is precisely the cost this whole design
-    /// exists to avoid.
-    /// </summary>
     private const int MaxRemovedTrees = 256;
 
     private readonly Lock _gate = new();
     private readonly HashSet<string> _added = new(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<string> _removed = new(StringComparer.OrdinalIgnoreCase);
 
-    /// <summary>
-    /// Deleted folders, kept separately because removing one removes everything
-    /// beneath it, and the index still holds all of those descendants.
-    /// </summary>
     private readonly List<string> _removedTrees = [];
 
-    /// <summary>True once the overlay has grown past the point of being worth carrying.</summary>
     public bool Overflowed { get; private set; }
 
     public int Count
@@ -82,7 +52,6 @@ internal sealed class IndexOverlay
 
         lock (_gate)
         {
-            // A path created again after being deleted is simply present again.
             _removed.Remove(path);
             _added.Add(path);
             CheckSize();
@@ -99,11 +68,6 @@ internal sealed class IndexOverlay
             _added.Remove(path);
             _removed.Add(path);
 
-            // The event does not say whether this was a file or a folder - by the
-            // time it arrives the thing is gone and cannot be asked. Anything
-            // without an extension is treated as a possible subtree, which covers
-            // folders while keeping the ordinary case (deleting files, which
-            // mostly have extensions) to a set lookup.
             if (!Path.HasExtension(path))
             {
                 if (_removedTrees.Count >= MaxRemovedTrees)
@@ -122,7 +86,6 @@ internal sealed class IndexOverlay
         OnCreated(newPath);
     }
 
-    /// <summary>True when this path has been deleted since the index was built.</summary>
     public bool IsRemoved(string path)
     {
         lock (_gate)
@@ -152,11 +115,6 @@ internal sealed class IndexOverlay
         }
     }
 
-    /// <summary>
-    /// Items created since the index was built that match the query. These are
-    /// stat'd here rather than when the change arrived: events come in bursts, and
-    /// most of what they mention is never searched for.
-    /// </summary>
     public void CollectMatches(
         IReadOnlyList<string> foldedTerms,
         bool showHidden,
@@ -210,7 +168,6 @@ internal sealed class IndexOverlay
         }
     }
 
-    /// <summary>Caller must hold the gate.</summary>
     private void CheckSize()
     {
         if (_added.Count + _removed.Count > MaxTracked)

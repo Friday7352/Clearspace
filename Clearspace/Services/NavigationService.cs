@@ -1,11 +1,9 @@
+// Clearspace | Navigation history and current location.
+
 using System.IO;
 
 namespace Clearspace.Services;
 
-/// <summary>
-/// Owns back/forward history. Kept apart from the view model so navigation stays
-/// testable and so a future tab or pane can hold its own instance.
-/// </summary>
 public sealed class NavigationService
 {
     private readonly List<string> _history = [];
@@ -33,7 +31,6 @@ public sealed class NavigationService
             return;
         }
 
-        // A new destination truncates anything ahead of the cursor.
         if (_index < _history.Count - 1)
             _history.RemoveRange(_index + 1, _history.Count - _index - 1);
 
@@ -69,7 +66,6 @@ public sealed class NavigationService
     {
         path = path.Trim().Trim('"');
 
-        // Keep the trailing slash on drive roots ("C:\") but strip it elsewhere.
         if (path.Length > 3 && (path.EndsWith('\\') || path.EndsWith('/')))
             path = path.TrimEnd('\\', '/');
 

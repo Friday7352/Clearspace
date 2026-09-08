@@ -1,3 +1,5 @@
+// Clearspace | Media metadata extraction.
+
 using System.Collections.Concurrent;
 using System.Runtime.InteropServices;
 using System.Windows;
@@ -6,26 +8,12 @@ using Clearspace.Native;
 
 namespace Clearspace.Services;
 
-/// <summary>
-/// Reads audio tags through the Windows Property System.
-///
-/// This is the same source Explorer's Music columns use, so it works for MP3,
-/// FLAC, M4A, WMA and anything else with a registered property handler, with no
-/// third-party tag library and no format parsing of our own.
-///
-/// The threading model mirrors ThumbnailService for the same reasons: property
-/// handlers are third-party COM that expect STA, and reads are slow enough that
-/// they must be cancellable the instant the user navigates away.
-/// </summary>
 public static class MediaPropertyService
 {
     private sealed record TagRequest(FileSystemItem Item, int Generation, string CacheKey);
 
-    // System.Music.*
     private const string MusicFormat = "56A3372E-CE9C-11D2-9F0E-006097C686F6";
-    // System.Media.*
     private const string MediaFormat = "64440490-4C8B-11D1-8B70-080036B11A03";
-    // System.Title lives in the summary format, not the music one.
     private const string SummaryFormat = "F29F85E0-4FF9-1068-AB91-08002B27B3D9";
 
     private static NativeMethods.PROPERTYKEY _title = new(SummaryFormat, 2);
@@ -50,7 +38,6 @@ public static class MediaPropertyService
         uint TrackNumber,
         TimeSpan Duration);
 
-    /// <summary>Invalidates queued reads. Called when the folder changes.</summary>
     public static void CancelPending() => Interlocked.Increment(ref _generation);
 
     public static void Request(FileSystemItem item)
@@ -65,8 +52,6 @@ public static class MediaPropertyService
             return;
         }
 
-        // A virtualized row can receive both Loaded and DataContextChanged while
-        // it enters view. Keep a single property-store read in flight per file.
         if (!Pending.TryAdd(key, 0))
             return;
 
@@ -107,9 +92,6 @@ public static class MediaPropertyService
 
                 var info = Read(request.Item.FullPath);
 
-                // Tags are small, but a long session across large libraries would
-                // still let this climb without limit. Dropping it whole is fine: a
-                // re-read costs one property-store call.
                 if (Cache.Count > 20_000)
                     Cache.Clear();
 
@@ -128,8 +110,6 @@ public static class MediaPropertyService
             }
             finally
             {
-                // Also remove stale requests. Otherwise navigating away while a
-                // request is queued would permanently suppress the next visit.
                 Pending.TryRemove(request.CacheKey, out _);
             }
         }
@@ -160,7 +140,6 @@ public static class MediaPropertyService
         }
         catch (Exception)
         {
-            // A missing or broken property handler is not worth failing over.
             return default;
         }
         finally

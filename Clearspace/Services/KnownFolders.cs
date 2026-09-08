@@ -1,17 +1,11 @@
+// Clearspace | Known Windows folder locations.
+
 using System.IO;
 using System.Runtime.InteropServices;
 using Clearspace.Native;
 
 namespace Clearspace.Services;
 
-/// <summary>
-/// Resolves Windows known folders to where they actually are.
-///
-/// Environment.SpecialFolder is not good enough here: it has no Downloads entry
-/// at all, and it does not reflect folders the user has relocated. Downloads,
-/// Documents, and Pictures are commonly moved to a second drive, and only
-/// SHGetKnownFolderPath reports the real location.
-/// </summary>
 public static class KnownFolders
 {
     private static Guid _profile = new("5E6C858F-0E22-4760-9AFE-EA3317B67173");
@@ -29,14 +23,12 @@ public static class KnownFolders
     public static string Music => Resolve(ref _music, Environment.SpecialFolder.MyMusic);
     public static string Videos => Resolve(ref _videos, Environment.SpecialFolder.MyVideos);
 
-    /// <summary>Downloads has no Environment.SpecialFolder equivalent at all.</summary>
     public static string Downloads
     {
         get
         {
             var path = Resolve(ref _downloads, Environment.SpecialFolder.UserProfile);
 
-            // Only fall back to the guessed location if the shell gave us nothing.
             if (!string.IsNullOrEmpty(path) && Directory.Exists(path))
                 return path;
 
@@ -45,7 +37,6 @@ public static class KnownFolders
         }
     }
 
-    /// <summary>True when the path is the user's Pictures folder or inside it.</summary>
     public static bool IsWithinPictures(string path)
     {
         var pictures = Pictures;
@@ -73,7 +64,6 @@ public static class KnownFolders
         }
         catch (Exception)
         {
-            // Fall through to the managed equivalent.
         }
         finally
         {

@@ -1,3 +1,5 @@
+// Clearspace | File and folder list item model.
+
 using System.IO;
 using System.Windows.Media;
 using Clearspace.Native;
@@ -5,17 +7,10 @@ using Clearspace.Services;
 
 namespace Clearspace.Models;
 
-/// <summary>
-/// One row in the file list. Constructed entirely from find data, so creating one
-/// costs no disk access. Icon is filled in afterwards from a cache.
-/// </summary>
 public sealed class FileSystemItem : ObservableObject
 {
     private string _name = string.Empty;
 
-    // Mutable (not init-only) so a rename can update the row in place instead of
-    // forcing a full re-enumeration of the folder just to relabel one item - the
-    // difference matters once a folder holds tens of thousands of entries.
     public required string Name
     {
         get => _name;
@@ -31,14 +26,12 @@ public sealed class FileSystemItem : ObservableObject
 
     public FileAttributes Attributes { get; init; }
 
-    /// <summary>Size in bytes. Zero for folders; use <see cref="SizeText"/> for display.</summary>
     public long Size { get; init; }
 
     public DateTime DateModified { get; init; }
 
     public DateTime DateCreated { get; init; }
 
-    /// <summary>True for the virtual items shown on My PC and Network.</summary>
     public bool IsDriveRoot { get; init; }
 
     public string? DriveKind { get; init; }
@@ -60,25 +53,9 @@ public sealed class FileSystemItem : ObservableObject
 
     public bool IsImageFile => !IsFolder && MediaTypes.IsImage(Extension);
 
-    // ---------- Cloud sync ----------
 
-    /// <summary>
-    /// True when this item sits inside a provider's sync root. Resolved once per
-    /// directory by the enumerator rather than per row, since it is a property of
-    /// where the item lives.
-    /// </summary>
     public bool IsInCloudRoot { get; init; }
 
-    /// <summary>
-    /// Files On-Demand state, read straight out of the attributes the enumerator
-    /// already has. No disk access, no shell call, no cost per row.
-    ///
-    /// Not everything inside a sync root carries the pin attributes. Folders in
-    /// particular often carry none at all, and a folder created before Files
-    /// On-Demand was switched on can have none either. An unmarked item inside a
-    /// root is on this device, so it reports that rather than leaving a blank cell
-    /// in the middle of a column where every neighbour has a status.
-    /// </summary>
     public CloudSyncState CloudState
     {
         get
@@ -93,7 +70,6 @@ public sealed class FileSystemItem : ObservableObject
 
     public bool IsCloudItem => CloudState != CloudSyncState.None;
 
-    /// <summary>True when opening this would make the provider download it first.</summary>
     public bool IsOnlineOnly => CloudState == CloudSyncState.OnlineOnly;
 
     public string CloudStatusGlyph => CloudState switch
@@ -112,9 +88,6 @@ public sealed class FileSystemItem : ObservableObject
         _ => string.Empty
     };
 
-    // Palette discipline: sync status reuses colours the app already spends rather
-    // than introducing a fourth. Muted ink reads as absent, green as present, and
-    // the brass accent as deliberately held.
     private static readonly Brush CloudRemoteBrush = Frozen(Color.FromRgb(156, 150, 141));
     private static readonly Brush CloudLocalBrush = Frozen(Color.FromRgb(112, 178, 132));
     private static readonly Brush CloudPinnedBrush = Frozen(Color.FromRgb(211, 161, 95));
@@ -126,11 +99,9 @@ public sealed class FileSystemItem : ObservableObject
         _ => CloudLocalBrush
     };
 
-    // ---------- Tags ----------
 
     private IReadOnlyList<TagDefinition> _tags = [];
 
-    /// <summary>Tags attached to this path, resolved for display.</summary>
     public IReadOnlyList<TagDefinition> Tags
     {
         get => _tags;
@@ -148,10 +119,8 @@ public sealed class FileSystemItem : ObservableObject
 
     public string TagNames => string.Join(", ", _tags.Select(tag => tag.Name));
 
-    /// <summary>Re-reads this item's tags from the store.</summary>
     internal void RefreshTags() => Tags = TagService.TagsFor(FullPath);
 
-    // ---------- Audio tags, filled in lazily for Music folders ----------
 
     private string? _mediaTitle;
     private string? _artist;
@@ -161,7 +130,6 @@ public sealed class FileSystemItem : ObservableObject
 
     public bool HasMediaInfo { get; private set; }
 
-    /// <summary>The tagged title when there is one, otherwise the bare file name.</summary>
     public string DisplayTitle => string.IsNullOrWhiteSpace(_mediaTitle)
         ? Path.GetFileNameWithoutExtension(Name)
         : _mediaTitle;
@@ -183,7 +151,6 @@ public sealed class FileSystemItem : ObservableObject
             : _duration.ToString(@"m\:ss");
 
     private bool _isNowPlaying;
-    /// <summary>Drives the row highlight for the track the player is on.</summary>
     public bool IsNowPlaying
     {
         get => _isNowPlaying;
@@ -219,9 +186,6 @@ public sealed class FileSystemItem : ObservableObject
         ? 0
         : Math.Clamp((DriveTotalSpace - DriveAvailableSpace) * 100d / DriveTotalSpace, 0, 100);
 
-    // Frozen and shared. A property getter that returns a new brush allocates on
-    // every binding evaluation, and an unfrozen brush forces WPF to track it for
-    // changes on the UI thread instead of reusing one render resource.
     private static readonly Brush DriveFullBrush = Frozen(Color.FromRgb(214, 95, 84));
     private static readonly Brush DriveWarnBrush = Frozen(Color.FromRgb(211, 161, 95));
     private static readonly Brush DriveOkBrush = Frozen(Color.FromRgb(112, 178, 132));
@@ -297,13 +261,8 @@ public sealed class FileSystemItem : ObservableObject
 
     public bool HasThumbnail => _thumbnail is not null;
 
-    /// <summary>
-    /// What a tile actually shows: the real thumbnail once it arrives, and the
-    /// cached type icon until then, so tiles never render empty.
-    /// </summary>
     public ImageSource? DisplayImage => _thumbnail ?? _icon;
 
-    /// <summary>Grid-specific image with a crisp vector shown while previews load.</summary>
     public ImageSource? GridImage => _thumbnail ?? _gridPlaceholder ?? _icon;
 
     internal static FileSystemItem FromFindData(string directory, in NativeMethods.WIN32_FIND_DATA data, bool inCloudRoot = false)
@@ -341,7 +300,6 @@ public sealed class FileSystemItem : ObservableObject
         };
     }
 
-    /// <summary>Builds a lightweight hub tile for a known or pinned location.</summary>
     internal static FileSystemItem? FromLocation(string path, string? displayName = null)
     {
         try
@@ -352,9 +310,6 @@ public sealed class FileSystemItem : ObservableObject
             if (string.IsNullOrWhiteSpace(name))
                 name = path;
 
-            // This is how a redirected Desktop or Documents tile picks up its
-            // OneDrive badge: known folder resolution already returned the real
-            // location, which is inside the sync root.
             var inCloudRoot = CloudStorageService.IsCloudPath(path);
 
             if (isFolder)
@@ -403,13 +358,6 @@ public sealed class FileSystemItem : ObservableObject
         }
     }
 
-    /// <summary>
-    /// Updates this row after a shell rename completes, instead of the caller
-    /// reloading the whole folder just to relabel one item. Icon and type name are
-    /// only recomputed when the extension changed (files) or always (folders,
-    /// since a folder's badge can depend on its name through Automatic
-    /// detection); size, dates, and attributes still describe the same file.
-    /// </summary>
     internal void ApplyRename(string newFullPath)
     {
         var previousExtension = Extension;
@@ -441,7 +389,6 @@ public sealed class FileSystemItem : ObservableObject
         if (bytes < 0)
             return string.Empty;
 
-        // Explorer reports in KB for anything under a megabyte, rounded up.
         if (bytes < 1024)
             return bytes == 0 ? "0 KB" : "1 KB";
 

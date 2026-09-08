@@ -1,3 +1,5 @@
+// Clearspace | Tags and tag assignments.
+
 using System.IO;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -5,20 +7,12 @@ using System.Windows.Media;
 
 namespace Clearspace.Services;
 
-/// <summary>A user-visible label that can be attached to any file or folder.</summary>
+
+// CS499: Tags use a single JSON file, linear lookups, and manual orphan cleanup.
 public sealed record TagDefinition(string Id, string Name, string Color)
 {
     private Brush? _brush;
 
-    /// <summary>
-    /// The colour as a frozen brush. XAML type conversion only applies to literal
-    /// attributes, not to binding results, so binding a hex string straight to a
-    /// Background would silently fail; views bind to this instead.
-    ///
-    /// JsonIgnore is essential. System.Text.Json serialises every public getter, and
-    /// walking a Freezable throws, which used to make the whole save fail silently
-    /// inside the catch below and lose every tag on exit.
-    /// </summary>
     [JsonIgnore]
     public Brush Brush => _brush ??= CreateBrush(Color);
 
@@ -35,38 +29,26 @@ public sealed record TagDefinition(string Id, string Name, string Color)
         }
         catch (Exception)
         {
-            // Hand-edited tags.json with a malformed colour.
         }
 
         return Brushes.Gray;
     }
 }
 
+// CS499: TagData maps to tags.json; Enhancement 3 replaces it with indexed tables.
 internal sealed class TagData
 {
     public List<TagDefinition> Definitions { get; set; } = [];
 
-    /// <summary>Full path to the tag ids attached to it.</summary>
     public Dictionary<string, List<string>> Assignments { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 }
 
-/// <summary>
-/// Tag definitions and assignments.
-///
-/// Kept in its own file rather than settings.json because assignments grow with
-/// how much you tag, not with how much you configure: a few thousand tagged files
-/// should not mean rewriting the whole config on every toggle.
-///
-/// The assignment map is also an index. Because it is keyed by path, "every folder
-/// tagged Work" is a dictionary scan rather than a disk crawl, which is what makes
-/// searching across locations instant.
-/// </summary>
 public static class TagService
 {
     private static readonly string Directory_ = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
         "Clearspace");
-
+    // CS499 Enhancement 3: replace tags.json with tags.db.
     private static readonly string FilePath = Path.Combine(Directory_, "tags.json");
 
     private static readonly JsonSerializerOptions Options = new()
@@ -77,17 +59,12 @@ public static class TagService
 
     private static TagData? _data;
 
-    /// <summary>Raised when definitions or assignments change, so views can refresh.</summary>
     public static event EventHandler? Changed;
 
     private static TagData Current => _data ??= Load();
 
     public static string TagFilePath => FilePath;
 
-    /// <summary>
-    /// Starter set. Broad enough to be useful immediately, small enough that the
-    /// menu stays scannable; anything more specific is better as a custom tag.
-    /// </summary>
     private static List<TagDefinition> CreateDefaults() =>
     [
         new("important", "Important", "#D3A15F"),
@@ -98,7 +75,7 @@ public static class TagService
         new("reference", "Reference", "#5BB0C4"),
         new("archive",   "Archive",   "#8A8580")
     ];
-
+    // CS499: This reads the entire JSON document; Enhancement 3 would query a database.
     private static TagData Load()
     {
         try
@@ -122,12 +99,11 @@ public static class TagService
         }
         catch (Exception)
         {
-            // Corrupt or unreadable file; start from the defaults rather than fail.
         }
 
         return new TagData { Definitions = CreateDefaults() };
     }
-
+    // CS499: Every update rewrites the file; a database write could be transactional.
     private static void Save()
     {
         try
@@ -137,8 +113,6 @@ public static class TagService
         }
         catch (Exception exception)
         {
-            // Surfaced rather than swallowed: a save that quietly fails looks exactly
-            // like tags not persisting, which is far harder to diagnose than an error.
             System.Diagnostics.Trace.WriteLine($"Clearspace: could not save tags. {exception}");
             LastSaveError = exception.Message;
         }
@@ -146,17 +120,14 @@ public static class TagService
         Changed?.Invoke(null, EventArgs.Empty);
     }
 
-    /// <summary>Set when the last write failed, so the view model can report it.</summary>
     public static string? LastSaveError { get; private set; }
 
-    // ---------- Definitions ----------
 
     public static IReadOnlyList<TagDefinition> All => Current.Definitions;
 
     public static TagDefinition? Find(string id)
         => Current.Definitions.FirstOrDefault(tag => tag.Id.Equals(id, StringComparison.OrdinalIgnoreCase));
 
-    /// <summary>Resolves by id first, then by display name, so search accepts either.</summary>
     public static TagDefinition? Resolve(string idOrName)
         => Find(idOrName) ?? Current.Definitions.FirstOrDefault(
             tag => tag.Name.Equals(idOrName, StringComparison.OrdinalIgnoreCase));
@@ -190,9 +161,7 @@ public static class TagService
     {
         if (Current.Definitions.RemoveAll(tag => tag.Id.Equals(id, StringComparison.OrdinalIgnoreCase)) == 0)
             return;
-
-        // Strip the tag from everything holding it, or the assignment map would
-        // accumulate ids that no longer resolve to anything.
+        // CS499: A database foreign key would remove these orphaned IDs automatically.
         foreach (var path in Current.Assignments.Keys.ToList())
         {
             var ids = Current.Assignments[path];
@@ -225,7 +194,6 @@ public static class TagService
 
     private static string NextColor() => Palette[Current.Definitions.Count % Palette.Length];
 
-    // ---------- Assignments ----------
 
     public static IReadOnlyList<string> TagIdsFor(string path)
         => Current.Assignments.TryGetValue(path, out var ids) ? ids : [];
@@ -254,11 +222,6 @@ public static class TagService
         Save();
     }
 
-    /// <summary>
-    /// Carries a path's tag assignment over to its new location after a rename or
-    /// move. Without this, renaming a tagged file silently drops its tags: the
-    /// assignment map is keyed by the old path, which no longer exists.
-    /// </summary>
     public static void MovePath(string oldPath, string newPath)
     {
         if (string.Equals(oldPath, newPath, StringComparison.OrdinalIgnoreCase))
@@ -286,10 +249,6 @@ public static class TagService
         Save();
     }
 
-    /// <summary>
-    /// Applies or removes a tag across a selection in one write. Adds to all when
-    /// any lacks it, which matches how a checkbox over a mixed selection behaves.
-    /// </summary>
     public static void ToggleForAll(IReadOnlyList<string> paths, string tagId)
     {
         if (paths.Count == 0 || Find(tagId) is null)
@@ -331,15 +290,13 @@ public static class TagService
             Save();
     }
 
-    /// <summary>Every tagged path. This is the index searches across locations read.</summary>
     public static IEnumerable<KeyValuePair<string, List<string>>> Assignments => Current.Assignments;
-
+    // CS499: This scans every assignment; Enhancement 3 would use an indexed query.
     public static IEnumerable<string> PathsWithTag(string tagId)
         => Current.Assignments
             .Where(pair => pair.Value.Any(id => id.Equals(tagId, StringComparison.OrdinalIgnoreCase)))
             .Select(pair => pair.Key);
 
-    /// <summary>Forgets assignments whose file or folder no longer exists.</summary>
     public static int PruneMissing()
     {
         var gone = Current.Assignments.Keys

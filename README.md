@@ -4,10 +4,6 @@ Clearspace is a modern Windows file manager built to be a comfortable replacemen
 
 > **Work in progress:** Clearspace 1.0.0 is an early public release. There will be bugs and rough edges as it is used on more Windows setups and file collections. Please report issues you find; fixes and improvements will continue over time.
 
-![Clearspace in the Desktop workspace](docs/images/desktop-demo.png)
-
-> The screenshot uses Clearspace Demo Mode. Every folder and file shown is fictional.
-
 ## What Clearspace adds
 
 ### Folder types that adapt to your work
@@ -89,26 +85,13 @@ Building the installer requires the [.NET 10 SDK](https://dotnet.microsoft.com/d
 
 Run [Build Clearspace.cmd](Build%20Clearspace.cmd) to publish a local executable to `dist\` and create a desktop shortcut. [Run Clearspace.cmd](Run%20Clearspace.cmd) is the rebuild-and-launch option for development.
 
-## Demo Mode
-
-Use [Run Demo.cmd](Run%20Demo.cmd) to launch a screenshot-safe fictional workspace. It never enumerates your personal files, drives, cloud folders, thumbnails, or Windows search index. The bundled sample images are safe to use when demonstrating the grid and photo viewer.
-
-For any compiled build, Demo Mode can also be launched with:
-
-```text
-Clearspace.exe --demo
-```
-
 ## Project layout
 
 ```text
 Clearspace/      WPF application source
-docs/images/     README screenshots
 installer/       Inno Setup installer definition
-tools/           Small local build tools
 dist/            Local published build (generated)
 release/         Installer output (generated)
-_archive/        Superseded prototypes kept for reference
 ```
 
 For architecture and implementation notes, see [Clearspace/ARCHITECTURE.md](Clearspace/ARCHITECTURE.md).

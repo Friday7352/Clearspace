@@ -1,3 +1,5 @@
+// Clearspace | Audio player state and controls.
+
 using System.IO;
 using System.Windows.Media;
 using System.Windows.Threading;
@@ -6,14 +8,6 @@ using Clearspace.Services;
 
 namespace Clearspace.ViewModels;
 
-/// <summary>
-/// In-app playback for Music folders.
-///
-/// Built on WPF's MediaPlayer, which routes through Media Foundation. That covers
-/// MP3, WMA, WAV, M4A/AAC, and FLAC on current Windows builds. OGG and Opus have
-/// no system codec, so those fail cleanly and skip to the next track rather than
-/// stalling the queue.
-/// </summary>
 public sealed class AudioPlayerViewModel : ObservableObject
 {
     private readonly MediaPlayer _player = new();
@@ -49,7 +43,6 @@ public sealed class AudioPlayerViewModel : ObservableObject
             if (!SetProperty(ref _current, value))
                 return;
 
-            // Only one row carries the playing highlight at a time.
             if (previous is not null)
                 previous.IsNowPlaying = false;
 
@@ -96,7 +89,6 @@ public sealed class AudioPlayerViewModel : ObservableObject
         }
     }
 
-    /// <summary>Pause bars while playing, play triangle while stopped.</summary>
     public string PlayGlyph => IsPlaying ? "\uE769" : "\uE768";
 
     private double _positionSeconds;
@@ -110,8 +102,6 @@ public sealed class AudioPlayerViewModel : ObservableObject
 
             OnPropertyChanged(nameof(PositionText));
 
-            // Only seek when the change came from the slider, never when it came
-            // from the ticker reporting where playback already is.
             if (!_updatingPosition && _player.NaturalDuration.HasTimeSpan)
                 _player.Position = TimeSpan.FromSeconds(value);
         }
@@ -146,7 +136,6 @@ public sealed class AudioPlayerViewModel : ObservableObject
 
     public bool CanGoPrevious => _index > 0;
 
-    /// <summary>Starts a queue built from the audio files in the current folder.</summary>
     public void Play(IReadOnlyList<FileSystemItem> folderItems, FileSystemItem start)
     {
         _queue = folderItems.Where(item => item.IsAudio).ToList();
@@ -154,7 +143,6 @@ public sealed class AudioPlayerViewModel : ObservableObject
 
         if (_index < 0)
         {
-            // The clicked file is not playable; nothing sensible to start from.
             if (!start.IsAudio)
                 return;
 
@@ -198,7 +186,6 @@ public sealed class AudioPlayerViewModel : ObservableObject
 
     public void Previous()
     {
-        // Match every other player: restart the track before stepping back.
         if (_positionSeconds > 3 || !CanGoPrevious)
         {
             _player.Position = TimeSpan.Zero;
@@ -239,8 +226,6 @@ public sealed class AudioPlayerViewModel : ObservableObject
         var track = _queue[_index];
         Current = track;
 
-        // Tags may not have been read yet if playback started before the row
-        // scrolled into view.
         MediaPropertyService.Request(track);
 
         try
@@ -269,7 +254,6 @@ public sealed class AudioPlayerViewModel : ObservableObject
 
     private void OnMediaFailed(object? sender, ExceptionEventArgs e)
     {
-        // No system codec for this format. Move on rather than sitting silent.
         if (CanGoNext)
             Next();
         else

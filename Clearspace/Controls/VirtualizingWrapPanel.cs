@@ -1,3 +1,5 @@
+// Clearspace | Virtualized wrapping layout for file tiles.
+
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
@@ -5,11 +7,6 @@ using System.Windows.Media;
 
 namespace Clearspace.Controls;
 
-/// <summary>
-/// A fixed-cell wrapping panel that realizes only the rows visible in the
-/// owning ScrollViewer.  WPF's stock WrapPanel realizes every item, which is
-/// particularly expensive for folders containing image tiles.
-/// </summary>
 public sealed class VirtualizingWrapPanel : VirtualizingPanel, IScrollInfo
 {
     public static readonly DependencyProperty ItemWidthProperty =
@@ -46,10 +43,6 @@ public sealed class VirtualizingWrapPanel : VirtualizingPanel, IScrollInfo
     protected override Size MeasureOverride(Size availableSize)
     {
         var owner = ItemsControl.GetItemsOwner(this);
-        // A ListView style change briefly detaches its old ItemsPresenter. WPF can
-        // still issue one final measure during that transition, but the detached
-        // panel no longer has an item-container generator. Treat that pass as empty
-        // instead of trying to realize containers through a null generator.
         if (owner is null || ItemContainerGenerator is null)
             return availableSize;
 
@@ -69,9 +62,6 @@ public sealed class VirtualizingWrapPanel : VirtualizingPanel, IScrollInfo
             return availableSize;
         }
 
-        // Keep one row above and below the viewport ready. This avoids visible
-        // creation while the user makes a small wheel movement without paying
-        // the cost of constructing the entire folder.
         var firstRow = Math.Max(0, (int)Math.Floor(VerticalOffset / cellHeight) - 1);
         var visibleRows = Math.Max(1, (int)Math.Ceiling(height / cellHeight) + 2);
         var firstIndex = Math.Min(itemCount - 1, firstRow * _columns);

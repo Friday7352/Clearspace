@@ -1,3 +1,5 @@
+// Clearspace | Folder icons and type badges.
+
 using System.Collections.Concurrent;
 using System.IO;
 using System.Windows;
@@ -6,11 +8,6 @@ using Clearspace.Models;
 
 namespace Clearspace.Services;
 
-/// <summary>
-/// Clearspace's scalable folder marks. Windows associates a number of locations
-/// with a semantic type (Pictures, Music, Videos, and so on); these retain one
-/// calm folder silhouette while adding a small, unmistakable vector mark.
-/// </summary>
 internal static class FolderIconService
 {
     private enum FolderKind
@@ -24,25 +21,11 @@ internal static class FolderIconService
         Videos
     }
 
-    /// <summary>Returns false for ordinary folders, which keep the normal Shell preview.</summary>
     internal static bool HasType(FileSystemItem item)
         => ResolveKind(item) != FolderKind.Generic;
 
-    /// <summary>
-    /// Badged folder images, keyed by the kind and the exact base image they were
-    /// composed from.
-    ///
-    /// The composition below is the same handful of geometries every time, and
-    /// every ordinary folder shares one cached Shell base image, so building a new
-    /// DrawingGroup per folder was pure waste - and it showed during a drive-wide
-    /// search, which asks for an icon for thousands of folders in a few seconds.
-    /// </summary>
     private static readonly ConcurrentDictionary<(FolderKind Kind, ImageSource Base), ImageSource> BadgeCache = new();
 
-    /// <summary>
-    /// Adds a compact type badge to a real Windows Shell folder image. The folder
-    /// itself remains the one Windows draws; only the semantic mark is Clearspace.
-    /// </summary>
     internal static ImageSource? AddTypeBadge(FileSystemItem item, ImageSource? baseIcon)
     {
         var kind = ResolveKind(item);
@@ -66,8 +49,6 @@ internal static class FolderIconService
             _ => (Color.FromRgb(100, 100, 100), Color.FromRgb(255, 255, 255))
         };
 
-        // A quiet shadow separates the badge from both light and dark Windows
-        // folder artwork without changing the folder's own silhouette.
         drawing.Children.Add(new GeometryDrawing(
             new SolidColorBrush(Color.FromArgb(95, 0, 0, 0)),
             null,
@@ -82,8 +63,6 @@ internal static class FolderIconService
         var image = new DrawingImage(drawing);
         image.Freeze();
 
-        // Bounded by kinds times the few base images in play (one shared list icon
-        // plus one per tile size), so this only grows if something unexpected does.
         if (BadgeCache.Count > 64)
             BadgeCache.Clear();
 
@@ -96,8 +75,6 @@ internal static class FolderIconService
         if (!item.IsStandardFolder)
             return FolderKind.Generic;
 
-        // An explicit folder type wins over its name or its location. That makes a
-        // custom project folder as legible as a Windows-known one.
         var saved = SettingsService.GetFolderViewProfile(item.FullPath);
         if (saved is not null && Enum.TryParse<DirectoryViewProfile>(saved, true, out var profile))
             return profile switch
@@ -118,10 +95,6 @@ internal static class FolderIconService
         if (SamePath(item.FullPath, KnownFolders.Music)) return FolderKind.Music;
         if (SamePath(item.FullPath, KnownFolders.Videos)) return FolderKind.Videos;
 
-        // Nothing explicit and not a known Windows location: Automatic falls back
-        // to guessing from the folder's own name, so a custom "Family Photos" or
-        // "Band Practice Recordings" folder still gets a badge without the user
-        // having to set its type by hand.
         return AutomaticFolderTypeDetector.DetectFromName(item.FullPath) switch
         {
             DirectoryViewProfile.Photos => FolderKind.Pictures,

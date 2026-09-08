@@ -1,6 +1,4 @@
-; Clearspace — Windows installer and updater
-; A stable AppId means every later ClearspaceSetup.exe updates this install
-; in place instead of creating a second copy.
+; Clearspace | Windows installer definition.
 
 #define AppName "Clearspace"
 #define AppPublisher "Clearspace"

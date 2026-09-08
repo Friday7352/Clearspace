@@ -1,18 +1,10 @@
+// Clearspace | Automatic folder-type detection.
+
 using System.IO;
 using Clearspace.Models;
 
 namespace Clearspace.Services;
 
-/// <summary>
-/// Guesses a semantic folder type from the folder's own name, for folders left on
-/// "Automatic" with no explicit type saved.
-///
-/// This is deliberately name-only. Sniffing contents (majority file extension,
-/// say) would mean walking a folder just to label it, which is exactly the kind
-/// of extra disk access the rest of Clearspace goes out of its way to avoid.
-/// A name check costs nothing and gets the common cases: "Vacation Photos",
-/// "Camera Roll", "My Music", "Screenshots".
-/// </summary>
 internal static class AutomaticFolderTypeDetector
 {
     private static readonly string[] PhotoKeywords =
@@ -29,10 +21,6 @@ internal static class AutomaticFolderTypeDetector
         "tunes"
     ];
 
-    /// <summary>
-    /// The folder type its name suggests, or null when nothing matches and the
-    /// folder should keep behaving as General.
-    /// </summary>
     public static DirectoryViewProfile? DetectFromName(string? path)
     {
         if (string.IsNullOrWhiteSpace(path))

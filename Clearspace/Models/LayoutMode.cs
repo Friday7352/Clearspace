@@ -1,20 +1,16 @@
+// Clearspace | Folder layout and view profiles.
+
 using System.IO;
 
 namespace Clearspace.Models;
 
 public enum LayoutMode
 {
-    /// <summary>Sortable columns. The default for ordinary folders.</summary>
     Details,
 
-    /// <summary>Thumbnail tiles. The default for folders that are mostly images.</summary>
     Grid
 }
 
-/// <summary>
-/// A saved semantic role for a directory. Unlike Details/Grid, this describes
-/// what the folder contains so Clearspace can choose a useful presentation.
-/// </summary>
 public enum DirectoryViewProfile
 {
     Automatic,
@@ -64,11 +60,6 @@ public static class MediaTypes
 
     public static bool IsVisual(string extension) => Image.Contains(extension) || Video.Contains(extension);
 
-    /// <summary>
-    /// Explorer calls this folder type discovery. A folder counts as visual when
-    /// most of its files are images or video, which is the case that actually
-    /// benefits from tiles.
-    /// </summary>
     public static bool LooksVisual(IReadOnlyList<FileSystemItem> items)
     {
         var files = 0;
@@ -85,7 +76,6 @@ public static class MediaTypes
                 visual++;
         }
 
-        // Needs a meaningful sample; three holiday photos in a code folder don't count.
         return files >= 4 && visual * 2 > files;
     }
 }

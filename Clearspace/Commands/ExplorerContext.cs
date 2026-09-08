@@ -1,18 +1,14 @@
+// Clearspace | State shared by command actions.
+
 using Clearspace.Models;
 using Clearspace.Services;
 
 namespace Clearspace.Commands;
 
-/// <summary>
-/// The shared state every action reads from. Actions never reach into the view model
-/// or the window directly; they go through this, which is what keeps them independent
-/// of how the list happens to be rendered.
-/// </summary>
 public sealed class ExplorerContext : ObservableObject
 {
     public required NavigationService Navigation { get; init; }
 
-    /// <summary>Native handle of the owning window, needed by shell dialogs.</summary>
     public IntPtr OwnerHandle { get; set; }
 
     private string _currentPath = string.Empty;
@@ -43,12 +39,10 @@ public sealed class ExplorerContext : ObservableObject
 
     public event EventHandler? SelectionChanged;
 
-    /// <summary>Raised by actions that changed the folder and need the list rebuilt.</summary>
     public event EventHandler? RefreshRequested;
 
     public void RequestRefresh() => RefreshRequested?.Invoke(this, EventArgs.Empty);
 
-    /// <summary>Set by the view; lets actions drive selection and inline rename.</summary>
     public Action<FileSystemItem?>? BeginRename { get; set; }
 
     public Action? SelectAll { get; set; }
@@ -59,7 +53,6 @@ public sealed class ExplorerContext : ObservableObject
 
     public Action? FocusAddressBar { get; set; }
 
-    /// <summary>Set by the view; switches between details and tiles.</summary>
     public Action? ToggleLayout { get; set; }
 
     public string[] SelectedPaths => SelectedItems.Select(item => item.FullPath).ToArray();

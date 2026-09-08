@@ -1,13 +1,11 @@
+// Clearspace | Base support for property-change notifications.
+
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 
 namespace Clearspace.Models;
 
-/// <summary>
-/// Minimal INotifyPropertyChanged base. Hand-rolled rather than pulled from a
-/// package so a cold start never waits on assembly loads it does not need.
-/// </summary>
 public abstract class ObservableObject : INotifyPropertyChanged
 {
     public event PropertyChangedEventHandler? PropertyChanged;

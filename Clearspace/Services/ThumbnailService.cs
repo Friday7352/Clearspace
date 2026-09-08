@@ -1,3 +1,5 @@
+// Clearspace | Thumbnail extraction and caching.
+
 using System.Collections.Concurrent;
 using System.IO;
 using System.Windows;
@@ -9,16 +11,6 @@ using Clearspace.Native;
 
 namespace Clearspace.Services;
 
-/// <summary>
-/// Produces real per-file thumbnails through IShellItemImageFactory, which is what
-/// gives photo previews, video frames, and document first pages.
-///
-/// Two constraints shape this design. Shell thumbnail handlers are third-party COM
-/// and expect an STA apartment, so requests run on one dedicated STA thread rather
-/// than the thread pool. And extraction is slow enough that it must never block
-/// navigation, so requests carry a generation number and stale ones are dropped
-/// the moment the user moves to another folder.
-/// </summary>
 public static class ThumbnailService
 {
     private sealed record ThumbnailRequest(FileSystemItem Item, int Size, int Generation, string CacheKey);
@@ -29,24 +21,12 @@ public static class ThumbnailService
         public required ImageSource Image { get; init; }
         public required long Bytes { get; init; }
 
-        /// <summary>
-        /// The item currently displaying this bitmap. Weak, so the cache never
-        /// keeps a listing alive on its own.
-        /// </summary>
         public required WeakReference<FileSystemItem> Owner { get; set; }
     }
 
-    // LIFO, deliberately. While scrolling, the requests worth serving are the
-    // newest ones - the tiles on screen right now. A queue serves the oldest
-    // first, which during a fast scroll through a large listing means decoding
-    // image after image for tiles that scrolled past seconds ago while the
-    // visible ones wait at the back. A stack reverses that, so the view fills in
-    // from where the user actually is.
+    // Use LIFO so tiles that just entered view are decoded first.
     private static readonly BlockingCollection<ThumbnailRequest> Queue = new(new ConcurrentStack<ThumbnailRequest>());
 
-    // Decoded thumbnails are large and long-lived, so this is a hard-bounded LRU
-    // rather than a plain dictionary. An unbounded cache here is the difference
-    // between a flat 200 MB and multi-gigabyte growth over a browsing session.
     private const long MaxCacheBytes = 192L * 1024 * 1024;
     private static readonly object CacheGate = new();
     private static readonly Dictionary<string, LinkedListNode<CacheEntry>> CacheIndex = new(StringComparer.OrdinalIgnoreCase);
@@ -56,7 +36,6 @@ public static class ThumbnailService
     private static readonly ConcurrentDictionary<string, ImageSource> ShellIconCache = new(StringComparer.OrdinalIgnoreCase);
     private static readonly ConcurrentDictionary<string, byte> Pending = new(StringComparer.OrdinalIgnoreCase);
 
-    /// <summary>Current thumbnail cache size in bytes. Useful when profiling.</summary>
     internal static long CacheBytes => Interlocked.Read(ref _cacheBytes);
 
     private static bool TryGetCached(string key, FileSystemItem item, out ImageSource image)
@@ -68,8 +47,6 @@ public static class ThumbnailService
                 CacheOrder.Remove(node);
                 CacheOrder.AddFirst(node);
 
-                // A refresh builds new item objects for the same paths, so the
-                // entry has to follow whichever one is on screen now.
                 node.Value.Owner = new WeakReference<FileSystemItem>(item);
 
                 image = node.Value.Image;
@@ -118,14 +95,6 @@ public static class ThumbnailService
         ReleaseEvicted(evicted);
     }
 
-    /// <summary>
-    /// Detaches evicted bitmaps from the items still holding them.
-    ///
-    /// Without this the cache bound is meaningless: the dictionary shrinks while
-    /// every item scrolled past keeps its own strong reference, so a folder of a
-    /// few thousand photos still pins gigabytes. Off-screen tiles simply re-decode
-    /// when scrolled back to, which is what a bounded viewer has to do.
-    /// </summary>
     private static void ReleaseEvicted(List<CacheEntry>? evicted)
     {
         if (evicted is null || evicted.Count == 0)
@@ -141,8 +110,6 @@ public static class ThumbnailService
             {
                 foreach (var entry in evicted)
                 {
-                    // Only clear it if the item is still showing this exact bitmap;
-                    // a newer thumbnail may have replaced it already.
                     if (entry.Owner.TryGetTarget(out var item) &&
                         ReferenceEquals(item.Thumbnail, entry.Image))
                         item.Thumbnail = null;
@@ -150,11 +117,9 @@ public static class ThumbnailService
             });
     }
 
-    /// <summary>Pixel cost of a decoded image. Everything here ends up as 32bpp.</summary>
     private static long EstimateBytes(ImageSource image) => image switch
     {
         BitmapSource bitmap => (long)bitmap.PixelWidth * bitmap.PixelHeight * 4,
-        // Vector placeholders are cheap and shared; treat them as negligible.
         _ => 4096
     };
 
@@ -162,17 +127,8 @@ public static class ThumbnailService
     private static Thread? _worker;
     private static readonly Lock StartLock = new();
 
-    /// <summary>Invalidates every queued request. Called when the folder changes.</summary>
     public static void CancelPending() => Interlocked.Increment(ref _generation);
 
-    /// <summary>
-    /// Forgets everything cached for one file, so the next request re-reads it from
-    /// disk. Called after an edit writes the file back.
-    ///
-    /// The cache key carries the file's modified time, and the caller normally holds
-    /// an item captured before the write, so its key no longer matches what a fresh
-    /// listing would produce. Matching on the path prefix clears both.
-    /// </summary>
     public static void Invalidate(string path)
     {
         var prefix = path + "|";
@@ -220,8 +176,6 @@ public static class ThumbnailService
             return;
         }
 
-        // Recycled WPF tile containers can ask for the same image repeatedly while
-        // scrolling. Keep exactly one decode in flight for each file and size.
         if (!Pending.TryAdd(key, 0))
             return;
 
@@ -243,7 +197,6 @@ public static class ThumbnailService
             {
                 IsBackground = true,
                 Name = "Clearspace thumbnails",
-                // Below normal so extraction never competes with the UI thread.
                 Priority = ThreadPriority.BelowNormal
             };
 
@@ -258,7 +211,6 @@ public static class ThumbnailService
         {
             try
             {
-                // The user has navigated since this was queued.
                 if (request.Generation != Volatile.Read(ref _generation))
                     continue;
 
@@ -291,15 +243,7 @@ public static class ThumbnailService
     {
         var path = item.FullPath;
 
-        // A dehydrated cloud file has no bytes on this machine. Decoding it, or
-        // asking a shell thumbnail provider for it, makes the sync engine download
-        // the whole file first — so scrolling one grid of an online-only Pictures
-        // folder would quietly pull gigabytes over the network and fill the disk
-        // the user was trying to keep free.
-        //
-        // SIIGBF_INCACHEONLY is the guard: it returns a preview if Windows already
-        // has one and fails rather than fetching. Anything else falls back to the
-        // type icon, which is what Explorer shows for these files too.
+        // Cached previews only; requesting a thumbnail may download the file.
         if (item.IsOnlineOnly && !item.IsFolder)
         {
             var cachedPreview = ExtractShellImage(
@@ -318,14 +262,8 @@ public static class ThumbnailService
                     : ScalableIconService.File(item.Extension));
         }
 
-        // Explorer's folder tiles are not just an enlarged 16px folder glyph: when
-        // useful content exists inside, they are a composed preview. Build the same
-        // kind of high-resolution preview ourselves so it is crisp at any tile size.
         if (item.IsFolder && !item.IsDriveRoot && Directory.Exists(path))
         {
-            // Preserve the real Windows folder artwork, then add a type badge.
-            // This is requested at the tile's source size, so neither the folder
-            // nor the mark becomes a stretched 16px list icon.
             if (FolderIconService.HasType(item))
             {
                 var shellFolder = GetShellIcon(item, size) ?? IconService.GetLargeIcon(item);
@@ -339,8 +277,6 @@ public static class ThumbnailService
                 return preview;
         }
 
-        // Image files do not need a shell extension at all. Decoding directly is
-        // faster and more dependable, and produces the actual pixels users expect.
         if (MediaTypes.IsImage(Path.GetExtension(path)))
         {
             try
@@ -348,15 +284,8 @@ public static class ThumbnailService
                 var image = new BitmapImage();
                 image.BeginInit();
                 image.UriSource = new Uri(path, UriKind.Absolute);
-                // Decode at the requested size, not double it. ThumbnailSize is
-                // already chosen to cover the largest tile zoom, so the old size * 2
-                // cost four times the pixels for no visible gain: a 1024px decode is
-                // about 3 MB of pixels per photo.
                 image.DecodePixelWidth = Math.Max(48, size);
                 image.CacheOption = BitmapCacheOption.OnLoad;
-                // IgnoreImageCache matters after an edit. WPF keeps a process-wide
-                // cache keyed on the URI, so without this a rotated file decodes
-                // back to the bitmap from before the rotation.
                 image.CreateOptions = BitmapCreateOptions.IgnoreColorProfile |
                                       BitmapCreateOptions.IgnoreImageCache;
                 image.EndInit();
@@ -365,12 +294,9 @@ public static class ThumbnailService
             }
             catch (Exception)
             {
-                // Corrupt or unsupported files fall back to the shell below.
             }
         }
 
-        // Do not accept the registered app icon as a "thumbnail" for videos.
-        // Decode an actual frame first so zooming has real image data to display.
         if (MediaTypes.IsVideo(Path.GetExtension(path)))
         {
             var videoFrame = VideoThumbnailService.Extract(path, size);
@@ -378,10 +304,6 @@ public static class ThumbnailService
                 return videoFrame;
         }
 
-        // Ask the same shell thumbnail providers that Explorer uses before ever
-        // considering an associated-file icon. This is what returns a video frame
-        // for .mp4/.mkv files and a real preview for formats with a registered
-        // handler, rather than scaling a 32px application icon into a large tile.
         if (!item.IsFolder)
         {
             var shellThumbnail = ExtractShellImage(
@@ -393,22 +315,15 @@ public static class ThumbnailService
                 return shellThumbnail;
         }
 
-        // This is Explorer's actual large-item path: ask the Shell item factory
-        // for an icon composed at the tile's requested size. Do this before the
-        // system image-list fallback, which may contain only a small bitmap.
         var shellIcon = GetShellIcon(item, size);
         if (shellIcon is not null)
             return shellIcon;
 
-        // Only use our vector card when Windows provides neither a thumbnail nor
-        // an exact-size Shell item image.
         if (!item.IsFolder)
             return MediaTypes.IsVideo(item.Extension)
                 ? ScalableIconService.Video
                 : ScalableIconService.File(item.Extension);
 
-        // Some formats genuinely have no preview provider. In that case use the
-        // shell's jumbo system image instead of the details-view (16/32px) icon.
         var largeIcon = IconService.GetLargeIcon(item);
         if (largeIcon is not null)
             return largeIcon;
@@ -418,9 +333,6 @@ public static class ThumbnailService
 
     private static ImageSource? GetShellIcon(FileSystemItem item, int size)
     {
-        // Association icons are identical for ordinary files with the same
-        // extension. Executables, shortcuts, folders and drives can have unique
-        // icons or overlays, so those remain keyed by path.
         var extension = item.Extension;
         var pathSpecific = item.IsFolder ||
                            extension.Equals(".exe", StringComparison.OrdinalIgnoreCase) ||
@@ -440,10 +352,6 @@ public static class ThumbnailService
 
         if (icon is not null)
         {
-            // Path-keyed entries (executables, shortcuts, folders) grow with every
-            // folder visited, unlike the extension-keyed ones which are naturally
-            // few. Drop the lot rather than let it climb without limit; rebuilding
-            // is a handful of cheap shell calls.
             if (ShellIconCache.Count > 2048)
                 ShellIconCache.Clear();
 
@@ -487,7 +395,6 @@ public static class ThumbnailService
         }
         catch (Exception)
         {
-            // A broken third-party thumbnail handler must not take the app down.
             return null;
         }
         finally
@@ -525,8 +432,6 @@ public static class ThumbnailService
             .Cast<BitmapSource>()
             .ToList();
 
-        // Keep a standard native folder for ordinary folders. A composed preview
-        // only makes sense when it has real content to show.
         if (previews.Count == 0)
             return null;
 
@@ -537,10 +442,6 @@ public static class ThumbnailService
         {
             var width = (double)pixels;
             var height = (double)pixels;
-            // Keep preview folders in the *same closed-folder silhouette* as every
-            // other folder. The earlier composition looked like an open tray,
-            // which made a content preview feel like a completely different icon.
-            // The preview now sits neatly inside the front face instead.
             var back = new StreamGeometry();
             using (var geometry = back.Open())
             {
@@ -564,8 +465,6 @@ public static class ThumbnailService
                 width * .045,
                 width * .045);
 
-            // The image area is deliberately inset, like Explorer's folder
-            // content previews, but it never changes the outer folder shape.
             var previewBounds = new Rect(width * .17, height * .44, width * .66, height * .22);
             drawing.DrawRoundedRectangle(
                 new SolidColorBrush(Color.FromRgb(68, 65, 58)),
@@ -586,8 +485,6 @@ public static class ThumbnailService
                 DrawCroppedImage(drawing, previews[1], new Rect(previewBounds.X + tileWidth + gap, previewBounds.Y, tileWidth, previewBounds.Height), width * .02);
             }
 
-            // A light glaze makes the preview feel embedded in the same smooth
-            // folder face, rather than appearing as an open-folder cavity.
             drawing.DrawRoundedRectangle(
                 new SolidColorBrush(Color.FromArgb(28, 255, 255, 255)),
                 new Pen(new SolidColorBrush(Color.FromArgb(76, 255, 255, 255)), Math.Max(1, width * .006)),
@@ -609,8 +506,6 @@ public static class ThumbnailService
             var image = new BitmapImage();
             image.BeginInit();
             image.UriSource = new Uri(path, UriKind.Absolute);
-            // Folder previews draw these at roughly a third of the tile, so a
-            // quarter-size decode is plenty and keeps three of them cheap.
             image.DecodePixelWidth = Math.Max(64, size / 3);
             image.CacheOption = BitmapCacheOption.OnLoad;
             image.CreateOptions = BitmapCreateOptions.IgnoreColorProfile |

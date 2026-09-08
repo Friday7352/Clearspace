@@ -1,3 +1,5 @@
+// Clearspace | File-system command actions.
+
 using System.Collections.Specialized;
 using System.Diagnostics;
 using System.IO;
@@ -22,7 +24,6 @@ public sealed class OpenItemAction(ExplorerContext context) : IAction
         {
             if (item.IsFolder)
             {
-                // Only the first folder wins; opening several at once needs tabs.
                 context.Navigation.Navigate(item.FullPath);
                 return Task.CompletedTask;
             }
@@ -37,7 +38,6 @@ public sealed class OpenItemAction(ExplorerContext context) : IAction
             }
             catch (Exception)
             {
-                // No association, or the user cancelled the Open With prompt.
             }
         }
 
@@ -179,7 +179,6 @@ public sealed class CopyPathAction(ExplorerContext context) : IAction
         }
         catch (Exception)
         {
-            // Another process is holding the clipboard open.
         }
 
         return Task.CompletedTask;
@@ -213,7 +212,6 @@ public sealed class NewFolderAction(ExplorerContext context) : IAction
         }
         catch (Exception)
         {
-            // Read-only location or insufficient rights.
         }
 
         return Task.CompletedTask;
@@ -240,10 +238,6 @@ public sealed class ShowPropertiesAction(ExplorerContext context) : IAction
     }
 }
 
-/// <summary>
-/// Clipboard interop for file lists. Explorer signals a cut by attaching a
-/// "Preferred DropEffect" stream alongside the file drop list.
-/// </summary>
 internal static class ClipboardHelper
 {
     private const string PreferredDropEffect = "Preferred DropEffect";
@@ -262,7 +256,6 @@ internal static class ClipboardHelper
             var data = new DataObject();
             data.SetFileDropList(files);
 
-            // 2 = DROPEFFECT_MOVE, 5 = DROPEFFECT_COPY
             var effect = new MemoryStream(BitConverter.GetBytes(cut ? 2 : 5));
             data.SetData(PreferredDropEffect, effect);
 
@@ -270,7 +263,6 @@ internal static class ClipboardHelper
         }
         catch (Exception)
         {
-            // Clipboard contention; the user can retry.
         }
     }
 

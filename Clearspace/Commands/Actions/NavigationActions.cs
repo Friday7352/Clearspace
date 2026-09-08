@@ -1,9 +1,10 @@
+// Clearspace | Navigation command actions.
+
 using System.IO;
 using System.Windows.Input;
 
 namespace Clearspace.Commands.Actions;
 
-/// <summary>Placeholder so command lookups never return null.</summary>
 public sealed class NoneAction : IAction
 {
     public CommandCode Code => CommandCode.None;
@@ -121,9 +122,6 @@ public sealed class OpenTerminalAction(ExplorerContext context) : IAction
         if (!Directory.Exists(folder))
             return Task.CompletedTask;
 
-        // Windows Terminal does not consistently honour WorkingDirectory when it
-        // is launched through the shell, so pass its explicit starting-directory
-        // switch as well. PowerShell remains a dependable fallback.
         try
         {
             System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
@@ -137,8 +135,6 @@ public sealed class OpenTerminalAction(ExplorerContext context) : IAction
         }
         catch (Exception)
         {
-            // Windows Terminal is optional. PowerShell's working directory is
-            // correctly inherited by its console window.
         }
 
         try
@@ -152,7 +148,6 @@ public sealed class OpenTerminalAction(ExplorerContext context) : IAction
         }
         catch (Exception)
         {
-            // No terminal is available on this machine.
         }
 
         return Task.CompletedTask;

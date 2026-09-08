@@ -1,16 +1,14 @@
+// Clearspace | Windows shell file operations.
+
 using System.Runtime.InteropServices;
 using Clearspace.Native;
 
 namespace Clearspace.Services;
 
-/// <summary>
-/// Routes destructive work through the shell so Clearspace inherits Explorer's
-/// progress dialog, conflict prompts, undo stack, and Recycle Bin semantics
-/// instead of reimplementing them badly.
-/// </summary>
+// CS499: File operations do not protect file contents, hide Windows error details, and lack automated tests.
 public static class FileOperationService
 {
-    /// <summary>Sends items to the Recycle Bin, or deletes permanently when asked.</summary>
+
     public static bool Delete(IReadOnlyList<string> paths, IntPtr owner, bool permanent = false)
     {
         if (paths.Count == 0)
@@ -31,7 +29,7 @@ public static class FileOperationService
 
     public static bool Rename(string path, string newFullPath, IntPtr owner)
         => Run(NativeMethods.FO_RENAME, [path], newFullPath, NativeMethods.FOF_ALLOWUNDO, owner);
-
+    // CS499: This boolean result hides the Windows error code.
     private static bool Run(uint operation, IReadOnlyList<string> from, string? to, ushort flags, IntPtr owner)
     {
         var op = new NativeMethods.SHFILEOPSTRUCT
@@ -49,18 +47,13 @@ public static class FileOperationService
         return result == 0 && !op.fAnyOperationsAborted;
     }
 
-    /// <summary>
-    /// SHFileOperation takes a list as one buffer of null-separated strings with an
-    /// extra trailing null. The LPWStr marshaller copies the managed string by length,
-    /// so embedded nulls survive the transition.
-    /// </summary>
+    // The shell API expects a null-separated list with one extra null at the end.
     private static string ToDoubleNullTerminated(IReadOnlyList<string> paths)
         => string.Join('\0', paths) + "\0\0";
 
-    /// <summary>Opens the shell's Properties dialog for a single item.</summary>
+
     public static bool ShowProperties(string path, IntPtr owner) => InvokeVerb("properties", path, owner);
 
-    /// <summary>Shows Windows' own "Open with" chooser.</summary>
     public static bool OpenWith(string path, IntPtr owner) => InvokeVerb("openas", path, owner);
 
     private static bool InvokeVerb(string verb, string path, IntPtr owner)
