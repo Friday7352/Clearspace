@@ -407,8 +407,13 @@ public sealed class PhotoViewerViewModel : ObservableObject
         if (Current is null)
             return;
 
-        if (!FileOperationService.Delete([Current.FullPath], OwnerHandle))
+        var result = FileOperationService.Delete([Current.FullPath], OwnerHandle);
+        if (!result.Succeeded)
+        {
+            Status = result.Message;
+            FileChanged?.Invoke(this, EventArgs.Empty);
             return;
+        }
 
         _photos.RemoveAt(_index);
         FileChanged?.Invoke(this, EventArgs.Empty);

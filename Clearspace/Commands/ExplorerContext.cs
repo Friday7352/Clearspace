@@ -11,6 +11,21 @@ public sealed class ExplorerContext : ObservableObject
 
     public IntPtr OwnerHandle { get; set; }
 
+    private FileOperationResult? _lastFileOperation;
+    public FileOperationResult? LastFileOperation
+    {
+        get => _lastFileOperation;
+        private set
+        {
+            if (SetProperty(ref _lastFileOperation, value))
+                OnPropertyChanged(nameof(HasFileOperationResult));
+        }
+    }
+
+    public bool HasFileOperationResult => LastFileOperation is not null;
+
+    public void ReportFileOperation(FileOperationResult result) => LastFileOperation = result;
+
     private string _currentPath = string.Empty;
     public string CurrentPath
     {

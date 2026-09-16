@@ -1,0 +1,1 @@
+Disposable Clearspace UI test: nested search result.

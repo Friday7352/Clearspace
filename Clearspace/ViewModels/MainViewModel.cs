@@ -12,27 +12,26 @@ using Clearspace.Services;
 
 namespace Clearspace.ViewModels;
 
-public sealed class MainViewModel : ObservableObject
+public sealed class MainViewModel : ObservableObject, IDisposable
 {
-    public const string MyPcPath = "clearspace://my-pc";
-    public const string NetworkPath = "clearspace://network";
-    public const string YourFilesPath = "clearspace://your-files";
-    public const string PinnedPath = "clearspace://pinned";
-    public const string CloudPath = "clearspace://cloud";
-    public const string CategoryPathPrefix = "clearspace://category/";
+    public const string MyPcPath = ExplorerLocations.MyPcPath;
+    public const string NetworkPath = ExplorerLocations.NetworkPath;
+    public const string YourFilesPath = ExplorerLocations.YourFilesPath;
+    public const string PinnedPath = ExplorerLocations.PinnedPath;
+    public const string CloudPath = ExplorerLocations.CloudPath;
+    public const string CategoryPathPrefix = ExplorerLocations.CategoryPathPrefix;
 
-    private CancellationTokenSource? _loadCancellation;
-    private List<SidebarEntry> _driveEntries = [];
-
-    private readonly DispatcherTimer _searchDebounce;
-    private CancellationTokenSource? _searchCancellation;
-    private IReadOnlyList<FileSystemItem> _localMatches = [];
-    private SearchQuery _pendingQuery = SearchQuery.Empty;
-
-    private const int MaxSearchResults = 10_000;
+    private readonly NavigationCoordinator _navigationLoads = new();
+    private readonly SearchCoordinator _search;
 
     public MainViewModel()
     {
+        _search = new SearchCoordinator(new SearchSources(), update =>
+        {
+            Items = update.Items;
+            IsSearchingTree = update.IsSearching;
+            if (update.Status is not null) StatusText = update.Status;
+        });
         Navigation = new NavigationService();
         Context = new ExplorerContext { Navigation = Navigation };
         Commands = new CommandManager(Context);
@@ -48,24 +47,11 @@ public sealed class MainViewModel : ObservableObject
             RefreshTagOptions();
         };
 
-        TagService.Changed += (_, _) => RefreshTagOptions();
+        TagService.Changed += OnTagsChanged;
 
         FileIndexService.Changed += OnFileIndexChanged;
-
-        Sidebar = new ObservableCollection<SidebarEntry>();
-        RebuildSidebar();
         LoadColumns();
         RefreshTagOptions();
-
-        _searchDebounce = new DispatcherTimer(DispatcherPriority.Background)
-        {
-            Interval = TimeSpan.FromMilliseconds(350)
-        };
-        _searchDebounce.Tick += (_, _) =>
-        {
-            _searchDebounce.Stop();
-            _ = RunTreeSearchAsync(_pendingQuery);
-        };
 
         SearchEverywhere = SettingsService.GetSearchEverywhere();
         UseWindowsIndex = SettingsService.GetUseWindowsIndex();
@@ -79,7 +65,8 @@ public sealed class MainViewModel : ObservableObject
 
     public CommandManager Commands { get; }
 
-    public ObservableCollection<SidebarEntry> Sidebar { get; }
+    public SidebarViewModel SidebarState { get; } = new();
+    public ObservableCollection<SidebarEntry> Sidebar => SidebarState.Sidebar;
 
     public AudioPlayerViewModel Player { get; } = new();
 
@@ -849,30 +836,9 @@ public sealed class MainViewModel : ObservableObject
 
         Navigation.Navigate(start);
 
-        _ = LoadDrivesAsync();
+        _ = SidebarState.LoadDrivesAsync();
 
         FileIndexService.Start();
-    }
-
-    private async Task LoadDrivesAsync()
-    {
-        List<SidebarEntry> drives;
-
-        try
-        {
-            drives = await Task.Run(() =>
-            {
-                _ = CloudStorageService.Roots;
-                return EnumerateDrives();
-            });
-        }
-        catch (Exception)
-        {
-            return;
-        }
-
-        _driveEntries = drives;
-        RebuildSidebar();
     }
 
     public Task RefreshAsync() => LoadAsync(CurrentPath, force: true);
@@ -933,111 +899,13 @@ public sealed class MainViewModel : ObservableObject
         ApplySearchFilter(updateStatus: false);
     }
 
-    private static void ApplyTags(IReadOnlyList<FileSystemItem> items)
-    {
-        for (var i = 0; i < items.Count; i++)
-            items[i].RefreshTags();
-    }
-
     private void ApplySearchFilter(bool updateStatus)
-    {
-        CancelTreeSearch();
-
-        var query = SearchQuery.Parse(SearchText);
-
-        if (query.IsEmpty)
-        {
-            _localMatches = [];
-            Items = _directoryItems;
-            return;
-        }
-
-        var seed = _directoryItems.Where(query.Matches).ToList();
-
-        if (SearchEverywhere && query.HasIndexFilter)
-        {
-            var known = new HashSet<string>(seed.Select(item => item.FullPath), StringComparer.OrdinalIgnoreCase);
-
-            foreach (var item in BuildIndexResults(query))
-            {
-                if (known.Add(item.FullPath))
-                    seed.Add(item);
-            }
-        }
-
-        _localMatches = seed;
-        Items = seed.ToArray();
-
-        if (updateStatus)
-            UpdateSearchStatus();
-
-        _pendingQuery = query;
-        _searchDebounce.Stop();
-
-        _searchDebounce.Interval = FileIndexService.IsLive
-            ? TimeSpan.FromMilliseconds(35)
-            : TimeSpan.FromMilliseconds(350);
-
-        _searchDebounce.Start();
-    }
-
-    private void FinishIndexResultsAsync(
-        IReadOnlyList<FileSystemItem> indexed,
-        List<FileSystemItem> found,
-        CancellationToken token)
-    {
-        _ = Task.Run(() =>
-        {
-            try
-            {
-                IconService.Populate(indexed);
-                IconService.PopulateTypeNames(indexed);
-
-                var missing = FileIndexService.PruneMissing(indexed);
-
-                if (missing.Count == 0 || token.IsCancellationRequested)
-                    return;
-
-                var dispatcher = Application.Current?.Dispatcher;
-
-                dispatcher?.BeginInvoke(DispatcherPriority.Background, () =>
-                {
-                    if (token.IsCancellationRequested)
-                        return;
-
-                    var gone = new HashSet<string>(
-                        missing.Select(item => item.FullPath),
-                        StringComparer.OrdinalIgnoreCase);
-
-                    found.RemoveAll(item => gone.Contains(item.FullPath));
-                    Items = found.ToArray();
-                });
-            }
-            catch (Exception)
-            {
-            }
-        });
-    }
+        => _ = _search.SearchAsync(new SearchRequest(SearchText, CurrentPath, SearchEverywhere,
+            ShowHiddenItems, UseWindowsIndex, SearchFileContents), _directoryItems, updateStatus);
 
     private void CancelTreeSearch()
     {
-        _searchDebounce.Stop();
-
-        var previous = _searchCancellation;
-        _searchCancellation = null;
-
-        if (previous is null)
-            return;
-
-        try
-        {
-            previous.Cancel();
-        }
-        catch (ObjectDisposedException)
-        {
-        }
-
-        previous.Dispose();
+        _search.Cancel();
         IsSearchingTree = false;
     }
 
@@ -1048,298 +916,10 @@ public sealed class MainViewModel : ObservableObject
         private set => SetProperty(ref _isSearchingTree, value);
     }
 
-    private IReadOnlyList<string> ResolveSearchRoots()
-    {
-        var roots = new List<string>();
-
-        if (!string.IsNullOrWhiteSpace(CurrentPath) && Directory.Exists(CurrentPath))
-            roots.Add(CurrentPath);
-
-        if (!SearchEverywhere)
-            return roots;
-
-        foreach (var drive in DriveInfo.GetDrives())
-        {
-            try
-            {
-                if (!drive.IsReady || drive.DriveType == DriveType.Network)
-                    continue;
-
-                var root = drive.RootDirectory.FullName;
-
-                if (!roots.Any(existing => existing.Equals(root, StringComparison.OrdinalIgnoreCase)))
-                    roots.Add(root);
-            }
-            catch (IOException) { }
-            catch (UnauthorizedAccessException) { }
-        }
-
-        return roots;
-    }
-
-    private sealed class InlineProgress<T>(Action<T> handler) : IProgress<T>
-    {
-        public void Report(T value) => handler(value);
-    }
-
-    private async Task RunTreeSearchAsync(SearchQuery query)
-    {
-        var roots = ResolveSearchRoots();
-
-        if (query.IsEmpty || roots.Count == 0)
-            return;
-
-        var cancellation = new CancellationTokenSource();
-        _searchCancellation = cancellation;
-        var token = cancellation.Token;
-
-        var showHidden = ShowHiddenItems;
-        var found = new List<FileSystemItem>(_localMatches);
-        var seen = new HashSet<string>(found.Select(item => item.FullPath), StringComparer.OrdinalIgnoreCase);
-        var timer = Stopwatch.StartNew();
-        var capped = false;
-        var pendingPublish = false;
-
-        var rankTerms = query.Terms;
-
-        long? shownMilliseconds = null;
-
-        var indexAnswersEverything = roots.Count > 0 && roots.All(FileIndexService.Covers);
-
-        IsSearchingTree = !indexAnswersEverything;
-
-        var publishTimer = new DispatcherTimer(DispatcherPriority.Background)
-        {
-            Interval = TimeSpan.FromMilliseconds(250)
-        };
-
-        void Publish(bool rank)
-        {
-            if (!pendingPublish || token.IsCancellationRequested)
-                return;
-
-            pendingPublish = false;
-
-            if (rank)
-                SearchRanker.Rank(found, rankTerms, CurrentPath);
-
-            Items = found.ToArray();
-            shownMilliseconds ??= timer.ElapsedMilliseconds;
-            StatusText = SearchEverywhere
-                ? $"Searching all drives… {found.Count:N0} found"
-                : $"Searching subfolders… {found.Count:N0} found";
-        }
-
-        publishTimer.Tick += (_, _) => Publish(rank: false);
-        publishTimer.Start();
-
-        var progress = new Progress<IReadOnlyList<FileSystemItem>>(batch =>
-        {
-            if (token.IsCancellationRequested)
-                return;
-
-            foreach (var item in batch)
-            {
-                if (!seen.Add(item.FullPath))
-                    continue;
-
-                item.RefreshTags();
-                found.Add(item);
-                pendingPublish = true;
-            }
-        });
-
-        var populatedProgress = new InlineProgress<IReadOnlyList<FileSystemItem>>(batch =>
-        {
-            IconService.Populate(batch);
-            IconService.PopulateTypeNames(batch);
-            ((IProgress<IReadOnlyList<FileSystemItem>>)progress).Report(batch);
-        });
-
-        try
-        {
-            var indexed = await Task.Run(
-                () => FileIndexService.Search(query, roots, showHidden, MaxSearchResults, token),
-                token);
-
-            if (indexed.Count > 0 && !token.IsCancellationRequested)
-            {
-                foreach (var item in indexed)
-                {
-                    if (!seen.Add(item.FullPath))
-                        continue;
-
-                    item.RefreshTags();
-                    found.Add(item);
-                }
-
-                SearchRanker.Rank(found, rankTerms, CurrentPath);
-                Items = found.ToArray();
-                pendingPublish = false;
-                shownMilliseconds ??= timer.ElapsedMilliseconds;
-
-                FinishIndexResultsAsync(indexed, found, token);
-            }
-        }
-        catch (OperationCanceledException)
-        {
-            publishTimer.Stop();
-            return;
-        }
-        catch (Exception)
-        {
-        }
-
-        var needsWindowsIndex = SearchFileContents || !indexAnswersEverything;
-
-        if (needsWindowsIndex && WindowsSearchService.IsAvailable)
-        {
-            try
-            {
-                var fromIndex = await Task.Run(() =>
-                {
-                    var hits = WindowsSearchService.Search(
-                        query, roots, MaxSearchResults, SearchFileContents, token);
-                    var materialised = new List<FileSystemItem>(hits.Count);
-
-                    foreach (var hit in hits)
-                    {
-                        token.ThrowIfCancellationRequested();
-
-                        var item = FileSystemItem.FromLocation(hit.Path);
-
-                        if (item is null)
-                            continue;
-
-                        if (!query.MatchesStructural(item))
-                            continue;
-
-                        materialised.Add(item);
-                    }
-
-                    IconService.Populate(materialised);
-                    IconService.PopulateTypeNames(materialised);
-                    return materialised;
-                }, token);
-
-                if (fromIndex.Count > 0)
-                    ((IProgress<IReadOnlyList<FileSystemItem>>)progress).Report(fromIndex);
-            }
-            catch (OperationCanceledException)
-            {
-                publishTimer.Stop();
-                return;
-            }
-            catch (Exception)
-            {
-            }
-        }
-
-        try
-        {
-            if (!indexAnswersEverything)
-            {
-                capped = await Task.Run(
-                    () => FileSearchService.Run(roots, showHidden, query.Matches, populatedProgress, MaxSearchResults, token),
-                    token);
-            }
-        }
-        catch (OperationCanceledException)
-        {
-            publishTimer.Stop();
-            return;
-        }
-        catch (Exception)
-        {
-        }
-        finally
-        {
-            if (ReferenceEquals(_searchCancellation, cancellation))
-            {
-                IsSearchingTree = false;
-                _searchCancellation = null;
-                cancellation.Dispose();
-            }
-        }
-
-        publishTimer.Stop();
-
-        if (token.IsCancellationRequested)
-            return;
-
-        var dispatcher = Application.Current?.Dispatcher;
-
-        if (dispatcher is not null)
-            await dispatcher.InvokeAsync(() => Publish(rank: true), DispatcherPriority.Background);
-        else
-            Publish(rank: true);
-
-        timer.Stop();
-
-        var scope = SearchEverywhere
-            ? "across all drives"
-            : "in this folder and subfolders";
-
-        var source = indexAnswersEverything ? "  ·  from index" : string.Empty;
-
-        var elapsed = indexAnswersEverything && shownMilliseconds.HasValue
-            ? shownMilliseconds.Value
-            : timer.ElapsedMilliseconds;
-
-        StatusText = found.Count switch
-        {
-            0 => $"No matches {scope}",
-            1 => $"1 match {scope}  ·  {elapsed} ms{source}",
-            _ => capped
-                ? $"First {found.Count:N0} matches {scope}  ·  narrow the search to see fewer"
-                : $"{found.Count:N0} matches {scope}  ·  {elapsed} ms{source}"
-        };
-    }
-
-    private static IReadOnlyList<FileSystemItem> BuildIndexResults(SearchQuery query)
-    {
-        var results = new List<FileSystemItem>();
-
-        foreach (var path in query.IndexCandidates())
-        {
-            var item = FileSystemItem.FromLocation(path);
-            if (item is null)
-                continue;
-
-            item.RefreshTags();
-
-            if (!query.Matches(item))
-                continue;
-
-            results.Add(item);
-        }
-
-        results.Sort(new ItemComparer(SortColumn.Name, descending: false));
-        IconService.Populate(results);
-        IconService.PopulateTypeNames(results);
-        ScalableIconService.PopulateGridPlaceholders(results);
-        return results;
-    }
-
     private void UpdateSearchStatus()
     {
-        if (!HasSearch)
-            return;
-
-        var query = SearchQuery.Parse(SearchText);
-        var scope = SearchEverywhere && query.HasIndexFilter
-            ? "here and everywhere tagged"
-            : "in this folder";
-        var description = query.Describe();
-
-        StatusText = Items.Count switch
-        {
-            0 => description.Length == 0
-                ? $"No matches {scope}"
-                : $"No matches {scope} for {description}",
-            1 => $"1 match {scope}",
-            _ => $"{Items.Count:N0} matches {scope}"
-        };
+        if (HasSearch)
+            StatusText = SearchCoordinator.DescribeLocal(SearchQuery.Parse(SearchText), SearchEverywhere, Items.Count);
     }
 
     private async Task LoadAsync(string path, bool force = false)
@@ -1355,24 +935,8 @@ public sealed class MainViewModel : ObservableObject
         var hasSnapshot = !force && FolderSnapshotCache.TryGet(path, out snapshot);
         long? readyMilliseconds = null;
 
-        // A new location replaces any pending load so stale results cannot reach the view.
-        var previous = _loadCancellation;
-        if (previous is not null)
-        {
-            try
-            {
-                previous.Cancel();
-            }
-            catch (ObjectDisposedException)
-            {
-            }
-
-            previous.Dispose();
-        }
-
-        var cancellation = new CancellationTokenSource();
-        _loadCancellation = cancellation;
-        var token = cancellation.Token;
+        using var load = _navigationLoads.BeginLoad();
+        var token = load.Token;
 
         ThumbnailService.CancelPending();
         MediaPropertyService.CancelPending();
@@ -1443,6 +1007,7 @@ public sealed class MainViewModel : ObservableObject
             IProgress<IReadOnlyList<FileSystemItem>> partialProgress = new Progress<IReadOnlyList<FileSystemItem>>(batch =>
             {
                 if (!showPartial ||
+                    !load.IsCurrent ||
                     token.IsCancellationRequested ||
                     !path.Equals(CurrentPath, StringComparison.OrdinalIgnoreCase))
                 {
@@ -1457,43 +1022,8 @@ public sealed class MainViewModel : ObservableObject
 
             });
 
-            var items = await Task.Run(() =>
-            {
-                var list = new List<FileSystemItem>();
-                var firstBatchWatch = Stopwatch.StartNew();
-                var firstBatchReported = false;
-
-                foreach (var item in DirectoryEnumerator.Enumerate(path, showHidden, token))
-                {
-                    list.Add(item);
-
-                    if (showPartial && !firstBatchReported &&
-                        (list.Count >= 256 || firstBatchWatch.ElapsedMilliseconds >= 25))
-                    {
-                        var firstBatch = list.ToList();
-                        firstBatch.Sort(new ItemComparer(column, descending));
-                        if (!gridFastPath)
-                        {
-                            IconService.Populate(firstBatch);
-                            IconService.PopulateTypeNames(firstBatch);
-                        }
-                        ScalableIconService.PopulateGridPlaceholders(firstBatch);
-                        ApplyTags(firstBatch);
-                        partialProgress.Report(firstBatch);
-                        firstBatchReported = true;
-                    }
-                }
-
-                list.Sort(new ItemComparer(column, descending));
-                if (!gridFastPath)
-                {
-                    IconService.Populate(list);
-                    IconService.PopulateTypeNames(list);
-                }
-                ScalableIconService.PopulateGridPlaceholders(list);
-                ApplyTags(list);
-                return list;
-            }, token);
+            var items = await _navigationLoads.LoadDirectoryAsync(load, path,
+                new FolderLoadOptions(showHidden, column, descending, gridFastPath, showPartial), partialProgress);
 
             if (token.IsCancellationRequested)
                 return;
@@ -1505,14 +1035,7 @@ public sealed class MainViewModel : ObservableObject
 
             Layout = ResolveLayout(path, items);
 
-            var folders = items.Count(item => item.IsFolder);
-            var files = items.Count - folders;
-
-            StatusText = items.Count switch
-            {
-                0 => "This folder is empty",
-                _ => $"{folders:N0} folders, {files:N0} files"
-            };
+            StatusText = SearchCoordinator.DescribeBrowsing(path, items);
 
             UpdateSearchStatus();
 
@@ -1525,6 +1048,7 @@ public sealed class MainViewModel : ObservableObject
         }
         catch (UnauthorizedAccessException)
         {
+            if (!load.IsCurrent) return;
             SetDirectoryItems([]);
             AccessDeniedPath = path;
 
@@ -1534,17 +1058,19 @@ public sealed class MainViewModel : ObservableObject
         }
         catch (DirectoryNotFoundException)
         {
+            if (!load.IsCurrent) return;
             SetDirectoryItems([]);
             StatusText = "That folder no longer exists";
         }
         catch (IOException exception)
         {
+            if (!load.IsCurrent) return;
             SetDirectoryItems([]);
             StatusText = exception.Message;
         }
         finally
         {
-            if (ReferenceEquals(_loadCancellation, cancellation))
+            if (load.IsCurrent)
             {
                 IsLoading = false;
                 Commands.RefreshState();
@@ -1555,7 +1081,7 @@ public sealed class MainViewModel : ObservableObject
     private async Task LoadVirtualDrivesAsync(string path, Stopwatch stopwatch, CancellationToken token)
     {
         var networkOnly = path.Equals(NetworkPath, StringComparison.OrdinalIgnoreCase);
-        var drives = await Task.Run(() => EnumerateDriveItems(networkOnly), token);
+        var drives = await Task.Run(() => LocationCatalog.EnumerateDriveItems(networkOnly), token);
 
         if (token.IsCancellationRequested)
             return;
@@ -1570,9 +1096,7 @@ public sealed class MainViewModel : ObservableObject
         var total = drives.Sum(drive => drive.DriveTotalSpace);
         var available = drives.Sum(drive => drive.DriveAvailableSpace);
 
-        StatusText = networkOnly
-            ? drives.Count == 0 ? "No mapped network locations" : $"{drives.Count:N0} network location{(drives.Count == 1 ? string.Empty : "s")}" 
-            : $"{drives.Count:N0} drive{(drives.Count == 1 ? string.Empty : "s")}";
+        StatusText = SearchCoordinator.DescribeBrowsing(networkOnly ? NetworkPath : MyPcPath, drives);
         UpdateSearchStatus();
         SetHubInfo(
             networkOnly ? "Network" : "This PC",
@@ -1592,7 +1116,7 @@ public sealed class MainViewModel : ObservableObject
         var categoryId = path.StartsWith(CategoryPathPrefix, StringComparison.OrdinalIgnoreCase)
             ? path[CategoryPathPrefix.Length..]
             : null;
-        var items = await Task.Run(() => BuildHubItems(isPinnedHub, isCloudHub, categoryId), token);
+        var items = await Task.Run(() => LocationCatalog.BuildHubItems(isPinnedHub, isCloudHub, categoryId), token);
 
         if (token.IsCancellationRequested)
             return;
@@ -1603,9 +1127,7 @@ public sealed class MainViewModel : ObservableObject
         SetDirectoryItems(items);
         Layout = LayoutMode.Grid;
         stopwatch.Stop();
-        StatusText = items.Count == 0
-            ? isPinnedHub ? "No pinned directories yet" : "No locations available"
-            : $"{items.Count:N0} location{(items.Count == 1 ? string.Empty : "s")}";
+        StatusText = SearchCoordinator.DescribeBrowsing(path, items);
         UpdateSearchStatus();
 
         if (isCloudHub)
@@ -1740,358 +1262,30 @@ public sealed class MainViewModel : ObservableObject
     }
 
     private static IReadOnlyList<Breadcrumb> BuildBreadcrumbs(string path)
+        => NavigationBreadcrumbs.BuildBreadcrumbs(path, id => SettingsService.GetSidebarSections()
+            .FirstOrDefault(section => section.Id.Equals($"category:{id}", StringComparison.OrdinalIgnoreCase))?.Name);
+
+    public void Dispose()
     {
-        if (string.IsNullOrWhiteSpace(path))
-            return [];
-
-        if (path.Equals(MyPcPath, StringComparison.OrdinalIgnoreCase))
-            return [new Breadcrumb("This PC", MyPcPath)];
-
-        if (path.Equals(NetworkPath, StringComparison.OrdinalIgnoreCase))
-            return [new Breadcrumb("Network", NetworkPath)];
-
-        if (path.Equals(YourFilesPath, StringComparison.OrdinalIgnoreCase))
-            return [new Breadcrumb("Your files", YourFilesPath)];
-
-        if (path.Equals(PinnedPath, StringComparison.OrdinalIgnoreCase))
-            return [new Breadcrumb("Pinned directories", PinnedPath)];
-
-        if (path.Equals(CloudPath, StringComparison.OrdinalIgnoreCase))
-            return [new Breadcrumb("Cloud", CloudPath)];
-
-        if (path.StartsWith(CategoryPathPrefix, StringComparison.OrdinalIgnoreCase))
-        {
-            var categoryId = path[CategoryPathPrefix.Length..];
-            var name = SettingsService.GetSidebarSections()
-                .FirstOrDefault(section => section.Id.Equals($"category:{categoryId}", StringComparison.OrdinalIgnoreCase))?.Name ?? "Category";
-            return [new Breadcrumb(name, path)];
-        }
-
-        var crumbs = new List<Breadcrumb>();
-        var current = path;
-
-        while (!string.IsNullOrEmpty(current))
-        {
-            var name = Path.GetFileName(current);
-            if (string.IsNullOrEmpty(name))
-                name = current.TrimEnd('\\');
-
-            crumbs.Insert(0, new Breadcrumb(name, current));
-
-            var parent = Path.GetDirectoryName(current);
-            if (string.IsNullOrEmpty(parent) || parent == current)
-                break;
-
-            current = parent;
-        }
-
-        return crumbs;
+        _search.Dispose();
+        _navigationLoads.Dispose();
+        FileIndexService.Changed -= OnFileIndexChanged;
+        TagService.Changed -= OnTagsChanged;
     }
 
-    private static IEnumerable<SidebarEntry> BuildSidebarEntries(IEnumerable<SidebarEntry> drives)
-    {
-        foreach (var section in SettingsService.GetSidebarSections())
-        {
-            switch (section.Id)
-            {
-                case "files":
-                    yield return Section(section, YourFilesPath);
-                    if (!section.IsCollapsed)
-                        foreach (var location in BuildUserFileEntries()) yield return Child(location);
-                    break;
+    private void OnTagsChanged(object? sender, EventArgs e) => RefreshTagOptions();
 
-                case "favorites":
-                    yield return Section(section, PinnedPath, isFavorites: true);
-                    if (!section.IsCollapsed)
-                        foreach (var pin in SettingsService.GetPins(categoryId: null))
-                            yield return WithCloud(new SidebarEntry(pin.Value, pin.Key, IsPinned: true, IsChild: true));
-                    break;
-
-                case "this-pc":
-                    yield return Section(section, MyPcPath);
-                    if (!section.IsCollapsed)
-                        foreach (var drive in drives.Where(drive => !drive.IsNetworkDrive)) yield return Child(drive);
-                    break;
-
-                case "network":
-                    yield return Section(section, NetworkPath);
-                    if (!section.IsCollapsed)
-                        foreach (var drive in drives.Where(drive => drive.IsNetworkDrive)) yield return Child(drive);
-                    break;
-
-                case "cloud":
-                    if (CloudStorageService.Roots.Count == 0)
-                        break;
-
-                    yield return Section(section, CloudPath);
-                    if (!section.IsCollapsed)
-                        foreach (var root in BuildCloudEntries()) yield return Child(root);
-                    break;
-
-                case var _ when section.IsCategory:
-                    var categoryId = section.Id["category:".Length..];
-                    yield return Section(section, CategoryPathPrefix + categoryId, isCategory: true, categoryId: categoryId);
-                    if (!section.IsCollapsed)
-                        foreach (var pin in SettingsService.GetPins(categoryId))
-                            yield return WithCloud(new SidebarEntry(pin.Value, pin.Key, IsPinned: true, CategoryId: categoryId, IsChild: true));
-                    break;
-            }
-        }
-    }
-
-    private static SidebarEntry Section(SidebarSectionInfo section, string path, bool isFavorites = false, bool isCategory = false, string? categoryId = null)
-        => new(section.Name, path, IsHeader: true, IsPinnedRoot: isFavorites, IsCategory: isCategory,
-            CategoryId: categoryId, IsCollapsed: section.IsCollapsed, IsSection: true, SectionId: section.Id);
-
-    private static SidebarEntry Child(SidebarEntry entry) => WithCloud(entry with { IsChild = true });
-
-    private static SidebarEntry WithCloud(SidebarEntry entry)
-        => entry.IsHeader || entry.CloudProvider is not null || !CloudStorageService.IsDiscovered
-            ? entry
-            : entry with { CloudProvider = CloudStorageService.RootFor(entry.Path)?.Name };
-
-    private static SidebarEntry Entry(string name, string defaultPath)
-    {
-        var path = SettingsService.GetSidebarOverride(name) ?? defaultPath;
-
-        return new SidebarEntry(
-            name,
-            path,
-            IsKnownFolder: true,
-            CloudProvider: CloudStorageService.IsDiscovered
-                ? CloudStorageService.RootFor(path)?.Name
-                : null);
-    }
-
-    public void SetSidebarLocation(string name, string path)
-    {
-        SettingsService.SetSidebarOverride(name, path);
-        RebuildSidebar();
-    }
-
-    public void ResetSidebarLocation(string name)
-    {
-        SettingsService.ClearSidebarOverride(name);
-        RebuildSidebar();
-    }
-
-    public void PinDirectory(string path)
-    {
-        if (string.IsNullOrWhiteSpace(path))
-            return;
-
-        var name = Path.GetFileName(path.TrimEnd('\\', '/'));
-        if (string.IsNullOrWhiteSpace(name))
-            name = path;
-
-        SettingsService.PinDirectory(path, name);
-        RebuildSidebar();
-    }
-
-    public void UnpinDirectory(string path)
-    {
-        SettingsService.UnpinDirectory(path);
-        RebuildSidebar();
-    }
-
-    public void CreatePinnedCategory(string name)
-    {
-        SettingsService.CreatePinnedCategory(name);
-        RebuildSidebar();
-    }
-
-    public void RenamePinnedCategory(string id, string name)
-    {
-        SettingsService.RenamePinnedCategory(id, name);
-        RebuildSidebar();
-    }
-
-    public void DeletePinnedCategory(string id)
-    {
-        SettingsService.DeletePinnedCategory(id);
-        RebuildSidebar();
-    }
-
-    public void TogglePinnedCategory(string id)
-    {
-        SettingsService.TogglePinnedCategory(id);
-        RebuildSidebar();
-    }
-
-    public void ToggleSidebarSection(string id)
-    {
-        SettingsService.ToggleSidebarSection(id);
-        RebuildSidebar();
-    }
-
-    public void RenameSidebarSection(string id, string name)
-    {
-        SettingsService.RenameSidebarSection(id, name);
-        RebuildSidebar();
-    }
-
-    public void MoveSidebarSection(string sourceId, string targetId, bool placeAfter)
-    {
-        SettingsService.MoveSidebarSection(sourceId, targetId, placeAfter);
-        RebuildSidebar();
-    }
-
-    public void MovePinnedDirectory(string path, string? categoryId, string? targetPath, bool placeAfter)
-    {
-        SettingsService.MovePinnedDirectory(path, categoryId, targetPath, placeAfter);
-        RebuildSidebar();
-    }
-
-    public void MovePinnedCategory(string sourceId, string beforeId)
-    {
-        SettingsService.MovePinnedCategory(sourceId, beforeId);
-        RebuildSidebar();
-    }
-
-    private void RebuildSidebar()
-    {
-        Sidebar.Clear();
-
-        foreach (var entry in BuildSidebarEntries(_driveEntries))
-            Sidebar.Add(entry);
-    }
-
-    private static List<SidebarEntry> EnumerateDrives()
-    {
-        var entries = new List<SidebarEntry>();
-
-        foreach (var drive in DriveInfo.GetDrives())
-        {
-            try
-            {
-                if (!drive.IsReady)
-                    continue;
-
-                var label = string.IsNullOrWhiteSpace(drive.VolumeLabel) ? "Local Disk" : drive.VolumeLabel;
-                entries.Add(new SidebarEntry(
-                    $"{label} ({drive.Name.TrimEnd('\\')})",
-                    drive.RootDirectory.FullName,
-                    IsNetworkDrive: drive.DriveType == DriveType.Network));
-            }
-            catch (IOException)
-            {
-            }
-            catch (UnauthorizedAccessException)
-            {
-            }
-        }
-
-        return entries;
-    }
-
-    private static List<FileSystemItem> EnumerateDriveItems(bool networkOnly)
-    {
-        var entries = new List<FileSystemItem>();
-
-        foreach (var drive in DriveInfo.GetDrives())
-        {
-            try
-            {
-                if (!drive.IsReady ||
-                    (networkOnly && drive.DriveType != DriveType.Network) ||
-                    (!networkOnly && drive.DriveType == DriveType.Network))
-                    continue;
-
-                entries.Add(FileSystemItem.FromDrive(drive));
-            }
-            catch (IOException) { }
-            catch (UnauthorizedAccessException) { }
-        }
-
-        return entries;
-    }
-
-    private static List<FileSystemItem> BuildHubItems(bool pinnedOnly, bool cloudOnly, string? categoryId)
-    {
-        IEnumerable<SidebarEntry> locations = categoryId is not null
-            ? SettingsService.GetPins(categoryId).Select(pin => new SidebarEntry(pin.Value, pin.Key, IsPinned: true, CategoryId: categoryId))
-            : cloudOnly
-            ? BuildCloudEntries()
-            : pinnedOnly
-            ? SettingsService.GetPinnedDirectories()
-                .OrderBy(pin => pin.Value, StringComparer.OrdinalIgnoreCase)
-                .Select(pin => new SidebarEntry(pin.Value, pin.Key, IsPinned: true))
-            : BuildUserFileEntries();
-
-        return locations
-            .Select(location => FileSystemItem.FromLocation(location.Path, location.Name))
-            .Where(item => item is not null)
-            .Cast<FileSystemItem>()
-            .ToList();
-    }
-
-    private static IEnumerable<SidebarEntry> BuildCloudEntries()
-        => CloudStorageService.Roots.Select(root => new SidebarEntry(root.Name, root.Path, IsKnownFolder: true));
-
-    private static IEnumerable<SidebarEntry> BuildUserFileEntries()
-    {
-        yield return Entry("Desktop", KnownFolders.Desktop);
-        yield return Entry("Documents", KnownFolders.Documents);
-        yield return Entry("Downloads", KnownFolders.Downloads);
-        yield return Entry("Pictures", KnownFolders.Pictures);
-        yield return Entry("Music", KnownFolders.Music);
-        yield return Entry("Videos", KnownFolders.Videos);
-    }
-}
-
-public sealed record Breadcrumb(string Name, string Path);
-
-public sealed class TagOption : ObservableObject
-{
-    private readonly Action<TagOption> _onToggled;
-    private bool _isApplied;
-
-    public TagOption(TagDefinition tag, bool isApplied, Action<TagOption> onToggled)
-    {
-        Tag = tag;
-        _isApplied = isApplied;
-        _onToggled = onToggled;
-    }
-
-    public TagDefinition Tag { get; }
-
-    public string Name => Tag.Name;
-
-    public bool IsApplied
-    {
-        get => _isApplied;
-        set
-        {
-            if (SetProperty(ref _isApplied, value))
-                _onToggled(this);
-        }
-    }
-}
-
-public sealed record SidebarEntry(
-    string Name,
-    string Path,
-    bool IsHeader = false,
-    bool IsPinned = false,
-    bool IsKnownFolder = false,
-    bool IsNetworkDrive = false,
-    bool IsPinnedRoot = false,
-    bool IsCategory = false,
-    string? CategoryId = null,
-    bool IsCollapsed = false,
-    bool IsSection = false,
-    string? SectionId = null,
-    bool IsChild = false,
-    string? CloudProvider = null)
-{
-    public string DisplayName => Name;
-    public string CollapseGlyph => IsCollapsed ? "\uE76C" : "\uE70D";
-    public bool HasHub => IsSection && !string.IsNullOrWhiteSpace(Path);
-    public bool IsNestedPin => IsPinned;
-
-    public bool IsCloudBacked => !string.IsNullOrWhiteSpace(CloudProvider);
-
-    public string CloudHint => IsCloudBacked
-        ? $"Backed up by {CloudProvider}"
-        : string.Empty;
+    public void SetSidebarLocation(string name, string path) => SidebarState.SetSidebarLocation(name, path);
+    public void ResetSidebarLocation(string name) => SidebarState.ResetSidebarLocation(name);
+    public void PinDirectory(string path) => SidebarState.PinDirectory(path);
+    public void UnpinDirectory(string path) => SidebarState.UnpinDirectory(path);
+    public void CreatePinnedCategory(string name) => SidebarState.CreatePinnedCategory(name);
+    public void RenamePinnedCategory(string id, string name) => SidebarState.RenamePinnedCategory(id, name);
+    public void DeletePinnedCategory(string id) => SidebarState.DeletePinnedCategory(id);
+    public void TogglePinnedCategory(string id) => SidebarState.TogglePinnedCategory(id);
+    public void ToggleSidebarSection(string id) => SidebarState.ToggleSidebarSection(id);
+    public void RenameSidebarSection(string id, string name) => SidebarState.RenameSidebarSection(id, name);
+    public void MoveSidebarSection(string sourceId, string targetId, bool placeAfter) => SidebarState.MoveSidebarSection(sourceId, targetId, placeAfter);
+    public void MovePinnedDirectory(string path, string? categoryId, string? targetPath, bool placeAfter) => SidebarState.MovePinnedDirectory(path, categoryId, targetPath, placeAfter);
+    public void MovePinnedCategory(string sourceId, string beforeId) => SidebarState.MovePinnedCategory(sourceId, beforeId);
 }

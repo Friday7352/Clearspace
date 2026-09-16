@@ -52,6 +52,7 @@ public partial class MainWindow : Window
         _viewModel.Context.BeginRename = BeginRename;
 
         Loaded += OnLoaded;
+        Closed += (_, _) => _viewModel.Dispose();
         PreviewKeyDown += OnPreviewKeyDown;
         PreviewMouseDown += OnWindowMouseDown;
         PreviewMouseMove += OnSidebarMouseMove;
@@ -659,14 +660,18 @@ public partial class MainWindow : Window
             var moveWithinSameDrive = sourcePaths.All(path =>
                 string.Equals(Path.GetPathRoot(path), Path.GetPathRoot(targetFolder), StringComparison.OrdinalIgnoreCase));
 
-            var succeeded = (e.KeyStates & DragDropKeyStates.ControlKey) != 0 || !moveWithinSameDrive
+            var copying = (e.KeyStates & DragDropKeyStates.ControlKey) != 0 || !moveWithinSameDrive;
+            var result = copying
                 ? FileOperationService.Copy(sourcePaths, targetFolder!, owner)
                 : FileOperationService.Move(sourcePaths, targetFolder!, owner);
 
-            if (succeeded && targetFolder!.Equals(_viewModel.CurrentPath, StringComparison.OrdinalIgnoreCase))
-                _ = _viewModel.RefreshAsync();
+            _viewModel.Context.ReportFileOperation(result);
+            // A canceled/failed batch may still have moved some source items.
+            _ = _viewModel.RefreshAsync();
 
-            e.Effects = DragDropEffects.Move;
+            e.Effects = result.Succeeded
+                ? (copying ? DragDropEffects.Copy : DragDropEffects.Move)
+                : DragDropEffects.None;
             e.Handled = true;
             return;
         }
@@ -842,17 +847,21 @@ public partial class MainWindow : Window
         e.Handled = true;
 
         if (effects == DragDropEffects.None || targetFolder is null)
+        {
+            e.Effects = DragDropEffects.None;
             return;
+        }
 
         var sourcePaths = (string[])e.Data.GetData(DataFormats.FileDrop)!;
         var owner = _viewModel.Context.OwnerHandle;
 
-        var succeeded = effects == DragDropEffects.Copy
+        var result = effects == DragDropEffects.Copy
             ? FileOperationService.Copy(sourcePaths, targetFolder, owner)
             : FileOperationService.Move(sourcePaths, targetFolder, owner);
 
-        if (succeeded)
-            _ = _viewModel.RefreshAsync();
+        _viewModel.Context.ReportFileOperation(result);
+        e.Effects = result.Succeeded ? effects : DragDropEffects.None;
+        _ = _viewModel.RefreshAsync();
     }
 
     private DragDropEffects ResolveFileDropEffects(DragEventArgs e, out string? targetFolder, out ListViewItem? targetRow)
@@ -1432,10 +1441,11 @@ public partial class MainWindow : Window
         }
 
         var destination = Path.Combine(directory, newName);
-        var succeeded = FileOperationService.Rename(item.FullPath, destination, _viewModel.Context.OwnerHandle);
+        var result = FileOperationService.Rename(item.FullPath, destination, _viewModel.Context.OwnerHandle);
         CancelRename();
+        _viewModel.Context.ReportFileOperation(result);
 
-        if (succeeded)
+        if (result.Succeeded)
             _viewModel.ApplyRename(item, destination);
         else
             _ = _viewModel.RefreshAsync();

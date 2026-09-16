@@ -35,6 +35,7 @@
 
   <ItemGroup>
     <Resource Include="Assets\Clearspace.ico" />
+    <InternalsVisibleTo Include="Clearspace.Tests" />
   </ItemGroup>
 
 </Project>

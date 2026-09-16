@@ -22,7 +22,9 @@ public sealed class SearchQuery
         IReadOnlyList<string> TagIds,
         IReadOnlyList<DirectoryViewProfile> Profiles);
 
-    private SearchQuery() { }
+    private readonly TagStore? _tagStore;
+    private TagStore Tags => _tagStore ?? TagService.Store;
+    private SearchQuery(TagStore? tagStore = null) => _tagStore = tagStore;
 
     public static SearchQuery Empty { get; } = new();
 
@@ -49,6 +51,9 @@ public sealed class SearchQuery
         TagIds.Count > 0 || Profiles.Count > 0 || Extensions.Count > 0 || Kind != SearchKind.Any;
 
     public static SearchQuery Parse(string? text)
+        => Parse(text, TagService.Store);
+
+    internal static SearchQuery Parse(string? text, TagStore tagStore)
     {
         if (string.IsNullOrWhiteSpace(text))
             return Empty;
@@ -65,7 +70,7 @@ public sealed class SearchQuery
 
             if (separator <= 0 || separator == token.Length - 1)
             {
-                terms.Add(BuildTerm(token));
+                terms.Add(BuildTerm(token, tagStore));
                 continue;
             }
 
@@ -75,14 +80,14 @@ public sealed class SearchQuery
             switch (prefix.ToLowerInvariant())
             {
                 case "tag" or "t":
-                    tags.Add(TagService.Resolve(value)?.Id ?? $"\u0000missing:{value}");
+                    tags.Add(tagStore.Resolve(value)?.Id ?? $"\u0000missing:{value}");
                     break;
 
                 case "type" or "kindof" or "folder":
-                    if (Enum.TryParse<DirectoryViewProfile>(value, ignoreCase: true, out var profile))
+                    if (Enum.TryParse<DirectoryViewProfile>(value, ignoreCase: true, out var profile) && Enum.IsDefined(profile))
                         profiles.Add(profile);
                     else
-                        terms.Add(BuildTerm(token));
+                        terms.Add(BuildTerm(token, tagStore));
                     break;
 
                 case "ext":
@@ -90,24 +95,28 @@ public sealed class SearchQuery
                     break;
 
                 case "is":
-                    kind = value.ToLowerInvariant() switch
+                    var parsedKind = value.ToLowerInvariant() switch
                     {
                         "folder" or "dir" or "directory" => SearchKind.Folder,
                         "file" => SearchKind.File,
                         "image" or "photo" or "picture" => SearchKind.Image,
                         "audio" or "music" or "song" => SearchKind.Audio,
                         "video" or "movie" => SearchKind.Video,
-                        _ => kind
+                        _ => SearchKind.Any
                     };
+                    if (parsedKind == SearchKind.Any)
+                        terms.Add(BuildTerm(token, tagStore));
+                    else
+                        kind = parsedKind;
                     break;
 
                 default:
-                    terms.Add(BuildTerm(token));
+                    terms.Add(BuildTerm(token, tagStore));
                     break;
             }
         }
 
-        return new SearchQuery
+        return new SearchQuery(tagStore)
         {
             TermFilters = terms,
             TagIds = tags,
@@ -117,11 +126,11 @@ public sealed class SearchQuery
         };
     }
 
-    private static TermFilter BuildTerm(string text)
+    private static TermFilter BuildTerm(string text, TagStore tagStore)
     {
         var tagIds = new List<string>();
 
-        foreach (var tag in TagService.All)
+        foreach (var tag in tagStore.All)
         {
             if (tag.Name.Contains(text, StringComparison.OrdinalIgnoreCase) ||
                 tag.Id.Contains(text, StringComparison.OrdinalIgnoreCase))
@@ -198,7 +207,7 @@ public sealed class SearchQuery
 
         for (var i = 0; i < TagIds.Count; i++)
         {
-            if (!TagService.HasTag(item.FullPath, TagIds[i]))
+            if (!Tags.HasTag(item.FullPath, TagIds[i]))
                 return false;
         }
 
@@ -208,14 +217,14 @@ public sealed class SearchQuery
         return true;
     }
 
-    private static bool MatchesTerm(FileSystemItem item, TermFilter term)
+    private bool MatchesTerm(FileSystemItem item, TermFilter term)
     {
         if (item.Name.Contains(term.Text, StringComparison.OrdinalIgnoreCase))
             return true;
 
         for (var i = 0; i < term.TagIds.Count; i++)
         {
-            if (TagService.HasTag(item.FullPath, term.TagIds[i]))
+            if (Tags.HasTag(item.FullPath, term.TagIds[i]))
                 return true;
         }
 
@@ -248,14 +257,14 @@ public sealed class SearchQuery
     {
         var candidates = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        foreach (var assignment in TagService.Assignments)
+        foreach (var assignment in Tags.Assignments)
             candidates.Add(assignment.Key);
 
         foreach (var typed in SettingsService.GetAllFolderViewProfiles())
             candidates.Add(typed.Key);
 
         foreach (var id in TagIds)
-            candidates.IntersectWith(TagService.PathsWithTag(id));
+            candidates.IntersectWith(Tags.PathsWithTag(id));
 
         return candidates;
     }
@@ -265,7 +274,7 @@ public sealed class SearchQuery
         var parts = new List<string>();
 
         if (TagIds.Count > 0)
-            parts.Add("tagged " + string.Join(" and ", TagIds.Select(id => TagService.Find(id)?.Name ?? "unknown tag")));
+            parts.Add("tagged " + string.Join(" and ", TagIds.Select(id => Tags.Find(id)?.Name ?? "unknown tag")));
 
         if (Profiles.Count > 0)
             parts.Add("typed " + string.Join(" or ", Profiles.Select(profile => profile.ToString().ToLowerInvariant())));
@@ -281,7 +290,7 @@ public sealed class SearchQuery
             var alternatives = new List<string> { $"named {term.Text}" };
 
             if (term.TagIds.Count > 0)
-                alternatives.Add("tagged " + string.Join(" or ", term.TagIds.Select(id => TagService.Find(id)?.Name ?? id)));
+                alternatives.Add("tagged " + string.Join(" or ", term.TagIds.Select(id => Tags.Find(id)?.Name ?? id)));
 
             if (term.Profiles.Count > 0)
                 alternatives.Add("typed " + string.Join(" or ", term.Profiles.Select(profile => profile.ToString().ToLowerInvariant())));

@@ -60,7 +60,7 @@ public sealed class DeleteAction(ExplorerContext context) : IAction
         if (paths.Length == 0)
             return Task.CompletedTask;
 
-        FileOperationService.Delete(paths, context.OwnerHandle);
+        context.ReportFileOperation(FileOperationService.Delete(paths, context.OwnerHandle));
         context.RequestRefresh();
         return Task.CompletedTask;
     }
@@ -81,7 +81,7 @@ public sealed class DeletePermanentlyAction(ExplorerContext context) : IAction
         if (paths.Length == 0)
             return Task.CompletedTask;
 
-        FileOperationService.Delete(paths, context.OwnerHandle, permanent: true);
+        context.ReportFileOperation(FileOperationService.Delete(paths, context.OwnerHandle, permanent: true));
         context.RequestRefresh();
         return Task.CompletedTask;
     }
@@ -150,10 +150,10 @@ public sealed class PasteItemAction(ExplorerContext context) : IAction
         if (paths.Length == 0 || !Directory.Exists(context.CurrentPath))
             return Task.CompletedTask;
 
-        if (cut)
-            FileOperationService.Move(paths, context.CurrentPath, context.OwnerHandle);
-        else
-            FileOperationService.Copy(paths, context.CurrentPath, context.OwnerHandle);
+        var result = cut
+            ? FileOperationService.Move(paths, context.CurrentPath, context.OwnerHandle)
+            : FileOperationService.Copy(paths, context.CurrentPath, context.OwnerHandle);
+        context.ReportFileOperation(result);
 
         context.RequestRefresh();
         return Task.CompletedTask;

@@ -7,11 +7,11 @@ namespace Clearspace.Services;
 
 
 [StructLayout(LayoutKind.Sequential)]
-// CS499: The index has no folder-size aggregation, memory budget, or automated tests.
+// CS499: Folder-size aggregation remains a planned algorithms enhancement.
 internal struct IndexEntry
 {
-        // CS499: Enhancement 2 can derive folder sizes from Size and ParentIndex.
-public long Size;
+    // CS499: Enhancement 2 can derive folder sizes from Size and ParentIndex.
+    public long Size;
     public long ModifiedTicks;
     public long CreatedTicks;
 
@@ -116,11 +116,11 @@ internal sealed class VolumeIndex
         FileAttributes attributes)
     {
         if (_count == _entries.Length)
-            Array.Resize(ref _entries, _entries.Length * 2);
+            Array.Resize(ref _entries, Math.Max(InitialEntries, _entries.Length * 2));
 
         while (_poolLength + name.Length > _names.Length)
         {
-            var grown = _names.Length * 2;
+            var grown = Math.Max(InitialPool, _names.Length * 2);
             Array.Resize(ref _names, grown);
             Array.Resize(ref _folded, grown);
         }

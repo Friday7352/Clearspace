@@ -1,0 +1,1 @@
+Disposable cancellation check: keep this destination content.
