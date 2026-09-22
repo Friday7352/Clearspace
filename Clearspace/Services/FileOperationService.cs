@@ -9,6 +9,11 @@ namespace Clearspace.Services;
 
 public static class FileOperationService
 {
+    // Only used after the disk usage window's explicit, default-No confirmation.
+    internal static FileOperationResult DeletePermanentlyConfirmed(IReadOnlyList<string> paths, IntPtr owner,
+        ShellOperation? invoke = null)
+        => Run(FileOperationKind.Delete, paths, null, NativeMethods.FOF_NOCONFIRMATION, owner, invoke);
+
     public static FileOperationResult Delete(IReadOnlyList<string> paths, IntPtr owner, bool permanent = false)
     {
         ushort flags = permanent

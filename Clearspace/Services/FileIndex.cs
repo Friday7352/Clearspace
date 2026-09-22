@@ -7,10 +7,9 @@ namespace Clearspace.Services;
 
 
 [StructLayout(LayoutKind.Sequential)]
-// CS499: Folder-size aggregation remains a planned algorithms enhancement.
+// DiskUsageSnapshot derives folder totals without changing persisted entries.
 internal struct IndexEntry
 {
-    // CS499: Enhancement 2 can derive folder sizes from Size and ParentIndex.
     public long Size;
     public long ModifiedTicks;
     public long CreatedTicks;

@@ -388,6 +388,7 @@
     </Window.Resources>
 
     <Grid>
+    <Grid x:Name="ExplorerShell">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
@@ -530,6 +531,10 @@
                         Margin="0,0,7,0"
                         Click="OnOpenIndexingOptions"
                         ToolTip="Open Windows indexing options" />
+                <Button Style="{StaticResource IconButton}"
+                        Content="&#xE9F9;" Margin="0,0,7,0"
+                        Click="OnDiskUsage" ToolTip="Disk usage · explore indexed file and folder sizes"
+                        AutomationProperties.Name="Disk usage" />
                 <Button x:Name="FolderProfileButton"
                         Click="OnFolderProfileButtonClick"
                         ToolTip="Choose a saved view for this folder"
@@ -939,6 +944,7 @@
                                 <MenuItem Header="Delete" Command="{Binding DeleteCommand}" InputGestureText="Del" />
                                 <Separator />
                                 <MenuItem Header="Pin to sidebar" Click="OnPinDirectory" />
+                                <MenuItem Header="Disk usage…" Click="OnDiskUsage" />
                                 <MenuItem Header="Always keep on this device"
                                           IsEnabled="{Binding HasCloudSelection}"
                                           Visibility="{Binding IsCloudFolder, Converter={StaticResource BoolToVisible}}"
@@ -1434,5 +1440,7 @@
                 </Grid>
             </Grid>
         </Border>
+    </Grid>
+        <ContentControl x:Name="DiskUsageHost" Visibility="Collapsed" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch"/>
     </Grid>
 </Window>

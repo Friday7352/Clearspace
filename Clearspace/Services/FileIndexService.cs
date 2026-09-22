@@ -78,6 +78,10 @@ public static class FileIndexService
 
     public static IReadOnlyList<string> SkippedRoots { get; private set; } = [];
 
+    // A shallow copy pins immutable, published volumes; the disk usage view does not
+    // mix newer overlay events into older parent/size data or change the search index.
+    internal static VolumeIndex[] CaptureVolumes() => [.. _volumes];
+
     public static bool Covers(string path)
     {
         if (string.IsNullOrWhiteSpace(path) || !IsLive)

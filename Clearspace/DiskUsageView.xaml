@@ -1,0 +1,211 @@
+<UserControl x:Class="Clearspace.DiskUsageView"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="clr-namespace:Clearspace.Controls"
+        Background="{StaticResource Base}" Foreground="{StaticResource Ink}"
+        FontFamily="{StaticResource UIFont}" FontSize="13" UseLayoutRounding="True">
+    <UserControl.Resources>
+        <Style x:Key="UsageRow" TargetType="ListViewItem">
+            <Setter Property="Foreground" Value="{StaticResource Ink}"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="Padding" Value="8,4"/>
+            <Setter Property="Height" Value="32"/>
+            <Setter Property="Margin" Value="0"/>
+            <Setter Property="Template">
+                <Setter.Value><ControlTemplate TargetType="ListViewItem">
+                    <Border x:Name="Row" CornerRadius="6" Background="Transparent" BorderBrush="Transparent" BorderThickness="1" Padding="{TemplateBinding Padding}">
+                        <ContentPresenter HorizontalAlignment="Stretch"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Row" Property="Background" Value="{StaticResource Hover}"/></Trigger>
+                        <Trigger Property="IsSelected" Value="True"><Setter TargetName="Row" Property="Background" Value="{StaticResource Selected}"/></Trigger>
+                        <Trigger Property="IsKeyboardFocusWithin" Value="True"><Setter TargetName="Row" Property="BorderBrush" Value="{StaticResource Accent}"/></Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate></Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="DrivePicker" TargetType="ComboBox">
+            <Setter Property="Foreground" Value="{StaticResource Ink}"/>
+            <Setter Property="Background" Value="{StaticResource Surface}"/>
+            <Setter Property="Height" Value="32"/>
+            <Setter Property="ItemContainerStyle">
+                <Setter.Value><Style TargetType="ComboBoxItem">
+                    <Setter Property="Foreground" Value="{StaticResource Ink}"/>
+                    <Setter Property="Background" Value="{StaticResource Surface}"/>
+                    <Setter Property="Padding" Value="8,5"/>
+                </Style></Setter.Value>
+            </Setter>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ComboBox">
+                        <Grid>
+                            <ToggleButton Focusable="False" Foreground="{StaticResource Ink}" IsChecked="{Binding IsDropDownOpen, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}">
+                                <ToggleButton.Template>
+                                    <ControlTemplate TargetType="ToggleButton">
+                                        <Border Background="{StaticResource Surface}" BorderBrush="{StaticResource Line}" BorderThickness="1" CornerRadius="8">
+                                            <DockPanel Margin="10,0">
+                                                <TextBlock DockPanel.Dock="Right" Text="⌄" Foreground="{StaticResource InkMuted}" VerticalAlignment="Center"/>
+                                                <ContentPresenter Content="{Binding SelectionBoxItem, RelativeSource={RelativeSource AncestorType=ComboBox}}"
+                                                                  VerticalAlignment="Center"/>
+                                            </DockPanel>
+                                        </Border>
+                                    </ControlTemplate>
+                                </ToggleButton.Template>
+                            </ToggleButton>
+                            <Popup x:Name="PART_Popup" Placement="Bottom" IsOpen="{TemplateBinding IsDropDownOpen}" AllowsTransparency="True" Focusable="False">
+                                <Border Background="{StaticResource Surface}" BorderBrush="{StaticResource Line}" BorderThickness="1"
+                                        MinWidth="{TemplateBinding ActualWidth}" Padding="4">
+                                    <ScrollViewer MaxHeight="240"><ItemsPresenter KeyboardNavigation.DirectionalNavigation="Contained"/></ScrollViewer>
+                                </Border>
+                            </Popup>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsKeyboardFocusWithin" Value="True"><Setter Property="Opacity" Value="0.8"/></Trigger>
+                            <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.5"/></Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </UserControl.Resources>
+    <Grid Margin="16" Background="{StaticResource Base}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+        <DockPanel Margin="0,0,0,8">
+            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                <TextBlock Text="Drive" VerticalAlignment="Center" Foreground="{StaticResource InkMuted}" Margin="0,0,10,0"/>
+                <ComboBox x:Name="Drives" Width="95" Margin="0,0,8,0" Style="{StaticResource DrivePicker}" ItemsSource="{Binding Roots}"
+                          SelectedItem="{Binding SelectedRoot, Mode=OneWay}" SelectionChanged="OnDriveChanged"
+                          IsEnabled="{Binding IsReady}" AutomationProperties.Name="Indexed drive"/>
+                <Button Content="Refresh" Style="{StaticResource ViewerTextButton}" Click="OnReload"
+                        IsEnabled="{Binding IsReady}" ToolTip="Read the latest available index snapshot. This does not rescan the drive."/>
+                <Button Content="Cancel" Style="{StaticResource ViewerTextButton}" Click="OnCancel"
+                        Visibility="{Binding CanCancel, Converter={StaticResource BoolToVisible}}"/>
+            </StackPanel>
+            <StackPanel Orientation="Horizontal">
+                <Button Content="Back to files" Click="OnClose" Style="{StaticResource ViewerTextButton}" IsEnabled="{Binding IsReady}" Margin="0,0,16,0"/>
+                <TextBlock Text="Disk usage" FontFamily="{StaticResource DisplayFont}" FontSize="24" VerticalAlignment="Center"/>
+            </StackPanel>
+        </DockPanel>
+        <Border Grid.Row="1" Background="{StaticResource Surface}" CornerRadius="8" Padding="4" Margin="0,0,0,12">
+            <DockPanel>
+                <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" Margin="0,0,12,0">
+                    <Button x:Name="BackButton" Content="&#xE72B;" Style="{StaticResource IconButton}" Click="OnBack"
+                            IsEnabled="{Binding CanGoBack}" ToolTip="Back · mouse back button · Alt+Left" AutomationProperties.Name="Back"/>
+                    <Button x:Name="ForwardButton" Content="&#xE72A;" Style="{StaticResource IconButton}" Click="OnForward"
+                            IsEnabled="{Binding CanGoForward}" ToolTip="Forward · mouse forward button · Alt+Right" AutomationProperties.Name="Forward"/>
+                    <Button Content="&#xE74A;" Style="{StaticResource IconButton}" Click="OnUp" IsEnabled="{Binding CanGoUp}"
+                            ToolTip="Parent folder · Alt+Up" AutomationProperties.Name="Parent folder"/>
+                </StackPanel>
+                <ScrollViewer HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Disabled" ToolTip="{Binding CurrentPath}">
+                    <ItemsControl ItemsSource="{Binding Breadcrumbs}" IsEnabled="{Binding IsReady}">
+                        <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate><DataTemplate>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="›" Foreground="{StaticResource InkFaint}" VerticalAlignment="Center" Margin="2,0"/>
+                                <Button Click="OnBreadcrumb" Style="{StaticResource CrumbButton}" ToolTip="{Binding Name}" MaxWidth="170">
+                                    <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis"/>
+                                </Button>
+                            </StackPanel>
+                        </DataTemplate></ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </DockPanel>
+        </Border>
+        <DockPanel Grid.Row="2" HorizontalAlignment="Center" LastChildFill="True" IsEnabled="{Binding IsReady}">
+            <Grid DockPanel.Dock="Right" Width="320" Margin="20,0,0,0">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                <StackPanel Margin="0,0,0,8">
+                    <TextBlock Text="{Binding FolderName}" FontSize="18" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" ToolTip="{Binding CurrentPath}"/>
+                    <DockPanel Margin="0,4,0,0">
+                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                            <TextBlock Text="{Binding Items.Count, StringFormat={}{0:N0} items}" FontSize="11" Foreground="{StaticResource InkMuted}" VerticalAlignment="Center"/>
+                            <Button Content="ⓘ" FontFamily="{StaticResource UIFont}" FontSize="14" Width="26" Height="26" Margin="4,0,0,0"
+                                    Style="{StaticResource IconButton}" AutomationProperties.Name="About these sizes">
+                                <Button.ToolTip>
+                                    <StackPanel MaxWidth="290">
+                                        <TextBlock Text="{Binding ItemCountLabel}" Margin="0,0,0,6"/>
+                                        <TextBlock Text="{Binding SnapshotLabel}" Margin="0,0,0,8"/>
+                                        <TextBlock Text="Sizes use saved file lengths. Hidden files are included; inaccessible folders, linked contents, and unindexed files may be missing. Refresh reads the latest saved index." TextWrapping="Wrap"/>
+                                    </StackPanel>
+                                </Button.ToolTip>
+                            </Button>
+                        </StackPanel>
+                        <TextBlock Text="{Binding TotalSize}" FontSize="23" Foreground="{StaticResource Accent}" VerticalAlignment="Center"/>
+                    </DockPanel>
+                </StackPanel>
+                <DockPanel Grid.Row="1" Height="30" Margin="8,0,22,2" ToolTip="Largest first · double-click a folder to open it">
+                    <TextBlock DockPanel.Dock="Right" Text="Size ↓" FontSize="11" Foreground="{StaticResource InkMuted}" VerticalAlignment="Center"/>
+                    <Button x:Name="ZoomOutButton" DockPanel.Dock="Right" Content="Zoom out" Click="OnBack" Visibility="Collapsed"
+                            Height="26" Margin="0,0,12,0" Style="{StaticResource ViewerTextButton}"/>
+                    <TextBlock Text="Name" FontSize="11" Foreground="{StaticResource InkMuted}" VerticalAlignment="Center"/>
+                </DockPanel>
+            <ListView x:Name="ItemList" Grid.Row="2" ItemsSource="{Binding Items}" Background="{StaticResource Base}"
+                      SelectionMode="Extended" PreviewMouseRightButtonDown="OnListRightClick"
+                      Foreground="{StaticResource Ink}" BorderThickness="0" Padding="0" ItemContainerStyle="{StaticResource UsageRow}"
+                      SelectionChanged="OnSelectionChanged" MouseDoubleClick="OnItemDoubleClick" KeyDown="OnListKeyDown"
+                      ScrollViewer.HorizontalScrollBarVisibility="Disabled" ScrollViewer.CanContentScroll="True"
+                      VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling"
+                      AutomationProperties.Name="Files and folders by size">
+                <ListView.Template>
+                    <ControlTemplate TargetType="ListView">
+                        <Border x:Name="ListSurface" Background="{TemplateBinding Background}" BorderThickness="0" SnapsToDevicePixels="True">
+                            <ScrollViewer x:Name="PART_ScrollViewer" Background="{TemplateBinding Background}" Focusable="False"
+                                          Padding="{TemplateBinding Padding}" CanContentScroll="True"
+                                          HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+                                <ItemsPresenter/>
+                            </ScrollViewer>
+                        </Border>
+                    </ControlTemplate>
+                </ListView.Template>
+                <ListView.ContextMenu>
+                    <ContextMenu DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}">
+                        <MenuItem Header="{Binding DeleteLabel}" IsEnabled="{Binding CanDelete}" Click="OnDeletePermanently" InputGestureText="Shift+Del"/>
+                    </ContextMenu>
+                </ListView.ContextMenu>
+                <ListView.ItemTemplate><DataTemplate>
+                    <Grid VerticalAlignment="Center">
+                        <Grid.ToolTip>
+                            <StackPanel MaxWidth="420">
+                                <TextBlock Text="{Binding Name}" TextWrapping="Wrap"/>
+                                <TextBlock Margin="0,4,0,0">
+                                    <Run Text="{Binding SizeText}"/><Run Text=" · "/><Run Text="{Binding ShareText}"/>
+                                </TextBlock>
+                            </StackPanel>
+                        </Grid.ToolTip>
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="22"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                        <TextBlock Text="{Binding Glyph}" Foreground="{Binding ColorHex}" FontFamily="{StaticResource IconFont}" FontSize="12" VerticalAlignment="Center"/>
+                        <TextBlock Grid.Column="1" Text="{Binding Name}" FontSize="12" TextTrimming="CharacterEllipsis" Margin="0,0,10,0" VerticalAlignment="Center"/>
+                        <TextBlock Grid.Column="2" Text="{Binding SizeText}" FontSize="12" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                    </Grid>
+                </DataTemplate></ListView.ItemTemplate>
+            </ListView>
+                <StackPanel Grid.Row="3">
+                    <StackPanel Margin="0,8,0,0" Visibility="{Binding CanDelete, Converter={StaticResource BoolToVisible}}">
+                        <TextBlock Text="{Binding Details}" FontSize="11" MaxHeight="16" TextTrimming="CharacterEllipsis"
+                                   Foreground="{StaticResource InkMuted}" ToolTip="{Binding Details}" Margin="0,0,0,6"/>
+                        <Button x:Name="DeleteButton" Content="{Binding DeleteLabel}" HorizontalAlignment="Stretch"
+                                IsEnabled="{Binding CanDelete}" Click="OnDeletePermanently" ToolTip="Permanently delete selected files and folders · Shift+Delete">
+                            <Button.Style><Style TargetType="Button" BasedOn="{StaticResource ViewerTextButton}">
+                                <Setter Property="Foreground" Value="#E2A3A3"/>
+                                <Style.Triggers><Trigger Property="IsEnabled" Value="False"><Setter Property="Foreground" Value="{StaticResource InkDisabled}"/></Trigger></Style.Triggers>
+                            </Style></Button.Style>
+                        </Button>
+                    </StackPanel>
+                    <TextBlock Text="{Binding Status}" FontSize="11" Foreground="{StaticResource InkMuted}" TextTrimming="CharacterEllipsis" ToolTip="{Binding Status}" Margin="0,8,0,0">
+                        <TextBlock.Style><Style TargetType="TextBlock">
+                            <Style.Triggers><DataTrigger Binding="{Binding Status}" Value=""><Setter Property="Visibility" Value="Collapsed"/></DataTrigger></Style.Triggers>
+                        </Style></TextBlock.Style>
+                    </TextBlock>
+                </StackPanel>
+            </Grid>
+            <controls:SquareViewport>
+                <controls:DiskUsageTreemap x:Name="Treemap"/>
+            </controls:SquareViewport>
+        </DockPanel>
+    </Grid>
+</UserControl>
+

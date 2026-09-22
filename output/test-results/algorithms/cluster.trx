@@ -1,0 +1,26 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TestRun id="bf93e5f5-4050-4a31-af6d-1448cc6ea759" name="Payton@PAYTONPC 2026-09-21 22:07:26" runUser="PaytonPC\Payton" xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010">
+  <Times creation="2026-09-21T22:07:26.4243006-05:00" queuing="2026-09-21T22:07:26.4243010-05:00" start="2026-09-21T22:07:23.6854536-05:00" finish="2026-09-21T22:07:26.4323229-05:00" />
+  <TestSettings name="default" id="2bf6aa26-b9f4-4e80-8606-9a1833401cd0">
+    <Deployment runDeploymentRoot="Payton_PAYTONPC_2026-09-21_22_07_26" />
+  </TestSettings>
+  <Results>
+    <UnitTestResult executionId="ee203512-be65-4f20-a9cf-f7797fba9835" testId="84d75ef5-46d5-8a64-546f-31747e227a56" testName="WindowRendersAndFolderTilesNavigateWithRealApplicationStyles" computerName="PAYTONPC" duration="00:00:02.0365004" startTime="2026-09-21T22:07:24.2093633-05:00" endTime="2026-09-21T22:07:26.2581106-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="ee203512-be65-4f20-a9cf-f7797fba9835" />
+  </Results>
+  <TestDefinitions>
+    <UnitTest name="WindowRendersAndFolderTilesNavigateWithRealApplicationStyles" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="84d75ef5-46d5-8a64-546f-31747e227a56">
+      <Execution id="ee203512-be65-4f20-a9cf-f7797fba9835" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.DiskUsageWindowTests" name="WindowRendersAndFolderTilesNavigateWithRealApplicationStyles" />
+    </UnitTest>
+  </TestDefinitions>
+  <TestEntries>
+    <TestEntry testId="84d75ef5-46d5-8a64-546f-31747e227a56" executionId="ee203512-be65-4f20-a9cf-f7797fba9835" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+  </TestEntries>
+  <TestLists>
+    <TestList name="Results Not in a List" id="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestList name="All Loaded Results" id="19431567-8539-422a-85d7-44ee4e166bda" />
+  </TestLists>
+  <ResultSummary outcome="Completed">
+    <Counters total="1" executed="1" passed="1" failed="0" error="0" timeout="0" aborted="0" inconclusive="0" passedButRunAborted="0" notRunnable="0" notExecuted="0" disconnected="0" warning="0" completed="0" inProgress="0" pending="0" />
+  </ResultSummary>
+</TestRun>

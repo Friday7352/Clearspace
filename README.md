@@ -54,7 +54,43 @@ is:folder          folders only
 is:image           image files only
 ```
 
-Clearspace uses the Windows-maintained index; it does not create a second private index of your files. Content results depend on Windows indexing the location and having an IFilter for that file type. If the service is off or a location is not indexed, Clearspace falls back gracefully to its background crawl.
+Clearspace maintains a compact filename index and also uses the Windows-maintained index for file contents. Content results depend on Windows indexing the location and having an IFilter for that file type. If a source is unavailable or lacks coverage, Clearspace can fall back to its background crawl.
+
+### Disk usage visualizer
+
+Use **Disk usage** in the toolbar or right-click menu to explore indexed file
+sizes. Folder tiles show their combined file sizes; click one to drill down,
+or compare sizes and matching colored icons in the compact list. Use
+your mouse's side buttons for Back/Forward through visited folders and drives.
+The view also includes breadcrumbs, Up, drive selection, and Refresh.
+It displays a snapshot of logical file lengths, so recent
+changes and folders excluded by the index scan may be missing. Refresh reads
+the latest available index rather than starting a new scan.
+
+The analyzer opens inside Clearspace; **Back to files** restores the browser.
+Its map stays square and shows one folder level at a time in a filled treemap.
+Click smaller blocks to magnify a square region of the existing map. Tile
+positions and colors stay fixed, and labels become readable as you get closer.
+Use **Zoom out**, Escape, or your mouse's back button to return. Tile areas
+remain proportional to file sizes; percentages always refer to the current
+folder. Scroll over the map to zoom smoothly at the pointer; getting closer
+enters the hovered folder, and scrolling back out returns to its parent.
+Folder contents fade into their tile as it expands. Dense folders use lightweight
+previews and reveal individual controls as you approach, keeping large collections usable.
+When one item dominates, smaller neighbors occupy a compact square corner
+instead of a long narrow strip; the dominant item's remaining colored area
+still represents its exact share.
+
+The sidebar uses single-line name/size rows. Hover for full names and percentages;
+the info button holds index details. Selection reveals the permanent-delete controls.
+
+To **delete permanently**, right-click a file/folder block or select items in
+the list and use the delete button or **Shift+Delete**. The confirmation lists
+the targets and explains that they will bypass the Recycle Bin. Afterward, the
+map and totals update for items confirmed removed, including partial deletions.
+
+See [algorithm implementation notes](docs/CS499-Algorithms-Disk-Usage.md) for
+design decisions, complexity, tests, and limitations.
 
 ## Familiar file-manager foundations
 

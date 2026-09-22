@@ -20,6 +20,28 @@ namespace Clearspace;
 public partial class MainWindow : Window
 {
     private readonly MainViewModel _viewModel = new();
+    private DiskUsageView? _diskUsageView;
+
+    private void OnDiskUsage(object sender, RoutedEventArgs e)
+    {
+        if (_diskUsageView is not null) return;
+        var selected = _viewModel.Context.SelectedItems;
+        var path = selected.Count == 1 && selected[0].IsFolder ? selected[0].FullPath : _viewModel.CurrentPath;
+        _diskUsageView = new DiskUsageView(path);
+        _diskUsageView.FileOperationCompleted += (_, _) => _ = _viewModel.RefreshAsync();
+        _diskUsageView.CloseRequested += (_, _) =>
+        {
+            _diskUsageView?.Dispose();
+            DiskUsageHost.Content = null;
+            DiskUsageHost.Visibility = Visibility.Collapsed;
+            ExplorerShell.Visibility = Visibility.Visible;
+            _diskUsageView = null;
+            FileList.Focus();
+        };
+        DiskUsageHost.Content = _diskUsageView;
+        ExplorerShell.Visibility = Visibility.Collapsed;
+        DiskUsageHost.Visibility = Visibility.Visible;
+    }
     private FileSystemItem? _renameTarget;
     private SidebarEntry? _sidebarDragEntry;
     private Button? _sidebarDragSource;
@@ -52,7 +74,7 @@ public partial class MainWindow : Window
         _viewModel.Context.BeginRename = BeginRename;
 
         Loaded += OnLoaded;
-        Closed += (_, _) => _viewModel.Dispose();
+        Closed += (_, _) => { _diskUsageView?.Dispose(); _viewModel.Dispose(); };
         PreviewKeyDown += OnPreviewKeyDown;
         PreviewMouseDown += OnWindowMouseDown;
         PreviewMouseMove += OnSidebarMouseMove;
@@ -313,6 +335,7 @@ public partial class MainWindow : Window
 
     private void OnPreviewKeyDown(object sender, KeyEventArgs e)
     {
+        if (_diskUsageView is not null) return;
         if (e.Key == Key.F && (Keyboard.Modifiers & ModifierKeys.Control) != 0)
         {
             SearchBox.Focus();
@@ -412,6 +435,7 @@ public partial class MainWindow : Window
 
     private void OnWindowMouseDown(object sender, MouseButtonEventArgs e)
     {
+        if (_diskUsageView is not null) return;
         if (e.ChangedButton is not (MouseButton.XButton1 or MouseButton.XButton2))
             return;
 
