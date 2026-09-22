@@ -10,7 +10,9 @@ internal static class FileIndexStore
 {
     private const int Magic = 0x58495343; // 'CSIX'
 
-    private const int FormatVersion = 1;
+    // CHANGED: 2 = cloud-sync (OneDrive) folders are now scanned. The layout is unchanged; the
+    // bump just discards indexes built without them so they are rebuilt on the next launch.
+    private const int FormatVersion = 2;
 
     private const int MaxEntries = 40_000_000;
     private const int MaxPool = 800_000_000;
@@ -21,7 +23,16 @@ internal static class FileIndexStore
 
     internal static string FilePath => Path.Combine(Directory_, "index.db");
 
+    // NEW: periodic background saves and the save on exit must not write the file at once.
+    private static readonly object SaveGate = new();
+
     public static void Save(IReadOnlyList<VolumeIndex> volumes)
+    {
+        lock (SaveGate)
+            SaveCore(volumes);
+    }
+
+    private static void SaveCore(IReadOnlyList<VolumeIndex> volumes)
     {
         try
         {
@@ -36,21 +47,28 @@ internal static class FileIndexStore
                 writer.Write(FormatVersion);
                 writer.Write(volumes.Count);
 
-                foreach (var volume in volumes)
+                foreach (var live in volumes)
                 {
-                    writer.Write(volume.Root);
-                    writer.Write(volume.SerialNumber);
-                    writer.Write(volume.BuiltUtc.Ticks);
-                    writer.Write(volume.Count);
-                    writer.Write(volume.PoolLength);
-                    writer.Flush();
+                    // CHANGED (live index): hold the volume's write lock so live updates can't
+                    // change it mid-write, and drop entries removed since the last full scan.
+                    lock (live.WriteGate)
+                    {
+                        var volume = live.RemovedCount > 0 ? live.CompactedCopyLocked() : live;
+                        writer.Write(volume.Root);
+                        writer.Write(volume.SerialNumber);
+                        writer.Write(volume.BuiltUtc.Ticks);
+                        writer.Write(volume.Count);
+                        writer.Write(volume.PoolLength);
+                        writer.Flush();
 
-                    stream.Write(MemoryMarshal.AsBytes(volume.Entries.AsSpan(0, volume.Count)));
-                    stream.Write(MemoryMarshal.AsBytes(volume.Names.AsSpan(0, volume.PoolLength)));
+                        stream.Write(MemoryMarshal.AsBytes(volume.Entries.AsSpan(0, volume.Count)));
+                        stream.Write(MemoryMarshal.AsBytes(volume.Names.AsSpan(0, volume.PoolLength)));
+                    }
                 }
             }
 
             File.Move(temporary, FilePath, overwrite: true);
+            foreach (var volume in volumes) volume.MarkSaved(); // NEW
         }
         catch (Exception exception)
         {

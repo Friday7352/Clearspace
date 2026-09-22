@@ -113,8 +113,10 @@
                 </ScrollViewer>
             </DockPanel>
         </Border>
-        <DockPanel Grid.Row="2" HorizontalAlignment="Center" LastChildFill="True" IsEnabled="{Binding IsReady}">
-            <Grid DockPanel.Dock="Right" Width="320" Margin="20,0,0,0">
+        <!-- CHANGED: the map fills the space beside the sidebar instead of a centered square,
+             and stays interactive while the list reloads (only the sidebar follows IsReady). -->
+        <DockPanel Grid.Row="2" LastChildFill="True">
+            <Grid DockPanel.Dock="Right" Width="320" Margin="20,0,0,0" IsEnabled="{Binding IsReady}">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
@@ -139,7 +141,8 @@
                 </StackPanel>
                 <DockPanel Grid.Row="1" Height="30" Margin="8,0,22,2" ToolTip="Largest first · double-click a folder to open it">
                     <TextBlock DockPanel.Dock="Right" Text="Size ↓" FontSize="11" Foreground="{StaticResource InkMuted}" VerticalAlignment="Center"/>
-                    <Button x:Name="ZoomOutButton" DockPanel.Dock="Right" Content="Zoom out" Click="OnBack" Visibility="Collapsed"
+                    <!-- CHANGED: returns to the whole current folder after zooming inside it -->
+                    <Button x:Name="ZoomOutButton" DockPanel.Dock="Right" Content="Whole folder" Click="OnBack" Visibility="Collapsed"
                             Height="26" Margin="0,0,12,0" Style="{StaticResource ViewerTextButton}"/>
                     <TextBlock Text="Name" FontSize="11" Foreground="{StaticResource InkMuted}" VerticalAlignment="Center"/>
                 </DockPanel>
@@ -202,9 +205,16 @@
                     </TextBlock>
                 </StackPanel>
             </Grid>
-            <controls:SquareViewport>
-                <controls:DiskUsageTreemap x:Name="Treemap"/>
-            </controls:SquareViewport>
+            <!-- CHANGED: SquareViewport removed; the map adapts to any aspect ratio. -->
+            <DockPanel>
+                <!-- CHANGED (round 2): legend removed; block colors now match the list rows instead
+                     of file types. Only the gesture hints remain. -->
+                <TextBlock DockPanel.Dock="Bottom" Margin="2,10,2,0" HorizontalAlignment="Right"
+                           Text="Scroll to zoom · drag to pan · click to open · hover for details · Esc for the whole folder"
+                           FontSize="11" Foreground="{StaticResource InkFaint}" TextTrimming="CharacterEllipsis"/>
+                <controls:DiskUsageTreemap x:Name="Treemap" AutomationProperties.Name="Disk usage map"
+                                           ToolTip="{x:Null}" MinWidth="200" MinHeight="200"/>
+            </DockPanel>
         </DockPanel>
     </Grid>
 </UserControl>

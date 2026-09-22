@@ -27,11 +27,15 @@ internal static class FileIndexBuilder
         uint serialNumber,
         long maxBytes,
         Action<int>? progress,
-        CancellationToken token)
+        CancellationToken token,
+        Action<VolumeIndex>? started = null)
     {
         var index = new VolumeIndex(root, serialNumber);
 
         var rootIndex = index.Add(-1, root.AsSpan(), 0, 0, 0, FileAttributes.Directory);
+        // NEW: expose the index while it fills, so the disk usage view can show it growing.
+        // Appends publish their count last, so a concurrent reader always sees whole entries.
+        started?.Invoke(index);
 
         var pending = new Stack<(string Path, int Parent, int Depth)>();
         pending.Push((root, rootIndex, 0));
@@ -60,6 +64,28 @@ internal static class FileIndexBuilder
         return index;
     }
 
+
+    // NEW (live index): add the contents of a folder that appeared after the last full scan
+    // (created, or renamed/moved into place). The folder's own entry must already exist.
+    // Each directory is enumerated under the index's WriteGate so readers see whole entries.
+    internal static void ScanSubtree(VolumeIndex index, string directory, int folderIndex, CancellationToken token)
+    {
+        var pending = new Stack<(string Path, int Parent, int Depth)>();
+        pending.Push((directory, folderIndex, 0));
+        while (pending.Count > 0)
+        {
+            token.ThrowIfCancellationRequested();
+            var (path, parent, depth) = pending.Pop();
+            lock (index.WriteGate)
+                Scan(index, path, parent, depth, pending, token);
+        }
+        index.MarkChanged();
+    }
+
+    // NEW: a folder the scanner may enter (plain folder, or a cloud-sync placeholder folder).
+    internal static bool CanDescend(FileAttributes attributes, uint reparseTag)
+        => (attributes & FileAttributes.Directory) != 0 &&
+           ((attributes & FileAttributes.ReparsePoint) == 0 || IsCloudFilesTag(reparseTag));
 
     private static void Scan(
         VolumeIndex index,
@@ -104,9 +130,13 @@ internal static class FileIndexBuilder
                 data.ftCreationTime.ToLong(),
                 attributes);
 
+            // CHANGED: OneDrive (and other cloud-sync providers) mark every synced folder as a
+            // reparse point with a "cloud files" tag. Skipping all reparse points hid Desktop,
+            // Documents, etc. whenever they were backed up to OneDrive. Cloud folders are now
+            // scanned; symbolic links, junctions and mount points are still skipped (loops).
             if ((attributes & FileAttributes.Directory) != 0 &&
                 depth < MaxDepth &&
-                (attributes & FileAttributes.ReparsePoint) == 0)
+                ((attributes & FileAttributes.ReparsePoint) == 0 || IsCloudFilesTag(data.dwReserved0)))
             {
                 pending.Push((Join(directory, name), child, depth + 1));
             }
@@ -114,6 +144,10 @@ internal static class FileIndexBuilder
         while (NativeMethods.FindNextFileW(handle, out data));
     }
 
+
+    // NEW: IO_REPARSE_TAG_CLOUD and its variants IO_REPARSE_TAG_CLOUD_1..F (0x9000x01A).
+    // For a reparse point, FindFirstFileEx reports the tag in dwReserved0.
+    private static bool IsCloudFilesTag(uint tag) => (tag & 0xFFFF0FFF) == 0x9000001A;
 
     private static string Join(string directory, string name)
         => directory.EndsWith(Path.DirectorySeparatorChar)

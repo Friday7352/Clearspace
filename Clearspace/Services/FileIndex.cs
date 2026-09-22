@@ -28,10 +28,25 @@ internal struct IndexEntry
 }
 
 
+// CHANGED (live index): the index is now patched in place from file-system events instead of
+// being rebuilt. Mutations are serialized by WriteGate; readers stay lock-free:
+//   * appends write the entry, then publish the new count (readers never see a partial entry);
+//   * deletions set RemovedFlag on the entry and its subtree (a single aligned write each);
+//   * size updates overwrite one long.
+// Child links (first child / next sibling) are built on the first live change so a path can be
+// resolved without scanning the whole volume. Removed entries are dropped when the index is saved.
 internal sealed class VolumeIndex
 {
     private const int InitialEntries = 4096;
     private const int InitialPool = 65536;
+
+    // NEW: marks an entry deleted since the last full scan. No real file attribute uses this bit.
+    internal const FileAttributes RemovedFlag = unchecked((FileAttributes)0x80000000);
+
+    private int[]? _firstChild;
+    private int[]? _nextSibling;
+    private int _removedCount;
+    private long _version;
 
     private IndexEntry[] _entries;
     private char[] _names;
@@ -92,9 +107,19 @@ internal sealed class VolumeIndex
 
     public uint SerialNumber { get; }
 
-    public DateTime BuiltUtc { get; }
+    // When the last full scan of this volume finished. Live changes don't move it.
+    public DateTime BuiltUtc { get; private set; }
 
-    public int Count => _count;
+    public int Count => Volatile.Read(ref _count);
+
+    // NEW: live-update bookkeeping.
+    internal object WriteGate { get; } = new();
+    public long Version => Interlocked.Read(ref _version);
+    public int RemovedCount => Volatile.Read(ref _removedCount);
+    public bool IsDirty { get; private set; }
+    internal void MarkSaved() => IsDirty = false;
+    internal void MarkChanged() { Interlocked.Increment(ref _version); IsDirty = true; }
+    public bool IsRemoved(int index) => (_entries[index].Attributes & RemovedFlag) != 0;
 
     internal IndexEntry[] Entries => _entries;
 
@@ -129,7 +154,8 @@ internal sealed class VolumeIndex
         for (var i = 0; i < name.Length; i++)
             _folded[_poolLength + i] = char.ToLowerInvariant(name[i]);
 
-        _entries[_count] = new IndexEntry
+        var index = _count;
+        _entries[index] = new IndexEntry
         {
             Size = size,
             ModifiedTicks = modifiedTicks,
@@ -141,7 +167,137 @@ internal sealed class VolumeIndex
         };
 
         _poolLength += name.Length;
-        return _count++;
+        if (_firstChild is not null) Link(index, parentIndex); // NEW
+        Volatile.Write(ref _count, index + 1);                 // CHANGED: publish after the entry is complete
+        return index;
+    }
+
+    // ---------------------------------------------------------------- NEW: live updates
+
+    private void Link(int index, int parent)
+    {
+        if (_firstChild!.Length <= index)
+        {
+            var size = Math.Max(index + 1, _entries.Length);
+            Array.Resize(ref _firstChild, size);
+            Array.Resize(ref _nextSibling, size);
+        }
+        _firstChild[index] = -1;
+        _nextSibling![index] = parent >= 0 ? _firstChild[parent] : -1;
+        if (parent >= 0) _firstChild[parent] = index;
+    }
+
+    // Caller holds WriteGate.
+    private void EnsureLinks()
+    {
+        if (_firstChild is not null) return;
+        var size = Math.Max(_count, _entries.Length);
+        var first = new int[size];
+        var next = new int[size];
+        Array.Fill(first, -1);
+        Array.Fill(next, -1);
+        for (var i = 1; i < _count; i++)
+        {
+            var parent = _entries[i].ParentIndex;
+            if (parent < 0 || parent >= i) continue;
+            next[i] = first[parent];
+            first[parent] = i;
+        }
+        _firstChild = first;
+        _nextSibling = next;
+    }
+
+    // Resolves a full path to a live (not removed) entry, or -1. Caller holds WriteGate.
+    internal int FindLocked(string path)
+    {
+        EnsureLinks();
+        var root = Root.TrimEnd('\\', '/');
+        var target = path.TrimEnd('\\', '/');
+        if (target.Equals(root, StringComparison.OrdinalIgnoreCase)) return _count > 0 ? 0 : -1;
+        if (!target.StartsWith(root + "\\", StringComparison.OrdinalIgnoreCase)) return -1;
+        var current = 0;
+        foreach (var part in target[(root.Length + 1)..].Split('\\'))
+        {
+            var match = -1;
+            for (var child = _firstChild![current]; child >= 0; child = _nextSibling![child])
+            {
+                if (!IsRemoved(child) && NameSpan(child).Equals(part, StringComparison.OrdinalIgnoreCase))
+                {
+                    match = child;
+                    break;
+                }
+            }
+            if (match < 0) return -1;
+            current = match;
+        }
+        return current;
+    }
+
+    // Adds (or refreshes) one entry at `path`. Returns its index, or -1 if its folder isn't indexed.
+    internal int Upsert(string path, long size, long modifiedTicks, long createdTicks, FileAttributes attributes)
+    {
+        lock (WriteGate)
+        {
+            var existing = FindLocked(path);
+            if (existing >= 0)
+            {
+                ref var entry = ref _entries[existing];
+                if (entry.Size != size || entry.ModifiedTicks != modifiedTicks)
+                {
+                    entry.Size = size;
+                    entry.ModifiedTicks = modifiedTicks;
+                    MarkChanged();
+                }
+                return existing;
+            }
+            var parent = FindLocked(Path.GetDirectoryName(path) ?? string.Empty);
+            if (parent < 0 || !_entries[parent].IsFolder) return -1;
+            var name = Path.GetFileName(path.TrimEnd('\\', '/'));
+            if (name.Length == 0 || name.Length > ushort.MaxValue) return -1;
+            var index = Add(parent, name, size, modifiedTicks, createdTicks, attributes & ~RemovedFlag);
+            MarkChanged();
+            return index;
+        }
+    }
+
+    // Marks the entry at `path` and everything under it as removed.
+    internal bool Remove(string path)
+    {
+        lock (WriteGate)
+        {
+            var index = FindLocked(path);
+            if (index <= 0) return false;
+            var pending = new Stack<int>();
+            pending.Push(index);
+            while (pending.TryPop(out var current))
+            {
+                if (IsRemoved(current)) continue;
+                _entries[current].Attributes |= RemovedFlag;
+                _removedCount++;
+                for (var child = _firstChild![current]; child >= 0; child = _nextSibling![child])
+                    pending.Push(child);
+            }
+            MarkChanged();
+            return true;
+        }
+    }
+
+    // Copy without removed entries (parents keep preceding children). Caller holds WriteGate.
+    internal VolumeIndex CompactedCopyLocked()
+    {
+        var copy = new VolumeIndex(Root, SerialNumber) { BuiltUtc = BuiltUtc };
+        var remap = new int[_count];
+        for (var i = 0; i < _count; i++)
+        {
+            remap[i] = -1;
+            ref readonly var entry = ref _entries[i];
+            if ((entry.Attributes & RemovedFlag) != 0) continue;
+            var parent = entry.ParentIndex < 0 ? -1 : remap[entry.ParentIndex];
+            if (entry.ParentIndex >= 0 && parent < 0) continue;
+            remap[i] = copy.Add(parent, NameSpan(i), entry.Size, entry.ModifiedTicks, entry.CreatedTicks, entry.Attributes);
+        }
+        copy.Compact();
+        return copy;
     }
 
     public void Compact()
@@ -229,7 +385,8 @@ internal sealed class VolumeIndex
             return results;
 
         const int ChunkSize = 4096;
-        var chunks = (_count + ChunkSize - 1) / ChunkSize;
+        var count = Count; // CHANGED: one consistent count while live appends continue
+        var chunks = (count + ChunkSize - 1) / ChunkSize;
         var gate = new object();
         var total = 0;
 
@@ -241,11 +398,14 @@ internal sealed class VolumeIndex
                     return;
 
                 var start = chunk * ChunkSize;
-                var end = Math.Min(_count, start + ChunkSize);
+                var end = Math.Min(count, start + ChunkSize);
                 List<int>? local = null;
 
                 for (var i = start; i < end; i++)
                 {
+                    if ((_entries[i].Attributes & RemovedFlag) != 0) // NEW: deleted since the last scan
+                        continue;
+
                     if (!showHidden && _entries[i].IsHiddenOrSystem)
                         continue;
 

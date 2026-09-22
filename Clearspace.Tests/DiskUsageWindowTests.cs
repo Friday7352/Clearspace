@@ -13,13 +13,15 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace Clearspace.Tests;
 
+// REWRITTEN for the continuous map: one fixed world layout and one camera.
+// Animations are driven with DiskUsageTreemap.AdvanceTime so results don't depend on frame timing.
 [TestClass]
 public sealed class DiskUsageWindowTests
 {
     public TestContext TestContext { get; set; } = null!;
 
     [TestMethod]
-    public void WindowRendersAndFolderTilesNavigateWithRealApplicationStyles()
+    public void MapZoomsContinuouslyBetweenFoldersWithRealApplicationStyles()
     {
         Exception? failure = null;
         var thread = new Thread(() =>
@@ -46,24 +48,22 @@ public sealed class DiskUsageWindowTests
                         return FileOperationResult.FromShellResult(FileOperationKind.Delete, 0, false);
                     }, path => removedPaths.Contains(path) ? DiskUsagePathState.Missing : DiskUsagePathState.Exists);
                     var allowDelete = false;
-                    string? confirmation = null;
                     using var vm = new DiskUsageViewModel(() => [index, second], deletion);
                     var windowCount = app.Windows.Count;
-                    window = new DiskUsageView(vm, confirmDelete: request => { confirmation = request.ConfirmationMessage; return allowDelete; });
+                    window = new DiskUsageView(vm, confirmDelete: _ => allowDelete);
                     var host = new ContentControl { Content = window };
                     Assert.AreSame(window, host.Content);
                     Assert.AreEqual(windowCount, app.Windows.Count, "Analyzer must be embedded without creating a window.");
                     host.Content = null;
                     await vm.LoadAsync();
                     var map = (DiskUsageTreemap)window.FindName("Treemap");
-                    var folderTransitionStarted = false;
-                    vm.PropertyChanged += (_, args) =>
-                    {
-                        if (args.PropertyName == nameof(DiskUsageViewModel.MapItems)) folderTransitionStarted = map.IsAnimating;
-                    };
+
                     Render(window, "disk-usage-large.png", 1900, 1000);
-                    Assert.IsTrue(map.ActualHeight >= 850, "On a large screen the square should occupy most of the available height.");
+                    Assert.IsTrue(map.ActualWidth > map.ActualHeight, "The map should fill the space beside the sidebar, not a centered square.");
                     Render(window, "disk-usage-wide.png", 1072, 900);
+                    await Task.Delay(320); // the map re-lays out once after a large aspect change
+                    await Settle(window, map, "disk-usage-wide.png");
+
                     var darkList = (ListView)window.FindName("ItemList");
                     darkList.IsEnabled = false;
                     var disabledPreview = Render(window, "disk-usage-loading.png", 1072, 900);
@@ -73,101 +73,105 @@ public sealed class DiskUsageWindowTests
                     Assert.IsTrue(pixel[0] < 70 && pixel[1] < 70 && pixel[2] < 70,
                         "The list's disabled/loading background must stay dark instead of flashing the system light color.");
                     darkList.ClearValue(UIElement.IsEnabledProperty);
-                    Assert.IsTrue(map.Children.Count > 0);
-                    // The filled map retains byte ratios without blank packing regions.
-                    var occupiedArea = map.TileButtons.Sum(tile => tile.Clip?.GetArea() ?? tile.ActualWidth * tile.ActualHeight);
-                    Assert.AreEqual(map.ActualWidth, map.ActualHeight, 1e-8);
-                    foreach (var tile in map.TileButtons)
-                    {
-                        var item = (DiskUsageItem)tile.Tag;
-                        Assert.AreEqual(item.Share / 100, (tile.Clip?.GetArea() ?? tile.ActualWidth * tile.ActualHeight) / occupiedArea, 1e-8,
-                            $"Rendered area differs from bytes for {item.Name}.");
-                    }
-                    var parentMap = map.CurrentMap;
-                    var parentBounds = map.TileButtons.ToDictionary(button => ((DiskUsageItem)button.Tag).Id,
-                        button => new Rect(Canvas.GetLeft(button) / map.ActualWidth, Canvas.GetTop(button) / map.ActualHeight,
-                            button.Width / map.ActualWidth, button.Height / map.ActualHeight));
-                    var region = map.ClusterBounds;
-                    Assert.IsFalse(region.IsEmpty);
-                    Assert.AreEqual(region.Width, region.Height, 1e-8);
-                    var tiny = map.TileButtons.First(button => button.Content is null &&
-                        region.Contains(new Point(Canvas.GetLeft(button) + button.Width / 2, Canvas.GetTop(button) + button.Height / 2)));
-                    Assert.IsTrue(map.TryZoomCluster(new Point(Canvas.GetLeft(tiny) + tiny.Width / 2, Canvas.GetTop(tiny) + tiny.Height / 2)));
-                    Assert.AreSame(parentMap, map.CurrentMap, "Zoom must retain the exact geometry and colors without rebuilding it.");
-                    Assert.IsTrue(map.IsZoomed);
-                    Assert.IsTrue(map.VisibleItems.Count > 1, "Zoom must show the surrounding cluster, not a single-file panel.");
-                    await Task.Delay(360);
-                    Render(window, "disk-usage-zoom-transition.png", 1072, 900);
-                    await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
-                    Assert.IsFalse(map.IsAnimating, "Cluster zoom should finish before accepting file actions.");
-                    Render(window, "disk-usage-zoom.png", 1072, 900);
-                    Assert.IsTrue(map.TileButtons.Count(button => button.Content is not null) >= 2);
-                    foreach (var tile in map.TileButtons)
-                    {
-                        var original = parentBounds[((DiskUsageItem)tile.Tag).Id];
-                        var magnified = new Rect((original.X - map.Camera.X) / map.Camera.Width,
-                            (original.Y - map.Camera.Y) / map.Camera.Height, original.Width / map.Camera.Width, original.Height / map.Camera.Height);
-                        var clipped = Rect.Intersect(magnified, new Rect(0, 0, 1, 1));
-                        Assert.AreEqual(clipped.X, Canvas.GetLeft(tile) / map.ActualWidth, 1e-8);
-                        Assert.AreEqual(clipped.Y, Canvas.GetTop(tile) / map.ActualHeight, 1e-8);
-                        Assert.AreEqual(clipped.Width, tile.Width / map.ActualWidth, 1e-8);
-                        Assert.AreEqual(clipped.Height, tile.Height / map.ActualHeight, 1e-8);
-                        if (tile.Content is Grid label)
-                        {
-                            var caption = ((StackPanel)label.Children[1]).Children.OfType<TextBlock>().Last();
-                            var bottom = caption.TransformToAncestor(tile).Transform(new Point(0, caption.ActualHeight)).Y;
-                            Assert.IsTrue(bottom <= tile.ActualHeight, $"Size label for {((DiskUsageItem)tile.Tag).Name} should fit inside its tile: {bottom} > {tile.ActualHeight}.");
-                        }
-                    }
-                    Assert.IsFalse(((Button)window.FindName("DeleteButton")).IsEnabled, "Zooming a group must not select it for deletion.");
-                    var zoomFile = map.TileButtons.Single(button => ((DiskUsageItem)button.Tag).Name == "Cache.db");
-                    ((MenuItem)zoomFile.ContextMenu.Items[0]).RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
-                    while (vm.IsBusy) await Task.Delay(5);
-                    Assert.AreEqual(0, deletionCalls);
-                    StringAssert.Contains(confirmation!, @"C:\Cache.db");
-                    Assert.IsTrue(vm.Items.Any(item => item.Name == "Notes.txt"));
-                    ((Button)window.FindName("BackButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
-                    await Task.Delay(360);
-                    Assert.IsFalse(map.IsZoomed);
-                    Assert.AreSame(parentMap, map.CurrentMap, "Zooming out must restore the original map without repacking.");
-                    Assert.AreEqual(@"C:\", vm.CurrentPath);
-                    Render(window, "disk-usage-restored.png", 1072, 900);
-                    await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
-                    Assert.AreEqual(map.ActualWidth, map.ActualHeight, 1e-8);
-                    var videos = map.TileButtons.Single(button => button.ToolTip.ToString()!.StartsWith("Videos\n"));
-                    videos.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
-                    while (vm.IsBusy) await Task.Delay(5);
-                    Assert.AreEqual(@"C:\Videos", vm.CurrentPath);
-                    Assert.IsTrue(vm.CanGoUp);
-                    Assert.IsTrue(folderTransitionStarted, "Opening a folder should zoom from its box into its contents.");
-                    await Task.Delay(120);
+
+                    // Areas are exact byte ratios and the whole drive fills the view.
+                    var rootItems = vm.Items.Where(item => item.Bytes > 0).ToArray();
+                    var areas = rootItems.ToDictionary(item => item.Id, item => Area(map.ScreenBoundsOf(item.Id)!.Value));
+                    var totalArea = areas.Values.Sum();
+                    Assert.AreEqual(map.ActualWidth * map.ActualHeight, totalArea, totalArea * 1e-6);
+                    foreach (var item in rootItems)
+                        Assert.AreEqual(item.Share / 100, areas[item.Id] / totalArea, 1e-8, $"Rendered area differs from bytes for {item.Name}.");
+
+                    // Clicking a folder flies into the very rectangle that was on screen.
+                    var videos = vm.Items.Single(item => item.Name == "Videos");
+                    var photos = vm.Items.Single(item => item.Name == "Photos");
+                    var videosBefore = map.ScreenBoundsOf(videos.Id)!.Value;
+                    var worldBefore = ToWorld(map, videosBefore);
+                    Assert.IsTrue(map.ClickAt(Center(videosBefore)));
+                    Assert.IsTrue(map.IsAnimating, "Opening a folder should zoom from its box into its contents.");
+                    map.AdvanceTime(.12);
                     Render(window, "disk-usage-folder-transition.png", 1072, 900);
-                    await Task.Delay(240);
-                    Render(window, "disk-usage-folder-end.png", 1072, 900);
-                    await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
+                    var midFlight = map.ScreenBoundsOf(videos.Id)!.Value;
+                    Assert.IsTrue(midFlight.Width > videosBefore.Width && midFlight.Width < map.ActualWidth * 1.1,
+                        "Mid-flight, the folder should be growing continuously.");
+                    await WaitFor(() => vm.CurrentPath == @"C:\Videos", "Clicking a folder should open it in the list.");
+                    map.AdvanceTime(1);
                     Assert.IsFalse(map.IsAnimating);
-                    Render(window, "disk-usage-folder.png", 802, 580);
-                    Assert.AreEqual(map.ActualWidth, map.ActualHeight, 1e-8);
+                    var videosAfter = map.ScreenBoundsOf(videos.Id)!.Value;
+                    Assert.IsTrue(videosAfter.Width >= map.ActualWidth * .9 || videosAfter.Height >= map.ActualHeight * .9,
+                        "The opened folder should fill the view.");
+                    var worldAfter = ToWorld(map, videosAfter);
+                    Assert.AreEqual(worldBefore.X, worldAfter.X, 1e-9, "Folder geometry must not be rebuilt when entering it.");
+                    Assert.AreEqual(worldBefore.Width, worldAfter.Width, 1e-9);
+                    Assert.IsNotNull(map.ScreenBoundsOf(photos.Id), "Neighbors stay in place (dimmed) around the open folder.");
+                    await WaitFor(async () =>
+                    {
+                        await Settle(window, map, "disk-usage-folder.png");
+                        return map.VisibleTiles.Any(tile => tile.Item.Name == "Walkthrough.mp4");
+                    }, "Nested folders should load and fade in as they grow.");
+
+                    // Back reverses the same camera path; Forward repeats it.
                     var back = new MouseButtonEventArgs(Mouse.PrimaryDevice, Environment.TickCount, MouseButton.XButton1)
                         { RoutedEvent = Mouse.PreviewMouseDownEvent };
                     window.RaiseEvent(back);
-                    while (vm.IsBusy) await Task.Delay(5);
                     Assert.IsTrue(back.Handled);
-                    Assert.AreEqual(@"C:\", vm.CurrentPath);
-                    Assert.IsTrue(folderTransitionStarted, "Back should reverse the folder zoom.");
+                    await WaitFor(() => !vm.IsBusy && vm.CurrentPath == @"C:\", "Back should return to the drive.");
+                    Assert.IsTrue(map.IsAnimating, "Back should zoom out of the folder.");
+                    map.AdvanceTime(1);
+                    Assert.AreEqual(0, map.FocusFolderId);
                     Assert.IsTrue(((Button)window.FindName("ForwardButton")).IsEnabled);
                     var forward = new MouseButtonEventArgs(Mouse.PrimaryDevice, Environment.TickCount, MouseButton.XButton2)
                         { RoutedEvent = Mouse.PreviewMouseDownEvent };
                     window.RaiseEvent(forward);
-                    while (vm.IsBusy) await Task.Delay(5);
                     Assert.IsTrue(forward.Handled);
-                    Assert.AreEqual(@"C:\Videos", vm.CurrentPath);
-                    Assert.IsTrue(folderTransitionStarted, "Forward should zoom into the folder even if the previous transition is still finishing.");
+                    await WaitFor(() => !vm.IsBusy && vm.CurrentPath == @"C:\Videos", "Forward should reopen the folder.");
+                    map.AdvanceTime(1);
+                    Assert.AreEqual(videos.Id, map.FocusFolderId);
                     await vm.UpAsync();
+                    map.AdvanceTime(1);
                     Assert.AreEqual(@"C:\", vm.CurrentPath);
-                    await vm.NavigateAsync(4); // Empty folder still supports navigation.
+
+                    // The wheel zooms about the pointer and keeps the point under it fixed.
+                    await Settle(window, map, "disk-usage-wheel-start.png");
+                    var music = map.ScreenBoundsOf(vm.Items.Single(item => item.Name == "Music.flac").Id)!.Value;
+                    var pointer = Center(music);
+                    var anchor = WorldAt(map, pointer);
+                    var startWidth = map.Camera.Width;
+                    Assert.IsTrue(map.ZoomWithWheel(pointer, 120));
+                    Assert.IsTrue(map.ZoomWithWheel(pointer, 120), "Successive wheel ticks must work during animation.");
+                    map.AdvanceTime(1);
+                    Assert.IsFalse(map.IsAnimating);
+                    Assert.AreEqual(startWidth * .8 * .8, map.Camera.Width, startWidth * 1e-9);
+                    var anchored = WorldAt(map, pointer);
+                    Assert.AreEqual(anchor.X, anchored.X, startWidth * 1e-9);
+                    Assert.AreEqual(anchor.Y, anchored.Y, startWidth * 1e-9);
+                    Assert.AreEqual(@"C:\", vm.CurrentPath, "Wheel zoom over a file must stay in its containing folder.");
+                    Assert.IsTrue(map.IsZoomed);
+                    ((Button)window.FindName("BackButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                    map.AdvanceTime(1);
+                    Assert.IsFalse(map.IsZoomed, "Back first returns to the whole folder.");
+                    Assert.AreEqual(startWidth, map.Camera.Width, startWidth * 1e-9);
+
+                    // Wheel into a folder: the list follows once the zoom settles inside it.
+                    await Settle(window, map, "disk-usage-wheel-before-enter.png");
+                    pointer = Center(map.ScreenBoundsOf(videos.Id)!.Value);
+                    for (var i = 0; i < 5; i++) Assert.IsTrue(map.ZoomWithWheel(pointer, 120));
+                    map.AdvanceTime(1);
+                    await WaitFor(() => vm.CurrentPath.StartsWith(@"C:\Videos", StringComparison.OrdinalIgnoreCase),
+                        "Wheel zoom should enter the folder under the pointer.");
+                    await Settle(window, map, "disk-usage-wheel-folder.png");
+                    Assert.IsTrue(map.ZoomWithWheel(new Point(map.ActualWidth / 2, map.ActualHeight / 2), -1200));
+                    map.AdvanceTime(1);
+                    await WaitFor(() => vm.CurrentPath == @"C:\", "Scrolling out of a folder should return to its parent.");
+                    await Settle(window, map, "disk-usage-wheel-out.png");
+
+                    // Empty folders have no area; the map says so over the parent.
+                    await vm.NavigateAsync(4);
                     Assert.IsTrue(vm.IsEmpty);
+                    map.AdvanceTime(1);
+                    Assert.AreEqual(4, map.FocusFolderId);
                     Render(window, "disk-usage-empty.png", 802, 580);
+
                     var picker = (ComboBox)window.FindName("Drives");
                     picker.SetCurrentValue(System.Windows.Controls.Primitives.Selector.SelectedItemProperty, @"D:\");
                     while (vm.IsBusy) await Task.Delay(5);
@@ -186,86 +190,28 @@ public sealed class DiskUsageWindowTests
                     Assert.IsFalse(vm.Items.Any(item => item.Name == "Notes.txt"));
                     await vm.LoadAsync(@"C:\");
                     Assert.IsFalse(vm.Items.Any(item => item.Name == "Notes.txt"));
-                    Render(window, "disk-usage-wheel-start.png", 1072, 900);
-                    var music = map.TileButtons.Single(button => ((DiskUsageItem)button.Tag).Name == "Music.flac");
-                    var pointer = new Point(Canvas.GetLeft(music) + music.Width / 2, Canvas.GetTop(music) + music.Height / 2);
-                    var anchor = new Point(pointer.X / map.ActualWidth, pointer.Y / map.ActualHeight);
-                    Assert.IsTrue(map.ZoomWithWheel(pointer, 120));
-                    Assert.AreEqual(.78, map.Camera.Width, 1e-10);
-                    Assert.AreEqual(anchor.X, map.Camera.X + anchor.X * map.Camera.Width, 1e-10);
-                    Assert.AreEqual(anchor.Y, map.Camera.Y + anchor.Y * map.Camera.Height, 1e-10);
-                    Assert.IsTrue(map.ZoomWithWheel(pointer, 120), "Successive wheel ticks must work during animation.");
-                    Assert.AreEqual(.78 * .78, map.Camera.Width, 1e-10);
-                    await Task.Delay(240);
-                    Render(window, "disk-usage-wheel-in.png", 1072, 900);
-                    await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
-                    Assert.IsFalse(map.IsAnimating);
-                    Assert.AreEqual(@"C:\", vm.CurrentPath, "Wheel zoom over a file must stay in its containing folder.");
-                    Assert.IsTrue(map.ZoomWithWheel(pointer, -240));
-                    await Task.Delay(240);
-                    Render(window, "disk-usage-wheel-out.png", 1072, 900);
-                    await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
-                    Assert.AreEqual(new Rect(0, 0, 1, 1), map.Camera);
-                    Assert.IsFalse(map.IsZoomed);
-                    videos = map.TileButtons.Single(button => ((DiskUsageItem)button.Tag).Name == "Videos");
-                    pointer = new Point(Canvas.GetLeft(videos) + videos.Width / 2, Canvas.GetTop(videos) + videos.Height / 2);
-                    Assert.IsTrue(map.ZoomWithWheel(pointer, 600));
-                    await Task.Delay(240);
-                    Render(window, "disk-usage-wheel-enter.png", 1072, 900);
-                    await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
-                    while (vm.IsBusy) await Task.Delay(5);
-                    Assert.AreEqual(@"C:\Videos", vm.CurrentPath, "Wheel zoom should enter the folder under the pointer.");
-                    await Task.Delay(360);
-                    Render(window, "disk-usage-wheel-folder.png", 1072, 900);
-                    await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
-                    Assert.IsTrue(map.ZoomWithWheel(new Point(map.ActualWidth / 2, map.ActualHeight / 2), -120));
-                    while (vm.IsBusy) await Task.Delay(5);
-                    Assert.AreEqual(@"C:\", vm.CurrentPath, "Scrolling out of a folder should return to its parent.");
-                    var dominantItems = NestedDiskMap.Colorize(new DiskUsageItem[] {
-                        new DiskUsageItem(1, "AppData", 9400, 100, true) { Share = 94 },
-                        new DiskUsageItem(2, "Small folder", 300, 2, true) { Share = 3 },
-                        new DiskUsageItem(3, "Small file", 200, 1, false) { Share = 2 },
-                        new DiskUsageItem(4, "Tiny file", 100, 1, false) { Share = 1 }
-                    });
-                    var dominantScene = NestedDiskMap.Create(dominantItems, id => id == 1 ? NestedDiskMap.Colorize([
-                        new DiskUsageItem(10, "Local", 6500, 60, true), new DiskUsageItem(11, "Roaming", 2900, 40, true)]) :
-                        id == 10 ? NestedDiskMap.Colorize([new DiskUsageItem(20, "Browser cache", 4000, 40, false), new DiskUsageItem(21, "Game data", 2500, 20, false)]) :
-                        id == 11 ? NestedDiskMap.Colorize([new DiskUsageItem(30, "Creative apps", 2000, 20, false), new DiskUsageItem(31, "Settings", 900, 20, false)]) : []);
-                    map.SetItems(dominantItems, prepared: dominantScene);
-                    Assert.IsNull(dominantScene.Tiles.Single(tile => tile.Item.Id == 1).Inside);
-                    Render(window, "disk-usage-dominant-folder.png", 1072, 900);
-                    var dominant = map.TileButtons.Single(button => ((DiskUsageItem)button.Tag).Name == "AppData");
-                    Assert.IsNotNull(dominant.Content);
-                    Assert.IsNotNull(dominant.Clip);
-                    Assert.AreEqual(.94, dominant.Clip.GetArea() / (map.ActualWidth * map.ActualHeight), 1e-7);
-                    var folderPoint = new Point(Canvas.GetLeft(dominant) + dominant.Width / 2, Canvas.GetTop(dominant) + dominant.Height / 2);
-                    Assert.IsFalse(map.IsClusterHit(folderPoint), "The small-items square must not intercept a labeled folder's click.");
-                    Assert.IsFalse(map.TryZoomCluster(folderPoint));
-                    var cornerFile = map.TileButtons.Single(button => ((DiskUsageItem)button.Tag).Name == "Tiny file");
-                    var cornerPoint = new Point(Canvas.GetLeft(cornerFile) + cornerFile.Width / 2, Canvas.GetTop(cornerFile) + cornerFile.Height / 2);
-                    Assert.IsTrue(map.TryZoomCluster(cornerPoint), "The clipped dominant folder must not intercept clicks in the smaller-item corner.");
-                    var manyFiles = NestedDiskMap.Colorize(Enumerable.Range(1, 100000)
-                        .Select(i => new DiskUsageItem(i, $"File {i}.dat", 1 + i % 127, 1, false)).ToArray());
+                    await Settle(window, map, "disk-usage-restored.png");
+
+                    // A folder with 100,000 files stays cheap: grouped tails, no per-file controls.
+                    var dense = new VolumeIndex(@"E:\", 3);
+                    dense.Add(-1, @"E:\", 0, 0, 0, FileAttributes.Directory);
+                    dense.Add(0, "Many", 0, 0, 0, FileAttributes.Directory);
+                    for (var i = 1; i <= 100000; i++) dense.Add(1, $"File {i}.dat", 1 + i % 127, 0, 0, FileAttributes.Normal);
+                    var denseSnapshot = DiskUsageSnapshot.Build(dense, CancellationToken.None);
                     var timer = System.Diagnostics.Stopwatch.StartNew();
-                    var denseScene = NestedDiskMap.Create(manyFiles);
-                    var modelMs = timer.ElapsedMilliseconds;
-                    map.SetItems(manyFiles, prepared: denseScene);
-                    window.UpdateLayout();
-                    var layoutMs = timer.ElapsedMilliseconds;
+                    map.SetSource(denseSnapshot.Item(0), (id, token) => denseSnapshot.Children(id, token), [1]);
+                    map.AdvanceTime(1);
                     Render(window, "disk-usage-dense.png", 1072, 900);
-                    TestContext.WriteLine($"100,000 files: model {modelMs} ms; model + layout {layoutMs} ms; including PNG export {timer.ElapsedMilliseconds} ms; {map.TileButtons.Count} interactive controls.");
-                    Assert.IsTrue(map.TileButtons.Count < 650, "Dense folders should use lightweight mosaics, not one control per file.");
-                    Assert.AreEqual(100000, map.CurrentMap.Items.Count, "Detail must remain available for deeper zoom.");
-                    var denseMap = map.CurrentMap;
+                    TestContext.WriteLine($"100,000 files: first frame {timer.ElapsedMilliseconds} ms; {map.VisibleTiles.Count} tiles drawn.");
+                    Assert.IsTrue(map.VisibleTiles.Count <= 60000, "Dense folders must stay within the per-frame tile budget.");
                     var densePoint = new Point(map.ActualWidth * .4, map.ActualHeight * .4);
-                    for (var i = 0; i < 8; i++) Assert.IsTrue(map.ZoomWithWheel(densePoint, 120));
-                    await Task.Delay(240);
-                    Render(window, "disk-usage-dense-zoom.png", 1072, 900);
-                    await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
-                    Render(window, "disk-usage-dense-detail.png", 1072, 900);
-                    Assert.AreSame(denseMap, map.CurrentMap);
-                    Assert.IsTrue(map.TileButtons.Count < 650);
-                    Assert.IsTrue(map.TileButtons.Any(button => ((DiskUsageItem)button.Tag).Id > 0), "Closer zoom must expose individual files.");
+                    for (var i = 0; i < 14; i++) Assert.IsTrue(map.ZoomWithWheel(densePoint, 120));
+                    map.AdvanceTime(1);
+                    await WaitFor(async () =>
+                    {
+                        await Settle(window, map, "disk-usage-dense-detail.png");
+                        return map.VisibleTiles.Any(tile => tile.Item.Id > 1 && tile.Item.Name.StartsWith("File "));
+                    }, "Closer zoom must expose individual files.");
                 }
                 catch (Exception exception) { failure = exception; }
                 finally { window?.Dispose(); dispatcher.BeginInvokeShutdown(DispatcherPriority.Background); }
@@ -275,8 +221,43 @@ public sealed class DiskUsageWindowTests
         thread.SetApartmentState(ApartmentState.STA);
         thread.IsBackground = true;
         thread.Start();
-        Assert.IsTrue(thread.Join(TimeSpan.FromSeconds(30)), "Window verification timed out.");
+        Assert.IsTrue(thread.Join(TimeSpan.FromSeconds(60)), "Window verification timed out.");
         if (failure is not null) System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(failure).Throw();
+    }
+
+    // Render, let background folder loads land, finish fades, and render again.
+    private async Task Settle(UserControl window, DiskUsageTreemap map, string name)
+    {
+        Render(window, name, 1072, 900);
+        for (var i = 0; i < 200 && map.PendingLoads > 0; i++) await Task.Delay(5);
+        await Dispatcher.Yield(DispatcherPriority.Background);
+        map.AdvanceTime(.5);
+        Render(window, name, 1072, 900);
+    }
+
+    private static async Task WaitFor(Func<bool> condition, string message)
+    {
+        for (var i = 0; i < 600 && !condition(); i++) await Task.Delay(5);
+        Assert.IsTrue(condition(), message);
+    }
+
+    private static async Task WaitFor(Func<Task<bool>> condition, string message)
+    {
+        for (var i = 0; i < 40; i++)
+            if (await condition()) return;
+        Assert.Fail(message);
+    }
+
+    private static double Area(Rect rect) => rect.Width * rect.Height;
+    private static Point Center(Rect rect) => new(rect.X + rect.Width / 2, rect.Y + rect.Height / 2);
+
+    private static Point WorldAt(DiskUsageTreemap map, Point screen)
+        => new(map.Camera.X + screen.X / map.ActualWidth * map.Camera.Width, map.Camera.Y + screen.Y / map.ActualHeight * map.Camera.Height);
+
+    private static Rect ToWorld(DiskUsageTreemap map, Rect screen)
+    {
+        var topLeft = WorldAt(map, screen.TopLeft);
+        return new Rect(topLeft.X, topLeft.Y, screen.Width / map.ActualWidth * map.Camera.Width, screen.Height / map.ActualHeight * map.Camera.Height);
     }
 
     private RenderTargetBitmap Render(UserControl window, string name, int width, int height)

@@ -22,32 +22,36 @@ internal sealed class DiskUsageSnapshot
     private readonly int[] _firstChild;
     private readonly int[] _nextSibling;
     private readonly bool[] _excluded;
+    private readonly int _count; // NEW: the live index keeps growing; a snapshot reads a fixed prefix
 
     private DiskUsageSnapshot(VolumeIndex index)
     {
         _index = index;
-        _bytes = new long[index.Count];
-        _files = new long[index.Count];
-        _firstChild = new int[index.Count];
-        _nextSibling = new int[index.Count];
-        _excluded = new bool[index.Count];
+        _count = index.Count;
+        _bytes = new long[_count];
+        _files = new long[_count];
+        _firstChild = new int[_count];
+        _nextSibling = new int[_count];
+        _excluded = new bool[_count];
         Array.Fill(_firstChild, -1);
         Array.Fill(_nextSibling, -1);
     }
 
     public string Root => _index.Root;
     public DateTime BuiltUtc => _index.BuiltUtc;
-    public int Count => _index.Count;
+    public int Count => _count;
+    public long SourceVersion { get; private init; } // NEW: index version this snapshot was built from
     internal VolumeIndex Source => _index;
     public bool IsAvailable(int id) => id >= 0 && id < Count && !_excluded[id];
 
     public static DiskUsageSnapshot Build(VolumeIndex index, CancellationToken token, IEnumerable<string>? excludedPaths = null)
     {
         token.ThrowIfCancellationRequested();
-        if (index.Count == 0)
+        var version = index.Version;
+        var result = new DiskUsageSnapshot(index) { SourceVersion = version };
+        if (result._count == 0)
             throw new InvalidDataException("The index contains no root folder.");
-        var result = new DiskUsageSnapshot(index);
-        for (var i = 0; i < index.Count; i++)
+        for (var i = 0; i < result._count; i++)
         {
             token.ThrowIfCancellationRequested();
             var entry = index.Entry(i);
@@ -58,6 +62,8 @@ internal sealed class DiskUsageSnapshot
                 throw new InvalidDataException("The index contains an invalid file name.");
             result._bytes[i] = entry.IsFolder ? 0 : Math.Max(0, entry.Size);
             result._files[i] = entry.IsFolder ? 0 : 1;
+            // NEW: entries deleted since the last full scan are excluded like confirmed deletions.
+            if ((entry.Attributes & VolumeIndex.RemovedFlag) != 0) result._excluded[i] = true;
             if (i == 0) continue;
             result._nextSibling[i] = result._firstChild[entry.ParentIndex];
             result._firstChild[entry.ParentIndex] = i;
@@ -70,7 +76,7 @@ internal sealed class DiskUsageSnapshot
                 var id = result.FindEntry(path, token);
                 if (id > 0) result._excluded[id] = true;
             }
-        for (var i = 1; i < index.Count; i++)
+        for (var i = 1; i < result._count; i++)
         {
             token.ThrowIfCancellationRequested();
             result._excluded[i] |= result._excluded[index.Entry(i).ParentIndex];
@@ -79,7 +85,7 @@ internal sealed class DiskUsageSnapshot
 
         // Parents precede children in the index. Reverse order is a bottom-up traversal:
         // each subtree contributes exactly once, without recursion or repeated disk reads.
-        for (var i = index.Count - 1; i > 0; i--)
+        for (var i = result._count - 1; i > 0; i--)
         {
             token.ThrowIfCancellationRequested();
             var parent = index.Entry(i).ParentIndex;

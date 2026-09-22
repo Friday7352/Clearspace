@@ -68,18 +68,21 @@ changes and folders excluded by the index scan may be missing. Refresh reads
 the latest available index rather than starting a new scan.
 
 The analyzer opens inside Clearspace; **Back to files** restores the browser.
-Its map stays square and shows one folder level at a time in a filled treemap.
-Click smaller blocks to magnify a square region of the existing map. Tile
-positions and colors stay fixed, and labels become readable as you get closer.
-Use **Zoom out**, Escape, or your mouse's back button to return. Tile areas
-remain proportional to file sizes; percentages always refer to the current
-folder. Scroll over the map to zoom smoothly at the pointer; getting closer
-enters the hovered folder, and scrolling back out returns to its parent.
-Folder contents fade into their tile as it expands. Dense folders use lightweight
-previews and reveal individual controls as you approach, keeping large collections usable.
-When one item dominates, smaller neighbors occupy a compact square corner
-instead of a long narrow strip; the dominant item's remaining colored area
-still represents its exact share.
+The whole drive is one nested treemap that fills the space beside the list, and
+the view is a camera moving over it. Click a block to fly into it: the folder
+grows out of the exact rectangle you clicked, its contents fade in as they
+get room, and the rest of the drive stays in place, dimmed, around it. Scroll to
+zoom smoothly at the pointer, drag to pan, and zoom back out to leave a folder;
+the list, breadcrumbs, and history follow along. Back, Up, breadcrumbs and your
+mouse's side buttons fly the same camera, so every transition is continuous.
+Escape (or **Whole folder**) returns to the full current folder after zooming inside it.
+
+Blocks are colored by file type (video, images, audio, archives, programs,
+documents, code, data), with a legend under the map and matching icons in the
+list. Hover a block for its size, share, and what a click will do. Tile areas are
+exact byte proportions within each folder. Deeper folders load in the background
+as they grow on screen, and very large folders group their smallest items so
+drawing stays fast at any zoom.
 
 The sidebar uses single-line name/size rows. Hover for full names and percentages;
 the info button holds index details. Selection reveals the permanent-delete controls.

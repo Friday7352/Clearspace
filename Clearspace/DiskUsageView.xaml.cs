@@ -30,37 +30,153 @@ public partial class DiskUsageView : UserControl, IDisposable
         InitializeComponent();
         DataContext = _viewModel;
         _viewModel.PropertyChanged += OnViewChanged;
-        Treemap.ItemInvoked += OnTileInvoked;
+        // CHANGED: the map now reports folder focus from zooming/clicking and file selection;
+        // ItemInvoked and ParentRequested are gone because the map is one continuous space.
+        Treemap.FolderFocused += OnMapFolderFocused;
+        Treemap.ItemSelected += OnMapItemSelected;
         Treemap.DeleteRequested += OnTileDelete;
         Treemap.ZoomChanged += OnZoomChanged;
-        Treemap.ParentRequested += OnWheelParent;
         _viewModel.FileOperationCompleted += OnFileOperationCompleted;
         PreviewMouseDown += OnNavigationMouseDown;
         PreviewKeyDown += OnNavigationKeyDown;
+        // NEW: follow the indexer, so the view fills in by itself once indexing finishes
+        // (e.g. after an index rebuild) instead of staying on "no file index".
+        FileIndexService.Changed += OnIndexChanged;
+        // NEW: sizes follow live changes to the index (debounced; see OnLiveChanges).
+        FileIndexService.LiveChanged += OnLiveChanges;
         Loaded += async (_, _) =>
         {
             if (_started) return;
             _started = true;
+            Treemap.Focus(); // NEW: keyboard shortcuts (F3, +/-, Esc) reach the map right away
             await _viewModel.LoadAsync(preferredPath: _preferredPath);
+            if (_viewModel.Snapshot is null) OnIndexChanged(null, EventArgs.Empty); // NEW: show progress now
         };
     }
 
     public void Dispose()
     {
+        FileIndexService.Changed -= OnIndexChanged;
+        FileIndexService.LiveChanged -= OnLiveChanges;
+        _liveTimer?.Stop();
         _viewModel.PropertyChanged -= OnViewChanged;
         _viewModel.FileOperationCompleted -= OnFileOperationCompleted;
         _viewModel.Dispose();
     }
 
     private void OnClose(object sender, RoutedEventArgs e) => CloseRequested?.Invoke(this, EventArgs.Empty);
-    private async void OnWheelParent() => await _viewModel.UpAsync();
+
+    // NEW: F3 performance readout, also reachable from the main window's key handling.
+    internal void ToggleMapStats() => Treemap.ToggleStats();
+
+    // NEW: live index changes. Only changes that are visible from the current folder (at most two
+    // levels below it) refresh the view, 1.5 s after things go quiet, and never mid-gesture or
+    // while list items are selected - deep churn such as browser caches doesn't keep redrawing.
+    private System.Windows.Threading.DispatcherTimer? _liveTimer;
+    private void OnLiveChanges(IReadOnlyList<string> paths)
+    {
+        var folder = _viewModel.CurrentPath;
+        if (string.IsNullOrEmpty(folder) || !paths.Any(path => IsVisibleFrom(folder, path))) return;
+        Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Background,
+            new Action(() => ScheduleLiveRefresh(debounce: true)));
+    }
+
+    // debounce: restart the wait on every change (live edits). Otherwise only start it if idle,
+    // so a steady stream of indexing progress still refreshes every couple of seconds.
+    private void ScheduleLiveRefresh(bool debounce)
+    {
+        if (_liveTimer is null)
+        {
+            _liveTimer = new System.Windows.Threading.DispatcherTimer(System.Windows.Threading.DispatcherPriority.Background, Dispatcher)
+                { Interval = TimeSpan.FromSeconds(1.5) };
+            _liveTimer.Tick += OnLiveTimer;
+        }
+        _liveTimer.Interval = TimeSpan.FromSeconds(FileIndexService.IsBuilding ? 2.5 : 1.5);
+        if (debounce) _liveTimer.Stop();
+        if (!_liveTimer.IsEnabled) _liveTimer.Start();
+    }
+
+    private static bool IsVisibleFrom(string folder, string path)
+    {
+        var root = folder.TrimEnd('\\');
+        if (!path.StartsWith(root + "\\", StringComparison.OrdinalIgnoreCase)) return false;
+        return path.AsSpan(root.Length + 1).Count('\\') <= 2;
+    }
+
+    // CHANGED (round 10): refreshes rebuild a whole-drive snapshot, so they are rare - at most every
+    // 10 s while a drive is being indexed and every 4 s otherwise - and only after the user has
+    // left the map alone for 2 s.
+    private DateTime _lastLiveRefresh = DateTime.MinValue;
+    private async void OnLiveTimer(object? sender, EventArgs e)
+    {
+        _liveTimer?.Stop();
+        var minimum = TimeSpan.FromSeconds(FileIndexService.IsBuilding ? 10 : 4);
+        if (_viewModel.IsBusy || Treemap.IsAnimating || Treemap.SecondsSinceInteraction < 2 ||
+            ItemList.SelectedItems.Count > 0 || Mouse.LeftButton == MouseButtonState.Pressed ||
+            DateTime.UtcNow - _lastLiveRefresh < minimum)
+        {
+            _liveTimer?.Start(); // try again shortly
+            return;
+        }
+        _lastLiveRefresh = DateTime.UtcNow;
+        await _viewModel.RefreshLiveAsync();
+    }
+
+    // NEW: the indexer reports progress from a background thread, often; coalesce onto the UI.
+    private bool _indexUpdateQueued;
+    private void OnIndexChanged(object? sender, EventArgs e)
+    {
+        if (_indexUpdateQueued) return;
+        _indexUpdateQueued = true;
+        Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Background, new Action(async () =>
+        {
+            _indexUpdateQueued = false;
+            if (!_started || _viewModel.IsBusy) return;
+            if (_viewModel.Snapshot is not null)
+            {
+                _viewModel.RefreshRoots();
+                // NEW: while a drive is being indexed (or a refreshed index lands), keep the map
+                // filling in - throttled, not debounced, since progress events never stop.
+                if (_viewModel.HasNewerIndex()) ScheduleLiveRefresh(debounce: false);
+                return;
+            }
+            // NEW: a drive chosen in the picker is waiting for its index.
+            if (_viewModel.WaitingRoot is { } waiting)
+            {
+                if (_viewModel.HasIndexFor(waiting))
+                {
+                    Treemap.SetMessage(null);
+                    await _viewModel.LoadAsync(root: waiting,
+                        preferredPath: _preferredPath?.StartsWith(waiting, StringComparison.OrdinalIgnoreCase) == true ? _preferredPath : null);
+                    return;
+                }
+                var waitingProgress = FileIndexService.Status;
+                if (!string.IsNullOrWhiteSpace(waitingProgress))
+                    Treemap.SetMessage($"{waiting} hasn't been indexed yet · {waitingProgress}");
+                return;
+            }
+            // Wait for the drive that was asked for, unless indexing has finished without it.
+            if (_viewModel.HasIndexFor(_preferredPath) || (!FileIndexService.IsBuilding && _viewModel.HasIndexFor(null)))
+            {
+                Treemap.SetMessage(null);
+                await _viewModel.LoadAsync(preferredPath: _preferredPath);
+                return;
+            }
+            var progress = FileIndexService.Status;
+            _viewModel.ShowIndexProgress(progress);
+            Treemap.SetMessage(string.IsNullOrWhiteSpace(progress) ? "Waiting for the file index…" : progress);
+        }));
+    }
 
     private void OnFileOperationCompleted(object? sender, EventArgs e) => FileOperationCompleted?.Invoke(this, e);
     private async void OnTileDelete(DiskUsageItem item)
     {
         if (_viewModel.IsBusy) return;
+        // CHANGED: match by id; the map's items are snapshot records, not the list's instances.
+        var match = _viewModel.Items.FirstOrDefault(candidate => candidate.Id == item.Id);
+        if (match is null) return;
         ItemList.SelectedItems.Clear();
-        ItemList.SelectedItem = item;
+        ItemList.SelectedItem = match;
         await _viewModel.DeletePermanentlyAsync(OwnerHandle, _confirmDelete);
     }
     private async void OnDeletePermanently(object sender, RoutedEventArgs e)
@@ -75,11 +191,27 @@ public partial class DiskUsageView : UserControl, IDisposable
         else { ItemList.SelectedItems.Clear(); }
     }
 
+    // CHANGED: a new snapshot rebuilds the map; any other navigation just moves its camera.
     private void OnViewChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName == nameof(DiskUsageViewModel.MapItems)) Treemap.SetItems(_viewModel.Items, _viewModel.CurrentPath, _viewModel.MapScene);
+        if (e.PropertyName == nameof(DiskUsageViewModel.SnapshotVersion) && _viewModel.Snapshot is { } snapshot)
+        {
+            // CHANGED: a live refresh resizes the map in place; anything else rebuilds it.
+            if (_viewModel.IsLiveRefresh)
+                Treemap.RefreshSource(snapshot.Item(0), (id, token) => snapshot.Children(id, token), _viewModel.FolderPath, EmptyFolderName());
+            else
+                Treemap.SetSource(snapshot.Item(0), (id, token) => snapshot.Children(id, token), _viewModel.FolderPath, EmptyFolderName());
+        }
+        else if (e.PropertyName == nameof(DiskUsageViewModel.MapItems))
+            Treemap.ShowFolder(_viewModel.FolderPath, EmptyFolderName());
+        // NEW: the chosen drive isn't indexed yet; clear the map and say so.
+        if (e.PropertyName == nameof(DiskUsageViewModel.WaitingRoot) && _viewModel.WaitingRoot is not null)
+            Treemap.ClearSource(_viewModel.Status);
         if (e.PropertyName is nameof(DiskUsageViewModel.CanGoBack) or nameof(DiskUsageViewModel.IsBusy)) UpdateZoomNavigation();
     }
+
+    // NEW: an empty folder has no area on the map; the map says so over its parent.
+    private string? EmptyFolderName() => _viewModel.MapItems.Count == 0 ? _viewModel.FolderName : null;
 
     private void UpdateZoomNavigation() => BackButton.SetCurrentValue(IsEnabledProperty,
         !_viewModel.IsBusy && (Treemap.IsZoomed || _viewModel.CanGoBack));
@@ -87,24 +219,29 @@ public partial class DiskUsageView : UserControl, IDisposable
     private void OnZoomChanged()
     {
         UpdateZoomNavigation();
-        ItemList.SelectedItems.Clear();
         ZoomOutButton.Visibility = Treemap.IsZoomed ? Visibility.Visible : Visibility.Collapsed;
-        Treemap.ToolTip = "Scroll to zoom at the pointer. Click a folder to open it. Back zooms out.";
     }
 
-    private async void OnTileInvoked(DiskUsageItem item)
+    // NEW: zooming or clicking into a folder on the map updates the list quietly.
+    // CHANGED (round 13): rebinding the list to a big folder is the main hitch when entering or
+    // leaving a folder, so it waits until the camera has finished moving (at most ~0.6 s).
+    private int _focusRequest;
+    private async void OnMapFolderFocused(int folder)
     {
-        if (_viewModel.IsBusy) return;
-        _viewModel.Select(item);
-        if (item.IsFolder) await _viewModel.NavigateAsync(item.Id);
-        else if (item.Id >= 0) { ItemList.SelectedItem = item; ItemList.ScrollIntoView(item); }
-        else
-        {
-            ItemList.SelectedItem = null;
-            _viewModel.Select(item);
-            var firstGrouped = _viewModel.Items.Skip(23).FirstOrDefault();
-            if (firstGrouped is not null) ItemList.ScrollIntoView(firstGrouped);
-        }
+        var request = ++_focusRequest;
+        for (var i = 0; i < 40 && Treemap.IsAnimating; i++) await Task.Delay(16);
+        if (request != _focusRequest) return;
+        await _viewModel.FocusFromMapAsync(folder);
+    }
+
+    // NEW: a file clicked on the map is selected in the list.
+    private void OnMapItemSelected(DiskUsageItem item)
+    {
+        var match = _viewModel.Items.FirstOrDefault(candidate => candidate.Id == item.Id);
+        if (match is null) return;
+        ItemList.SelectedItems.Clear();
+        ItemList.SelectedItem = match;
+        ItemList.ScrollIntoView(match);
     }
 
     private async void OnNavigationMouseDown(object sender, MouseButtonEventArgs e)
@@ -119,7 +256,10 @@ public partial class DiskUsageView : UserControl, IDisposable
     private async void OnNavigationKeyDown(object sender, KeyEventArgs e)
     {
         var key = e.Key == Key.System ? e.SystemKey : e.Key;
+        if (key == Key.F3) { e.Handled = true; Treemap.ToggleStats(); return; } // NEW: performance readout
         if (key == Key.Escape && Treemap.IsZoomed) { e.Handled = true; Treemap.ZoomOut(); return; }
+        // NEW: Escape at the whole-folder view steps out to the parent, like zooming out.
+        if (key == Key.Escape && _viewModel.CanGoUp) { e.Handled = true; await _viewModel.UpAsync(); return; }
         if (key == Key.Delete && Keyboard.Modifiers == ModifierKeys.Shift)
         {
             e.Handled = true;

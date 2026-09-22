@@ -19,6 +19,33 @@ public static class FileIndexService
     private static FileIndexWatcher? _watcher;
     private static bool _watching;
 
+    // NEW (live index): applies watcher events to the published volumes as they happen.
+    private static FileIndexUpdater? _updater;
+    private static readonly AutoResetEvent Wake = new(false);
+    private static readonly HashSet<string> RescanRequests = new(StringComparer.OrdinalIgnoreCase);
+    private static readonly Dictionary<string, DateTime> LastRescan = new(StringComparer.OrdinalIgnoreCase);
+    // Heavy disk activity (installs, builds) can overflow the watcher repeatedly; rescan a drive
+    // at most this often and keep serving the current index in between.
+    private static readonly TimeSpan MinRescanInterval = TimeSpan.FromMinutes(20);
+
+    // NEW: the drive currently being indexed for the first time (readable while it fills).
+    private static volatile VolumeIndex? _building;
+
+    // NEW: published volumes plus a first-time index still being built, for the disk usage view.
+    internal static VolumeIndex[] CaptureVolumesForDiskUsage()
+    {
+        var volumes = _volumes;
+        var building = _building;
+        if (building is null || Array.Exists(volumes, v => v.Root.Equals(building.Root, StringComparison.OrdinalIgnoreCase)))
+            return [.. volumes];
+        return [.. volumes, building];
+    }
+
+    internal static bool IsPartial(VolumeIndex? volume) => volume is not null && ReferenceEquals(volume, _building);
+
+    // NEW: raised (on a background thread) with the paths a batch of live changes touched.
+    internal static event Action<IReadOnlyList<string>>? LiveChanged;
+
     private static readonly long MaxIndexBytes = ResolveMemoryBudget();
 
     private static long ResolveMemoryBudget()
@@ -40,7 +67,13 @@ public static class FileIndexService
         }
     }
 
-    private static readonly TimeSpan RebuildAfter = TimeSpan.FromHours(1);
+    // CHANGED: the saved index is kept up to date live, so it is no longer rebuilt every hour.
+    // A quiet background catch-up scan (to pick up changes made while Clearspace was closed)
+    // runs at most once a day; the current index stays in use until it finishes.
+    private static readonly TimeSpan RebuildAfter = TimeSpan.FromHours(24);
+
+    // NEW: live changes are saved periodically, not only on exit.
+    private static readonly TimeSpan SaveEvery = TimeSpan.FromMinutes(5);
 
     private static readonly TimeSpan StartupBuildDelay = TimeSpan.FromSeconds(10);
 
@@ -130,6 +163,8 @@ public static class FileIndexService
         _watching = false;
         _watcher?.Dispose();
         _watcher = null;
+        _updater?.Dispose(); // NEW
+        _updater = null;
 
         var volumes = _volumes;
 
@@ -145,9 +180,19 @@ public static class FileIndexService
 
             var loaded = FileIndexStore.Load();
 
-            _watcher = new FileIndexWatcher(Overlay);
-            _watcher.Desynchronised += (_, _) =>
-                Report("Index out of date · searching by crawling until it rebuilds");
+            // CHANGED: the watcher now patches the index live through the updater.
+            _updater = new FileIndexUpdater(() => _volumes);
+            _updater.Applied += paths =>
+            {
+                try { LiveChanged?.Invoke(paths); } catch (Exception) { }
+                Raise();
+            };
+            _watcher = new FileIndexWatcher(Overlay, _updater);
+            _watcher.Desynchronised += (_, root) =>
+            {
+                Report("Some changes were missed · rescanning in the background");
+                RequestRescan(root); // NEW: recover in the background instead of waiting for a restart
+            };
 
             if (loaded.Count > 0)
             {
@@ -163,17 +208,47 @@ public static class FileIndexService
 
             try
             {
-                BuildMissing(token);
+                BuildMissing(token, null);
+
+                if (!token.IsCancellationRequested)
+                {
+                    FileIndexStore.Save(_volumes);
+                    Report(Count > 0 ? $"Index ready · {Count:N0} items" : string.Empty);
+                }
+
+                // NEW: stay resident for rescan requests and periodic saves of live changes.
+                while (!token.IsCancellationRequested)
+                {
+                    WaitHandle.WaitAny([token.WaitHandle, Wake], SaveEvery);
+                    if (token.IsCancellationRequested) break;
+
+                    string[] rescans;
+                    lock (RescanRequests)
+                    {
+                        var now = DateTime.UtcNow;
+                        rescans = [.. RescanRequests.Where(root =>
+                            !LastRescan.TryGetValue(root, out var last) || now - last >= MinRescanInterval)];
+                        foreach (var root in rescans)
+                        {
+                            RescanRequests.Remove(root);
+                            LastRescan[root] = now;
+                        }
+                    }
+
+                    if (rescans.Length > 0)
+                    {
+                        BuildMissing(token, rescans);
+                        Overlay.Clear();
+                        Report($"Index ready · {Count:N0} items");
+                    }
+
+                    if (Array.Exists(_volumes, volume => volume.IsDirty))
+                        FileIndexStore.Save(_volumes);
+                }
             }
             finally
             {
                 FileIndexBuilder.ExitBackgroundMode();
-            }
-
-            if (!token.IsCancellationRequested)
-            {
-                FileIndexStore.Save(_volumes);
-                Report(Count > 0 ? $"Index ready · {Count:N0} items" : string.Empty);
             }
         }
         catch (OperationCanceledException)
@@ -191,7 +266,17 @@ public static class FileIndexService
         }
     }
 
-    private static void BuildMissing(CancellationToken token)
+    // NEW: ask the background thread to rescan a drive (e.g. after the watcher lost events).
+    internal static void RequestRescan(string root)
+    {
+        lock (RescanRequests) RescanRequests.Add(root);
+        Wake.Set();
+    }
+
+    // CHANGED: `forced` limits the pass to drives that must be rescanned; otherwise only drives
+    // with no index, or whose last full scan is older than RebuildAfter, are scanned. While a
+    // drive is scanned its live changes are recorded and replayed onto the new index.
+    private static void BuildMissing(CancellationToken token, IReadOnlyCollection<string>? forced)
     {
         var skipped = new List<string>(SkippedRoots);
 
@@ -203,7 +288,11 @@ public static class FileIndexService
                 _volumes,
                 volume => volume.Root.Equals(root, StringComparison.OrdinalIgnoreCase));
 
-            if (existing is not null && DateTime.UtcNow - existing.BuiltUtc < RebuildAfter)
+            var force = forced?.Contains(root, StringComparer.OrdinalIgnoreCase) == true;
+            if (forced is not null && !force)
+                continue;
+
+            if (!force && existing is not null && DateTime.UtcNow - existing.BuiltUtc < RebuildAfter)
                 continue;
 
             var budget = MaxIndexBytes - EstimatedBytes + (existing?.EstimatedBytes ?? 0);
@@ -219,9 +308,12 @@ public static class FileIndexService
             var serial = FileIndexBuilder.GetSerialNumber(root);
 
             IsBuilding = true;
-            Report($"Indexing {root}…");
+            // CHANGED: an existing index keeps serving searches while it is refreshed.
+            var verb = existing is null ? "Indexing" : "Refreshing the index for";
+            Report($"{verb} {root}…");
 
             StartWatching([root]);
+            _updater?.BeginRecording(root); // NEW
 
             VolumeIndex? built;
 
@@ -231,18 +323,31 @@ public static class FileIndexService
                     root,
                     serial,
                     budget,
-                    count => Report($"Indexing {root}… {count:N0} items"),
-                    token);
+                    count => Report($"{verb} {root}… {count:N0} items"),
+                    token,
+                    // NEW: only a first-time index is shown while it fills; a refresh keeps the
+                    // complete current index on screen until the new one is ready.
+                    started: index => { if (existing is null) _building = index; });
             }
             catch (OperationCanceledException)
             {
+                _updater?.EndRecording(root);
+                _building = null;
                 throw;
             }
             catch (Exception exception)
             {
+                _updater?.EndRecording(root);
+                _building = null;
                 Trace.WriteLine($"Clearspace: could not index {root}. {exception.Message}");
                 continue;
             }
+
+            // NEW: apply what changed during the scan, so nothing is lost in the swap.
+            var during = _updater?.EndRecording(root) ?? [];
+            _building = null;
+            if (built is not null && during.Count > 0)
+                FileIndexUpdater.Replay(built, during, token);
 
             if (built is null)
             {
@@ -277,6 +382,9 @@ public static class FileIndexService
 
         _watching = true;
     }
+
+    // NEW: every drive Clearspace indexes (fixed and ready), whether or not it is indexed yet.
+    internal static string[] IndexableRoots() => [.. EnumerateIndexableRoots()];
 
     private static IEnumerable<string> EnumerateIndexableRoots()
     {

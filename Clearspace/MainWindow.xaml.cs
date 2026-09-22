@@ -25,8 +25,15 @@ public partial class MainWindow : Window
     private void OnDiskUsage(object sender, RoutedEventArgs e)
     {
         if (_diskUsageView is not null) return;
+        // CHANGED: the toolbar button always opens the folder you're in. Only the file-list
+        // context menu ("Disk usage…" on a folder) targets the selected folder.
         var selected = _viewModel.Context.SelectedItems;
-        var path = selected.Count == 1 && selected[0].IsFolder ? selected[0].FullPath : _viewModel.CurrentPath;
+        var path = sender is MenuItem && selected.Count == 1 && selected[0].IsFolder
+            ? selected[0].FullPath
+            : _viewModel.CurrentPath;
+        // Virtual locations (Home, search results, etc.) have no folder to open.
+        if (string.IsNullOrWhiteSpace(path) || path.StartsWith("clearspace://", StringComparison.OrdinalIgnoreCase))
+            path = null;
         _diskUsageView = new DiskUsageView(path);
         _diskUsageView.FileOperationCompleted += (_, _) => _ = _viewModel.RefreshAsync();
         _diskUsageView.CloseRequested += (_, _) =>
@@ -335,7 +342,13 @@ public partial class MainWindow : Window
 
     private void OnPreviewKeyDown(object sender, KeyEventArgs e)
     {
-        if (_diskUsageView is not null) return;
+        // CHANGED: while the disk view is open, F3 toggles its performance readout even if
+        // keyboard focus is still somewhere outside it.
+        if (_diskUsageView is not null)
+        {
+            if (e.Key == Key.F3) { _diskUsageView.ToggleMapStats(); e.Handled = true; }
+            return;
+        }
         if (e.Key == Key.F && (Keyboard.Modifiers & ModifierKeys.Control) != 0)
         {
             SearchBox.Focus();

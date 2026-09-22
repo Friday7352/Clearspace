@@ -8,58 +8,46 @@ when that folder exists in the captured index. Otherwise it shows an indexed
 drive root and explains the fallback. It replaces the browser content inside the
 existing Clearspace window; Back to files restores the browser and its location.
 
-The view provides a filled, single-level treemap, a descending size list, folder drill-down,
-Up and breadcrumb navigation, drive selection, cancellation, and explicit refresh.
-Back/Forward buttons and the mouse's XButton1/XButton2 follow visited locations,
-including across drives. Alt+Left/Right navigate history; Alt+Up goes to the parent.
-History stores paths rather than retaining old indexes. New navigation after Back
-discards the forward branch, while refresh preserves it. History advances only
-after a successful load; unavailable paths and cancellation preserve the current
-view and history position.
+The view provides a nested treemap of the whole drive, a descending size list,
+folder drill-down, Up and breadcrumb navigation, drive selection, cancellation,
+and explicit refresh. Back/Forward buttons and the mouse's XButton1/XButton2
+follow visited locations, including across drives. Alt+Left/Right navigate
+history; Alt+Up goes to the parent. History stores paths rather than retaining
+old indexes. New navigation after Back discards the forward branch, while refresh
+preserves it. History advances only after a successful load; unavailable paths
+and cancellation preserve the current view and history position.
 Select a file for its full path, exact byte count, and percentage of the current
-folder. Keyboard users can navigate the list with Enter and Backspace, or focus
-and activate a map tile. Percentages on the blocks and matching colored icons
-in the list help compare sizes. Folder icons distinguish explorable blocks, and
-selecting a list item outlines its block. Zero-byte items stay in the list. Each
-layout node has up to 13 entries, including a smaller-items group whose size
-includes all its members. Similar-sized large collections split into balanced
-groups. The list remains complete and virtualized.
-Rows are 32 pixels tall with the name and size on one line. Full names and shares
-appear in row tooltips; counts, snapshot information, and limitations are under
-the info button. Selection reveals deletion controls. Only actionable status
-messages occupy the footer, leaving the rest of the sidebar for the list.
-Clicking the grouped block expands its members. Detailed snapshot limitations
-are available in the “About these sizes” tooltip.
+folder. Keyboard users can navigate the list with Enter and Backspace; + and −
+zoom the focused map. Zero-byte items stay in the list. Rows are 32 pixels tall
+with the name and size on one line; counts, snapshot information, and
+limitations are under the info button. Selection reveals deletion controls.
 
-Folder entry uses the same square zoom as small-item clusters: the old map and
-the folder contents share a moving camera, with the new contents appearing
-inside the selected folder's square. Back, Up, and ancestor breadcrumbs reverse
-the zoom; forward history and list/keyboard folder entry animate as well.
-The totals, guidance, selection details, and deletion controls sit beside the
-map instead of above and below it. At 1900 × 1000 the square is 876 pixels tall;
-it adapts to smaller windows while preserving its aspect ratio.
+**One continuous space (revised).** The first version drew one folder level at a
+time and animated folder entry by cross-fading a newly packed square into the
+old one, while the wheel used a separate camera. Entering a folder therefore
+re-laid out its contents in a different shape than the tile the user clicked,
+and every zoom step rebuilt hundreds of WPF buttons. The revised map lays out
+the entire drive once in fixed world coordinates: each folder's children are
+placed inside that folder's own rectangle and never move. The view is a single
+camera over that world. Clicking a block, Back/Forward, Up, breadcrumbs, list
+navigation and the wheel all move the same camera, so every transition is
+continuous and reversible by construction, and the neighbors of the open folder
+remain visible behind a veil that glides to the new folder.
 
-Small-item zoom magnifies a square region of the existing map. The camera
-retains the scene, colors, and tile coordinates; it does not repack the selected
-items. The corner focus includes nearby small tiles with a bounded aspect ratio
-so a long, thin strip does not select most of a neighboring large block.
-Labeled adjacent blocks retain their own click actions. Uniform scale and
-translation use 180 ms easing for the camera and 280 ms for folder transitions.
-Folder contents fade in during the approach while the old captions fade out.
-All tile areas remain byte-proportional,
-and percentages continue to refer to the current folder at every magnification.
-Folder previews are not drawn inside other folders: each view presents one
-readable folder level without nested captions or square-packing gaps.
-Zoom out, Escape, Back, or the mouse back button returns one zoom level before
-navigating folder history. Resizing preserves the current group. Navigating to
-a different folder or refreshing resets zoom. No file is selected for deletion
-merely by zooming into its cluster.
+Clicks act one level at a time: inside the current folder, a click opens (or,
+for a file, selects) the child on the path to what was hit. The wheel zooms at
+the pointer with exponential smoothing; successive ticks accumulate on the
+running target while the point under the pointer stays fixed. A folder is
+entered once the camera has zoomed in past its parent and the folder nearly
+fills the view around the pointer; the list follows after the zoom settles for
+140 ms so passing through folders does not churn it. Zooming back out past an
+opened folder returns to its parent. Dragging pans. Hovering shows a card with
+the item's type, size, share of its folder and what a click will do.
 
-The mouse wheel smoothly changes camera scale around the pointer. Repeated ticks
-continue from the current animated pose, and approaching a hovered folder enters
-it. Scrolling outward at the folder's full extent returns to its parent. The
-sidebar retains ordinary wheel scrolling. Zoom-out renders the newly exposed
-surroundings before moving the camera so clipped edges do not leave blank strips.
+Blocks are colored by file type (shared with list icons and a legend), so a
+tile keeps its color at every zoom level and in every folder. Open folders show
+a small name tag that fades out once the folder fills the view. Labels are laid
+out in the visible part of a tile and fade in as space appears.
 
 Files and folders can be permanently deleted through the map's right-click
 menu or a selection in the list (including Ctrl/Shift multi-selection), using
@@ -105,39 +93,42 @@ prevent canceled or superseded work from publishing over newer results.
 
 ## Treemap layout and camera
 
-`NestedDiskMap` stores immutable normalized geometry for the current folder.
-`SquarifiedTreemap` fills each layout node with byte-proportional rectangles,
-using greedy row construction in O(k) time after O(k log k) sorting. Small
-sibling items share bounded grouping nodes, with their actual members painted
-inside those regions. These groups are layout partitions, not filesystem levels.
+`SquarifiedTreemap` fills each level with byte-proportional rectangles, using
+greedy row construction in O(k) time after O(k log k) sorting (the snapshot
+already returns children sorted, which the layout detects in O(k) and reuses).
+`DiskUsageTreemap` applies it recursively and lazily: a folder's children are
+laid out inside its own world rectangle the first time the folder becomes large
+enough on screen (about 26 px) to need them. Loading and layout run on a
+background thread with a per-snapshot cancellation token and at most three
+loads in flight, largest on-screen folder first; results fade in over 220 ms.
+A folder with more than 150 items gives the largest 120 their own tiles and
+splits the rest into up to 100 balanced "smaller items" blocks of roughly equal
+count. Those blocks are layout partitions, not filesystem levels, and expand
+(synchronously, from memory) as they grow. Every level is exact: children
+exactly tile their parent, so areas remain byte-proportional within each folder.
 
-When the first item accounts for at least 80% of a layout node and space permits,
-the remainder occupies a square corner. The dominant item fills the L-shaped
-region around it, with a clipped cutout that exactly matches the smaller items'
-combined share. This preserves areas without squeezing all other items into a
-thin strip. Group members are also laid out using their actual containing aspect
-ratio. Hit testing respects the cutout so the large item cannot intercept the
-corner's clicks.
+The camera is a world rectangle with the view's aspect ratio. Flights between
+two camera rectangles interpolate about their **fixed point**, the one world
+point that occupies the same screen position in both views. The scale changes
+exponentially around it (constant perceived zoom speed), so a folder grows
+straight out of where it sits instead of drifting. When neither view contains
+the other (for example Back to a different branch), the flight rises to an
+overview containing both and then descends. Durations scale with the zoom
+ratio and pan distance (320–680 ms) and use a CSS-style ease curve. Wheel zoom
+eases toward its target with a 75 ms time constant using the same interpolation.
+
+Rendering is a single `OnRender` pass with no per-tile controls. The traversal
+culls tiles outside the view and below about one square pixel, blends each
+folder from a solid block into its contents as its on-screen size grows from 44
+to 96 px, draws pixel-constant gaps and folder edges, and pins each large tile's
+shading to the whole tile so it does not shift while zooming. Brushes, pens and
+text are cached and frozen; a per-frame budget bounds primitives. Frames run on
+`CompositionTarget.Rendering` only while something is moving or fading.
+Resizing keeps the camera; a large aspect change re-lays out the world once,
+220 ms after resizing stops.
 
 The sidebar uses an explicit dark ListView template for both enabled and loading
 states, avoiding the system theme's light disabled background.
-
-Zoom preserves the map and changes a normalized square camera rectangle.
-Rendering intersects tile bounds with the viewport and reveals labels where
-they fit. Moving the camera back restores the earlier positions exactly.
-Resizing redraws the same normalized scene. Refresh, deletion, and folder
-navigation prepare new scenes because their underlying data changes.
-
-Grouping is bounded to 240 eager expansions and three levels. Large equal-size
-collections split into four balanced groups to avoid a long chain of tiny tails.
-Additional grouping nodes expand lazily when their bounds become visible.
-The initial layout is prepared off the UI thread with cancellation. The visual
-map shows a single filesystem level and does not recursively preview folders.
-Small groups render as frozen drawing brushes instead of one WPF button for each
-file. Their geometry and colors are reused when expanded; cropped previews use
-the corresponding brush viewbox. The detail threshold scales with viewport area.
-Only real items can receive an L-shaped corner cutout: a synthetic group must
-remain rectangular so its child map cannot overlap neighboring tiles.
 
 ## Snapshot semantics and limitations
 
@@ -174,40 +165,42 @@ cancellation, snapshot reload, drive changes, and superseded results. Layout
 tests check total area, proportionality, bounds, non-overlap, equal-weight
 squares, large weights, and empty or invalid inputs.
 
-The Release suite passed all 121 tests on September 22, 2026 (87 existing tests
-and 34 disk usage tests). The build completed successfully. No timing threshold or
-claim about real-drive scan performance is inferred from the synthetic tests.
+The original visualizer's Release suite passed all 121 tests on September 22,
+2026. **The continuous-map revision has not yet been built or run; rerun the
+suite and record the new counts here.** (The nested-scene tests were removed with
+`NestedDiskMap`; the window test was rewritten for the camera model.) No timing
+threshold or claim about real-drive scan performance is inferred from the
+synthetic tests.
 
 A WPF integration test uses the application's actual resources and a synthetic
-index. It renders the embedded view, a smaller drill-down view, and an empty folder;
-it also activates a folder tile, sends both side mouse button events, and verifies
-history across drives and drive-picker synchronization. PNGs are attached to
-the test report. This does not start the real indexing service, scan personal
-files, or replace an interactive check on actual indexed drives.
-
-The view test also checks rendered WPF tile areas against byte proportions,
-square viewport and cluster-region dimensions, multi-item cluster zoom and return,
-and creation without another Window. It exercises deletion controls
-with injected confirmation and simulated file operations. Deletion tests cover
-permanent shell flags, target validation, rejection of confirmation, partial
-cancellation, access failures, updated totals, history cleanup, and removal
-retention across Refresh and reopened views. No test deletes real files.
-
-Regression coverage includes a skewed 200-file collection whose dominant synthetic
-group previously overlapped its neighbors, repeated wheel events, pointer anchoring,
-wheel folder entry and parent navigation, and a 100,000-file rendered collection.
-The dense fixture keeps fewer than 650 interactive controls at both tested scales
-while retaining all entries for further zoom. Rendering timings are logged as
-observations, not enforced as hardware-independent performance guarantees.
+index. Animations are driven with a deterministic clock (`AdvanceTime`) rather
+than wall time. It renders the embedded view at two sizes and an empty folder;
+checks that root tile areas match byte shares and fill the view; clicks a folder
+and verifies that it grows continuously mid-flight, ends up filling the view,
+and keeps exactly the same world geometry it had before entry; waits for a
+nested folder to load and appear; sends both side mouse buttons; verifies wheel
+anchoring (the world point under the pointer does not move), wheel entry into a
+folder and back out to its parent, and Back returning to the whole folder after a
+zoom; exercises history across drives, drive-picker synchronization, and
+deletion with injected confirmation. A 100,000-file folder is rendered and
+zoomed to confirm the per-frame budget holds and individual files appear.
+PNGs are attached to the test report. This does not start the real indexing
+service, scan personal files, or replace an interactive check on actual drives.
+Deletion tests cover permanent shell flags, target validation, rejection of
+confirmation, partial cancellation, access failures, updated totals, history
+cleanup, and removal retention across Refresh and reopened views. No test
+deletes real files.
 
 The implementation files to explain in the artifact are:
 
 1. `Clearspace/Services/DiskUsageSnapshot.cs` — hierarchy, validation, aggregation.
-2. `Clearspace/Services/NestedDiskMap.cs` — persistent scenes and bounded treemap groups.
-3. `Clearspace/ViewModels/DiskUsageViewModel.cs` — asynchronous snapshot lifecycle.
-4. `Clearspace/Controls/DiskUsageTreemap.cs`, `Clearspace/Controls/SquareViewport.cs`, and `Clearspace/DiskUsageView.xaml`
-   — interactive representation and user-facing limits.
-5. `Clearspace.Tests/DiskUsageTests.cs`, `NestedDiskMapTests.cs`, and `DiskUsageWindowTests.cs` — evidence.
+2. `Clearspace/Services/SquarifiedTreemap.cs` — one level of squarified layout.
+3. `Clearspace/Controls/DiskUsageTreemap.cs` — lazy nested layout, fixed-point
+   camera, culling renderer, and input.
+4. `Clearspace/Services/DiskUsagePalette.cs` — file-type colors shared by map, list and legend.
+5. `Clearspace/ViewModels/DiskUsageViewModel.cs` and `Clearspace/DiskUsageView.xaml`
+   — asynchronous snapshot lifecycle and user-facing limits.
+6. `Clearspace.Tests/DiskUsageTests.cs` and `DiskUsageWindowTests.cs` — evidence.
 
 Before final course submission, perform an interactive walkthrough with the
 actual index, prepare the reflective narrative against the assignment rubric,
