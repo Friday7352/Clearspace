@@ -49,7 +49,7 @@ public sealed class DiskUsageTreemap : FrameworkElement, IDisposable
     private const double FocusDebounce = .14;   // s: wheel/drag focus must settle this long before the list follows
     private const double FolderMargin = .02;    // fraction of breathing room around a fitted folder
     private const double DimLevel = .6;         // opacity of the veil over everything outside the current folder
-    private const double ColorFade = .3;        // s: cross-fade of colors and labels between levels
+    private const double ColorFade = .55;       // s: cross-fade of colors and labels between levels
     private const int MaxLoads = 4;             // one speculative load while moving, four while settled
     // Raised with the thresholds above: the tree walk costs 0.3 ms and the GPU draws these in well
     // under a millisecond, so the budget that used to protect a 10 ms walk is no longer the limit.
@@ -126,7 +126,11 @@ public sealed class DiskUsageTreemap : FrameworkElement, IDisposable
         public bool HasText;
         // Two-slot color cache: the level being faded from and the level being faded to.
         public Node? ColorKeyA, ColorKeyB;
-        public Color ColorA, ColorB;
+        // CHANGED (round 34): packed 0xRRGGBB rather than System.Windows.Media.Color. That struct
+        // carries scRGB floats and a context reference, and every FromArgb converts between the two -
+        // which at a hundred thousand blocks and several colour operations each was a large part of
+        // the rebuild. Integer maths on packed bytes gives the same pixels.
+        public uint ColorA, ColorB;
     }
 
     private readonly record struct Placement(DiskUsageItem Item, Rect Bounds, int[]? Members);
@@ -136,7 +140,7 @@ public sealed class DiskUsageTreemap : FrameworkElement, IDisposable
     // Detached: a picture kept from a source that no longer exists (a drive change, a resize relayout).
     // It draws frozen at its own camera while the replacement builds, so the map never goes blank.
     private sealed record SceneCache(Rect Camera, Size Viewport, Rect Coverage, TileGeometry Geometry,
-        (Node Node, Rect Screen)[] Tiles, Caption[] Captions, Dictionary<(Node, bool), Caption> LabelIndex, Node? Level, int Revision)
+        IReadOnlyList<(Node Node, Rect Screen)> Tiles, Caption[] Captions, Dictionary<(Node, bool), Caption> LabelIndex, Node? Level, int Revision)
     {
         public bool Detached { get; init; }
     }
@@ -177,6 +181,9 @@ public sealed class DiskUsageTreemap : FrameworkElement, IDisposable
     private Node? _colorLevel;         // level whose children are colored and labeled
     private Node? _colorPrevious;      // level being faded out
     private double _colorSince = double.NegativeInfinity;
+    private Node? _colorPending;               // a level the camera is passing through
+    private double _colorPendingSince;
+    private const double ColorSettle = .32;    // s a level must hold before the colours follow it
     private double _sourceFadeAt = double.NegativeInfinity;
     private string? _message;
     private string? _missingName;
@@ -197,7 +204,7 @@ public sealed class DiskUsageTreemap : FrameworkElement, IDisposable
     // Two layers: the scene (tiles, labels, veil) and the overlay (hover, selection, card).
     private readonly DrawingVisual _scene = new();
     private readonly DrawingVisual _overlay = new();
-    private readonly List<(Node Node, Rect Screen)> _drawn = [];
+    private List<(Node Node, Rect Screen)> _drawn = [];
     // NEW (round 9): software-rendered tile layer.
     private readonly DrawingVisual _labels = new();
     internal readonly record struct TileCommand(float X0, float Y0, float X1, float Y1, uint Color, byte Alpha); // internal: shared with GpuTileRenderer
@@ -263,9 +270,38 @@ public sealed class DiskUsageTreemap : FrameworkElement, IDisposable
     private bool _lean;
     // Each block costs five rectangles. The GPU draws 150,000 of them in well under a millisecond;
     // the CPU rasterizer fills them one span at a time, so it gets a smaller budget and stays smooth.
-    private int Budget => _lean ? LeanTileBudget : _gpuShown ? TileBudget : CpuTileBudget;
+    private int Budget => _everything ? EverythingBudget : _lean ? LeanTileBudget : _gpuShown ? TileBudget : CpuTileBudget;
     private int TextBudget => _lean ? LeanMaxTexts : MaxTexts;
-    private int NodeCeiling => _lean ? LeanNodeBudget : NodeBudget;
+    private int NodeCeiling => _lean ? LeanNodeBudget : _everything ? EverythingNodeBudget : NodeBudget;
+
+    // NEW (round 32): "render everything". Every block at every depth is drawn, down to a fifth of a
+    // pixel, with no expansion threshold and no per-subtree allowance - so zooming reveals nothing
+    // that was not already on screen and nothing pops in. The GPU draws a million rectangles without
+    // noticing; what this costs is the tree itself, because every folder has to be loaded and kept,
+    // and the walk that produces the geometry grows with it. The reuse window widens to match, since
+    // a scene this dense tolerates being stretched further between rebuilds.
+    private bool _everything;
+    // Past about a million the blocks are smaller than a pixel and add nothing but vertices; a
+    // 2146x1211 window is 2.6 million pixels in total.
+    private const int EverythingBudget = 750_000;
+    private const int EverythingNodeBudget = 1_200_000;
+    internal bool RenderEverything
+    {
+        get => _everything;
+        set
+        {
+            if (_everything == value) return;
+            _everything = value;
+            _detailRevision++;
+            _sceneDirty = true;
+            RequestFrame();
+        }
+    }
+
+    private double MinimumTile => _everything ? .2 : MinTile;
+    private double ExpandLow => _everything ? .5 : ExpandStart;
+    private double ExpandHigh => _everything ? 1.5 : ExpandFull;
+    private double PrefetchAt => _everything ? .5 : PrefetchSize;
     internal int LiveTextCount => _texted.Count;
 
     // Trades detail for a much smaller working set: fewer blocks per frame and far fewer text
@@ -337,14 +373,15 @@ public sealed class DiskUsageTreemap : FrameworkElement, IDisposable
     private readonly DispatcherTimer _rebuild;
 
     // ---------------------------------------------------------------- resources
-    private static readonly Color[] BranchColors = DiskUsagePalette.Branches.Select(Parse).ToArray();
-    private static readonly Color GroupColor = Parse(DiskUsagePalette.GroupColor);
+    private static readonly uint[] BranchColors = DiskUsagePalette.Branches.Select(hex => Pack(Parse(hex))).ToArray();
+    private static readonly uint GroupColor = Pack(Parse(DiskUsagePalette.GroupColor));
     private static readonly Color White = Color.FromRgb(0xF6, 0xF3, 0xEE);
     private readonly Dictionary<uint, SolidColorBrush> _brushes = [];
     private Typeface _regular = new("Segoe UI");
     private Typeface _semibold = new(new FontFamily("Segoe UI"), FontStyles.Normal, FontWeights.SemiBold, FontStretches.Normal);
     private double _pixelsPerDip = 1;
     private Color _baseColor = Color.FromRgb(0x1A, 0x19, 0x17);
+    private uint _basePacked = 0x1A1917;
     private SolidColorBrush _base = Frozen(Color.FromRgb(0x1A, 0x19, 0x17));
     private static readonly SolidColorBrush CardFill = Frozen(Color.FromArgb(0xF4, 0x23, 0x22, 0x20));
     private static readonly SolidColorBrush Ink = Frozen(Color.FromRgb(0xEC, 0xE9, 0xE3));
@@ -569,7 +606,7 @@ public sealed class DiskUsageTreemap : FrameworkElement, IDisposable
     internal bool IsAnimating => _flight is not null || !Near(_camera, _target);
     internal int FocusFolderId => _reportedFocus;
     internal int PendingLoads => _loads;
-    internal int RenderedTileCount => _drawn.Count;
+    internal int RenderedTileCount => _cache?.Tiles.Count ?? 0;
     internal double LastWalkMilliseconds { get; private set; }
     internal int PreparedFrameCount { get; private set; }
     internal int ScheduledFrameCount { get; private set; }
@@ -582,7 +619,15 @@ public sealed class DiskUsageTreemap : FrameworkElement, IDisposable
         if (RenderScene()) RenderOverlay();
     }
     internal string? CurrentContainerName => _container?.Item.Name;
-    internal IReadOnlyList<(DiskUsageItem Item, Rect Screen)> VisibleTiles => _drawn.Select(d => (d.Node.Item, d.Screen)).ToArray();
+    internal IReadOnlyList<(DiskUsageItem Item, Rect Screen)> VisibleTiles
+    {
+        get
+        {
+            if (_cache is not { } cache) return [];
+            var mapping = BatchFor(cache);
+            return cache.Tiles.Select(tile => (tile.Node.Item, mapping.Transform(tile.Screen))).ToArray();
+        }
+    }
 
     internal Rect? ScreenBoundsOf(int id)
     {
@@ -967,7 +1012,8 @@ public sealed class DiskUsageTreemap : FrameworkElement, IDisposable
     private void PumpLoads()
     {
         if (_wanted.Count == 0) return;
-        var limit = IsAnimating || _dragging ? 1 : MaxLoads;
+        // Rendering everything means loading everything, so the speculative limit comes off.
+        var limit = _everything ? 12 : IsAnimating || _dragging ? 1 : MaxLoads;
         if (_loads >= limit) { _wanted.Clear(); return; }
         _wanted.Sort((a, b) => b.Area.CompareTo(a.Area));
         foreach (var (node, _) in _wanted)
@@ -1277,13 +1323,22 @@ public sealed class DiskUsageTreemap : FrameworkElement, IDisposable
         var now = Now;
         var moving = StepCamera(now, dt);
         _container = ComputeContainer();
-        // Moving into or out of a level re-colors and re-labels it; cross-fade both.
+        // CHANGED (round 34): the container follows the camera continuously, so a single zoom used to
+        // walk through several levels and recolour the whole map at each one - which is what makes it
+        // hard to keep track of where you are heading. A new level now has to hold still for a moment
+        // before the colours follow it, so passing through a level on the way somewhere costs nothing
+        // and only arriving somewhere changes the colours.
         if (_container != _colorLevel)
         {
-            _colorPrevious = _colorLevel;
-            _colorLevel = _container;
-            _colorSince = now;
+            if (_container != _colorPending) { _colorPending = _container; _colorPendingSince = now; }
+            if (now - _colorPendingSince >= ColorSettle)
+            {
+                _colorPrevious = _colorLevel;
+                _colorLevel = _container;
+                _colorSince = now;
+            }
         }
+        else _colorPending = null;
         var recoloring = now - _colorSince < ColorFade;
 
         // The veil over the rest of the drive glides to the new folder in world space.
@@ -1504,7 +1559,7 @@ public sealed class DiskUsageTreemap : FrameworkElement, IDisposable
         // CHANGED (round 24): the window was wide because the tree walk cost 10 ms; it costs 0.3 ms
         // now, so geometry can be rebuilt far sooner. Tiles and their gutters are never stretched
         // more than about a quarter, which stops the lattice breathing as the camera moves.
-        var zoomChange = scale < .78 || scale > 1.3;
+        var zoomChange = _everything ? scale < .45 || scale > 2.4 : scale < .78 || scale > 1.3;
         var levelChange = _cache is not null && _cache.Level != _colorLevel;
         var detailChange = _cache is not null && (_cache.Revision != _detailRevision || levelChange || zoomChange);
         // CHANGED (round 21): every folder that finished loading bumped the revision and bought its
@@ -1545,22 +1600,12 @@ public sealed class DiskUsageTreemap : FrameworkElement, IDisposable
         _needsFrame |= blend < 1 || detailChange;
         _view = new Rect(0, 0, ActualWidth, ActualHeight);
         _viewLoose = Rect.Inflate(_view, 2, 2);
-        _drawn.Clear();
-        _wanted.Clear();
-        if (_cache is { } hitCache)
-        {
-            var mapping = BatchFor(hitCache);
-            foreach (var (node, screen) in hitCache.Tiles)
-            {
-                var rect = Rect.Intersect(mapping.Transform(screen), _viewLoose);
-                if (rect.IsEmpty) continue;
-                _drawn.Add((node, rect));
-                node.LastDrawn = Now;   // NEW (round 20): keeps this node's text from being reclaimed
-                var prefetch = IsAnimating || _dragging ? ExpandFull : PrefetchSize;
-                if (node.State == NodeState.Collapsed && Math.Min(rect.Width, rect.Height) >= prefetch)
-                    _wanted.Add((node, rect.Width * rect.Height));
-            }
-        }
+        // REMOVED (round 33): this walked every cached tile on every frame to maintain a flat list for
+        // hit testing and prefetch. At a few thousand blocks that cost a millisecond; with "render
+        // everything" it is hundreds of thousands of rectangles per frame, and it was the whole reason
+        // that mode did not feel smooth. Nothing here needed to be per-frame: the cache already holds
+        // the tiles, hit testing maps the pointer into cache space on demand, and prefetch is decided
+        // while the geometry is built. Per-frame cost is now independent of how many blocks are drawn.
         var labelsStart = _statClock.Elapsed.TotalMilliseconds;
         LastWalkMilliseconds = labelsStart - sceneStart;
         using (var dc = _labels.RenderOpen())
@@ -1583,7 +1628,7 @@ public sealed class DiskUsageTreemap : FrameworkElement, IDisposable
             Smooth(ref _statWalk, LastWalkMilliseconds);
             _statWorstWalk = Math.Max(LastWalkMilliseconds, _statWorstWalk * .985);
             Smooth(ref _statScene, _statClock.Elapsed.TotalMilliseconds - sceneStart);
-            _statTiles = _drawn.Count;
+            _statTiles = RenderedTileCount;
         }
         if (_needsFrame && !_hooked) Dispatcher.InvokeAsync(RequestFrame, DispatcherPriority.Background);
     }
@@ -1608,9 +1653,13 @@ public sealed class DiskUsageTreemap : FrameworkElement, IDisposable
         _openPath.Clear();
         for (var node = _container; node is not null; node = node.Parent) _openPath.Add(node);
         _colorT = 1; // complete layers blend; individual nodes never change hue mid-cache
-        if (_root is { Item.Bytes: > 0 }) DrawNode(_root, ToScreen(_root.Bounds), 1, 1, Rect.Empty, Budget, _baseColor, 0);
+        if (_root is { Item.Bytes: > 0 }) DrawNode(_root, ToScreen(_root.Bounds), 1, 1, Rect.Empty, Budget, _basePacked, 0, true);
+        // The list is handed to the cache rather than copied: at this size a copy is tens of
+        // megabytes of large-object allocation on every rebuild.
+        var tiles = _drawn;
+        _drawn = [];
         return new SceneCache(_camera, viewport, coverage, new TileGeometry(_commands.AsSpan(0, _commandCount).ToArray()),
-            _drawn.ToArray(), _deferred.ToArray(), _deferred.ToDictionary(c => (c.Node, c.IsOpen)), _colorLevel, _detailRevision);
+            tiles, _deferred.ToArray(), _deferred.ToDictionary(c => (c.Node, c.IsOpen)), _colorLevel, _detailRevision);
     }
 
     // Hands back the text layouts of nodes that have left the screen, and enforces a hard ceiling
@@ -1620,7 +1669,10 @@ public sealed class DiskUsageTreemap : FrameworkElement, IDisposable
     {
         if (!force && _texted.Count <= TextBudget && Now - _sweptAt < 1) return;
         _sweptAt = Now;
-        var cutoff = Now - TextIdle;
+        // CHANGED (round 33): nodes are stamped when geometry is built, not every frame, so idleness is
+        // measured from the last build. A view nobody touches stops building and stops evicting, which
+        // is the right answer: nothing has left the screen.
+        var cutoff = _cacheSince - TextIdle;
         var kept = 0;
         for (var i = 0; i < _texted.Count; i++)
         {
@@ -1665,7 +1717,7 @@ public sealed class DiskUsageTreemap : FrameworkElement, IDisposable
         Protect(_candidate);
         Protect(_hover);
         Protect(_highlightNode);
-        _liveNodes = Sweep(_root, Now - NodeIdle).Count;
+        _liveNodes = Sweep(_root, _cacheSince - NodeIdle).Count;
         // Everything alive is on screen or recent: another sweep would walk the tree for nothing.
         if (_liveNodes > NodeCeiling && _liveNodes >= before) _nodeSweptAt = Now + 8;
 
@@ -1744,8 +1796,7 @@ public sealed class DiskUsageTreemap : FrameworkElement, IDisposable
                 var rect = batch.Transform(new Rect(command.X0, command.Y0, command.X1 - command.X0, command.Y1 - command.Y0));
                 rect.Intersect(_viewLoose);
                 if (rect.IsEmpty) continue;
-                var color = Color.FromRgb((byte)(command.Color >> 16), (byte)(command.Color >> 8), (byte)command.Color);
-                Emit(rect, color, command.Alpha / 255d * batch.Opacity);
+                Emit(rect, command.Color, command.Alpha / 255d * batch.Opacity);
             }
         }
     }
@@ -1755,19 +1806,21 @@ public sealed class DiskUsageTreemap : FrameworkElement, IDisposable
     // Children share the subtree budget by visible area, independently of their
     // siblings' expansion state. A block with no detail budget remains solid.
     // Returns the number of tiles used.
-    private int DrawNode(Node node, Rect screen, double alpha, double labelWeight, Rect zone, int budget, Color backdrop, double gutter)
+    private int DrawNode(Node node, Rect screen, double alpha, double labelWeight, Rect zone, int budget, uint backdrop, double gutter, bool onPath)
     {
         if (!screen.IntersectsWith(_viewLoose)) return 0;
         var min = Math.Min(screen.Width, screen.Height);
         var isRoot = node == _root;
-        if (!isRoot && (_tiles >= Budget || min < MinTile))
+        if (!isRoot && (_tiles >= Budget || min < MinimumTile))
         {
             EmitSolid(screen, backdrop);
             return 0;
         }
         // Detail fades through its allowance instead of switching on/off at an
         // integer threshold. Sibling budgets are independent of expansion state.
-        var detail = isRoot || _openPath.Contains(node) ? 1 : DetailAmount(budget, node.Children.Length);
+        // CHANGED (round 34): whether a node is on the open path is carried down the recursion. It was
+        // two hash-set lookups per node, and only a handful of nodes can ever be on the path.
+        var detail = isRoot || _everything || onPath ? 1 : DetailAmount(budget, node.Children.Length);
         _tiles++;
         // CHANGED (round 25): the gutter is handed down by the folder, so every block inside it insets
         // by the same amount and every gap between them is the same width. Deriving it from each
@@ -1790,12 +1843,13 @@ public sealed class DiskUsageTreemap : FrameworkElement, IDisposable
         var visible = Rect.Intersect(tile, _view);
         var hasVisible = !visible.IsEmpty && visible.Width > 1 && visible.Height > 1;
         _drawn.Add((node, drawn));
-        var prefetch = IsAnimating || _dragging ? ExpandFull : PrefetchSize;
-        if (_loads < MaxLoads && budget > 2 && node.State == NodeState.Collapsed && min >= prefetch)
+        node.LastDrawn = Now;   // stamped while the geometry is built, which is the only time it changes
+        var prefetch = IsAnimating || _dragging ? ExpandHigh : PrefetchAt;
+        if (_loads < (_everything ? 12 : MaxLoads) && budget > 2 && node.State == NodeState.Collapsed && min >= prefetch)
             _wanted.Add((node, drawn.Width * drawn.Height));
 
-        var color = isRoot ? _baseColor : NodeColor(node);
-        var open = detail * OpenAmount(node, min);
+        var color = isRoot ? _basePacked : NodeColor(node);
+        var open = detail * OpenAmount(node, onPath, min);
         // An open folder becomes a frame of its own hue behind its contents: dark for the labeled
         // blocks (structure you read), barely darker deeper down (texture you zoom into), so
         // children too small to draw blend into it instead of showing as dark gaps.
@@ -1829,7 +1883,7 @@ public sealed class DiskUsageTreemap : FrameworkElement, IDisposable
             if (inner.Width <= 0 || inner.Height <= 0) inner = tile;
             EmitSolid(tile, Shade(fill, FrameShade));
             // Folder tags stay readable even when their geometry spans the view.
-            var showPill = !isRoot && labelWeight > 0 && hasVisible && !_openPath.Contains(node);
+            var showPill = !isRoot && labelWeight > 0 && hasVisible && !onPath;
             var childZone = Rect.Empty;
             var childLabels = LabelWeight(node);
             var childAlpha = alpha * open;
@@ -1875,13 +1929,15 @@ public sealed class DiskUsageTreemap : FrameworkElement, IDisposable
                 // folder, so every part of the folder is painted exactly once whatever happens.
                 if (areas[k] <= 0) continue;   // the folder's surface already covers it
                 var share = 1 + (areaLeft <= 0 ? 0 : (int)(extra * areas[k] / areaLeft));
-                var spent = DrawNode(children[visited[k]], screens[k], childAlpha, childLabels, childZone, share, fill, childGutter);
+                var child = children[visited[k]];
+                var spent = DrawNode(child, screens[k], childAlpha, childLabels, childZone, share, fill, childGutter,
+                    onPath && _openPath.Contains(child));   // only ever true for one child of an open-path node
                 used += spent;
             }
             ArrayPool<Rect>.Shared.Return(screens);
             ArrayPool<double>.Shared.Return(areas);
             ArrayPool<int>.Shared.Return(visited);
-            if (showPill) _deferred.Add(new Caption(node, visible, zone, alpha * labelWeight * open, true, color));
+            if (showPill) _deferred.Add(new Caption(node, visible, zone, alpha * labelWeight * open, true, Unpack(color)));
             return used;
         }
         // One rectangle. Its gap to its neighbours is the folder's surface showing through from
@@ -1890,7 +1946,7 @@ public sealed class DiskUsageTreemap : FrameworkElement, IDisposable
         return 1;
     }
 
-    private void EmitSolid(Rect rect, Color color)
+    private void EmitSolid(Rect rect, uint color)
     {
         rect.Intersect(_viewLoose);
         if (!rect.IsEmpty) Emit(rect, color, 1);
@@ -1908,14 +1964,13 @@ public sealed class DiskUsageTreemap : FrameworkElement, IDisposable
     internal static double DetailAmount(int budget, int children)
         => SmoothStep((budget - children - 1d) / Math.Max(8, children * .5));
 
-    private double OpenAmount(Node node, double min)
+    private double OpenAmount(Node node, bool onPath, double min)
     {
         if (node.State != NodeState.Ready) return 0;
-        var onPath = _openPath.Contains(node);
         // NEW (round 18): low detail mode opens only the folders you are inside. Everything within
         // them stays a solid block, so a frame walks one level instead of the whole subtree.
         if (_lowDetail && !onPath) return 0;
-        var zoom = onPath ? 1 : SmoothStep((min - ExpandStart) / (ExpandFull - ExpandStart));
+        var zoom = onPath ? 1 : SmoothStep((min - ExpandLow) / (ExpandHigh - ExpandLow));
         if (zoom <= 0) return 0;
         return zoom; // newly loaded detail fades in as a complete cached layer
     }
@@ -1933,13 +1988,13 @@ public sealed class DiskUsageTreemap : FrameworkElement, IDisposable
 
     // ---------------------------------------------------------------- NEW (round 9): rasterizer
 
-    private void Emit(Rect rect, Color color, double alpha)
+    private void Emit(Rect rect, uint color, double alpha)
     {
         var a = (int)Math.Round(Clamp01(alpha) * 255);
         if (a <= 0 || rect.Width <= 0 || rect.Height <= 0) return;
         if (_commandCount == _commands.Length) Array.Resize(ref _commands, _commands.Length * 2);
         _commands[_commandCount++] = new TileCommand((float)rect.Left, (float)rect.Top, (float)rect.Right, (float)rect.Bottom,
-            (uint)color.R << 16 | (uint)color.G << 8 | color.B, (byte)a);
+            color, (byte)a);
     }
 
     // A bitmap in device pixels (at most maxPixels, scaled up by the GPU beyond that).
@@ -2156,14 +2211,14 @@ public sealed class DiskUsageTreemap : FrameworkElement, IDisposable
         return previous + (current - previous) * _colorT;
     }
 
-    private Color NodeColor(Node node)
+    private uint NodeColor(Node node)
     {
         var current = ColorUnder(node, _colorLevel!);
         if (_colorT >= 1 || _colorPrevious is null) return current;
         return Mix(ColorUnder(node, _colorPrevious), current, _colorT);
     }
 
-    private Color ColorUnder(Node node, Node level)
+    private uint ColorUnder(Node node, Node level)
     {
         if (node.ColorKeyA == level) return node.ColorA;
         if (node.ColorKeyB == level) return node.ColorB;
@@ -2176,12 +2231,12 @@ public sealed class DiskUsageTreemap : FrameworkElement, IDisposable
 
     // Each item directly inside the level (the "anchor") has its own hue; everything inside it
     // shares that hue, a little darker per level and varied between siblings.
-    private Color ComputeColor(Node node, Node level)
+    private uint ComputeColor(Node node, Node level)
     {
         var anchor = node;
         var depth = 0;
         while (anchor.Parent is not null && !OnPath(anchor.Parent, level)) { anchor = anchor.Parent; depth++; }
-        if (anchor.Parent is null) return _baseColor;
+        if (anchor.Parent is null) return _basePacked;
         var hue = anchor.IsGroup ? GroupColor : BranchColors[anchor.Index % BranchColors.Length];
         if (depth == 0) return hue;
         // CHANGED (round 18): the old .05-per-index step varied siblings by at most 10% and ramped in
@@ -2199,6 +2254,28 @@ public sealed class DiskUsageTreemap : FrameworkElement, IDisposable
         var hash = 2166136261u;
         foreach (var character in node.Item.Name) hash = (hash ^ (uint)character) * 16777619u;
         return ((hash >> 8) & 1023) / 1023d;
+    }
+
+    private static uint Pack(Color color) => (uint)color.R << 16 | (uint)color.G << 8 | color.B;
+    private static Color Unpack(uint color) => Color.FromRgb((byte)(color >> 16), (byte)(color >> 8), (byte)color);
+
+    private static uint Shade(uint color, double factor)
+    {
+        var scale = (uint)Math.Clamp((int)(factor * 256), 0, 2048);
+        var r = Math.Min(255u, ((color >> 16 & 255) * scale) >> 8);
+        var g = Math.Min(255u, ((color >> 8 & 255) * scale) >> 8);
+        var b = Math.Min(255u, ((color & 255) * scale) >> 8);
+        return r << 16 | g << 8 | b;
+    }
+
+    private static uint Mix(uint from, uint to, double amount)
+    {
+        var w = (uint)Math.Clamp((int)(amount * 256), 0, 256);
+        var inverse = 256 - w;
+        var r = ((from >> 16 & 255) * inverse + (to >> 16 & 255) * w) >> 8;
+        var g = ((from >> 8 & 255) * inverse + (to >> 8 & 255) * w) >> 8;
+        var b = ((from & 255) * inverse + (to & 255) * w) >> 8;
+        return r << 16 | g << 8 | b;
     }
 
     private static Color Shade(Color color, double factor) => Color.FromArgb(color.A,
@@ -2363,10 +2440,12 @@ public sealed class DiskUsageTreemap : FrameworkElement, IDisposable
 
     private void Outline(DrawingContext dc, Node node, Pen pen)
     {
-        foreach (var (drawnNode, rect) in _drawn)
+        if (_cache is not { } cache) return;
+        var mapping = BatchFor(cache);
+        foreach (var (drawnNode, screen) in cache.Tiles)
         {
             if (drawnNode != node) continue;
-            var box = Rect.Intersect(rect, Rect.Inflate(_view, 2, 2));
+            var box = Rect.Intersect(mapping.Transform(screen), Rect.Inflate(_view, 2, 2));
             if (box.IsEmpty || box.Width < 2 || box.Height < 2) return;
             dc.DrawRectangle(null, pen, box); // CHANGED (round 9): tiles are square-cornered now
             return;
@@ -2409,7 +2488,7 @@ public sealed class DiskUsageTreemap : FrameworkElement, IDisposable
         dc.DrawRoundedRectangle(CardFill, CardEdge, new Rect(x, y, width, height), 8, 8);
         dc.DrawText(title, new Point(x + pad, y + pad));
         var line = y + pad + title.Height + 3;
-        dc.DrawEllipse(BrushFor(NodeColor(node), 1), null, new Point(x + pad + swatch / 2, line + detail.Height / 2), swatch / 2, swatch / 2);
+        dc.DrawEllipse(BrushFor(Unpack(NodeColor(node)), 1), null, new Point(x + pad + swatch / 2, line + detail.Height / 2), swatch / 2, swatch / 2);
         dc.DrawText(detail, new Point(x + pad + swatch + 7, line));
         if (hint is not null) dc.DrawText(hint, new Point(x + pad, line + detail.Height + 6));
     }
@@ -2498,6 +2577,7 @@ public sealed class DiskUsageTreemap : FrameworkElement, IDisposable
         if (TryFindResource("Base") is SolidColorBrush baseBrush && baseBrush.Color != _baseColor)
         {
             _baseColor = baseBrush.Color;
+            _basePacked = Pack(baseBrush.Color);
             _base = Frozen(baseBrush.Color);
         }
     }
@@ -2507,11 +2587,17 @@ public sealed class DiskUsageTreemap : FrameworkElement, IDisposable
 
     // ================================================================= input
 
+    // CHANGED (round 33): the pointer is mapped back into the cached scene's own coordinates and the
+    // tiles are searched from the end, where the deepest blocks are - parents are recorded before
+    // their children. This hit-tests the pixels that are actually on screen, including while a GPU
+    // frame is deferred, without keeping a transformed copy of every tile up to date each frame.
     private Node? NodeAt(Point point)
     {
-        // Hit-test the last presented pixels, even if the next GPU frame is busy.
-        for (var i = _drawn.Count - 1; i >= 0; i--)
-            if (_drawn[i].Screen.Contains(point)) return _drawn[i].Node;
+        if (_cache is not { } cache || BatchFor(cache) is not { Scale: > 0 } mapping) return null;
+        var local = new Point((point.X - mapping.X) / mapping.Scale, (point.Y - mapping.Y) / mapping.Scale);
+        var tiles = cache.Tiles;
+        for (var i = tiles.Count - 1; i >= 0; i--)
+            if (tiles[i].Screen.Contains(local)) return tiles[i].Node;
         return null;
     }
 

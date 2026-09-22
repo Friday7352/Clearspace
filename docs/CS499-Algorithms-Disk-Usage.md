@@ -147,6 +147,46 @@ while the software rasterizer fills them span by span and keeps a 10,000 budget.
 than one level below the labelled one also barely darkened (0.8), so its frame disappeared and
 everything under the second level read as one field; every level now recesses.
 
+Rebuilding the geometry is the one cost that remains proportional to the number of blocks, and
+two things in it were paid per node without needing to be. Colour was carried as
+`System.Windows.Media.Color`, a struct holding scRGB floats alongside the sRGB bytes, so every
+`FromArgb` converts between the two - and each block mixes and shades several times. The tile
+path now carries packed 0xRRGGBB integers and does the same arithmetic on bytes, converting to a
+`Color` only for the handful of labels and brushes that need one. Whether a node lies on the open
+path was two hash-set lookups per node, although only a chain of nodes from the root can ever be
+on it; it is carried down the recursion instead, and the lookup survives only for the children of
+a node already on the path.
+
+Colour follows the level being viewed, and the level follows the camera continuously, so a single
+zoom used to pass through several levels and recolour the whole map at each. A level must now hold
+for a third of a second before the colours follow it, so passing through costs nothing and only
+arriving changes anything; the cross-fade lengthened to match.
+
+Per-frame cost is now independent of how many blocks are drawn. A loop had walked every cached
+tile on every frame, transforming each into screen space to maintain a flat list used for hit
+testing and for deciding which folders to prefetch. At a few thousand blocks that cost about a
+millisecond and was invisible; at several hundred thousand it is the entire frame. None of it
+needed to be per-frame: the cache already holds every tile in its own coordinates, so hit testing
+maps the pointer back into those coordinates on demand and searches from the end, where the
+deepest blocks are, and prefetch is decided once while the geometry is built. The tile list is
+also handed to the cache rather than copied into it, since at this size the copy is tens of
+megabytes of large-object allocation per rebuild. Nodes are stamped with the build that drew
+them rather than with every frame, so the eviction sweeps measure idleness from the last build:
+a view nobody touches stops building and stops evicting, which is correct, because nothing has
+left the screen.
+
+An experimental mode removes every limit on what is drawn: no minimum tile size beyond
+a fifth of a pixel, no expansion threshold, no per-subtree allowance, and a budget of
+750,000 blocks - past which blocks are smaller than a pixel on a 2.6-megapixel window and
+add only vertices. Nothing then appears on zoom that was not already on screen. The
+rectangles are not the constraint; a discrete card draws a million of them without
+noticing. The constraints are that every folder must be loaded and retained, which the
+node ceiling raises to 1.2 million for this mode, and that the walk producing the geometry
+grows with the tree - so the geometry reuse window widens to [0.45, 2.4], a scene this
+dense tolerating more stretching between rebuilds. A vertex buffer of that size may be
+refused by the driver, which now falls back for that frame rather than disabling the
+renderer for the session.
+
 Where a frame is prepared turned out to matter more than what it costs. With the Direct3D path a
 whole frame - walk, labels, upload and draw - measured about a millisecond, while frames arrived
 22 ms apart and a counter recorded hundreds of frames the compositor had declined to release its

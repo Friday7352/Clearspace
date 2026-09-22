@@ -130,6 +130,10 @@
                                       Checked="OnPerformanceOptionChanged" Unchecked="OnPerformanceOptionChanged"/>
                             <TextBlock Foreground="{StaticResource InkMuted}" FontSize="11" TextWrapping="Wrap" Margin="27,3,0,0"
                                        Text="Draws fewer blocks per frame, keeps far fewer labels in memory, and holds folder sizes for one drive only instead of keeping them warm. Names reappear as you look at them."/>
+                            <CheckBox x:Name="EverythingOption" Style="{StaticResource ViewerCheck}" Content="Render everything (experimental)" Margin="0,14,0,0"
+                                      Checked="OnPerformanceOptionChanged" Unchecked="OnPerformanceOptionChanged"/>
+                            <TextBlock Foreground="{StaticResource InkMuted}" FontSize="11" TextWrapping="Wrap" Margin="27,3,0,0"
+                                       Text="Draws every block at every depth, so zooming reveals nothing that was not already on screen. Your graphics card will not notice; the cost is that the whole folder has to be read and kept in memory. Watch the memory line on F3 in a very large folder."/>
                             <TextBlock Foreground="{StaticResource InkFaint}" FontSize="11" TextWrapping="Wrap" Margin="0,14,0,0"
                                        Text="Press F3 on the map for frame timings and memory."/>
                         </StackPanel>

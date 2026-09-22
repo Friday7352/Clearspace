@@ -229,7 +229,10 @@ internal sealed unsafe class GpuTileRenderer : IDisposable
             var uploadStart = Stopwatch.GetTimestamp();
             TrimGeometry(batches);
             foreach (ref readonly var batch in batches)
-                if (!UploadGeometry(batch.Geometry)) return Fail();
+                // CHANGED (round 32): a scene of a million blocks needs a vertex buffer the driver may
+                // decline. That is a reason to fall back for this frame, not to give up on the GPU for
+                // the rest of the session, so it is not treated as a device failure.
+                if (!UploadGeometry(batch.Geometry)) return false;
             LastUploadMilliseconds = Stopwatch.GetElapsedTime(uploadStart).TotalMilliseconds;
             var target = _multisample != IntPtr.Zero ? _multisample : _shared;
             ((delegate* unmanaged[Stdcall]<IntPtr, uint, IntPtr, int>)Slot(_device, SlotSetRenderTarget))(_device, 0, target);

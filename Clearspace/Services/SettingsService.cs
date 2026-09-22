@@ -26,6 +26,8 @@ public sealed class SettingsData
 
     public bool DiskMapConserveMemory { get; set; }
 
+    public bool DiskMapRenderEverything { get; set; }
+
     public bool ShowHiddenItems { get; set; }
 
     public bool SearchEverywhere { get; set; }
@@ -193,6 +195,17 @@ public static class SettingsService
                 Current.FolderViewProfiles[folder] = profile!;
         }
 
+        Save();
+    }
+
+    public static bool GetDiskMapRenderEverything() => Current.DiskMapRenderEverything;
+
+    public static void SetDiskMapRenderEverything(bool value)
+    {
+        if (Current.DiskMapRenderEverything == value)
+            return;
+
+        Current.DiskMapRenderEverything = value;
         Save();
     }
 

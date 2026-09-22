@@ -89,10 +89,12 @@ public partial class DiskUsageView : UserControl, IDisposable
         GpuOption.IsChecked = SettingsService.GetDiskMapGpu();
         LowDetailOption.IsChecked = SettingsService.GetDiskMapLowDetail();
         ConserveOption.IsChecked = SettingsService.GetDiskMapConserveMemory();
+        EverythingOption.IsChecked = SettingsService.GetDiskMapRenderEverything();
         _applyingOptions = false;
         Treemap.GpuEnabled = GpuOption.IsChecked == true;
         Treemap.LowDetail = LowDetailOption.IsChecked == true;
         Treemap.ConserveMemory = ConserveOption.IsChecked == true;
+        Treemap.RenderEverything = EverythingOption.IsChecked == true;
     }
 
     private void OnToggleSettings(object sender, RoutedEventArgs e) => SettingsPopup.IsOpen = !SettingsPopup.IsOpen;
@@ -106,12 +108,15 @@ public partial class DiskUsageView : UserControl, IDisposable
         var gpu = GpuOption.IsChecked == true;
         var low = LowDetailOption.IsChecked == true;
         var lean = ConserveOption.IsChecked == true;
+        var everything = EverythingOption.IsChecked == true;
         SettingsService.SetDiskMapGpu(gpu);
         SettingsService.SetDiskMapLowDetail(low);
         SettingsService.SetDiskMapConserveMemory(lean);
+        SettingsService.SetDiskMapRenderEverything(everything);
         Treemap.GpuEnabled = gpu;
         Treemap.LowDetail = low;
         Treemap.ConserveMemory = lean;
+        Treemap.RenderEverything = everything;
         Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Background,
             new Action(() => { if (!_disposed) RendererText.Text = Treemap.RendererLabel; }));
     }

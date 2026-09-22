@@ -95,6 +95,10 @@ load cross-fade from the picture already on screen rather than blanking.
 between runs. *GPU acceleration* draws the blocks through Direct3D; turning it off
 uses the built-in multi-threaded CPU rasterizer, which is what runs anyway on a
 machine with no usable Direct3D adapter. The panel names the adapter in use.
+*Render everything (experimental)* draws every block at every depth, so zooming
+reveals nothing that was not already on screen and nothing pops in. The drawing
+itself is nearly free on a discrete card; the cost is that the whole folder must be
+read and held in memory, so watch the F3 memory line in a very large folder.
 *Low performance mode* draws only the folder you are in - everything inside it
 stays a solid block until you open it - so a frame never walks a deep tree. That
 is the setting to reach for on integrated graphics or in enormous folders.
