@@ -1,0 +1,124 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TestRun id="b8f50932-527d-45f0-859e-f5f3bd05e314" name="Payton@PAYTONPC 2026-09-22 14:08:21" runUser="PaytonPC\Payton" xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010">
+  <Times creation="2026-09-22T14:08:21.4849918-05:00" queuing="2026-09-22T14:08:21.4849921-05:00" start="2026-09-22T14:08:19.6663645-05:00" finish="2026-09-22T14:08:36.2679110-05:00" />
+  <TestSettings name="default" id="495cf31a-025a-4eed-8daf-2a45f4897e37">
+    <Deployment runDeploymentRoot="Payton_PAYTONPC_2026-09-22_14_08_21" />
+  </TestSettings>
+  <Results>
+    <UnitTestResult executionId="1fbcb093-46a3-470c-9275-8138098dd941" testId="1ccd4431-529f-9a20-ef79-c5dc7636338f" testName="DenseCameraFramesHaveBoundedWorkAndReportTimings (4748,1220)" computerName="PAYTONPC" duration="00:00:03.9456783" startTime="2026-09-22T14:08:22.7720136-05:00" endTime="2026-09-22T14:08:26.7179380-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="1fbcb093-46a3-470c-9275-8138098dd941">
+      <Output>
+        <StdOut>TestContext Messages:&#xD;
+CPU fallback, 4748x1220, 25,600 files, 180 camera frames: median 4.70 ms, p95 9.71 ms, max 20.35 ms; walk median 0.11 ms, p95 1.61 ms; UI allocation 271,965 bytes/frame; peak 7,873 tiles; 15 builds, 541 reused frames, 0 GPU uploads.</StdOut>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="babf3d09-8ffe-44ac-b4b6-efa1fe28a603" testId="bf28598f-5276-ac84-f385-92edcb8bdedc" testName="DenseCameraFramesHaveBoundedWorkAndReportTimings (4748,1220,True)" computerName="PAYTONPC" duration="00:00:07.3444650" startTime="2026-09-22T14:08:26.7186136-05:00" endTime="2026-09-22T14:08:34.0636412-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="babf3d09-8ffe-44ac-b4b6-efa1fe28a603">
+      <Output>
+        <StdOut>TestContext Messages:&#xD;
+GPU, 4748x1220, 25,600 files, 180 camera frames: median 0.38 ms, p95 3.43 ms, max 21.72 ms; walk median 0.09 ms, p95 0.24 ms; UI allocation 164,104 bytes/frame; peak 7,873 tiles; 23 builds, 299 reused frames, 23 GPU uploads.</StdOut>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="d9ceae03-f438-4b97-924e-dff99cfdb4ce" testId="c51b2e62-0327-d006-0720-8905d61affeb" testName="FrameRequestsCoalesceAndLetInputRunFirst" computerName="PAYTONPC" duration="00:00:00.1095950" startTime="2026-09-22T14:08:34.0640073-05:00" endTime="2026-09-22T14:08:34.1738284-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="d9ceae03-f438-4b97-924e-dff99cfdb4ce" />
+    <UnitTestResult executionId="999168e0-6355-439b-86b3-81bdf87fe53e" testId="da2f68ba-6de3-3245-ff71-fa964385fdb3" testName="SlowAndSupersededFolderLoadsNeverRunOnTheDispatcher" computerName="PAYTONPC" duration="00:00:00.3198065" startTime="2026-09-22T14:08:20.1011034-05:00" endTime="2026-09-22T14:08:20.4308055-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="999168e0-6355-439b-86b3-81bdf87fe53e" />
+    <UnitTestResult executionId="0ab1a27c-8401-480b-9b2a-9fab58abcc1c" testId="6466f0a5-a55b-47dd-17cd-cc425184a54d" testName="ClosingMapCancelsBackgroundWorkAndPreventsRestart" computerName="PAYTONPC" duration="00:00:00.1056414" startTime="2026-09-22T14:08:35.6081313-05:00" endTime="2026-09-22T14:08:35.7140742-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="0ab1a27c-8401-480b-9b2a-9fab58abcc1c" />
+    <UnitTestResult executionId="2f9e3a8a-990f-4c7b-af80-d9f49f10bed4" testId="cda325ea-36d5-2ac5-ebd4-3fe19bdd9501" testName="ResidentGpuGeometryMovesActualPixelsWithoutReuploading" computerName="PAYTONPC" duration="00:00:00.1452382" startTime="2026-09-22T14:08:35.0674867-05:00" endTime="2026-09-22T14:08:35.2128851-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="2f9e3a8a-990f-4c7b-af80-d9f49f10bed4" />
+    <UnitTestResult executionId="0596c762-381e-4208-80a8-d28e2b1a3ba2" testId="022a0dd7-8322-c23c-eef9-4810f79a97dc" testName="DenseCameraFramesHaveBoundedWorkAndReportTimings (1280,800)" computerName="PAYTONPC" duration="00:00:02.3353676" startTime="2026-09-22T14:08:20.4341163-05:00" endTime="2026-09-22T14:08:22.7712485-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="0596c762-381e-4208-80a8-d28e2b1a3ba2">
+      <Output>
+        <StdOut>TestContext Messages:&#xD;
+CPU fallback, 1280x800, 25,600 files, 180 camera frames: median 2.00 ms, p95 4.48 ms, max 9.96 ms; walk median 0.08 ms, p95 1.55 ms; UI allocation 118,089 bytes/frame; peak 7,873 tiles; 12 builds, 589 reused frames, 0 GPU uploads.</StdOut>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="420ce459-7447-4846-9518-30b50652b3b1" testId="1f067f4c-b1c0-84db-a68a-36dc12094df3" testName="BusyGpuDefersLabelsHitTargetsAndTilesTogether" computerName="PAYTONPC" duration="00:00:00.3085867" startTime="2026-09-22T14:08:35.2136551-05:00" endTime="2026-09-22T14:08:35.5223534-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="420ce459-7447-4846-9518-30b50652b3b1" />
+    <UnitTestResult executionId="599e0987-dcc5-4df5-9f5f-847114f65f29" testId="87b45570-c9de-6fb2-ea10-a7d72ec0e9f8" testName="CameraFramesReuseGeometryAndCachedTilesDoNotOverlap" computerName="PAYTONPC" duration="00:00:00.1459752" startTime="2026-09-22T14:08:34.9212535-05:00" endTime="2026-09-22T14:08:35.0673911-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="599e0987-dcc5-4df5-9f5f-847114f65f29" />
+    <UnitTestResult executionId="87bb8dcf-4498-40bd-81dd-93d7278ef1a2" testId="a43681db-a53c-3c15-582c-06e2fb83b087" testName="DetailBudgetFadesGraduallyAndReversibly" computerName="PAYTONPC" duration="00:00:00.0004959" startTime="2026-09-22T14:08:35.2129728-05:00" endTime="2026-09-22T14:08:35.2136053-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="87bb8dcf-4498-40bd-81dd-93d7278ef1a2" />
+    <UnitTestResult executionId="074a2076-999e-4236-b4f9-95610bdb6c09" testId="e7e07e45-86da-30b7-4423-2c44597d47a1" testName="GpuRendererPresentsAndResizesWhenAvailable" computerName="PAYTONPC" duration="00:00:00.3367267" startTime="2026-09-22T14:08:35.8682009-05:00" endTime="2026-09-22T14:08:36.2058974-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="074a2076-999e-4236-b4f9-95610bdb6c09">
+      <Output>
+        <StdOut>TestContext Messages:&#xD;
+GPU smoke check: 12/12 frames presented; multisampling True; resize exercised.</StdOut>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="0b7dc047-8730-4d85-a3b4-24e65a78ce0f" testId="df3bd1f3-052e-0c08-bd1e-be6348e4431e" testName="LoadedMapKeepsZoomingThroughTheInputFriendlyFrameQueue" computerName="PAYTONPC" duration="00:00:00.7470419" startTime="2026-09-22T14:08:34.1739345-05:00" endTime="2026-09-22T14:08:34.9211459-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="0b7dc047-8730-4d85-a3b4-24e65a78ce0f" />
+    <UnitTestResult executionId="e27cfb6c-6847-45d2-91a7-0fe15e575c92" testId="a91d2968-8c38-20f5-1be1-ed4e368a6f7d" testName="ZoomPrefetchStartsOnlyOneBackgroundFolderAtATime" computerName="PAYTONPC" duration="00:00:00.0854081" startTime="2026-09-22T14:08:35.5224491-05:00" endTime="2026-09-22T14:08:35.6080400-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="e27cfb6c-6847-45d2-91a7-0fe15e575c92" />
+    <UnitTestResult executionId="53c6738b-6aac-4328-a595-8d2019264777" testId="40a2a42e-8897-e4b0-777c-c5d9060ece41" testName="BusyGpuFrameReleasesItsLockAndTheNextFrameCanRender" computerName="PAYTONPC" duration="00:00:00.1537917" startTime="2026-09-22T14:08:35.7141690-05:00" endTime="2026-09-22T14:08:35.8681135-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="53c6738b-6aac-4328-a595-8d2019264777" />
+  </Results>
+  <TestDefinitions>
+    <UnitTest name="CameraFramesReuseGeometryAndCachedTilesDoNotOverlap" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="87b45570-c9de-6fb2-ea10-a7d72ec0e9f8">
+      <Execution id="599e0987-dcc5-4df5-9f5f-847114f65f29" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.DiskUsagePerformanceTests" name="CameraFramesReuseGeometryAndCachedTilesDoNotOverlap" />
+    </UnitTest>
+    <UnitTest name="FrameRequestsCoalesceAndLetInputRunFirst" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="c51b2e62-0327-d006-0720-8905d61affeb">
+      <Execution id="d9ceae03-f438-4b97-924e-dff99cfdb4ce" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.DiskUsagePerformanceTests" name="FrameRequestsCoalesceAndLetInputRunFirst" />
+    </UnitTest>
+    <UnitTest name="BusyGpuFrameReleasesItsLockAndTheNextFrameCanRender" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="40a2a42e-8897-e4b0-777c-c5d9060ece41">
+      <Execution id="53c6738b-6aac-4328-a595-8d2019264777" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.DiskUsagePerformanceTests" name="BusyGpuFrameReleasesItsLockAndTheNextFrameCanRender" />
+    </UnitTest>
+    <UnitTest name="GpuRendererPresentsAndResizesWhenAvailable" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="e7e07e45-86da-30b7-4423-2c44597d47a1">
+      <Execution id="074a2076-999e-4236-b4f9-95610bdb6c09" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.DiskUsagePerformanceTests" name="GpuRendererPresentsAndResizesWhenAvailable" />
+    </UnitTest>
+    <UnitTest name="DetailBudgetFadesGraduallyAndReversibly" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="a43681db-a53c-3c15-582c-06e2fb83b087">
+      <Execution id="87bb8dcf-4498-40bd-81dd-93d7278ef1a2" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.DiskUsagePerformanceTests" name="DetailBudgetFadesGraduallyAndReversibly" />
+    </UnitTest>
+    <UnitTest name="BusyGpuDefersLabelsHitTargetsAndTilesTogether" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="1f067f4c-b1c0-84db-a68a-36dc12094df3">
+      <Execution id="420ce459-7447-4846-9518-30b50652b3b1" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.DiskUsagePerformanceTests" name="BusyGpuDefersLabelsHitTargetsAndTilesTogether" />
+    </UnitTest>
+    <UnitTest name="DenseCameraFramesHaveBoundedWorkAndReportTimings (1280,800)" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="022a0dd7-8322-c23c-eef9-4810f79a97dc">
+      <Execution id="0596c762-381e-4208-80a8-d28e2b1a3ba2" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.DiskUsagePerformanceTests" name="DenseCameraFramesHaveBoundedWorkAndReportTimings" />
+    </UnitTest>
+    <UnitTest name="DenseCameraFramesHaveBoundedWorkAndReportTimings (4748,1220)" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="1ccd4431-529f-9a20-ef79-c5dc7636338f">
+      <Execution id="1fbcb093-46a3-470c-9275-8138098dd941" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.DiskUsagePerformanceTests" name="DenseCameraFramesHaveBoundedWorkAndReportTimings" />
+    </UnitTest>
+    <UnitTest name="LoadedMapKeepsZoomingThroughTheInputFriendlyFrameQueue" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="df3bd1f3-052e-0c08-bd1e-be6348e4431e">
+      <Execution id="0b7dc047-8730-4d85-a3b4-24e65a78ce0f" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.DiskUsagePerformanceTests" name="LoadedMapKeepsZoomingThroughTheInputFriendlyFrameQueue" />
+    </UnitTest>
+    <UnitTest name="DenseCameraFramesHaveBoundedWorkAndReportTimings (4748,1220,True)" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="bf28598f-5276-ac84-f385-92edcb8bdedc">
+      <Execution id="babf3d09-8ffe-44ac-b4b6-efa1fe28a603" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.DiskUsagePerformanceTests" name="DenseCameraFramesHaveBoundedWorkAndReportTimings" />
+    </UnitTest>
+    <UnitTest name="ResidentGpuGeometryMovesActualPixelsWithoutReuploading" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="cda325ea-36d5-2ac5-ebd4-3fe19bdd9501">
+      <Execution id="2f9e3a8a-990f-4c7b-af80-d9f49f10bed4" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.DiskUsagePerformanceTests" name="ResidentGpuGeometryMovesActualPixelsWithoutReuploading" />
+    </UnitTest>
+    <UnitTest name="SlowAndSupersededFolderLoadsNeverRunOnTheDispatcher" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="da2f68ba-6de3-3245-ff71-fa964385fdb3">
+      <Execution id="999168e0-6355-439b-86b3-81bdf87fe53e" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.DiskUsagePerformanceTests" name="SlowAndSupersededFolderLoadsNeverRunOnTheDispatcher" />
+    </UnitTest>
+    <UnitTest name="ClosingMapCancelsBackgroundWorkAndPreventsRestart" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="6466f0a5-a55b-47dd-17cd-cc425184a54d">
+      <Execution id="0ab1a27c-8401-480b-9b2a-9fab58abcc1c" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.DiskUsagePerformanceTests" name="ClosingMapCancelsBackgroundWorkAndPreventsRestart" />
+    </UnitTest>
+    <UnitTest name="ZoomPrefetchStartsOnlyOneBackgroundFolderAtATime" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="a91d2968-8c38-20f5-1be1-ed4e368a6f7d">
+      <Execution id="e27cfb6c-6847-45d2-91a7-0fe15e575c92" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.DiskUsagePerformanceTests" name="ZoomPrefetchStartsOnlyOneBackgroundFolderAtATime" />
+    </UnitTest>
+  </TestDefinitions>
+  <TestEntries>
+    <TestEntry testId="1ccd4431-529f-9a20-ef79-c5dc7636338f" executionId="1fbcb093-46a3-470c-9275-8138098dd941" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="bf28598f-5276-ac84-f385-92edcb8bdedc" executionId="babf3d09-8ffe-44ac-b4b6-efa1fe28a603" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="c51b2e62-0327-d006-0720-8905d61affeb" executionId="d9ceae03-f438-4b97-924e-dff99cfdb4ce" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="da2f68ba-6de3-3245-ff71-fa964385fdb3" executionId="999168e0-6355-439b-86b3-81bdf87fe53e" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="6466f0a5-a55b-47dd-17cd-cc425184a54d" executionId="0ab1a27c-8401-480b-9b2a-9fab58abcc1c" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="cda325ea-36d5-2ac5-ebd4-3fe19bdd9501" executionId="2f9e3a8a-990f-4c7b-af80-d9f49f10bed4" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="022a0dd7-8322-c23c-eef9-4810f79a97dc" executionId="0596c762-381e-4208-80a8-d28e2b1a3ba2" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="1f067f4c-b1c0-84db-a68a-36dc12094df3" executionId="420ce459-7447-4846-9518-30b50652b3b1" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="87b45570-c9de-6fb2-ea10-a7d72ec0e9f8" executionId="599e0987-dcc5-4df5-9f5f-847114f65f29" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="a43681db-a53c-3c15-582c-06e2fb83b087" executionId="87bb8dcf-4498-40bd-81dd-93d7278ef1a2" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="e7e07e45-86da-30b7-4423-2c44597d47a1" executionId="074a2076-999e-4236-b4f9-95610bdb6c09" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="df3bd1f3-052e-0c08-bd1e-be6348e4431e" executionId="0b7dc047-8730-4d85-a3b4-24e65a78ce0f" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="a91d2968-8c38-20f5-1be1-ed4e368a6f7d" executionId="e27cfb6c-6847-45d2-91a7-0fe15e575c92" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="40a2a42e-8897-e4b0-777c-c5d9060ece41" executionId="53c6738b-6aac-4328-a595-8d2019264777" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+  </TestEntries>
+  <TestLists>
+    <TestList name="Results Not in a List" id="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestList name="All Loaded Results" id="19431567-8539-422a-85d7-44ee4e166bda" />
+  </TestLists>
+  <ResultSummary outcome="Completed">
+    <Counters total="14" executed="14" passed="14" failed="0" error="0" timeout="0" aborted="0" inconclusive="0" passedButRunAborted="0" notRunnable="0" notExecuted="0" disconnected="0" warning="0" completed="0" inProgress="0" pending="0" />
+  </ResultSummary>
+</TestRun>

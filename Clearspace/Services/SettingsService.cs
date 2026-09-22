@@ -16,6 +16,16 @@ public sealed class SettingsData
 
     public bool UseWindowsIndex { get; set; } = true;
 
+    // NEW (round 18): disk map performance options. GPU acceleration draws the blocks through
+    // Direct3D; turning it off uses the CPU rasterizer, which is the right choice on machines whose
+    // display driver is unhappy with a shared surface. Low detail mode draws only the folder you are
+    // in, so the map never walks a deep tree - the escape hatch for weak or integrated graphics.
+    public bool DiskMapGpu { get; set; } = true;
+
+    public bool DiskMapLowDetail { get; set; }
+
+    public bool DiskMapConserveMemory { get; set; }
+
     public bool ShowHiddenItems { get; set; }
 
     public bool SearchEverywhere { get; set; }
@@ -183,6 +193,39 @@ public static class SettingsService
                 Current.FolderViewProfiles[folder] = profile!;
         }
 
+        Save();
+    }
+
+    public static bool GetDiskMapConserveMemory() => Current.DiskMapConserveMemory;
+
+    public static void SetDiskMapConserveMemory(bool value)
+    {
+        if (Current.DiskMapConserveMemory == value)
+            return;
+
+        Current.DiskMapConserveMemory = value;
+        Save();
+    }
+
+    public static bool GetDiskMapGpu() => Current.DiskMapGpu;
+
+    public static void SetDiskMapGpu(bool value)
+    {
+        if (Current.DiskMapGpu == value)
+            return;
+
+        Current.DiskMapGpu = value;
+        Save();
+    }
+
+    public static bool GetDiskMapLowDetail() => Current.DiskMapLowDetail;
+
+    public static void SetDiskMapLowDetail(bool value)
+    {
+        if (Current.DiskMapLowDetail == value)
+            return;
+
+        Current.DiskMapLowDetail = value;
         Save();
     }
 

@@ -94,9 +94,10 @@ public sealed class DiskUsageWindowTests
                     var midFlight = map.ScreenBoundsOf(videos.Id)!.Value;
                     Assert.IsTrue(midFlight.Width > videosBefore.Width && midFlight.Width < map.ActualWidth * 1.1,
                         "Mid-flight, the folder should be growing continuously.");
-                    await WaitFor(() => vm.CurrentPath == @"C:\Videos", "Clicking a folder should open it in the list.");
+                    Assert.AreEqual(@"C:\", vm.CurrentPath, "The sidebar must wait while the folder is still growing.");
                     map.AdvanceTime(1);
                     Assert.IsFalse(map.IsAnimating);
+                    await WaitFor(() => vm.CurrentPath == @"C:\Videos", "The settled folder should open in the list.");
                     var videosAfter = map.ScreenBoundsOf(videos.Id)!.Value;
                     Assert.IsTrue(videosAfter.Width >= map.ActualWidth * .9 || videosAfter.Height >= map.ActualHeight * .9,
                         "The opened folder should fill the view.");
@@ -200,6 +201,7 @@ public sealed class DiskUsageWindowTests
                     var denseSnapshot = DiskUsageSnapshot.Build(dense, CancellationToken.None);
                     var timer = System.Diagnostics.Stopwatch.StartNew();
                     map.SetSource(denseSnapshot.Item(0), (id, token) => denseSnapshot.Children(id, token), [1]);
+                    await WaitFor(() => map.PendingLoads == 0, "Initial folder layout should finish in the background.");
                     map.AdvanceTime(1);
                     Render(window, "disk-usage-dense.png", 1072, 900);
                     TestContext.WriteLine($"100,000 files: first frame {timer.ElapsedMilliseconds} ms; {map.VisibleTiles.Count} tiles drawn.");

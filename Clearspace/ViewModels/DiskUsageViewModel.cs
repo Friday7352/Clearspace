@@ -114,7 +114,9 @@ internal sealed class DiskUsageViewModel : ObservableObject, IDisposable
             Status = "Calculating folder sizes…";
             var result = await Task.Run(() =>
             {
-                var snapshot = DiskUsageSnapshot.Build(volume, work.Token, _deletion.ExclusionsFor(volume));
+                // CHANGED (round 19): reuse the warm snapshot instead of aggregating the whole
+                // volume again. Refresh and a finished index build are what throw it away.
+                var snapshot = DiskUsageSnapshotCache.Get(volume, work.Token, _deletion.ExclusionsFor(volume));
                 // CHANGED: history needs the exact folder; opening from Clearspace falls back to the
                 // closest indexed folder above the requested one instead of the drive root.
                 var folder = preferredPath is null ? 0
@@ -233,7 +235,9 @@ internal sealed class DiskUsageViewModel : ObservableObject, IDisposable
         {
             var result = await Task.Run(() =>
             {
-                var fresh = DiskUsageSnapshot.Build(volume, work.Token, _deletion.ExclusionsFor(volume));
+                // The live refresh is the one path that deliberately recomputes; it stores its
+                // result so the next open starts from the newer numbers.
+                var fresh = DiskUsageSnapshotCache.Rebuild(volume, work.Token, _deletion.ExclusionsFor(volume));
                 var folder = Math.Max(0, FindNearestFolder(fresh, path, work.Token));
                 return (Snapshot: fresh, Folder: folder, Items: WithShares(fresh.Children(folder, work.Token)));
             }, work.Token);
@@ -292,16 +296,22 @@ internal sealed class DiskUsageViewModel : ObservableObject, IDisposable
     // NEW: the user zoomed or clicked into a folder on the map. The camera is already moving,
     // so this updates the list and history quietly: no busy state, no disabled controls, and a
     // newer focus change simply supersedes an older one.
-    public async Task FocusFromMapAsync(int folder)
+    public async Task FocusFromMapAsync(int folder, Func<bool>? deferPresentation = null)
     {
         var snapshot = _snapshot;
-        if (_disposed || IsBusy || snapshot is null || folder == _folder ||
+        if (_disposed || IsBusy || snapshot is null ||
             !snapshot.IsAvailable(folder) || !snapshot.Item(folder).IsFolder) return;
         _focusWork?.Cancel();
+        if (folder == _folder) return; // returning home also supersedes an unfinished focus change
         var work = _focusWork = new CancellationTokenSource();
         try
         {
+            while (deferPresentation?.Invoke() == true) await Task.Delay(32, work.Token);
             var items = await Task.Run(() => WithShares(snapshot.Children(folder, work.Token)), work.Token);
+            // The user may have resumed zooming while the listing was prepared.
+            // Never replace a large ItemsSource in the middle of that gesture.
+            while (deferPresentation?.Invoke() == true) await Task.Delay(32, work.Token);
+            work.Token.ThrowIfCancellationRequested();
             if (!ReferenceEquals(_focusWork, work) || _disposed || IsBusy || !ReferenceEquals(snapshot, _snapshot)) return;
             Show(folder, items, snapshotChanged: false);
             RecordLocation(null);
@@ -406,6 +416,8 @@ internal sealed class DiskUsageViewModel : ObservableObject, IDisposable
             Status = "Checking remaining files and updating sizes…";
             var refreshed = await Task.Run(() => _deletion.Reconcile(snapshot, request, work.Token), work.Token);
             if (!IsCurrent(work)) return;
+            // Deleting changes the sizes: the reconciled snapshot becomes the warm one.
+            DiskUsageSnapshotCache.Store(refreshed.Snapshot, _deletion.ExclusionsFor(refreshed.Snapshot.Source));
             _snapshot = refreshed.Snapshot;
             // CHANGED: only the listing is recomputed; the map rebuilds from the new snapshot.
             var children = await Task.Run(() => WithShares(refreshed.Snapshot.Children(_folder, work.Token)), work.Token);

@@ -16,6 +16,8 @@ public partial class DiskUsageView : UserControl, IDisposable
     public event EventHandler? FileOperationCompleted;
     public event EventHandler? CloseRequested;
     private bool _started;
+    private bool _disposed;
+    private System.Runtime.GCLatencyMode _previousLatency;
     private IntPtr OwnerHandle => Window.GetWindow(this) is { } owner ? new WindowInteropHelper(owner).Handle : IntPtr.Zero;
 
     public DiskUsageView(string? preferredPath = null) : this(new DiskUsageViewModel(), preferredPath) { }
@@ -29,6 +31,14 @@ public partial class DiskUsageView : UserControl, IDisposable
             "Delete permanently", MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No) == MessageBoxResult.Yes);
         InitializeComponent();
         DataContext = _viewModel;
+        ApplyPerformanceOptions(); // NEW (round 18): saved GPU/detail choices, before the first frame
+        // NEW (round 31): the map animates against a heap dominated by the file index - a couple of
+        // gigabytes of live objects - and one blocking gen2 collection there is a quarter-second stall
+        // however cheap the frame was. Sustained low latency keeps the collector off blocking gen2
+        // while this view is open; it is restored on close so the rest of the app is unaffected.
+        _previousLatency = System.Runtime.GCSettings.LatencyMode;
+        try { System.Runtime.GCSettings.LatencyMode = System.Runtime.GCLatencyMode.SustainedLowLatency; }
+        catch (InvalidOperationException) { /* not available in every hosting mode */ }
         _viewModel.PropertyChanged += OnViewChanged;
         // CHANGED: the map now reports folder focus from zooming/clicking and file selection;
         // ItemInvoked and ParentRequested are gone because the map is one continuous space.
@@ -56,12 +66,54 @@ public partial class DiskUsageView : UserControl, IDisposable
 
     public void Dispose()
     {
+        if (_disposed) return;
+        _disposed = true;
         FileIndexService.Changed -= OnIndexChanged;
         FileIndexService.LiveChanged -= OnLiveChanges;
         _liveTimer?.Stop();
         _viewModel.PropertyChanged -= OnViewChanged;
         _viewModel.FileOperationCompleted -= OnFileOperationCompleted;
         _viewModel.Dispose();
+        Treemap.Dispose();
+        try { System.Runtime.GCSettings.LatencyMode = _previousLatency; } catch (InvalidOperationException) { }
+    }
+
+    // NEW (round 18): map performance options. The map keeps working with Direct3D turned off - it
+    // falls back to its own multi-threaded rasterizer - and low detail mode is the setting that makes
+    // the biggest difference on integrated graphics, because traversal then costs one level.
+    private bool _applyingOptions;
+
+    private void ApplyPerformanceOptions()
+    {
+        _applyingOptions = true;
+        GpuOption.IsChecked = SettingsService.GetDiskMapGpu();
+        LowDetailOption.IsChecked = SettingsService.GetDiskMapLowDetail();
+        ConserveOption.IsChecked = SettingsService.GetDiskMapConserveMemory();
+        _applyingOptions = false;
+        Treemap.GpuEnabled = GpuOption.IsChecked == true;
+        Treemap.LowDetail = LowDetailOption.IsChecked == true;
+        Treemap.ConserveMemory = ConserveOption.IsChecked == true;
+    }
+
+    private void OnToggleSettings(object sender, RoutedEventArgs e) => SettingsPopup.IsOpen = !SettingsPopup.IsOpen;
+
+    // Which renderer is actually in use is only known once a frame has tried to create it.
+    private void OnSettingsOpened(object? sender, EventArgs e) => RendererText.Text = Treemap.RendererLabel;
+
+    private void OnPerformanceOptionChanged(object sender, RoutedEventArgs e)
+    {
+        if (_applyingOptions || _disposed) return;
+        var gpu = GpuOption.IsChecked == true;
+        var low = LowDetailOption.IsChecked == true;
+        var lean = ConserveOption.IsChecked == true;
+        SettingsService.SetDiskMapGpu(gpu);
+        SettingsService.SetDiskMapLowDetail(low);
+        SettingsService.SetDiskMapConserveMemory(lean);
+        Treemap.GpuEnabled = gpu;
+        Treemap.LowDetail = low;
+        Treemap.ConserveMemory = lean;
+        Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Background,
+            new Action(() => { if (!_disposed) RendererText.Text = Treemap.RendererLabel; }));
     }
 
     private void OnClose(object sender, RoutedEventArgs e) => CloseRequested?.Invoke(this, EventArgs.Empty);
@@ -85,6 +137,7 @@ public partial class DiskUsageView : UserControl, IDisposable
     // so a steady stream of indexing progress still refreshes every couple of seconds.
     private void ScheduleLiveRefresh(bool debounce)
     {
+        if (_disposed) return;
         if (_liveTimer is null)
         {
             _liveTimer = new System.Windows.Threading.DispatcherTimer(System.Windows.Threading.DispatcherPriority.Background, Dispatcher)
@@ -110,6 +163,7 @@ public partial class DiskUsageView : UserControl, IDisposable
     private async void OnLiveTimer(object? sender, EventArgs e)
     {
         _liveTimer?.Stop();
+        if (_disposed) return;
         var minimum = TimeSpan.FromSeconds(FileIndexService.IsBuilding ? 10 : 4);
         if (_viewModel.IsBusy || Treemap.IsAnimating || Treemap.SecondsSinceInteraction < 2 ||
             ItemList.SelectedItems.Count > 0 || Mouse.LeftButton == MouseButtonState.Pressed ||
@@ -123,15 +177,14 @@ public partial class DiskUsageView : UserControl, IDisposable
     }
 
     // NEW: the indexer reports progress from a background thread, often; coalesce onto the UI.
-    private bool _indexUpdateQueued;
+    private int _indexUpdateQueued;
     private void OnIndexChanged(object? sender, EventArgs e)
     {
-        if (_indexUpdateQueued) return;
-        _indexUpdateQueued = true;
+        if (_disposed || Interlocked.Exchange(ref _indexUpdateQueued, 1) != 0) return;
         Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Background, new Action(async () =>
         {
-            _indexUpdateQueued = false;
-            if (!_started || _viewModel.IsBusy) return;
+            Interlocked.Exchange(ref _indexUpdateQueued, 0);
+            if (_disposed || !_started || _viewModel.IsBusy) return;
             if (_viewModel.Snapshot is not null)
             {
                 _viewModel.RefreshRoots();
@@ -200,7 +253,7 @@ public partial class DiskUsageView : UserControl, IDisposable
             if (_viewModel.IsLiveRefresh)
                 Treemap.RefreshSource(snapshot.Item(0), (id, token) => snapshot.Children(id, token), _viewModel.FolderPath, EmptyFolderName());
             else
-                Treemap.SetSource(snapshot.Item(0), (id, token) => snapshot.Children(id, token), _viewModel.FolderPath, EmptyFolderName());
+                Treemap.SetSource(snapshot.Item(0), (id, token) => snapshot.Children(id, token), _viewModel.FolderPath, EmptyFolderName(), snapshot.Item);
         }
         else if (e.PropertyName == nameof(DiskUsageViewModel.MapItems))
             Treemap.ShowFolder(_viewModel.FolderPath, EmptyFolderName());
@@ -223,15 +276,14 @@ public partial class DiskUsageView : UserControl, IDisposable
     }
 
     // NEW: zooming or clicking into a folder on the map updates the list quietly.
-    // CHANGED (round 13): rebinding the list to a big folder is the main hitch when entering or
-    // leaving a folder, so it waits until the camera has finished moving (at most ~0.6 s).
-    private int _focusRequest;
+    // The view model cancels superseded requests and waits both before preparing
+    // and before publishing a listing. There is no timeout that forces a rebind
+    // in the middle of a long zoom gesture.
     private async void OnMapFolderFocused(int folder)
     {
-        var request = ++_focusRequest;
-        for (var i = 0; i < 40 && Treemap.IsAnimating; i++) await Task.Delay(16);
-        if (request != _focusRequest) return;
-        await _viewModel.FocusFromMapAsync(folder);
+        if (_disposed) return;
+        await _viewModel.FocusFromMapAsync(folder, () => !_disposed &&
+            (Treemap.IsAnimating || Treemap.SecondsSinceInteraction < .18 || Mouse.LeftButton == MouseButtonState.Pressed));
     }
 
     // NEW: a file clicked on the map is selected in the list.
@@ -291,6 +343,9 @@ public partial class DiskUsageView : UserControl, IDisposable
     }
     private async void OnReload(object sender, RoutedEventArgs e)
     {
+        // NEW (round 19): Refresh is one of the two moments the warm snapshot is thrown away, so
+        // this is the button that actually recomputes folder sizes from the index.
+        if (_viewModel.SelectedRoot is { Length: > 0 } root) DiskUsageSnapshotCache.Invalidate(root);
         var path = _viewModel.CurrentPath;
         await _viewModel.LoadAsync(_viewModel.SelectedRoot, string.IsNullOrEmpty(path) ? _preferredPath : path);
     }

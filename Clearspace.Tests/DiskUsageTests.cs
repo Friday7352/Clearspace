@@ -265,6 +265,49 @@ public sealed class DiskUsageTests
     }
 
     [TestMethod]
+    public async Task MapListingWaitsWhenZoomResumesDuringPreparation()
+    {
+        using var vm = new DiskUsageViewModel(() => [Example()]);
+        await vm.LoadAsync();
+        var original = vm.Items;
+        var checks = 0;
+        var moving = 1;
+        var deferred = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var pending = vm.FocusFromMapAsync(1, () =>
+        {
+            if (Interlocked.Increment(ref checks) == 1) return false;
+            deferred.TrySetResult();
+            return Volatile.Read(ref moving) != 0;
+        });
+        try
+        {
+            await deferred.Task.WaitAsync(TimeSpan.FromSeconds(3));
+            await Task.Delay(700); // longer than the old forced-publish timeout
+            Assert.AreSame(original, vm.Items, "The large list must not be rebound while zooming.");
+            Assert.IsFalse(pending.IsCompleted);
+        }
+        finally { Volatile.Write(ref moving, 0); }
+        await pending.WaitAsync(TimeSpan.FromSeconds(3));
+        Assert.AreEqual(@"C:\Photos", vm.CurrentPath);
+    }
+
+    [TestMethod]
+    public async Task ReturningToCurrentFolderCancelsDeferredMapListing()
+    {
+        using var vm = new DiskUsageViewModel(() => [Example()]);
+        await vm.LoadAsync();
+        var original = vm.Items;
+        var pending = vm.FocusFromMapAsync(1, () => true);
+        await vm.FocusFromMapAsync(0);
+        await pending.WaitAsync(TimeSpan.FromSeconds(3));
+        Assert.AreSame(original, vm.Items);
+        Assert.IsFalse(vm.CanGoBack, "A superseded zoom must not add a history entry.");
+        pending = vm.FocusFromMapAsync(3, () => true);
+        vm.Dispose();
+        await pending.WaitAsync(TimeSpan.FromSeconds(3));
+    }
+
+    [TestMethod]
     public async Task NewNavigationTruncatesForwardHistoryButReloadAndSameFolderDoNot()
     {
         using var vm = new DiskUsageViewModel(() => [Example()]);

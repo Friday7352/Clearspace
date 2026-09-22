@@ -839,6 +839,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         _ = SidebarState.LoadDrivesAsync();
 
         FileIndexService.Start();
+        DiskUsageSnapshotCache.Start(); // NEW (round 19): keep disk-map sizes warm so the view opens instantly
     }
 
     public Task RefreshAsync() => LoadAsync(CurrentPath, force: true);

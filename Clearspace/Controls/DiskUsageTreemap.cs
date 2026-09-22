@@ -5,6 +5,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
+using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
@@ -12,54 +13,18 @@ using Clearspace.Services;
 
 namespace Clearspace.Controls;
 
-// REWRITTEN: the disk usage map is one continuous, zoomable surface.
+// One continuous world of nested, proportional folder rectangles. Layout loads
+// in the background; camera flights and wheel input never rearrange the world.
 //
-//   * The whole drive is one nested treemap in fixed "world" coordinates. A folder's
-//     children are laid out inside that folder's own rectangle, once, and never move.
-//   * A single camera looks at the world. Opening a folder, Back/Up, breadcrumbs and
-//     the wheel all just move the camera, so every transition is continuous by design.
-//   * Camera flights interpolate around the zoom's fixed point (the one world point that
-//     stays put on screen), so a folder grows straight out of where it sits.
-//   * Deeper folders load on a background thread as they get big on screen and fade in.
+// Two immutable, overscanned detail layers are cached at a time. The GPU retains
+// their vertices and applies a camera matrix, uploading only when detail,
+// viewport, or source data changes. Layers partition space without parent
+// overdraw and cross-fade as a whole. A CPU rasterizer consumes the same layers.
+// Labels retain frozen glyph drawings and stay at readable screen sizes.
 //
-// ROUND 2 (clarity and speed):
-//   * Only one level is labeled: the items directly inside the folder you're in.
-//   * Each of those items gets its own hue and everything inside it shares that hue, so the
-//     color tells you which labeled block a small tile belongs to. Colors cross-fade when
-//     you move into or out of a folder.
-//   * Hover, outlines and the hover card live on their own layer; moving the mouse no longer
-//     redraws thousands of tiles.
-//   * No opacity layers (PushOpacity is expensive in WPF); fades are baked into brush alpha.
-//   * Tiles under ~4 px aren't drawn individually - the parent's color shows through instead -
-//     and folders open later, which cuts per-frame primitives by an order of magnitude.
-//
-// ROUND 3 (big folders):
-//   * Tiles are batched into one StreamGeometry per (depth, color) and drawn with a single call
-//     each - roughly 100 draw calls per frame instead of one per tile. Depth order is kept, so
-//     children still paint over their parents; labels and tags are drawn after all tiles.
-//   * Label text is only re-tinted or re-trimmed when its fade step or width actually changes.
-//
-// ROUND 9 (software rasterizer): WPF tessellates every changed shape into triangles on the CPU,
-//   which made dense zooming slow. Tiles are now plain rectangles filled straight into a pixel
-//   buffer by a parallel rasterizer (horizontal bands across CPU cores, fractional edge
-//   coverage for subpixel-smooth motion) and shown through a WriteableBitmap. Cost scales with
-//   pixels, not tiles, so frames stay full detail even mid-zoom (no reduced "motion" frames and
-//   no reused-frame transforms any more). Labels, tags and the veil are a WPF layer on top.
-//
-// ROUND 8 (fractal): folders open from ~18 px and preload from ~10 px, so nearly every block shows
-//   its inner structure and zooming only reveals finer detail. Frames and gaps get lighter below
-//   the labeled level, and an open folder's backdrop is its own hue, so detail too small to draw
-//   blends into its parent instead of showing dark. All loading and layout (folders and grouped
-//   small items) runs off the UI thread; the per-frame tile budget, shared by screen area, keeps
-//   the cost of a frame constant however deep the nesting goes.
-//
-// ROUND 4: the glowing traces/hover halo were tried and reverted (plain outline on hover).
-//
-// ROUND 5 (smooth zoom): while the camera moves, the last rendered scene is scaled and shifted
-//   on the GPU (a transform on the scene layer) instead of being redrawn every frame. The scene
-//   is redrawn only when the zoom has drifted ~10%, the view would leave the pre-drawn margin,
-//   a few frames have passed during a fade, or the camera settles (one crisp final frame).
-public sealed class DiskUsageTreemap : FrameworkElement
+// Frames yield to input and reserve the compositor buffer before changing any
+// visual layer. A busy buffer retains tiles, labels, and hit targets together.
+public sealed class DiskUsageTreemap : FrameworkElement, IDisposable
 {
     // ---------------------------------------------------------------- tuning
     private const int DirectLimit = DiskUsagePalette.DirectLimit;
@@ -67,18 +32,44 @@ public sealed class DiskUsageTreemap : FrameworkElement
     private const int TailGroupSize = 150;      // "smaller items" blocks hold about this many
     private const int MaxTailGroups = 100;
     // CHANGED (round 10): slightly calmer density - the fractal look at a fraction of the cost.
-    private const double MinTile = 1.6;         // px: smaller tiles are represented by their parent
-    private const double ExpandStart = 24;      // px: a folder's contents begin to fade in
-    private const double ExpandFull = 56;       // px: contents fully shown
-    private const double PrefetchSize = 10;     // px: begin loading contents early (was 40)
+    // CHANGED (round 27): these four thresholds, not the colours or the seams, are what decides how
+    // much of the tree you can see at one zoom. A folder needed to be 24 px before it began to open
+    // and 56 px to open fully, so a 30 px block - the size of a small project on screen - was barely
+    // a fifth open and drew as a flat slab. Opening from 9 px means the same block is fully expanded
+    // and shows two or three more levels of nesting, which is the density the map is meant to have.
+    private const double MinTile = 1.3;         // px: smaller tiles are represented by their parent
+    private const double ExpandStart = 9;       // px: a folder's contents begin to fade in
+    private const double ExpandFull = 22;       // px: contents fully shown
+    private const double PrefetchSize = 10;     // load a folder shortly before it is big enough to open
     private const double WheelStep = .8;        // camera width multiplier per wheel notch
-    private const double WheelSmoothing = .045; // s: time constant of the wheel's easing (round 12: was .075, snappier)
+    // CHANGED (round 24): .045 s meant each wheel notch had all but arrived before the next one came,
+    // so a scroll read as a row of discrete jumps rather than one movement. A longer constant lets
+    // consecutive notches merge into a single glide.
+    private const double WheelSmoothing = .11;  // s: time constant of the wheel's easing
     private const double FocusDebounce = .14;   // s: wheel/drag focus must settle this long before the list follows
     private const double FolderMargin = .02;    // fraction of breathing room around a fitted folder
     private const double DimLevel = .6;         // opacity of the veil over everything outside the current folder
     private const double ColorFade = .3;        // s: cross-fade of colors and labels between levels
-    private const int MaxLoads = 6;             // concurrent background loads (CHANGED round 8: was 3)
-    private const int TileBudget = 30000;       // tiles per frame, shared by screen area (round 10: was 60000)
+    private const int MaxLoads = 4;             // one speculative load while moving, four while settled
+    // Raised with the thresholds above: the tree walk costs 0.3 ms and the GPU draws these in well
+    // under a millisecond, so the budget that used to protect a 10 ms walk is no longer the limit.
+    private const int TileBudget = 48000;       // bounded detail, independent of monitor width
+    private const int CpuTileBudget = 18000;    // the software rasterizer pays per rectangle; the GPU does not
+    private const int LeanTileBudget = 4000;    // "conserve memory": fewer blocks, much smaller working set
+    private const int MaxTexts = 2500;          // labelled nodes allowed to keep their text layouts
+    private const int LeanMaxTexts = 700;
+    private const double TextIdle = 5;          // s off screen before a node's text is handed back
+    // CHANGED (round 28): .74 on top of a folder that had already darkened to .42 gave a seam at 31%
+    // of the hue - nearly black, and far heavier than it should be. A folder's surface is one gentle
+    // step below its contents; the separation comes from the line being thin, not from it being dark.
+    private const double FrameShade = .94;      // a folder's surface, just under its contents
+    // NEW (round 21): a laid-out item costs roughly half a kilobyte - the node, its DiskUsageItem,
+    // its name - and a folder's grouped tail holds the whole child array alive. Nothing ever
+    // collapsed what had been expanded, so exploring a large drive grew without any bound at all.
+    private const int NodeBudget = 220_000;
+    private const int LeanNodeBudget = 30_000;
+    private const double NodeIdle = 20;         // s off screen before an expanded folder is collapsed
+    private const double LoadSettle = .45;      // s: batch finished loads into one redraw
     // CHANGED (round 13): full resolution always (the capped and motion buffers looked blurry).
     // The rasterizer now writes straight into the bitmap's memory, which removes a full-frame copy.
     private const double MaxPixels = 8_300_000; // only a safety cap (about a 4K screen)
@@ -86,11 +77,11 @@ public sealed class DiskUsageTreemap : FrameworkElement
     // ---------------------------------------------------------------- model
     private enum NodeState { Leaf, Collapsed, Pending, Ready }
 
-    private record struct CachedText(FormattedText? Text, double Em, Brush? Tint = null, double Width = -1);
+    private record struct CachedText(FormattedText? Text, double Em, double NaturalWidth, Brush? Tint = null, double Width = -1, Drawing? Drawing = null);
 
     private sealed class Node
     {
-        public Node(DiskUsageItem item, Rect bounds, Node? parent, IReadOnlyList<DiskUsageItem>? members, long shareBase, int index)
+        public Node(DiskUsageItem item, Rect bounds, Node? parent, int[]? members, long shareBase, int index)
         {
             Item = item;
             Bounds = bounds;
@@ -100,17 +91,25 @@ public sealed class DiskUsageTreemap : FrameworkElement
             Depth = parent is null ? 0 : parent.Depth + 1;
             var share = shareBase <= 0 ? 0 : item.Bytes * 100d / shareBase;
             ShareText = share > 0 && share < .1 ? "<0.1%" : $"{share:0.#}%";
-            State = item.Id < 0 ? (members is { Count: > 1 } ? NodeState.Collapsed : NodeState.Leaf)
+            State = item.Id < 0 ? (members is { Length: > 1 } ? NodeState.Collapsed : NodeState.Leaf)
                 : item.IsFolder && item.Bytes > 0 ? NodeState.Collapsed : NodeState.Leaf;
         }
 
         public DiskUsageItem Item { get; }
         public Rect Bounds { get; }
         public Node? Parent { get; }
-        public IReadOnlyList<DiskUsageItem>? Members { get; }
+        // CHANGED (round 22): a "smaller items" block used to hold an ArraySegment over its folder's
+        // whole child array, so one grouped folder pinned a DiskUsageItem - object, name and all,
+        // roughly a hundred bytes - for every file under it, for as long as the folder stayed
+        // expanded. It now keeps only their ids, about four bytes each, and resolves them from the
+        // snapshot when the block is actually opened.
+        public int[]? Members { get; }
         public int Index { get; }                // rank among siblings (largest first)
         public int Depth { get; }
         public string ShareText { get; }
+        private string? _sizeText, _detailText;
+        public string SizeText => _sizeText ??= Item.SizeText;
+        public string DetailText => _detailText ??= $"{SizeText} · {ShareText}";
         public NodeState State { get; set; }
         public Node[] Children { get; set; } = [];
         public int FirstGroup { get; set; }      // NEW (round 15): index of the first "smaller items" child (named ones precede it)
@@ -120,13 +119,27 @@ public sealed class DiskUsageTreemap : FrameworkElement
         public bool IsContainer => IsGroup || IsFolder;
         public double Area => Bounds.Width * Bounds.Height;
         public CachedText LabelName, LabelDetail, PillName, PillSize;
+        // NEW (round 20): a labelled node holds four WPF text layouts and four frozen glyph
+        // drawings - kilobytes each, and nothing ever released them. These two fields let the
+        // control hand that memory back for nodes that have left the screen.
+        public double LastDrawn = double.NegativeInfinity;
+        public bool HasText;
         // Two-slot color cache: the level being faded from and the level being faded to.
         public Node? ColorKeyA, ColorKeyB;
         public Color ColorA, ColorB;
     }
 
-    private readonly record struct Placement(DiskUsageItem Item, Rect Bounds, IReadOnlyList<DiskUsageItem>? Members);
+    private readonly record struct Placement(DiskUsageItem Item, Rect Bounds, int[]? Members);
     private readonly record struct Pill(Node Node, Rect Rect, FormattedText Name, FormattedText Size, Color Fill, double Alpha);
+    private readonly record struct Caption(Node Node, Rect Visible, Rect Zone, double Alpha, bool IsOpen = false, Color Color = default);
+    private sealed record HoverText(Node Node, Node? Focus, FormattedText Title, FormattedText Detail, FormattedText Hint);
+    // Detached: a picture kept from a source that no longer exists (a drive change, a resize relayout).
+    // It draws frozen at its own camera while the replacement builds, so the map never goes blank.
+    private sealed record SceneCache(Rect Camera, Size Viewport, Rect Coverage, TileGeometry Geometry,
+        (Node Node, Rect Screen)[] Tiles, Caption[] Captions, Dictionary<(Node, bool), Caption> LabelIndex, Node? Level, int Revision)
+    {
+        public bool Detached { get; init; }
+    }
 
     private sealed class Flight(Rect[] points, double[] durations, double start)
     {
@@ -139,9 +152,14 @@ public sealed class DiskUsageTreemap : FrameworkElement
     private Node? _root;
     private (DiskUsageItem Root, IReadOnlyList<int> Path, string? Missing)? _pending;
     private Func<int, CancellationToken, IReadOnlyList<DiskUsageItem>>? _children;
+    private Func<int, DiskUsageItem>? _item;   // NEW (round 22): resolves a grouped member's id
     private CancellationTokenSource _generation = new();
     private double _builtAspect = 1;
     private int _loads;
+    private bool _building, _disposed;
+    private int _navigation;
+    private int[] _navigationPath = [];
+    private readonly Dictionary<Node, Task> _nodeLoads = [];
 
     private Rect _camera = new(0, 0, 1, 1);
     private Rect _target = new(0, 0, 1, 1);
@@ -163,11 +181,15 @@ public sealed class DiskUsageTreemap : FrameworkElement
     private string? _message;
     private string? _missingName;
     private int? _highlight;
+    private Node? _highlightNode;
+    private bool _highlightResolved;
 
     private readonly Stopwatch _clock = Stopwatch.StartNew();
     private double _timeOffset;
     private double _lastFrame;
     private bool _hooked;
+    private TimeSpan _lastRenderingTime = TimeSpan.MinValue;
+    private DispatcherOperation? _queuedFrame;
     private bool _sceneDirty = true;
     private bool _overlayDirty = true;
     private bool _needsFrame;
@@ -184,20 +206,107 @@ public sealed class DiskUsageTreemap : FrameworkElement
     private GpuTileRenderer? _gpu;
     private bool _gpuTried;
     private bool _gpuShown;
+    private bool _gpuEnabled = true, _lowDetail;
+    private int _gpuSkipped;   // frames the compositor would not release the surface for
+
+    // NEW (round 18): performance options, owned by the settings panel and persisted between runs.
+    // Off, the map uses its CPU rasterizer - the right answer when a display driver will not share a
+    // surface, and the only answer on a machine with no usable Direct3D at all.
+    internal bool GpuEnabled
+    {
+        get => _gpuEnabled;
+        set
+        {
+            if (_gpuEnabled == value) return;
+            _gpuEnabled = value;
+            _gpu?.Dispose();
+            _gpu = null;
+            _gpuTried = !value;     // off: never try again. on: probe on the next frame.
+            _gpuShown = false;      // the scene layer must re-attach to whichever image now draws it
+            _shown = null;
+            _sceneDirty = true;
+            RequestFrame();
+        }
+    }
+
+    // Draws only the folder you are in: its children stay solid blocks instead of opening into their
+    // own contents. Traversal then costs one level however deep the drive is, which is what makes the
+    // map usable on integrated graphics and on very large folders.
+    internal bool LowDetail
+    {
+        get => _lowDetail;
+        set
+        {
+            if (_lowDetail == value) return;
+            _lowDetail = value;
+            _detailRevision++;      // the cached layer's detail decisions are no longer valid
+            _sceneDirty = true;
+            RequestFrame();
+        }
+    }
+
+    // What the settings panel reports as the active renderer.
+    internal string RendererLabel => !_gpuEnabled ? "CPU rasterizer"
+        : _gpu is { IsAvailable: true } gpu ? $"{gpu.AdapterName}{(gpu.IsMultisampled ? " · 4x AA" : "")}"
+        : _gpuTried ? "CPU rasterizer - no usable Direct3D adapter"
+        : "Starting up";
     private TileCommand[] _commands = new TileCommand[16384];
     private int _commandCount;
+    private SceneCache? _cache, _previousCache;
+    private readonly TileBatch[] _batches = new TileBatch[2];
+    private int _batchCount, _detailRevision;
+    private readonly List<Node> _texted = [];   // nodes currently holding text layouts, newest last
+    private double _sweptAt = double.NegativeInfinity;
+    private double _nodeSweptAt = double.NegativeInfinity;
+    private int _liveNodes;
+    internal int LiveNodeCount => _liveNodes;
+    private bool _lean;
+    // Each block costs five rectangles. The GPU draws 150,000 of them in well under a millisecond;
+    // the CPU rasterizer fills them one span at a time, so it gets a smaller budget and stays smooth.
+    private int Budget => _lean ? LeanTileBudget : _gpuShown ? TileBudget : CpuTileBudget;
+    private int TextBudget => _lean ? LeanMaxTexts : MaxTexts;
+    private int NodeCeiling => _lean ? LeanNodeBudget : NodeBudget;
+    internal int LiveTextCount => _texted.Count;
+
+    // Trades detail for a much smaller working set: fewer blocks per frame and far fewer text
+    // layouts kept alive. Everything still draws, just with less fine detail far from the camera.
+    internal bool ConserveMemory
+    {
+        get => _lean;
+        set
+        {
+            if (_lean == value) return;
+            _lean = value;
+            _detailRevision++;
+            TrimTextCache(force: true);
+            _sceneDirty = true;
+            RequestFrame();
+        }
+    }
+
+    private double _cacheSince;
+    private double _fadeLength = CacheFade;
+    private double _holdoverSince = double.NegativeInfinity;
+    private const double CacheFade = .18;
+    private const double SourceFade = .34;      // cross-fade when the whole source is replaced
+    private const double HoldoverLimit = 4;     // s: never show a stale picture longer than this
+    internal int GeometryBuildCount { get; private set; }
+    internal int GeometryReuseCount { get; private set; }
+    internal int GpuGeometryUploads => _gpu?.GeometryUploads ?? 0;
+    internal TileGeometry? CachedGeometry => _cache?.Geometry;
     private sealed class Surface
     {
         public WriteableBitmap? Bitmap;
         public double ScaleX = 1, ScaleY = 1;
     }
     private readonly Surface _full = new();
-    private readonly Surface _motion = new();
     private Surface? _shown;          // the surface the scene layer currently displays
-    private bool _renderMotion;       // the frame being rendered is a mid-motion one
 
     // NEW (round 12): F3 performance readout (milliseconds, smoothed).
     private bool _showStats;
+    private FormattedText? _statsText;
+    private double _statsUpdatedAt = double.NegativeInfinity;
+    private HoverText? _hoverText;
     private double _statFrame, _statWalk, _statLabels, _statRaster, _statUpload, _statScene;
     private double _statWorstFrame, _statWorstWalk; // NEW (round 15): spikes, not just averages
     private int _statTiles, _statPixelsW, _statPixelsH, _gen2Start;
@@ -206,17 +315,15 @@ public sealed class DiskUsageTreemap : FrameworkElement
     {
         _showStats = !_showStats;
         _gen2Start = GC.CollectionCount(2);
+        _statsText = null;
         _overlayDirty = true;
         RequestFrame();
     }
     private static void Smooth(ref double stat, double sample) => stat += (sample - stat) * .15;
-    private readonly List<Action<DrawingContext>> _deferred = [];
+    private readonly List<Caption> _deferred = [];
     private bool _overlayAnimating;   // overlay-only frames (kept for future overlay fades)
 
-    // NEW (round 5): scene reuse while the camera moves.
-    private readonly MatrixTransform _sceneTransform = new();
     private Rect _sceneCamera = new(0, 0, 1, 1);  // camera the scene layer was last drawn with
-    private int _framesSinceScene;
     private readonly List<(Node Node, double Area)> _wanted = [];
     private readonly HashSet<Node> _openPath = [];
     private Rect _view, _viewLoose;
@@ -264,7 +371,6 @@ public sealed class DiskUsageTreemap : FrameworkElement
         RenderOptions.SetBitmapScalingMode(_scene, BitmapScalingMode.Linear); // fast, smooth upscaling
         AddVisualChild(_labels); // NEW (round 9)
         AddVisualChild(_overlay);
-        _scene.Transform = _sceneTransform; // NEW (round 5)
         _rebuild = new DispatcherTimer(DispatcherPriority.Background) { Interval = TimeSpan.FromMilliseconds(220) };
         _rebuild.Tick += (_, _) => { _rebuild.Stop(); Rebuild(); };
         Loaded += (_, _) => { LoadResources(); RequestFrame(); };
@@ -282,17 +388,78 @@ public sealed class DiskUsageTreemap : FrameworkElement
     protected override int VisualChildrenCount => 3;
     protected override Visual GetVisualChild(int index) => index switch { 0 => _scene, 1 => _labels, _ => _overlay };
 
+    private void ReleaseTreeReferences()
+    {
+        // CHANGED (round 19): hold the picture that is on screen rather than dropping it. SetSource
+        // runs on a drive change, on the post-resize relayout and on first load, and each of those
+        // used to show the bare background for as long as the background build took - the flash.
+        var held = _cache ?? _previousCache;
+        _previousCache = held is null ? null : held with { Detached = true };
+        _holdoverSince = held is null ? double.NegativeInfinity : Now;
+        _cache = null;
+        Array.Clear(_batches);
+        _batchCount = 0;
+        _nodeLoads.Clear();
+        _pathSets.Clear();
+        _openPath.Clear();
+        _wanted.Clear();
+        _drawn.Clear();
+        _deferred.Clear();
+        foreach (var node in _texted) ReleaseText(node);
+        _texted.Clear();
+        _liveNodes = 0;
+        _container = _focusNode = _colorLevel = _colorPrevious = _candidate = _hover = null;
+        _highlightNode = null;
+        _hoverText = null;
+        _highlightResolved = false;
+    }
+
+    private void CancelLoads()
+    {
+        _generation.Cancel();
+        foreach (var node in _nodeLoads.Keys)
+            if (node.State == NodeState.Pending) node.State = NodeState.Collapsed;
+        _nodeLoads.Clear();
+        _generation = new CancellationTokenSource();
+        _loads = 0;
+        _building = false;
+    }
+
+    public void Dispose()
+    {
+        if (_disposed) return;
+        _disposed = true;
+        _navigation++;
+        _generation.Cancel();
+        StopFrames();
+        _rebuild.Stop();
+        ReleaseTreeReferences();
+        _previousCache = null;   // NEW (round 19): do not keep a held picture alive past close
+        _root = null;
+        _pending = null;
+        _children = null;
+        _gpu?.Dispose();
+        _gpu = null;
+        _full.Bitmap = null;
+        using (_scene.RenderOpen()) { }
+        using (_labels.RenderOpen()) { }
+        using (_overlay.RenderOpen()) { }
+    }
+
     // ================================================================= public surface
 
     /// <summary>Show a new index snapshot. <paramref name="path"/> lists folder ids below the root.</summary>
     internal void SetSource(DiskUsageItem root, Func<int, CancellationToken, IReadOnlyList<DiskUsageItem>> children,
-        IReadOnlyList<int> path, string? missingName = null)
+        IReadOnlyList<int> path, string? missingName = null, Func<int, DiskUsageItem>? item = null)
     {
-        _generation.Cancel();
-        _generation = new CancellationTokenSource();
-        _loads = 0;
+        if (_disposed) return;
+        _item = item ?? _item;
+        CancelLoads();
+        _navigation++;
+        ReleaseTreeReferences();
         _children = children;
-        _pending = (root, path.ToArray(), missingName);
+        _navigationPath = path.ToArray();
+        _pending = (root, _navigationPath, missingName);
         _root = null;
         _flight = null;
         _hover = null;
@@ -305,13 +472,29 @@ public sealed class DiskUsageTreemap : FrameworkElement
     /// <summary>Fly to a folder chosen outside the map (list, breadcrumbs, Back/Forward, Up).</summary>
     internal void ShowFolder(IReadOnlyList<int> path, string? missingName = null)
     {
+        if (_disposed) return;
+        _navigationPath = path.ToArray();
         if (_root is null)
         {
-            if (_pending is { } pending) _pending = (pending.Root, path.ToArray(), missingName);
+            if (_pending is { } pending) _pending = (pending.Root, _navigationPath, missingName);
             return;
         }
-        var target = ExpandPath(path, out var complete);
-        var id = path.Count == 0 ? _root.Item.Id : path[^1];
+        _ = ShowFolderAsync(_navigationPath, missingName, ++_navigation);
+    }
+
+    private async Task ShowFolderAsync(IReadOnlyList<int> path, string? missingName, int navigation)
+    {
+        var generation = _generation;
+        var target = _root!;
+        var complete = true;
+        foreach (var part in path)
+        {
+            var next = await FindChildAsync(target, part);
+            if (_disposed || generation != _generation || navigation != _navigation) return;
+            if (next is null) { complete = false; break; }
+            target = next;
+        }
+        var id = path.Count == 0 ? _root!.Item.Id : path[^1];
         _missingName = complete ? null : missingName;
         _message = complete ? null : $"“{missingName ?? "This folder"}” has no file sizes to show";
         _candidate = null;
@@ -319,6 +502,7 @@ public sealed class DiskUsageTreemap : FrameworkElement
         if (complete && id == _reportedFocus && _focusNode == target) { RequestFrame(); return; }
         _reportedFocus = id;
         _focusNode = target;
+        _highlightResolved = false;
         _userMoved = false;
         FlyTo(Fit(target));
     }
@@ -326,9 +510,11 @@ public sealed class DiskUsageTreemap : FrameworkElement
     // NEW: show nothing but a message (a drive that isn't indexed yet).
     internal void ClearSource(string? message)
     {
-        _generation.Cancel();
-        _generation = new CancellationTokenSource();
-        _loads = 0;
+        if (_disposed) return;
+        CancelLoads();
+        _navigation++;
+        ReleaseTreeReferences();
+        _previousCache = null;   // NEW (round 19): nothing to show, so hold nothing over
         _pending = null;
         _root = null;
         _flight = null;
@@ -370,6 +556,7 @@ public sealed class DiskUsageTreemap : FrameworkElement
     internal void Highlight(int? id)
     {
         _highlight = id;
+        _highlightResolved = false;
         _overlayDirty = true;
         if (!_hooked) RenderOverlay();
     }
@@ -382,6 +569,18 @@ public sealed class DiskUsageTreemap : FrameworkElement
     internal bool IsAnimating => _flight is not null || !Near(_camera, _target);
     internal int FocusFolderId => _reportedFocus;
     internal int PendingLoads => _loads;
+    internal int RenderedTileCount => _drawn.Count;
+    internal double LastWalkMilliseconds { get; private set; }
+    internal int PreparedFrameCount { get; private set; }
+    internal int ScheduledFrameCount { get; private set; }
+    internal Rect PresentedCamera => _sceneCamera;
+    internal void RenderTestFrame(double seconds = 1 / 60d)
+    {
+        UseManualClock();
+        _timeOffset += seconds;
+        StepFrame(seconds);
+        if (RenderScene()) RenderOverlay();
+    }
     internal string? CurrentContainerName => _container?.Item.Name;
     internal IReadOnlyList<(DiskUsageItem Item, Rect Screen)> VisibleTiles => _drawn.Select(d => (d.Node.Item, d.Screen)).ToArray();
 
@@ -394,6 +593,7 @@ public sealed class DiskUsageTreemap : FrameworkElement
     /// <summary>Advance the animation clock deterministically (tests, previews).</summary>
     internal void AdvanceTime(double seconds)
     {
+        UseManualClock();
         const double step = 1 / 60d;
         for (var elapsed = 0d; elapsed < seconds; elapsed += step)
         {
@@ -416,6 +616,7 @@ public sealed class DiskUsageTreemap : FrameworkElement
     internal bool ZoomWithWheel(Point point, int delta)
     {
         if (_root is null || delta == 0 || ActualWidth < 1 || ActualHeight < 1) return false;
+        _lastInteraction = Now;
         _userMoved = true;
         _message = null;
         // Keep accumulating toward the running target, but anchor on what is on screen now,
@@ -444,27 +645,63 @@ public sealed class DiskUsageTreemap : FrameworkElement
 
     private void EnsureBuilt()
     {
-        if (_root is not null || _pending is not { } pending || ActualWidth < 1 || ActualHeight < 1) return;
+        if (_disposed || _building || _root is not null || _pending is not { } pending || ActualWidth < 1 || ActualHeight < 1) return;
         LoadResources();
         _builtAspect = ActualWidth / ActualHeight;
-        _root = new Node(pending.Root, new Rect(0, 0, _builtAspect, 1), null, null, pending.Root.Bytes, 0);
-        _pending = null;
-        ExpandSync(_root);
-        var focus = ExpandPath(pending.Path, out var complete);
-        _missingName = complete ? null : pending.Missing;
-        _message = _root.Item.Bytes == 0 ? "No file sizes to display"
-            : complete ? null : $"“{pending.Missing ?? "This folder"}” has no file sizes to show";
-        _focusNode = focus;
-        _reportedFocus = pending.Path.Count == 0 ? _root.Item.Id : pending.Path[^1];
-        _userMoved = false;
-        _camera = _target = Fit(focus);
-        _container = ComputeContainer();
-        _dimWorld = _container.Bounds;
-        _dimAlpha = _container == _root ? 0 : DimLevel;
-        _colorLevel = _container;
-        _colorPrevious = null;
-        _colorSince = double.NegativeInfinity;
-        _wasZoomed = false; // StepFrame reports later changes; no events from inside OnRender
+        _building = true;
+        _loads++;
+        _ = BuildSourceAsync(pending, _generation, _builtAspect, _children!);
+    }
+
+    private async Task BuildSourceAsync((DiskUsageItem Root, IReadOnlyList<int> Path, string? Missing) pending,
+        CancellationTokenSource generation, double aspect, Func<int, CancellationToken, IReadOnlyList<DiskUsageItem>> provider)
+    {
+        try
+        {
+            var tree = await Task.Run(() => BuildTree(pending.Root, provider, _item, aspect,
+                new HashSet<int>(pending.Path), [], generation.Token), generation.Token);
+            if (_disposed || generation != _generation) return;
+            var requested = _pending ?? pending;
+            if (Math.Abs(ViewAspect / aspect - 1) > .08)
+            {
+                SetSource(requested.Root, provider, requested.Path, requested.Missing, _item);
+                return;
+            }
+            _root = tree;
+            _liveNodes = Sweep(tree, double.NegativeInfinity).Count; // count only; nothing is old enough to collapse
+            _pending = null;
+            var focus = ExpandPath(pending.Path, out var complete);
+            _missingName = complete ? null : pending.Missing;
+            _message = _root.Item.Bytes == 0 ? "No file sizes to display"
+                : complete ? null : $"“{pending.Missing ?? "This folder"}” has no file sizes to show";
+            _focusNode = focus;
+            _reportedFocus = pending.Path.Count == 0 ? _root.Item.Id : pending.Path[^1];
+            _userMoved = false;
+            _camera = _target = Fit(focus);
+            _container = ComputeContainer();
+            _dimWorld = _container.Bounds;
+            _dimAlpha = _container == _root ? 0 : DimLevel;
+            _colorLevel = _container;
+            _colorPrevious = null;
+            _colorSince = double.NegativeInfinity;
+            _wasZoomed = false; // StepFrame reports later changes; no events from inside OnRender
+            _sourceFadeAt = Now;
+            if (!requested.Path.SequenceEqual(pending.Path)) ShowFolder(requested.Path, requested.Missing);
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception exception)
+        {
+            if (generation == _generation) { _pending = null; _message = $"Could not prepare map: {exception.Message}"; }
+        }
+        finally
+        {
+            if (generation == _generation)
+            {
+                _building = false;
+                _loads--;
+                if (!_disposed) RequestFrame();
+            }
+        }
     }
 
     private void Rebuild()
@@ -474,7 +711,7 @@ public sealed class DiskUsageTreemap : FrameworkElement
         var missing = _missingName;
         var root = _root.Item;
         var fade = _sourceFadeAt;
-        SetSource(root, _children, path, missing);
+        SetSource(root, _children, path, missing, _item);
         _sourceFadeAt = fade; // a resize is not a new source; don't flash
     }
 
@@ -488,7 +725,7 @@ public sealed class DiskUsageTreemap : FrameworkElement
             positive = positive.OrderByDescending(item => item.Bytes).ThenBy(item => item.Id).ToArray();
         if (positive.Length == 0) return [];
 
-        var entries = new List<(DiskUsageItem Item, IReadOnlyList<DiskUsageItem>? Members)>(Math.Min(positive.Length, DirectLimit + 1));
+        var entries = new List<(DiskUsageItem Item, int[]? Members)>(Math.Min(positive.Length, DirectLimit + 1));
         if (positive.Length <= DirectLimit)
             foreach (var item in positive) entries.Add((item, null));
         else
@@ -502,9 +739,15 @@ public sealed class DiskUsageTreemap : FrameworkElement
                 token.ThrowIfCancellationRequested();
                 var count = Math.Min(chunk, positive.Length - start);
                 if (count == 1) { entries.Add((positive[start], null)); continue; }
-                var members = new ArraySegment<DiskUsageItem>(positive, start, count);
+                var members = new int[count];
                 long bytes = 0, files = 0;
-                foreach (var member in members) { bytes += member.Bytes; files += member.FileCount; }
+                for (var k = 0; k < count; k++)
+                {
+                    var member = positive[start + k];
+                    members[k] = member.Id;
+                    bytes += member.Bytes;
+                    files += member.FileCount;
+                }
                 entries.Add((new DiskUsageItem(-1 - entries.Count, $"{count:N0} smaller items", bytes, files, false), members));
             }
         }
@@ -567,9 +810,10 @@ public sealed class DiskUsageTreemap : FrameworkElement
     internal void RefreshSource(DiskUsageItem root, Func<int, CancellationToken, IReadOnlyList<DiskUsageItem>> children,
         IReadOnlyList<int> path, string? missingName = null)
     {
+        if (_disposed) return;
         if (_root is null || _root.Item.Id != root.Id || ActualWidth < 1 || ActualHeight < 1)
         {
-            SetSource(root, children, path, missingName);
+            SetSource(root, children, path, missingName, _item);
             return;
         }
         // CHANGED (round 10): every folder that is open now is re-opened in the new tree (not only
@@ -587,15 +831,21 @@ public sealed class DiskUsageTreemap : FrameworkElement
                 if (child.IsContainer && child.State == NodeState.Ready) pendingOpen.Push(child);
         }
         var aspect = _builtAspect;
+        var item = _item;
         var pathIds = path.ToArray();
-        _generation.Cancel();
-        var generation = _generation = new CancellationTokenSource();
-        _loads = 0;
+        CancelLoads();
+        var generation = _generation;
         var token = generation.Token;
-        Task.Run(() => BuildTree(root, children, aspect, folders, groups, token), token).ContinueWith(task =>
+        Task.Run(() => BuildTree(root, children, item, aspect, folders, groups, token), token).ContinueWith(task =>
             Dispatcher.InvokeAsync(() =>
             {
-                if (!ReferenceEquals(generation, _generation) || task.Status != TaskStatus.RanToCompletion) return;
+                _ = task.Exception; // Observe errors even when an obsolete refresh is discarded.
+                if (_disposed || !ReferenceEquals(generation, _generation) || task.Status != TaskStatus.RanToCompletion) return;
+                var latestPath = _navigationPath;
+                var navigated = !latestPath.SequenceEqual(pathIds);
+                if (navigated) pathIds = latestPath.ToArray();
+                CancelLoads();
+                ReleaseTreeReferences();
                 _children = children;
                 _root = task.Result;
                 var focus = ExpandPath(pathIds, out var complete);
@@ -614,6 +864,7 @@ public sealed class DiskUsageTreemap : FrameworkElement
                 _colorSince = double.NegativeInfinity;
                 _dimWorld = _container.Bounds;
                 _hover = null;
+                if (navigated && !complete) ShowFolder(pathIds);
                 RequestFrame();
             }), TaskScheduler.Default);
     }
@@ -629,7 +880,7 @@ public sealed class DiskUsageTreemap : FrameworkElement
     }
 
     private static Node BuildTree(DiskUsageItem rootItem, Func<int, CancellationToken, IReadOnlyList<DiskUsageItem>> children,
-        double aspect, HashSet<int> folders, HashSet<(int Folder, string Key)> groups, CancellationToken token)
+        Func<int, DiskUsageItem>? item, double aspect, HashSet<int> folders, HashSet<(int Folder, string Key)> groups, CancellationToken token)
     {
         var root = new Node(rootItem, new Rect(0, 0, aspect, 1), null, null, rootItem.Bytes, 0);
         var pending = new Stack<Node>();
@@ -643,8 +894,8 @@ public sealed class DiskUsageTreemap : FrameworkElement
             if (node.IsGroup)
             {
                 if (!groups.Contains((FolderOf(node).Item.Id, GroupKey(node))) &&
-                    !node.Members!.Any(member => folders.Contains(member.Id))) continue;
-                items = node.Members!;
+                    !node.Members!.Any(folders.Contains)) continue;
+                items = Resolve(node.Members!, item, token);
             }
             else
             {
@@ -659,66 +910,70 @@ public sealed class DiskUsageTreemap : FrameworkElement
         return root;
     }
 
-    private void ExpandSync(Node node)
-    {
-        if (node.State is not (NodeState.Collapsed or NodeState.Pending)) return;
-        IReadOnlyList<DiskUsageItem> items;
-        if (node.IsGroup) items = node.Members!;
-        else if (_children is null) return;
-        else
-        {
-            try { items = _children(node.Item.Id, _generation.Token); }
-            catch (OperationCanceledException) { return; }
-            catch (Exception) { node.State = NodeState.Leaf; return; }
-        }
-        Apply(node, LayoutLevel(items, node.Bounds, CancellationToken.None), fade: false);
-    }
-
     // CHANGED (round 8): folders *and* grouped small items load here, off the UI thread, and the
     // child nodes are built there too; the UI thread only attaches the finished array.
-    private void StartLoad(Node node)
+    private Task StartLoad(Node node)
     {
-        if (_children is null && !node.IsGroup) return;
+        if (_nodeLoads.TryGetValue(node, out var existing)) return existing;
+        if (_disposed || node.State != NodeState.Collapsed || (_children is null && !node.IsGroup)) return Task.CompletedTask;
         node.State = NodeState.Pending;
         _loads++;
         var generation = _generation;
+        var task = LoadNodeAsync(node, generation, _children);
+        if (!task.IsCompleted) _nodeLoads[node] = task;
+        return task;
+    }
+
+    private async Task LoadNodeAsync(Node node, CancellationTokenSource generation,
+        Func<int, CancellationToken, IReadOnlyList<DiskUsageItem>>? provider)
+    {
         var token = generation.Token;
-        var provider = _children;
-        Task.Run(() =>
+        var resolver = _item;
+        try
         {
-            var items = node.IsGroup ? node.Members! : provider!(node.Item.Id, token);
-            return BuildChildren(node, LayoutLevel(items, node.Bounds, token));
-        }, token).ContinueWith(task =>
-            Dispatcher.InvokeAsync(() =>
+            var children = await Task.Run(() =>
             {
-                if (!ReferenceEquals(generation, _generation)) return;
+                var items = node.IsGroup ? Resolve(node.Members!, resolver, token) : provider!(node.Item.Id, token);
+                return BuildChildren(node, LayoutLevel(items, node.Bounds, token));
+            }, token);
+            if (_disposed || generation != _generation) return;
+            node.Children = children;
+            _liveNodes += children.Length;
+            _detailRevision++;
+            node.State = children.Length > 0 ? NodeState.Ready : NodeState.Leaf;
+            node.ReadyAt = Now;
+            _highlightResolved = false;
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception) { if (generation == _generation) node.State = NodeState.Leaf; }
+        finally
+        {
+            if (generation == _generation)
+            {
                 _loads--;
-                if (node.State == NodeState.Pending)
-                {
-                    if (task.Status == TaskStatus.RanToCompletion)
-                    {
-                        node.Children = task.Result;
-                        node.State = task.Result.Length > 0 ? NodeState.Ready : NodeState.Leaf;
-                        node.ReadyAt = Now;
-                    }
-                    else node.State = NodeState.Leaf; // unreadable: show it as a plain block
-                }
+                _nodeLoads.Remove(node);
                 // CHANGED (round 8): arriving detail doesn't force a full redraw mid-zoom; it is
                 // picked up by the next scheduled redraw (immediately when the camera is still).
                 _needsFrame = true;
-                if (_hooked) _overlayDirty = true;
-                else RequestFrame();
-            }), TaskScheduler.Default);
+                if (!_disposed)
+                {
+                    if (_hooked) _overlayDirty = true;
+                    else RequestFrame();
+                }
+            }
+        }
     }
 
     private void PumpLoads()
     {
         if (_wanted.Count == 0) return;
+        var limit = IsAnimating || _dragging ? 1 : MaxLoads;
+        if (_loads >= limit) { _wanted.Clear(); return; }
         _wanted.Sort((a, b) => b.Area.CompareTo(a.Area));
         foreach (var (node, _) in _wanted)
         {
-            if (_loads >= MaxLoads) break;
-            if (node.State == NodeState.Collapsed) StartLoad(node); // largest on screen first
+            if (_loads >= limit) break;
+            if (node.State == NodeState.Collapsed) _ = StartLoad(node); // largest on screen first
         }
         _wanted.Clear();
     }
@@ -729,22 +984,62 @@ public sealed class DiskUsageTreemap : FrameworkElement
         complete = true;
         foreach (var id in path)
         {
-            var next = FindChild(node, id, expand: true);
+            var next = FindChild(node, id);
             if (next is null) { complete = false; break; }
             node = next;
         }
         return node;
     }
 
-    private Node? FindChild(Node parent, int id, bool expand)
+    // Resolves a grouped block's members back into items, only when the block is opened.
+    private static IReadOnlyList<DiskUsageItem> Resolve(int[] ids, Func<int, DiskUsageItem>? resolve, CancellationToken token)
     {
-        if (expand) ExpandSync(parent);
+        if (resolve is null) return [];
+        var items = new DiskUsageItem[ids.Length];
+        for (var i = 0; i < ids.Length; i++)
+        {
+            token.ThrowIfCancellationRequested();
+            items[i] = resolve(ids[i]);
+        }
+        return items;
+    }
+
+    private Node? FindChild(Node parent, int id)
+    {
         if (parent.State != NodeState.Ready) return null;
         foreach (var child in parent.Children)
             if (child.Item.Id == id) return child;
         foreach (var child in parent.Children)
-            if (child.IsGroup && (expand || child.State == NodeState.Ready) && child.Members!.Any(member => member.Id == id))
-                return FindChild(child, id, expand);
+            if (child.IsGroup && child.State == NodeState.Ready && Array.IndexOf(child.Members!, id) >= 0)
+                return FindChild(child, id);
+        return null;
+    }
+
+    private async Task<Node?> FindChildAsync(Node parent, int id)
+    {
+        var generation = _generation;
+        await StartLoad(parent);
+        if (_disposed || generation != _generation || parent.State != NodeState.Ready) return null;
+        foreach (var child in parent.Children)
+            if (child.Item.Id == id) return child;
+        if (parent.FirstGroup < parent.Children.Length)
+        {
+            // Membership can span millions of tiny files. Only the resulting
+            // group reference comes back to the dispatcher.
+            var token = generation.Token;
+            Node? group;
+            try
+            {
+                group = await Task.Run(() => parent.Children.FirstOrDefault(child =>
+                {
+                    token.ThrowIfCancellationRequested();
+                    return child.IsGroup && Array.IndexOf(child.Members!, id) >= 0;
+                }), token);
+            }
+            catch (OperationCanceledException) { return null; }
+            if (_disposed || generation != _generation) return null;
+            if (group is not null) return await FindChildAsync(group, id);
+        }
         return null;
     }
 
@@ -781,7 +1076,17 @@ public sealed class DiskUsageTreemap : FrameworkElement
 
     // ================================================================= camera
 
-    private double Now => _clock.Elapsed.TotalSeconds + _timeOffset;
+    // CHANGED (round 16): once a test drives frames itself, the clock stops following wall time.
+    // Cache ageing, fades and flights then advance by exactly the step the caller asked for, so a
+    // slow machine can no longer age the geometry cache faster than the camera actually moves.
+    private double Now => _manualClock ? _timeOffset : _clock.Elapsed.TotalSeconds + _timeOffset;
+    private bool _manualClock;
+    private void UseManualClock()
+    {
+        if (_manualClock) return;
+        _timeOffset += _clock.Elapsed.TotalSeconds; // keep Now continuous across the switch
+        _manualClock = true;
+    }
     private double ViewAspect => ActualHeight > 0 && ActualWidth > 0 ? ActualWidth / ActualHeight : _builtAspect;
     private static Point Center(Rect rect) => new(rect.X + rect.Width / 2, rect.Y + rect.Height / 2);
 
@@ -1013,6 +1318,8 @@ public sealed class DiskUsageTreemap : FrameworkElement
         if (folder.Item.Id == _reportedFocus) return;
         _reportedFocus = folder.Item.Id;
         _focusNode = folder;
+        _navigationPath = PathOf(folder).ToArray();
+        _highlightResolved = false;
         FolderFocused?.Invoke(folder.Item.Id);
     }
 
@@ -1020,6 +1327,7 @@ public sealed class DiskUsageTreemap : FrameworkElement
 
     private void RequestFrame()
     {
+        if (_disposed) return;
         _sceneDirty = _overlayDirty = true;
         if (_hooked) return;
         if (!IsLoaded) { InvalidateVisual(); return; }
@@ -1038,14 +1346,17 @@ public sealed class DiskUsageTreemap : FrameworkElement
     // Start the frame loop without forcing a scene redraw.
     private void HookFrames()
     {
-        if (_hooked || !IsLoaded) return;
+        if (_disposed || _hooked || !IsLoaded) return;
         _hooked = true;
+        _lastRenderingTime = TimeSpan.MinValue;
         _lastFrame = Now;
         CompositionTarget.Rendering += OnRendering;
     }
 
     private void StopFrames()
     {
+        _queuedFrame?.Abort();
+        _queuedFrame = null;
         if (!_hooked) return;
         CompositionTarget.Rendering -= OnRendering;
         _hooked = false;
@@ -1053,6 +1364,36 @@ public sealed class DiskUsageTreemap : FrameworkElement
 
     private void OnRendering(object? sender, EventArgs e)
     {
+        if (e is RenderingEventArgs rendering)
+        {
+            if (rendering.RenderingTime == _lastRenderingTime) return;
+            _lastRenderingTime = rendering.RenderingTime;
+        }
+        // NEW (round 31): with the GPU path the whole scene costs about a millisecond, and this
+        // callback is the moment in the frame where WPF has not yet taken the composition surface.
+        // Handing the work to a background-priority dispatcher item put us on the far side of the
+        // compositor, so D3DImage was usually already locked when we asked - which is exactly what
+        // the deferred-frame counter was counting, and why a 1 ms scene took 22 ms to appear. The
+        // queue stays for the CPU rasterizer, whose frame is heavy enough to starve input.
+        if (_gpuShown && _queuedFrame is null && !_disposed) { RenderScheduledFrame(); return; }
+        QueueFrame();
+    }
+
+    // Render notifications run ahead of Input in WPF. Coalesce expensive scene
+    // work below input instead, so zooming cannot starve window dragging/resizing.
+    internal void QueueFrame()
+    {
+        if (_disposed || _queuedFrame is not null) return;
+        _queuedFrame = Dispatcher.InvokeAsync(() =>
+        {
+            _queuedFrame = null;
+            if (!_disposed) RenderScheduledFrame();
+        }, DispatcherPriority.Background);
+    }
+
+    private void RenderScheduledFrame()
+    {
+        ScheduledFrameCount++;
         var now = Now;
         var dt = Math.Clamp(now - _lastFrame, 0, .1);
         if (_showStats)
@@ -1064,38 +1405,11 @@ public sealed class DiskUsageTreemap : FrameworkElement
         _lastFrame = now;
         var busy = StepFrame(dt);
         var moving = _flight is not null || _dragging || !Near(_camera, _target);
-        // CHANGED (round 9): full-detail frames are cheap now; redraw whenever anything changed.
-        // CHANGED (round 11): low-resolution frames while moving, then one full-resolution frame.
-        if (busy || moving || _sceneDirty || _needsFrame || !Near(_sceneCamera, _camera) || _shown == _motion)
-        {
-            _renderMotion = false; // REVERTED (round 13): no low-resolution motion frames
-            try { RenderScene(); }
-            finally { _renderMotion = false; }
-        }
+        // Prepare all layers together, after pending input, at full pixel resolution.
+        if ((busy || moving || _sceneDirty || _needsFrame || !Near(_sceneCamera, _camera)) && !RenderScene()) return;
         if (busy || moving || _overlayDirty || _overlayAnimating) RenderOverlay();
-        if (!busy && !moving && !_needsFrame && !_sceneDirty && !_overlayDirty && !_overlayAnimating && _shown != _motion)
+        if (!busy && !moving && !_needsFrame && !_sceneDirty && !_overlayDirty && !_overlayAnimating)
             StopFrames();
-    }
-
-    // Scene coordinates (drawn with _sceneCamera) to current screen coordinates.
-    private (double Scale, double OffsetX, double OffsetY) SceneMapping()
-    {
-        if (_camera.Width <= 0 || ActualWidth < 1) return (1, 0, 0);
-        var scale = _sceneCamera.Width / _camera.Width;
-        return (scale, (_sceneCamera.X - _camera.X) * ActualWidth / _camera.Width,
-            (_sceneCamera.Y - _camera.Y) * ActualHeight / _camera.Height);
-    }
-
-    private Point ScreenToScene(Point point)
-    {
-        var (scale, offsetX, offsetY) = SceneMapping();
-        return new Point((point.X - offsetX) / scale, (point.Y - offsetY) / scale);
-    }
-
-    private Rect SceneToScreen(Rect rect)
-    {
-        var (scale, offsetX, offsetY) = SceneMapping();
-        return new Rect(rect.X * scale + offsetX, rect.Y * scale + offsetY, rect.Width * scale, rect.Height * scale);
     }
 
     protected override void OnRenderSizeChanged(SizeChangedInfo sizeInfo)
@@ -1113,15 +1427,19 @@ public sealed class DiskUsageTreemap : FrameworkElement
         UpdateClip();
     }
 
-    // Layout-driven renders (first show, resizes, tests) come through here; animation frames
-    // render the two layers directly from OnRendering without involving layout.
+    // Live layout and animation notifications share the coalesced frame queue.
+    // Off-screen captures remain synchronous for deterministic image verification.
     protected override void OnRender(DrawingContext drawingContext)
     {
         base.OnRender(drawingContext);
         // CHANGED (round 5): the background lives here, untransformed, under the scene layer.
         drawingContext.DrawRectangle(_base, null, new Rect(0, 0, ActualWidth, ActualHeight));
-        RenderScene();
-        RenderOverlay();
+        if (IsLoaded)
+        {
+            QueueFrame();
+            return;
+        }
+        if (RenderScene()) RenderOverlay();
     }
 
     // NEW (round 5): rounded corners are clipped on the element, not inside the moving scene.
@@ -1134,110 +1452,385 @@ public sealed class DiskUsageTreemap : FrameworkElement
 
     // ================================================================= scene layer
 
-    private void RenderScene()
+    private bool RenderScene()
     {
-        var sceneStart = _statClock.Elapsed.TotalMilliseconds;
+        if (_disposed) return false;
+        if (!_gpuTried && _gpuEnabled && IsLoaded && PresentationSource.FromVisual(this) is not null)
+        {
+            _gpuTried = true;
+            // The adapter is chosen from the window's monitor, so pass the handle.
+            _gpu = GpuTileRenderer.TryCreate(PresentationSource.FromVisual(this) is HwndSource host ? host.Handle : IntPtr.Zero);
+        }
+        var gpu = _gpuEnabled && _gpu is { IsAvailable: true } available ? available : null;
+        if (gpu is not null && !gpu.TryBeginFrame())
+        {
+            _gpuSkipped++;
+            _needsFrame = true;
+            // NEW (round 16): nothing below runs on a deferred frame, so when the frame loop is not
+            // already running this is the only chance to come back for it. Without this, a map repainted
+            // while the compositor held the surface would stay stale until the next input.
+            if (!_hooked) Dispatcher.InvokeAsync(RequestFrame, DispatcherPriority.Background);
+            return false;
+        }
+        try { RenderSceneCore(); return true; }
+        finally { gpu?.EndFrame(); }
+    }
+
+    private void RenderSceneCore()
+    {
+        if (_disposed) return;
+        PreparedFrameCount++;
         if (!_statClock.IsRunning) _statClock.Start();
+        var sceneStart = _statClock.Elapsed.TotalMilliseconds;
         _sceneDirty = false;
         _needsFrame = false;
         _view = new Rect(0, 0, Math.Max(0, ActualWidth), Math.Max(0, ActualHeight));
         _viewLoose = Rect.Inflate(_view, 2, 2);
         _sceneCamera = _camera;
-        _sceneTransform.Matrix = Matrix.Identity;
-        _framesSinceScene = 0;
-        _drawn.Clear();
-        _wanted.Clear();
-        _deferred.Clear();
-        _commandCount = 0;
-        _tiles = 0;
-        _textBudget = TextPerFrame;
+        _textBudget = IsAnimating || _dragging ? 8 : TextPerFrame;
         if (ActualWidth < 1 || ActualHeight < 1) return;
         EnsureBuilt();
-        using (var dc = _labels.RenderOpen())
+        _container ??= _root is null ? null : ComputeContainer();
+        _colorLevel ??= _container;
+        var viewport = new Size(ActualWidth, ActualHeight);
+        var coverage = _cache is null ? Rect.Empty : BatchFor(_cache).Transform(_cache.Coverage);
+        // CHANGED (round 19): scale comes from the batch, so it accounts for a resized viewport as
+        // well as a moved camera, and a resize no longer hard-invalidates every frame. Only a change
+        // of aspect ratio can't be expressed by the single-scale mapping.
+        var scale = _cache is null ? 1 : BatchFor(_cache).Scale;
+        var aspectChange = _cache is not null &&
+            Math.Abs(_cache.Viewport.Width * viewport.Height / (_cache.Viewport.Height * viewport.Width) - 1) > .01;
+        var hardChange = _cache is null || aspectChange || !coverage.Contains(_view);
+        // CHANGED (round 24): the window was wide because the tree walk cost 10 ms; it costs 0.3 ms
+        // now, so geometry can be rebuilt far sooner. Tiles and their gutters are never stretched
+        // more than about a quarter, which stops the lattice breathing as the camera moves.
+        var zoomChange = scale < .78 || scale > 1.3;
+        var levelChange = _cache is not null && _cache.Level != _colorLevel;
+        var detailChange = _cache is not null && (_cache.Revision != _detailRevision || levelChange || zoomChange);
+        // CHANGED (round 21): every folder that finished loading bumped the revision and bought its
+        // own cross-fade, so a burst of loads read as continuous flickering. A rebuild driven only by
+        // finished loads now waits for them to settle and arrives as one redraw.
+        var gate = detailChange && !levelChange && !zoomChange ? LoadSettle : _fadeLength;
+        // With no tree there is nothing to build; the held picture stays up until one arrives.
+        if (_root is not null && (hardChange || (detailChange && Now - _cacheSince >= gate)))
         {
-            if (_root is not null)
+            var previous = _cache ?? _previousCache;
+            _cache = BuildGeometryCache(viewport);
+            // Never interrupt an in-progress blend merely because another lazy folder finished
+            // loading; a held picture from a replaced source always gets its cross-fade.
+            // CHANGED (round 25): only a change of level is cross-faded. A rebuild caused by a folder
+            // finishing its load, or by the camera moving, produces a scene that is a refinement of the
+            // one already up - fading between them washes the whole screen twice a second while a drive
+            // loads, which is the flicker. Swapping is invisible; the new blocks simply appear.
+            _previousCache = previous is { Detached: true } ? previous
+                : previous is not null && levelChange && !aspectChange && coverage.Contains(_view) ? previous : null;
+            _fadeLength = _previousCache is { Detached: true } ? SourceFade : CacheFade;
+            _cacheSince = Now;
+        }
+        else if (_cache is not null) GeometryReuseCount++;
+        // A source that never arrives must not leave a stale picture up for good.
+        if (_previousCache is { Detached: true } && Now - _holdoverSince > HoldoverLimit) _previousCache = null;
+        // NEW (round 24): a cross-fade shows two copies of the same scene at different scales at once,
+        // so every edge is doubled and slightly offset - which is precisely the shimmer you see while
+        // zooming. A moving camera swaps outright: mid-gesture the eye never catches the change. The
+        // fade is kept for a still camera, where a detail change would otherwise pop, and for a
+        // replaced source, where the two pictures are unrelated and there is nothing to double.
+        if ((IsAnimating || _dragging) && _previousCache is { Detached: false }) _previousCache = null;
+        var blend = _cache is null ? 0 : _previousCache is null ? 1 : SmoothStep((Now - _cacheSince) / _fadeLength);
+        if (blend >= 1) _previousCache = null;
+        _batchCount = 0;
+        if (_previousCache is { } old) _batches[_batchCount++] = BatchFor(old);
+        if (_cache is { } current) _batches[_batchCount++] = BatchFor(current, blend);
+        if (_batchCount < 2) _batches[1] = default;
+        _needsFrame |= blend < 1 || detailChange;
+        _view = new Rect(0, 0, ActualWidth, ActualHeight);
+        _viewLoose = Rect.Inflate(_view, 2, 2);
+        _drawn.Clear();
+        _wanted.Clear();
+        if (_cache is { } hitCache)
+        {
+            var mapping = BatchFor(hitCache);
+            foreach (var (node, screen) in hitCache.Tiles)
             {
-                _container ??= ComputeContainer();
-                _colorLevel ??= _container;
-                _openPath.Clear();
-                for (var node = _container; node is not null; node = node.Parent) _openPath.Add(node);
-                _colorT = EaseOut(Clamp01((Now - _colorSince) / ColorFade));
-                if (_colorT < 1) _needsFrame = true;
-                var reveal = EaseOut(Clamp01((Now - _sourceFadeAt) / .24));
-                if (reveal < 1) _needsFrame = true;
-                var walkStart = _statClock.Elapsed.TotalMilliseconds;
-                if (_root.Item.Bytes > 0)
-                    DrawNode(_root, ToScreen(_root.Bounds), reveal, 1, Rect.Empty, TileBudget);
-                var labelsStart = _statClock.Elapsed.TotalMilliseconds;
-                if (_showStats)
-                {
-                    Smooth(ref _statWalk, labelsStart - walkStart);
-                    _statWorstWalk = Math.Max(labelsStart - walkStart, _statWorstWalk * .985);
-                }
-                foreach (var draw in _deferred) draw(dc);
-                if (_showStats) Smooth(ref _statLabels, _statClock.Elapsed.TotalMilliseconds - labelsStart);
-                DrawVeil(dc);
+                var rect = Rect.Intersect(mapping.Transform(screen), _viewLoose);
+                if (rect.IsEmpty) continue;
+                _drawn.Add((node, rect));
+                node.LastDrawn = Now;   // NEW (round 20): keeps this node's text from being reclaimed
+                var prefetch = IsAnimating || _dragging ? ExpandFull : PrefetchSize;
+                if (node.State == NodeState.Collapsed && Math.Min(rect.Width, rect.Height) >= prefetch)
+                    _wanted.Add((node, rect.Width * rect.Height));
             }
         }
-        // CHANGED (round 14): draw on the GPU when possible, otherwise rasterize on the CPU.
-        if (!PresentGpu()) Present(EnsureSurface(_full, MaxPixels));
+        var labelsStart = _statClock.Elapsed.TotalMilliseconds;
+        LastWalkMilliseconds = labelsStart - sceneStart;
+        using (var dc = _labels.RenderOpen())
+        {
+            if (_previousCache is { } prior) DrawCachedLabels(dc, prior, 1 - blend);
+            if (_cache is { } latest) DrawCachedLabels(dc, latest, blend);
+            if (_root is not null) DrawVeil(dc);
+        }
+        if (_showStats) Smooth(ref _statLabels, _statClock.Elapsed.TotalMilliseconds - labelsStart);
+        if (!PresentGpu())
+        {
+            PrepareFallbackCommands();
+            Present(EnsureSurface(_full, MaxPixels));
+        }
         PumpLoads();
+        TrimTextCache(force: false);
+        TrimNodeTree();
         if (_showStats)
         {
+            Smooth(ref _statWalk, LastWalkMilliseconds);
+            _statWorstWalk = Math.Max(LastWalkMilliseconds, _statWorstWalk * .985);
             Smooth(ref _statScene, _statClock.Elapsed.TotalMilliseconds - sceneStart);
-            _statTiles = _commandCount;
+            _statTiles = _drawn.Count;
         }
         if (_needsFrame && !_hooked) Dispatcher.InvokeAsync(RequestFrame, DispatcherPriority.Background);
     }
 
+    private TileBatch BatchFor(SceneCache cache, double opacity = 1)
+        => TileBatch.ForCamera(cache.Geometry, cache.Camera, cache.Viewport,
+            cache.Detached ? cache.Camera : _camera, new Size(Math.Max(1, ActualWidth), Math.Max(1, ActualHeight)), opacity);
+
+    private SceneCache BuildGeometryCache(Size viewport)
+    {
+        GeometryBuildCount++;
+        // Overscan lets ordinary pans/zooms reuse geometry that was just outside
+        // the viewport. Two 12,000-tile scenes bound CPU and GPU cache memory.
+        // CHANGED (round 18): 35% overscan keeps the cached layer covering the viewport down to a
+        // scale of about .59, just past the .62 where a rebuild is wanted anyway. Zooming out no
+        // longer runs off the edge of its geometry and forces an ungated rebuild every frame.
+        var coverage = Rect.Inflate(new Rect(viewport), viewport.Width * .35, viewport.Height * .35);
+        _view = coverage;
+        _viewLoose = Rect.Inflate(coverage, 2, 2);
+        _drawn.Clear(); _deferred.Clear(); _wanted.Clear();
+        _commandCount = _tiles = 0;
+        _openPath.Clear();
+        for (var node = _container; node is not null; node = node.Parent) _openPath.Add(node);
+        _colorT = 1; // complete layers blend; individual nodes never change hue mid-cache
+        if (_root is { Item.Bytes: > 0 }) DrawNode(_root, ToScreen(_root.Bounds), 1, 1, Rect.Empty, Budget, _baseColor, 0);
+        return new SceneCache(_camera, viewport, coverage, new TileGeometry(_commands.AsSpan(0, _commandCount).ToArray()),
+            _drawn.ToArray(), _deferred.ToArray(), _deferred.ToDictionary(c => (c.Node, c.IsOpen)), _colorLevel, _detailRevision);
+    }
+
+    // Hands back the text layouts of nodes that have left the screen, and enforces a hard ceiling
+    // on how many may be held at once. A reclaimed node simply re-creates its text if it comes
+    // back, through the same per-frame allowance that limits new labels.
+    private void TrimTextCache(bool force)
+    {
+        if (!force && _texted.Count <= TextBudget && Now - _sweptAt < 1) return;
+        _sweptAt = Now;
+        var cutoff = Now - TextIdle;
+        var kept = 0;
+        for (var i = 0; i < _texted.Count; i++)
+        {
+            var node = _texted[i];
+            if (!force && node.LastDrawn >= cutoff) { _texted[kept++] = node; continue; }
+            ReleaseText(node);
+        }
+        _texted.RemoveRange(kept, _texted.Count - kept);
+        if (_texted.Count <= TextBudget) return;
+        // Still over the ceiling: give up the nodes that have been off screen longest.
+        _texted.Sort(static (a, b) => a.LastDrawn.CompareTo(b.LastDrawn));
+        var excess = _texted.Count - TextBudget;
+        for (var i = 0; i < excess; i++) ReleaseText(_texted[i]);
+        _texted.RemoveRange(0, excess);
+    }
+
+    private static void ReleaseText(Node node)
+    {
+        node.LabelName = node.LabelDetail = node.PillName = node.PillSize = default;
+        node.HasText = false;
+    }
+
+    // Collapses folders whose whole subtree has been off screen for a while, which is the only thing
+    // that bounds memory: a collapsed folder drops its child nodes, their grouped tails, and the
+    // DiskUsageItem array those tails were holding open. They reload on demand exactly as they did
+    // the first time. Folders on the open path and anything recently drawn are never touched.
+    private void TrimNodeTree()
+    {
+        if (_root is null || _liveNodes <= NodeCeiling) return;
+        // A sweep walks every expanded node, so wait for a pause unless the tree is far over budget.
+        if ((IsAnimating || _dragging) && _liveNodes < NodeCeiling * 2) return;
+        if (Now - _nodeSweptAt < 2) return;
+        _nodeSweptAt = Now;
+        var before = _liveNodes;
+        // Everything the rest of the control still points at has to survive the sweep, or a click
+        // could land on a node that is no longer part of the tree.
+        _openPath.Clear();
+        Protect(_container);
+        Protect(_focusNode);
+        Protect(_colorLevel);
+        Protect(_colorPrevious);
+        Protect(_candidate);
+        Protect(_hover);
+        Protect(_highlightNode);
+        _liveNodes = Sweep(_root, Now - NodeIdle).Count;
+        // Everything alive is on screen or recent: another sweep would walk the tree for nothing.
+        if (_liveNodes > NodeCeiling && _liveNodes >= before) _nodeSweptAt = Now + 8;
+
+        void Protect(Node? node)
+        {
+            for (; node is not null; node = node.Parent) _openPath.Add(node);
+        }
+    }
+
+    private (int Count, double Newest) Sweep(Node node, double cutoff)
+    {
+        if (node.Children.Length == 0) return (1, node.LastDrawn);
+        var count = 1;
+        var newest = node.LastDrawn;
+        foreach (var child in node.Children)
+        {
+            var (childCount, childNewest) = Sweep(child, cutoff);
+            count += childCount;
+            if (childNewest > newest) newest = childNewest;
+        }
+        if (newest >= cutoff || node == _root || _openPath.Contains(node)) return (count, newest);
+        foreach (var child in node.Children) Forget(child);
+        node.Children = [];
+        node.State = NodeState.Collapsed;
+        node.ReadyAt = double.NegativeInfinity;
+        return (1, newest);
+    }
+
+    // Text held by a node about to become unreachable is handed back now; the text sweep removes it
+    // from its list on the next pass, because a forgotten node can never be drawn again.
+    private static void Forget(Node node)
+    {
+        ReleaseText(node);
+        node.LastDrawn = double.NegativeInfinity;
+        foreach (var child in node.Children) Forget(child);
+        node.Children = [];
+    }
+
+    private void DrawCachedLabels(DrawingContext dc, SceneCache cache, double opacity)
+    {
+        if (opacity <= .01) return;
+        var mapping = BatchFor(cache);
+        foreach (var caption in cache.Captions)
+        {
+            var key = (caption.Node, caption.IsOpen);
+            // Shared labels are drawn once. Drawing old/new copies would make
+            // WPF reshape and recolor the same cached text twice every frame.
+            if (ReferenceEquals(cache, _previousCache) && opacity < .99 && _cache?.LabelIndex.ContainsKey(key) == true) continue;
+            var visible = Rect.Intersect(mapping.Transform(caption.Visible), _view);
+            if (visible.IsEmpty) continue;
+            var alpha = caption.Alpha * opacity;
+            var color = caption.Color;
+            if (ReferenceEquals(cache, _cache) && _previousCache?.LabelIndex.TryGetValue(key, out var prior) == true)
+            {
+                alpha += prior.Alpha * (1 - opacity);
+                color = Mix(prior.Color, color, opacity);
+            }
+            if (caption.IsOpen)
+            {
+                var pill = LayoutPill(caption.Node, visible, Rect.Empty, color, alpha);
+                if (pill is { } tag) DrawPill(dc, tag);
+            }
+            else DrawLabel(dc, caption.Node, visible, Rect.Empty, alpha);
+        }
+    }
+
+    private void PrepareFallbackCommands()
+    {
+        _commandCount = 0;
+        for (var i = 0; i < _batchCount; i++)
+        {
+            var batch = _batches[i];
+            if (batch.Opacity <= 0) continue;
+            foreach (ref readonly var command in batch.Geometry.Commands.AsSpan())
+            {
+                var rect = batch.Transform(new Rect(command.X0, command.Y0, command.X1 - command.X0, command.Y1 - command.Y0));
+                rect.Intersect(_viewLoose);
+                if (rect.IsEmpty) continue;
+                var color = Color.FromRgb((byte)(command.Color >> 16), (byte)(command.Color >> 8), (byte)command.Color);
+                Emit(rect, color, command.Alpha / 255d * batch.Opacity);
+            }
+        }
+    }
+
     // alpha: accumulated fade of this tile. labelWeight: 1 when this tile's parent is the level
     // being labeled (0..1 while cross-fading between levels). zone: an ancestor's name tag.
-    // CHANGED (round 7): `budget` is how many tiles this subtree may draw. Children share their
-    // parent's budget in proportion to their on-screen area (unused budget passes to later
-    // siblings), so detail is spread evenly across the view instead of the first big folders
-    // spending it all. A block with no budget left is drawn solid, so there are never holes.
+    // Children share the subtree budget by visible area, independently of their
+    // siblings' expansion state. A block with no detail budget remains solid.
     // Returns the number of tiles used.
-    private int DrawNode(Node node, Rect screen, double alpha, double labelWeight, Rect zone, int budget)
+    private int DrawNode(Node node, Rect screen, double alpha, double labelWeight, Rect zone, int budget, Color backdrop, double gutter)
     {
         if (!screen.IntersectsWith(_viewLoose)) return 0;
         var min = Math.Min(screen.Width, screen.Height);
         var isRoot = node == _root;
-        if (!isRoot && min < MinTile) return 0;
-        var overBudget = !isRoot && budget <= 1;
+        if (!isRoot && (_tiles >= Budget || min < MinTile))
+        {
+            EmitSolid(screen, backdrop);
+            return 0;
+        }
+        // Detail fades through its allowance instead of switching on/off at an
+        // integer threshold. Sibling budgets are independent of expansion state.
+        var detail = isRoot || _openPath.Contains(node) ? 1 : DetailAmount(budget, node.Children.Length);
         _tiles++;
-        // CHANGED (round 8): gaps shrink with tile size so dense detail reads as texture, not grid.
-        var tile = isRoot ? screen : Deflate(screen, min >= 14 ? .75 : min >= 7 ? .45 : min >= 3 ? .25 : .12);
+        // CHANGED (round 25): the gutter is handed down by the folder, so every block inside it insets
+        // by the same amount and every gap between them is the same width. Deriving it from each
+        // block's own size meant a big block and a small one met with two different half-gaps, which is
+        // what made the grid look hand-drawn.
+        // CHANGED (round 26): the gutter can never take more than a third of a block. Between MinTile
+        // and twice the gutter it used to consume the block entirely, and the degenerate result was
+        // returned unpainted - so the base colour showed through as a black notch. That was the black.
+        // CHANGED (round 29): a third of a block was far too much to give up. A 4 px block lost 30% of
+        // its width to gaps, which is why small tiles read as hard and chopped-up. At an eighth the gap
+        // falls below a pixel as blocks get small, and a sub-pixel line antialiases into a hairline -
+        // which is the softness, rather than a hard edge scaled down.
+        var tile = isRoot ? screen : Deflate(screen, Math.Min(gutter, min * .12));
         var drawn = Rect.Intersect(tile, _viewLoose);
-        if (drawn.IsEmpty || drawn.Width <= 0 || drawn.Height <= 0) return 0;
+        if (drawn.IsEmpty || drawn.Width <= 0 || drawn.Height <= 0)
+        {
+            EmitSolid(screen, backdrop);   // belt and braces: never leave a region unpainted
+            return 0;
+        }
         var visible = Rect.Intersect(tile, _view);
         var hasVisible = !visible.IsEmpty && visible.Width > 1 && visible.Height > 1;
         _drawn.Add((node, drawn));
-        if (node.State == NodeState.Collapsed && min >= PrefetchSize) _wanted.Add((node, drawn.Width * drawn.Height));
+        var prefetch = IsAnimating || _dragging ? ExpandFull : PrefetchSize;
+        if (_loads < MaxLoads && budget > 2 && node.State == NodeState.Collapsed && min >= prefetch)
+            _wanted.Add((node, drawn.Width * drawn.Height));
 
         var color = isRoot ? _baseColor : NodeColor(node);
-        var open = overBudget ? 0 : OpenAmount(node, min);
+        var open = detail * OpenAmount(node, min);
         // An open folder becomes a frame of its own hue behind its contents: dark for the labeled
         // blocks (structure you read), barely darker deeper down (texture you zoom into), so
         // children too small to draw blend into it instead of showing as dark gaps.
+        // CHANGED (round 27): a folder more than one level down barely darkened at all (.8), so its
+        // frame vanished and everything below the second level read as one undifferentiated field.
+        // Every level now recesses, just less sharply the deeper it sits.
         var shallow = _colorLevel is null || node.Depth - _colorLevel.Depth <= 1;
-        var fill = open > 0 && !isRoot ? Mix(color, Shade(color, shallow ? .42 : .8), open) : color;
-        Emit(drawn, fill, isRoot ? 1 : alpha); // CHANGED (round 9): a rectangle for the rasterizer
+        // CHANGED (round 29): .42 made an open folder's surface 42% of its hue, and the seam on top of
+        // that came out at 36% - almost black, so every gap read as a hard cut rather than as shading.
+        // A surface a little over half the brightness of its contents separates them without the weight.
+        var fill = open > 0 && !isRoot ? Mix(color, Shade(color, shallow ? .55 : .72), open) : color;
+        // Flatten alpha against the parent's color once. Cached rectangles form
+        // a partition rather than repeatedly painting over their ancestors.
+        // This cuts fill work and permits a true old/new scene cross-fade.
+        fill = Mix(backdrop, fill, isRoot ? 1 : alpha);
         // Collapsed label (fades out as the folder opens). Deferred, so drawing order is unaffected.
         if (!isRoot && open < 1 && labelWeight > 0 && hasVisible)
         {
             var labelAlpha = alpha * labelWeight * (1 - open);
-            _deferred.Add(context => DrawLabel(context, node, visible, zone, labelAlpha));
+            _deferred.Add(new Caption(node, visible, zone, labelAlpha));
         }
 
         if (open > 0)
         {
-            var pad = isRoot ? 0 : (shallow ? Math.Clamp(min * .014, 1, 4) : Math.Clamp(min * .006, 0, 1.2)) * open;
-            var inner = Deflate(tile, pad);
-            // FIXED: every labeled open folder gets its name tag, even one spanning the whole view
-            // height; only the folder you're inside (or its ancestors) goes without one.
-            var pill = !isRoot && labelWeight > 0 && hasVisible && !_openPath.Contains(node)
-                ? LayoutPill(node, visible, zone, color, alpha * labelWeight * open) : null;
-            var childZone = pill is { Alpha: > .05 } shownPill ? shownPill.Rect : zone;
+            // CHANGED (round 28): a folder paints its whole surface once, and its children each paint a
+            // single inset rectangle on top. What shows between them is that surface, so the seam needs
+            // no rectangles of its own. This replaced four border strips plus a fill per block with one
+            // rectangle per block - five times fewer - which is what pays for the extra detail below,
+            // and makes an unpainted region impossible: the surface is always underneath.
+            var inner = Deflate(tile, Math.Clamp(min * .005, .5, 2));
+            if (inner.Width <= 0 || inner.Height <= 0) inner = tile;
+            EmitSolid(tile, Shade(fill, FrameShade));
+            // Folder tags stay readable even when their geometry spans the view.
+            var showPill = !isRoot && labelWeight > 0 && hasVisible && !_openPath.Contains(node);
+            var childZone = Rect.Empty;
             var childLabels = LabelWeight(node);
             var childAlpha = alpha * open;
             var children = node.Children;
@@ -1247,21 +1840,24 @@ public sealed class DiskUsageTreemap : FrameworkElement
             var visited = ArrayPool<int>.Shared.Rent(children.Length);
             var visitedCount = 0;
             var areaLeft = 0d;
-            // CHANGED (round 15): skip children too small to draw *before* computing anything for
-            // them. Named children are sorted largest first, so the first one under the size limit
-            // means the rest of the named ones are too - jump straight to the grouped blocks. This
-            // used to compute a rectangle for every child of every open folder, every frame.
-            var pixelsPerWorld = inner.Width * inner.Height / Math.Max(node.Area, double.Epsilon);
-            var tooSmall = MinTile * MinTile;
+            // This traversal runs only when constructing a new cached detail layer.
+            var sx = inner.Width / node.Bounds.Width;
+            var sy = inner.Height / node.Bounds.Height;
+            double ox = node.Bounds.X, oy = node.Bounds.Y;
+            // One gutter for every block in this folder, so all its gaps match.
+            var childGutter = Math.Clamp(Math.Min(inner.Width, inner.Height) * .0025, .35, .9);
             for (var i = 0; i < children.Length; i++)
             {
                 var child = children[i];
-                if (child.Area * pixelsPerWorld < tooSmall)
-                {
-                    if (i < node.FirstGroup) i = node.FirstGroup - 1; // skip the remaining named children
-                    continue;
-                }
-                var rect = Within(inner, node.Bounds, child.Bounds);
+                // Each edge is mapped from the layout coordinate it shares with its neighbour, rather
+                // than from a position plus a separately scaled width. Two touching blocks then land on
+                // exactly the same pixel instead of a fraction apart, which is the other half of the
+                // misalignment: gaps that looked a pixel wider on one side than the other.
+                var left = inner.X + (child.Bounds.X - ox) * sx;
+                var right = inner.X + (child.Bounds.Right - ox) * sx;
+                var top = inner.Y + (child.Bounds.Y - oy) * sy;
+                var bottom = inner.Y + (child.Bounds.Bottom - oy) * sy;
+                var rect = new Rect(left, top, Math.Max(0, right - left), Math.Max(0, bottom - top));
                 if (!rect.IntersectsWith(_viewLoose)) continue;
                 var shown = Rect.Intersect(rect, _viewLoose);
                 screens[visitedCount] = rect;
@@ -1269,24 +1865,35 @@ public sealed class DiskUsageTreemap : FrameworkElement
                 visited[visitedCount++] = i;
                 areaLeft += shown.Width * shown.Height;
             }
-            var remaining = budget - 1;
+            var extra = Math.Max(0, budget - 1 - visitedCount);
             var used = 1;
             for (var k = 0; k < visitedCount; k++)
             {
-                if (areas[k] <= 0) continue;
-                var share = areaLeft <= 0 ? 0 : (int)Math.Round(remaining * areas[k] / areaLeft);
-                var spent = DrawNode(children[visited[k]], screens[k], childAlpha, childLabels, childZone, Math.Max(1, share));
-                remaining -= spent;
+                // NEW (round 26): a child with no measurable on-screen area used to be skipped, which
+                // left its region unpainted - and what shows through an unpainted region is the base
+                // colour, which is why a stray block came out black. Its area is now filled by the
+                // folder, so every part of the folder is painted exactly once whatever happens.
+                if (areas[k] <= 0) continue;   // the folder's surface already covers it
+                var share = 1 + (areaLeft <= 0 ? 0 : (int)(extra * areas[k] / areaLeft));
+                var spent = DrawNode(children[visited[k]], screens[k], childAlpha, childLabels, childZone, share, fill, childGutter);
                 used += spent;
-                areaLeft -= areas[k];
             }
             ArrayPool<Rect>.Shared.Return(screens);
             ArrayPool<double>.Shared.Return(areas);
             ArrayPool<int>.Shared.Return(visited);
-            if (pill is { } tag) _deferred.Add(context => DrawPill(context, tag));
+            if (showPill) _deferred.Add(new Caption(node, visible, zone, alpha * labelWeight * open, true, color));
             return used;
         }
+        // One rectangle. Its gap to its neighbours is the folder's surface showing through from
+        // underneath, so nothing needs to be drawn for the seam itself.
+        EmitSolid(isRoot ? screen : tile, fill);
         return 1;
+    }
+
+    private void EmitSolid(Rect rect, Color color)
+    {
+        rect.Intersect(_viewLoose);
+        if (!rect.IsEmpty) Emit(rect, color, 1);
     }
 
     // Maps a child's world rectangle into its parent's on-screen content rectangle.
@@ -1298,14 +1905,19 @@ public sealed class DiskUsageTreemap : FrameworkElement
             childWorld.Width * scaleX, childWorld.Height * scaleY);
     }
 
+    internal static double DetailAmount(int budget, int children)
+        => SmoothStep((budget - children - 1d) / Math.Max(8, children * .5));
+
     private double OpenAmount(Node node, double min)
     {
         if (node.State != NodeState.Ready) return 0;
-        var zoom = _openPath.Contains(node) ? 1 : SmoothStep((min - ExpandStart) / (ExpandFull - ExpandStart));
+        var onPath = _openPath.Contains(node);
+        // NEW (round 18): low detail mode opens only the folders you are inside. Everything within
+        // them stays a solid block, so a frame walks one level instead of the whole subtree.
+        if (_lowDetail && !onPath) return 0;
+        var zoom = onPath ? 1 : SmoothStep((min - ExpandStart) / (ExpandFull - ExpandStart));
         if (zoom <= 0) return 0;
-        var fade = Clamp01((Now - node.ReadyAt) / .22);
-        if (fade < 1) _needsFrame = true;
-        return zoom * EaseOut(fade);
+        return zoom; // newly loaded detail fades in as a complete cached layer
     }
 
     private static Rect Deflate(Rect rect, double by)
@@ -1354,11 +1966,12 @@ public sealed class DiskUsageTreemap : FrameworkElement
     // off-screen captures such as tests, where D3DImage content isn't rendered).
     private bool PresentGpu()
     {
-        if (!IsLoaded || PresentationSource.FromVisual(this) is null) return false;
+        if (!_gpuEnabled || !IsLoaded || PresentationSource.FromVisual(this) is null) return false;
         if (!_gpuTried)
         {
             _gpuTried = true;
-            _gpu = GpuTileRenderer.TryCreate();
+            // The adapter is chosen from the window's monitor, so pass the handle.
+            _gpu = GpuTileRenderer.TryCreate(PresentationSource.FromVisual(this) is HwndSource host ? host.Handle : IntPtr.Zero);
         }
         if (_gpu is not { IsAvailable: true } gpu) return false;
         var dpi = VisualTreeHelper.GetDpi(this);
@@ -1366,8 +1979,11 @@ public sealed class DiskUsageTreemap : FrameworkElement
         var height = Math.Max(1, (int)Math.Ceiling(ActualHeight * dpi.DpiScaleY));
         var background = (uint)_baseColor.R << 16 | (uint)_baseColor.G << 8 | _baseColor.B;
         var start = _statClock.Elapsed.TotalMilliseconds;
-        if (!gpu.Render(_commands.AsSpan(0, _commandCount), width, height, width / ActualWidth, height / ActualHeight, background))
-            return false; // falls back to the CPU rasterizer (permanently if the device failed)
+        if (!gpu.RenderCached(_batches.AsSpan(0, _batchCount), width, height, width / ActualWidth, height / ActualHeight, background, out var busy))
+        {
+            if (busy) { _gpuSkipped++; _needsFrame = true; }
+            return busy; // Retain the GPU frame on contention; CPU fallback is for failure only.
+        }
         if (!_gpuShown)
         {
             using var dc = _scene.RenderOpen();
@@ -1377,8 +1993,8 @@ public sealed class DiskUsageTreemap : FrameworkElement
         }
         if (_showStats)
         {
-            Smooth(ref _statRaster, _statClock.Elapsed.TotalMilliseconds - start);
-            Smooth(ref _statUpload, 0);
+            Smooth(ref _statRaster, Math.Max(0, _statClock.Elapsed.TotalMilliseconds - start - gpu.LastUploadMilliseconds));
+            Smooth(ref _statUpload, gpu.LastUploadMilliseconds);
             _statPixelsW = width;
             _statPixelsH = height;
         }
@@ -1401,7 +2017,7 @@ public sealed class DiskUsageTreemap : FrameworkElement
         var bandHeight = (height + bands - 1) / bands;
         var rasterStart = _statClock.Elapsed.TotalMilliseconds;
         var uploadStart = rasterStart;
-        bitmap.Lock();
+        if (!bitmap.TryLock(new Duration(TimeSpan.Zero))) { _needsFrame = true; return; }
         try
         {
             var buffer = bitmap.BackBuffer;
@@ -1568,7 +2184,21 @@ public sealed class DiskUsageTreemap : FrameworkElement
         if (anchor.Parent is null) return _baseColor;
         var hue = anchor.IsGroup ? GroupColor : BranchColors[anchor.Index % BranchColors.Length];
         if (depth == 0) return hue;
-        return Shade(hue, 1 - .07 * Math.Min(depth, 4) - .05 * (node.Index % 3));
+        // CHANGED (round 18): the old .05-per-index step varied siblings by at most 10% and ramped in
+        // size order, so a folder's contents fused into one flat field. Value now comes from a hash of
+        // the name across a wide range: neighbours speckle instead of ramping, and the block still
+        // reads as one hue. Depth keeps nested folders recessed.
+        // CHANGED (round 27): the spread was +/-20%, which reads as noise rather than texture. A
+        // narrower band keeps blocks individually visible while the folder still reads as one colour.
+        return Shade(hue, (1 - .05 * Math.Min(depth, 3)) * (.82 + .24 * Spread(node)));
+    }
+
+    // 0..1, stable per item, so the texture never shimmers while zooming.
+    private static double Spread(Node node)
+    {
+        var hash = 2166136261u;
+        foreach (var character in node.Item.Name) hash = (hash ^ (uint)character) * 16777619u;
+        return ((hash >> 8) & 1023) / 1023d;
     }
 
     private static Color Shade(Color color, double factor) => Color.FromArgb(color.A,
@@ -1586,8 +2216,8 @@ public sealed class DiskUsageTreemap : FrameworkElement
     {
         alpha *= Clamp01((Math.Min(visible.Width, visible.Height) - 36) / 20);
         if (alpha <= .02) return null;
-        var name = Text(ref node.PillName, node.Item.Name, 12, true);
-        var size = Text(ref node.PillSize, node.Item.SizeText, 11, false);
+        var name = Text(node, ref node.PillName, node.Item.Name, 12, true);
+        var size = Text(node, ref node.PillSize, node.SizeText, 11, false);
         if (name is null || size is null) return null;
         const double padX = 7, padY = 3, spacing = 7;
         var sizeWidth = size.WidthIncludingTrailingWhitespace;
@@ -1608,8 +2238,8 @@ public sealed class DiskUsageTreemap : FrameworkElement
         Fill(dc, pill.Fill, pill.Alpha * .94, pill.Rect, 5);
         Tint(ref pill.Node.PillName, BrushFor(White, pill.Alpha) ?? Brushes.Transparent);
         Tint(ref pill.Node.PillSize, BrushFor(White, pill.Alpha * .7) ?? Brushes.Transparent);
-        dc.DrawText(pill.Name, new Point(pill.Rect.X + 7, pill.Rect.Y + (pill.Rect.Height - pill.Name.Height) / 2));
-        dc.DrawText(pill.Size, new Point(pill.Rect.Right - 7 - pill.Size.WidthIncludingTrailingWhitespace,
+        DrawCachedText(dc, ref pill.Node.PillName, new Point(pill.Rect.X + 7, pill.Rect.Y + (pill.Rect.Height - pill.Name.Height) / 2));
+        DrawCachedText(dc, ref pill.Node.PillSize, new Point(pill.Rect.Right - 7 - pill.Size.WidthIncludingTrailingWhitespace,
             pill.Rect.Y + (pill.Rect.Height - pill.Size.Height) / 2));
     }
 
@@ -1623,10 +2253,10 @@ public sealed class DiskUsageTreemap : FrameworkElement
         var twoLines = visible.Height >= 40 && visible.Width >= 60;
         var pad = big ? 9d : 6d;
         var room = Math.Max(1, visible.Width - pad * 2);
-        var name = Text(ref node.LabelName, node.Item.Name, big ? 13.5 : 12, true);
+        var name = Text(node, ref node.LabelName, node.Item.Name, big ? 13.5 : 12, true);
         if (name is null) return;
         Trim(ref node.LabelName, room);
-        var detail = twoLines ? Text(ref node.LabelDetail, $"{node.Item.SizeText} · {node.ShareText}", big ? 12 : 11, false) : null;
+        var detail = twoLines ? Text(node, ref node.LabelDetail, node.DetailText, big ? 12 : 11, false) : null;
         if (twoLines && detail is null) return;
         if (detail is not null) Trim(ref node.LabelDetail, room);
         var x = visible.X + pad;
@@ -1635,10 +2265,10 @@ public sealed class DiskUsageTreemap : FrameworkElement
         var height = name.Height + (detail?.Height ?? 0);
         if (y + height > visible.Bottom - 2) return;
         Tint(ref node.LabelName, BrushFor(White, alpha) ?? Brushes.Transparent);
-        dc.DrawText(name, new Point(x, y));
+        DrawCachedText(dc, ref node.LabelName, new Point(x, y));
         if (detail is null) return;
         Tint(ref node.LabelDetail, BrushFor(White, alpha * .72) ?? Brushes.Transparent);
-        dc.DrawText(detail, new Point(x, y + name.Height));
+        DrawCachedText(dc, ref node.LabelDetail, new Point(x, y + name.Height));
     }
 
     private void DrawVeil(DrawingContext dc)
@@ -1683,8 +2313,12 @@ public sealed class DiskUsageTreemap : FrameworkElement
         if (ActualWidth < 1 || ActualHeight < 1) return;
         if (_message is not null) DrawMessage(dc, _message); // MOVED (round 5): stays put while zooming
         if (_root is null) return;
-        if (_highlight is int id && _focusNode is not null && FindChild(_focusNode, id, expand: false) is { } selected)
-            Outline(dc, selected, AccentEdge);
+        if (!_highlightResolved)
+        {
+            _highlightNode = _highlight is int id && _focusNode is not null ? FindChild(_focusNode, id) : null;
+            _highlightResolved = true;
+        }
+        if (_highlightNode is { } selected) Outline(dc, selected, AccentEdge);
         _hover = _mouseInside && !_dragging ? NodeAt(_mouse) : null;
         var target = _hover is null ? null : ClickTarget(_hover);
         // REVERTED (round 4): plain outline on hover.
@@ -1696,17 +2330,35 @@ public sealed class DiskUsageTreemap : FrameworkElement
     // NEW (round 12): where each frame's time goes. Toggle with F3.
     private void DrawStats(DrawingContext dc)
     {
-        var fps = _statFrame > 0 ? 1000 / _statFrame : 0;
-        var text = Make(
-            $"frame {_statFrame:0.0} ms ({fps:0} fps) · worst {_statWorstFrame:0} ms   scene {_statScene:0.0} ms · worst walk {_statWorstWalk:0} ms\n" +
-            $"walk {_statWalk:0.0} · labels {_statLabels:0.0} · raster {_statRaster:0.0} · upload {_statUpload:0.0} ms\n" +
-            $"{(_gpuShown ? (_gpu?.IsMultisampled == true ? "GPU 4×AA" : "GPU") : "CPU")} · {_statTiles:N0} tiles · {_statPixelsW}×{_statPixelsH} px · " +
-            $"{_loads} loading · gen2 GCs {GC.CollectionCount(2) - _gen2Start}", 11, false);
-        text.MaxLineCount = 3;
-        text.SetForegroundBrush(Ink);
-        var box = new Rect(10, 10, text.Width + 20, text.Height + 14);
+        // Diagnostics must not create and shape three new text lines on every
+        // animation frame. Refresh the readout four times per second.
+        if (_statsText is null || Now - _statsUpdatedAt >= .25)
+        {
+            var fps = _statFrame > 0 ? 1000 / _statFrame : 0;
+            var text = Make(
+                $"frame {_statFrame:0.0} ms ({fps:0} fps) · worst {_statWorstFrame:0} ms   scene {_statScene:0.0} ms · worst walk {_statWorstWalk:0} ms\n" +
+                $"walk {_statWalk:0.0} · labels {_statLabels:0.0} · raster {_statRaster:0.0} · upload {_statUpload:0.0} ms\n" +
+                $"{(_gpuShown ? (_gpu?.IsMultisampled == true ? "GPU 4×AA" : "GPU") : "CPU")} · {_statTiles:N0} tiles · {_statPixelsW}×{_statPixelsH} px · " +
+                $"{_loads} loading · gen2 GCs {GC.CollectionCount(2) - _gen2Start}\n" +
+                $"cache · {GeometryBuildCount} builds · {GeometryReuseCount} reused frames · {GpuGeometryUploads} GPU uploads\n" +
+                // NEW (round 20): where the memory actually is. The rectangles are the cheap part;
+                // the labels are WPF text layouts and glyph drawings, kilobytes each.
+                $"memory · heap {GC.GetTotalMemory(false) / 1048576.0:0} MB · {LiveNodeCount:N0}/{NodeCeiling:N0} nodes · {LiveTextCount:N0}/{TextBudget:N0} labels · " +
+                $"{(_cache?.Geometry.Commands.Length ?? 0) + (_previousCache?.Geometry.Commands.Length ?? 0):N0} rects cached · " +
+                $"GPU {(_gpu?.CachedGeometryBytes ?? 0) / 1048576.0:0.0} MB{(_lean ? " · conserving" : "")}\n" +
+                // The map's own share, next to the snapshot it reads. Anything left over is the file
+                // index itself, which the rest of Clearspace needs whether this view is open or not.
+                $"map ≈ {(LiveNodeCount * 400L + LiveTextCount * 4096L) / 1048576.0:0} MB · " +
+                $"snapshots {DiskUsageSnapshotCache.RetainedBytes / 1048576.0:0} MB · " +
+                $"{_gpuSkipped:N0} GPU frames deferred", 11, false);
+            text.MaxLineCount = 6;
+            text.SetForegroundBrush(Ink);
+            _statsText = text;
+            _statsUpdatedAt = Now;
+        }
+        var box = new Rect(10, 10, _statsText.Width + 20, _statsText.Height + 14);
         dc.DrawRoundedRectangle(CardFill, CardEdge, box, 6, 6);
-        dc.DrawText(text, new Point(20, 17));
+        dc.DrawText(_statsText, new Point(20, 17));
     }
 
     private void Outline(DrawingContext dc, Node node, Pen pen)
@@ -1714,7 +2366,7 @@ public sealed class DiskUsageTreemap : FrameworkElement
         foreach (var (drawnNode, rect) in _drawn)
         {
             if (drawnNode != node) continue;
-            var box = Rect.Intersect(SceneToScreen(rect), Rect.Inflate(_view, 2, 2));
+            var box = Rect.Intersect(rect, Rect.Inflate(_view, 2, 2));
             if (box.IsEmpty || box.Width < 2 || box.Height < 2) return;
             dc.DrawRectangle(null, pen, box); // CHANGED (round 9): tiles are square-cornered now
             return;
@@ -1727,20 +2379,25 @@ public sealed class DiskUsageTreemap : FrameworkElement
         // CHANGED: describe the labeled block under the pointer (the item directly inside the
         // current folder), not the tiny tile within it. Zooming in moves the card a level deeper.
         if (ClickTarget(hovered) is not { } node) return;
-        var target = node;
-        var folder = node.Parent is null ? null : FolderOf(node.Parent);
-        var title = Make(node.Item.Name, 13, true);
-        title.SetForegroundBrush(Ink);
-        var detail = Make($"{DiskUsagePalette.CategoryName(node.Item)} · {node.Item.SizeText}" +
-            (folder is null ? "" : $" · {node.ShareText} of {(folder == _root ? folder.Item.Name.TrimEnd('\\') : folder.Item.Name)}"),
-            11.5, false);
-        detail.SetForegroundBrush(InkMuted);
-        var hint = target is null ? null : Make(HintFor(target), 11, false);
-        hint?.SetForegroundBrush(InkFaint);
         const double pad = 12, swatch = 9, maxText = 340;
-        title.MaxTextWidth = maxText;
-        detail.MaxTextWidth = maxText - swatch - 7;
-        if (hint is not null) hint.MaxTextWidth = maxText;
+        if (_hoverText?.Node != node || _hoverText.Focus != _focusNode)
+        {
+            var folder = node.Parent is null ? null : FolderOf(node.Parent);
+            var name = Make(node.Item.Name, 13, true);
+            name.SetForegroundBrush(Ink);
+            name.MaxTextWidth = maxText;
+            var description = Make($"{DiskUsagePalette.CategoryName(node.Item)} · {node.SizeText}" +
+                (folder is null ? "" : $" · {node.ShareText} of {folder.Item.Name.TrimEnd('\\')}"), 11.5, false);
+            description.SetForegroundBrush(InkMuted);
+            description.MaxTextWidth = maxText - swatch - 7;
+            var instruction = Make(HintFor(node), 11, false);
+            instruction.SetForegroundBrush(InkFaint);
+            instruction.MaxTextWidth = maxText;
+            _hoverText = new HoverText(node, _focusNode, name, description, instruction);
+        }
+        var title = _hoverText.Title;
+        var detail = _hoverText.Detail;
+        var hint = _hoverText.Hint;
         var width = Math.Max(title.Width, Math.Max(detail.Width + swatch + 7, hint?.Width ?? 0)) + pad * 2;
         var height = pad * 2 + title.Height + 3 + detail.Height + (hint is null ? 0 : 6 + hint.Height);
         var x = _mouse.X + 16;
@@ -1771,12 +2428,15 @@ public sealed class DiskUsageTreemap : FrameworkElement
     // fade in anyway). Returns null when this frame's allowance is used up.
     private const int TextPerFrame = 24;
     private int _textBudget;
-    private FormattedText? Text(ref CachedText cache, string text, double em, bool bold)
+    private FormattedText? Text(Node node, ref CachedText cache, string text, double em, bool bold)
     {
         if (cache.Text is not null && cache.Em == em) return cache.Text;
         if (_textBudget <= 0) { _needsFrame = true; return null; }
         _textBudget--;
-        cache = new CachedText(Make(text, em, bold), em);
+        var formatted = Make(text, em, bold);
+        cache = new CachedText(formatted, em, formatted.WidthIncludingTrailingWhitespace);
+        // Registered once per node, so the sweep can find everything that is holding text.
+        if (!node.HasText) { node.HasText = true; _texted.Add(node); }
         return cache.Text;
     }
 
@@ -1786,14 +2446,41 @@ public sealed class DiskUsageTreemap : FrameworkElement
         if (cache.Text is null || ReferenceEquals(cache.Tint, brush)) return;
         cache.Text.SetForegroundBrush(brush);
         cache.Tint = brush;
+        cache.Drawing = null;
     }
 
-    private static void Trim(ref CachedText cache, double width)
+    private void Trim(ref CachedText cache, double width)
     {
-        width = Math.Max(1, Math.Floor(width / 4) * 4);
+        // CHANGED (round 24): while the camera moves, a name that already has a layout keeps it. Every
+        // MaxTextWidth change makes WPF reshape the whole line, and the re-flow is visible as the text
+        // twitching inside its block. The ellipsis catches up as soon as the camera settles.
+        if ((IsAnimating || _dragging) && cache.Width > 0) return;
+        const double step = 4;
+        width = Math.Max(1, Math.Floor(width / step) * step);
+        // Once the whole name fits, growing its tile must not reflow the same
+        // text on every zoom frame (WPF allocates a new glyph layout each time).
+        width = Math.Min(width, Math.Ceiling(cache.NaturalWidth + 1));
         if (cache.Text is null || cache.Width == width) return;
         cache.Text.MaxTextWidth = width;
         cache.Width = width;
+        cache.Drawing = null;
+    }
+
+    private static void DrawCachedText(DrawingContext dc, ref CachedText cache, Point origin)
+    {
+        if (cache.Text is null) return;
+        if (cache.Drawing is null)
+        {
+            var drawing = new DrawingGroup();
+            using (var text = drawing.Open()) text.DrawText(cache.Text, new Point());
+            drawing.Freeze();
+            cache.Drawing = drawing;
+        }
+        var placement = new TranslateTransform(origin.X, origin.Y);
+        placement.Freeze();
+        dc.PushTransform(placement);
+        dc.DrawDrawing(cache.Drawing);
+        dc.Pop();
     }
 
     private FormattedText Make(string text, double em, bool bold) =>
@@ -1822,7 +2509,7 @@ public sealed class DiskUsageTreemap : FrameworkElement
 
     private Node? NodeAt(Point point)
     {
-        point = ScreenToScene(point); // NEW (round 5): the scene may be transformed mid-zoom
+        // Hit-test the last presented pixels, even if the next GPU frame is busy.
         for (var i = _drawn.Count - 1; i >= 0; i--)
             if (_drawn[i].Screen.Contains(point)) return _drawn[i].Node;
         return null;
@@ -1894,6 +2581,7 @@ public sealed class DiskUsageTreemap : FrameworkElement
             if (!_dragging && delta.Length > 4) { _dragging = true; _flight = null; }
             if (_dragging)
             {
+                _lastInteraction = Now;
                 // Drag to pan: the world follows the pointer exactly.
                 var scale = _pressCamera.Width / ActualWidth;
                 _camera = _target = Clamp(new Rect(_pressCamera.X - delta.X * scale, _pressCamera.Y - delta.Y * scale,

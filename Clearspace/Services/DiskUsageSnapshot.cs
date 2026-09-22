@@ -40,6 +40,10 @@ internal sealed class DiskUsageSnapshot
     public string Root => _index.Root;
     public DateTime BuiltUtc => _index.BuiltUtc;
     public int Count => _count;
+
+    // NEW (round 23): five parallel arrays of 8+8+4+4+1 bytes per indexed entry. Reported in the
+    // F3 readout so the map's own memory can be told apart from the index it is built on.
+    public long ApproximateBytes => (long)_count * 25;
     public long SourceVersion { get; private init; } // NEW: index version this snapshot was built from
     internal VolumeIndex Source => _index;
     public bool IsAvailable(int id) => id >= 0 && id < Count && !_excluded[id];

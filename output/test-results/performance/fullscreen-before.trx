@@ -1,0 +1,54 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TestRun id="259f2f7b-128e-4c27-90ac-a71f364cb1b4" name="Payton@PAYTONPC 2026-09-22 13:28:07" runUser="PaytonPC\Payton" xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010">
+  <Times creation="2026-09-22T13:28:07.2501035-05:00" queuing="2026-09-22T13:28:07.2501039-05:00" start="2026-09-22T13:28:03.5390617-05:00" finish="2026-09-22T13:28:10.5096106-05:00" />
+  <TestSettings name="default" id="cc306cd6-95e6-4330-a8c2-20d42896b317">
+    <Deployment runDeploymentRoot="Payton_PAYTONPC_2026-09-22_13_28_07" />
+  </TestSettings>
+  <Results>
+    <UnitTestResult executionId="16e93013-2b73-4dfb-ad27-5c3103c22cd6" testId="1ccd4431-529f-9a20-ef79-c5dc7636338f" testName="DenseCameraFramesHaveBoundedWorkAndReportTimings (4748,1220)" computerName="PAYTONPC" duration="00:00:03.2251774" startTime="2026-09-22T13:28:07.2370029-05:00" endTime="2026-09-22T13:28:10.4633217-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="16e93013-2b73-4dfb-ad27-5c3103c22cd6">
+      <Output>
+        <StdOut>TestContext Messages:&#xD;
+CPU fallback, 4748x1220, 25,600 files, 180 camera frames: median 4.96 ms, p95 11.02 ms, max 27.17 ms; walk median 1.02 ms, p95 3.38 ms; UI allocation 627,847 bytes/frame; peak 25,793 tiles.</StdOut>
+        <ErrorInfo>
+          <Message>Assert.IsTrue failed. Per-tile closure allocations must not return to the frame loop.</Message>
+          <StackTrace>   at Clearspace.Tests.DiskUsagePerformanceTests.&lt;&gt;c__DisplayClass5_0.&lt;&lt;DenseCameraFramesHaveBoundedWorkAndReportTimings&gt;b__0&gt;d.MoveNext() in E:\GithubRepos\File Explorer Remake\Clearspace.Tests\DiskUsagePerformanceTests.cs:line 114&#xD;
+--- End of stack trace from previous location ---&#xD;
+   at Clearspace.Tests.DiskUsagePerformanceTests.&lt;&gt;c__DisplayClass11_1.&lt;&lt;RunSta&gt;b__1&gt;d.MoveNext() in E:\GithubRepos\File Explorer Remake\Clearspace.Tests\DiskUsagePerformanceTests.cs:line 227&#xD;
+--- End of stack trace from previous location ---&#xD;
+   at Clearspace.Tests.DiskUsagePerformanceTests.RunSta(Func`1 action) in E:\GithubRepos\File Explorer Remake\Clearspace.Tests\DiskUsagePerformanceTests.cs:line 236&#xD;
+   at Clearspace.Tests.DiskUsagePerformanceTests.DenseCameraFramesHaveBoundedWorkAndReportTimings(Int32 width, Int32 height) in E:\GithubRepos\File Explorer Remake\Clearspace.Tests\DiskUsagePerformanceTests.cs:line 77&#xD;
+   at InvokeStub_DiskUsagePerformanceTests.DenseCameraFramesHaveBoundedWorkAndReportTimings(Object, Span`1)&#xD;
+   at System.Reflection.MethodBaseInvoker.InvokeWithFewArgs(Object obj, BindingFlags invokeAttr, Binder binder, Object[] parameters, CultureInfo culture)&#xD;
+</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="1d4b4d9a-1c6d-4785-ac8c-cfc345cd9d7a" testId="022a0dd7-8322-c23c-eef9-4810f79a97dc" testName="DenseCameraFramesHaveBoundedWorkAndReportTimings (1280,800)" computerName="PAYTONPC" duration="00:00:03.2444797" startTime="2026-09-22T13:28:03.9739285-05:00" endTime="2026-09-22T13:28:07.2284676-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="1d4b4d9a-1c6d-4785-ac8c-cfc345cd9d7a">
+      <Output>
+        <StdOut>TestContext Messages:&#xD;
+CPU fallback, 1280x800, 25,600 files, 180 camera frames: median 3.64 ms, p95 16.01 ms, max 18.11 ms; walk median 2.47 ms, p95 9.96 ms; UI allocation 275,195 bytes/frame; peak 25,793 tiles.</StdOut>
+      </Output>
+    </UnitTestResult>
+  </Results>
+  <TestDefinitions>
+    <UnitTest name="DenseCameraFramesHaveBoundedWorkAndReportTimings (1280,800)" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="022a0dd7-8322-c23c-eef9-4810f79a97dc">
+      <Execution id="1d4b4d9a-1c6d-4785-ac8c-cfc345cd9d7a" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.DiskUsagePerformanceTests" name="DenseCameraFramesHaveBoundedWorkAndReportTimings" />
+    </UnitTest>
+    <UnitTest name="DenseCameraFramesHaveBoundedWorkAndReportTimings (4748,1220)" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="1ccd4431-529f-9a20-ef79-c5dc7636338f">
+      <Execution id="16e93013-2b73-4dfb-ad27-5c3103c22cd6" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.DiskUsagePerformanceTests" name="DenseCameraFramesHaveBoundedWorkAndReportTimings" />
+    </UnitTest>
+  </TestDefinitions>
+  <TestEntries>
+    <TestEntry testId="1ccd4431-529f-9a20-ef79-c5dc7636338f" executionId="16e93013-2b73-4dfb-ad27-5c3103c22cd6" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="022a0dd7-8322-c23c-eef9-4810f79a97dc" executionId="1d4b4d9a-1c6d-4785-ac8c-cfc345cd9d7a" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+  </TestEntries>
+  <TestLists>
+    <TestList name="Results Not in a List" id="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestList name="All Loaded Results" id="19431567-8539-422a-85d7-44ee4e166bda" />
+  </TestLists>
+  <ResultSummary outcome="Failed">
+    <Counters total="2" executed="2" passed="1" failed="1" error="0" timeout="0" aborted="0" inconclusive="0" passedButRunAborted="0" notRunnable="0" notExecuted="0" disconnected="0" warning="0" completed="0" inProgress="0" pending="0" />
+  </ResultSummary>
+</TestRun>

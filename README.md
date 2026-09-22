@@ -77,12 +77,39 @@ the list, breadcrumbs, and history follow along. Back, Up, breadcrumbs and your
 mouse's side buttons fly the same camera, so every transition is continuous.
 Escape (or **Whole folder**) returns to the full current folder after zooming inside it.
 
-Blocks are colored by file type (video, images, audio, archives, programs,
-documents, code, data), with a legend under the map and matching icons in the
-list. Hover a block for its size, share, and what a click will do. Tile areas are
+Blocks take one hue per branch - everything inside a top-level folder shares its
+color - and each block within it gets its own shade, so a folder reads as one
+region without its contents fusing into a flat field. List rows use the same
+colors. Hover a block for its size, share, file type, and what a click will do. Tile areas are
 exact byte proportions within each folder. Deeper folders load in the background
 as they grow on screen, and very large folders group their smallest items so
 drawing stays fast at any zoom.
+
+Folder sizes are aggregated once and kept warm, so opening the analyzer shows the
+map immediately instead of calculating first. They are recomputed when you choose
+**Refresh** or when a full index build finishes; while the view is open it also
+updates itself quietly in the background. Changing drives, resizing, and first
+load cross-fade from the picture already on screen rather than blanking.
+
+**Map performance** (the gear beside Refresh) holds two options, both remembered
+between runs. *GPU acceleration* draws the blocks through Direct3D; turning it off
+uses the built-in multi-threaded CPU rasterizer, which is what runs anyway on a
+machine with no usable Direct3D adapter. The panel names the adapter in use.
+*Low performance mode* draws only the folder you are in - everything inside it
+stays a solid block until you open it - so a frame never walks a deep tree. That
+is the setting to reach for on integrated graphics or in enormous folders.
+
+Initial layout, folder-path navigation, and detail loading run in the background.
+The map batches tiles through the GPU (with a CPU fallback), limits work per frame,
+and stops its animation loop when idle. Press **F3** in the analyzer to see frame
+timings on your own drive. Closing the analyzer cancels its remaining work.
+Map redraws yield to mouse and window input. Distant groups stay compact when
+their fine detail would exceed the frame budget; zooming closer reveals their
+contents at full pixel resolution.
+
+Zoom detail fades gradually, and delayed GPU frames retain their matching labels
+and hit targets. Background detail loading is limited during gestures; the sidebar
+waits until zooming settles before replacing its listing.
 
 The sidebar uses single-line name/size rows. Hover for full names and percentages;
 the info button holds index details. Selection reveals the permanent-delete controls.

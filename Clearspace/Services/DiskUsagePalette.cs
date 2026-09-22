@@ -2,11 +2,11 @@ using System.IO;
 
 namespace Clearspace.Services;
 
-// REWRITTEN (round 2): blocks are colored by *branch*, not by file type.
-// Each item directly inside the folder you are looking at gets its own hue, and everything
-// inside it shares that hue in slightly varied shades. That answers "which block is which"
-// at a glance: one color per labeled block. The list uses the same hue per row.
-// (File-type colors made most real drives - game data, caches - one uniform grey.)
+// REVERTED (round 18): blocks are colored by BRANCH, not by file type. Round 17 tried type hues and
+// they read as mud: unknown files (most of a Windows drive) all went grey, and mixing type hues with
+// branch hues inside one block left nothing to tell structure from content. One hue per branch, with
+// each block inside it taking its own value, is what made the map look clean - the hue says where you
+// are, the shading says which block is which. File types are still named in the hover card.
 internal static class DiskUsagePalette
 {
     // Shared with the map's layout: folders with more than DirectLimit items show the largest
@@ -15,6 +15,7 @@ internal static class DiskUsagePalette
     public const int NamedLimit = 120;
 
     // Distinct, medium-lightness hues that read well on the dark theme and under white text.
+    // Used for folders, one per item directly inside the folder you are looking at.
     internal static readonly string[] Branches =
         ["#4F86B8", "#C47A45", "#4F9E73", "#A56CA3", "#BE9C3F", "#3F9CA3", "#B85C5A", "#7C80C4", "#8D9B4A", "#C46D8B"];
 
@@ -27,7 +28,6 @@ internal static class DiskUsagePalette
     public static string ListColor(DiskUsageItem item, int rank, int count)
         => item.Bytes == 0 ? EmptyColor : count > DirectLimit && rank >= NamedLimit ? GroupColor : BranchColor(rank);
 
-    // File types are still named in the hover card.
     private static readonly (string Name, string[] Extensions)[] Kinds =
     [
         ("Video", ["mp4", "mkv", "avi", "mov", "wmv", "webm", "m4v", "flv", "mpg", "mpeg", "m2ts", "vob"]),
@@ -46,23 +46,32 @@ internal static class DiskUsagePalette
             "log", "cache", "blob", "bak", "tmp", "etl", "evtx", "edb", "lock", "idx"]),
     ];
 
-    // Built with TryAdd so an extension listed twice can never fail the type initializer.
-    private static readonly Dictionary<string, string> KindByExtension = BuildLookup();
+    /// <summary>Index into <see cref="Types"/> and <see cref="Kinds"/>; the last index means "unknown type".</summary>
+    public static int Other => Kinds.Length;
 
-    private static Dictionary<string, string> BuildLookup()
+    // Built with TryAdd so an extension listed twice can never fail the type initializer.
+    private static readonly Dictionary<string, int> KindByExtension = BuildLookup();
+
+    private static Dictionary<string, int> BuildLookup()
     {
-        var lookup = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var (name, extensions) in Kinds)
-            foreach (var extension in extensions)
-                lookup.TryAdd(extension, name);
+        var lookup = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        for (var kind = 0; kind < Kinds.Length; kind++)
+            foreach (var extension in Kinds[kind].Extensions)
+                lookup.TryAdd(extension, kind);
         return lookup;
+    }
+
+    private static int CategoryIndex(DiskUsageItem item)
+    {
+        var extension = Path.GetExtension(item.Name);
+        return extension.Length > 1 && KindByExtension.TryGetValue(extension[1..], out var kind) ? kind : Other;
     }
 
     public static string CategoryName(DiskUsageItem item)
     {
         if (item.Id < 0) return "Smaller items";
         if (item.IsFolder) return "Folder";
-        var extension = Path.GetExtension(item.Name);
-        return extension.Length > 1 && KindByExtension.TryGetValue(extension[1..], out var kind) ? kind : "File";
+        var kind = CategoryIndex(item);
+        return kind < Kinds.Length ? Kinds[kind].Name : "File";
     }
 }
