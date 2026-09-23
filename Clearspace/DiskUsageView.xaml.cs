@@ -76,6 +76,12 @@ public partial class DiskUsageView : UserControl, IDisposable
         _viewModel.Dispose();
         Treemap.Dispose();
         try { System.Runtime.GCSettings.LatencyMode = _previousLatency; } catch (InvalidOperationException) { }
+        // NEW (round 40): closing the analyzer is the moment to give memory back to Windows. Everything the
+        // map held is now garbage, so one full collection once the UI is idle frees it, instead of the
+        // process keeping its peak size until something else runs. Not compacting: that would copy the
+        // file index's large arrays, which stay alive, and stall the window for no gain.
+        Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.ContextIdle,
+            new Action(() => GC.Collect(2, GCCollectionMode.Forced, blocking: true, compacting: false)));
     }
 
     // NEW (round 18): map performance options. The map keeps working with Direct3D turned off - it
@@ -138,7 +144,12 @@ public partial class DiskUsageView : UserControl, IDisposable
     private void OnLiveChanges(IReadOnlyList<string> paths)
     {
         var folder = _viewModel.CurrentPath;
-        if (string.IsNullOrEmpty(folder) || !paths.Any(path => IsVisibleFrom(folder, path))) return;
+        // CHANGED (round 39): "render everything" shows deeper levels, so changes up to six levels below
+        // the current folder refresh the map (two otherwise). Not every depth: at a drive's root that
+        // would include browser and app caches, which change constantly and would keep re-laying out
+        // the whole drive every few seconds.
+        var depth = Treemap.RenderEverything ? 6 : 2;
+        if (string.IsNullOrEmpty(folder) || !paths.Any(path => IsVisibleFrom(folder, path, depth))) return;
         Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Background,
             new Action(() => ScheduleLiveRefresh(debounce: true)));
     }
@@ -159,11 +170,11 @@ public partial class DiskUsageView : UserControl, IDisposable
         if (!_liveTimer.IsEnabled) _liveTimer.Start();
     }
 
-    private static bool IsVisibleFrom(string folder, string path)
+    private static bool IsVisibleFrom(string folder, string path, int depth)
     {
         var root = folder.TrimEnd('\\');
         if (!path.StartsWith(root + "\\", StringComparison.OrdinalIgnoreCase)) return false;
-        return path.AsSpan(root.Length + 1).Count('\\') <= 2;
+        return path.AsSpan(root.Length + 1).Count('\\') <= depth;
     }
 
     // CHANGED (round 10): refreshes rebuild a whole-drive snapshot, so they are rare - at most every
@@ -261,7 +272,10 @@ public partial class DiskUsageView : UserControl, IDisposable
         {
             // CHANGED: a live refresh resizes the map in place; anything else rebuilds it.
             if (_viewModel.IsLiveRefresh)
-                Treemap.RefreshSource(snapshot.Item(0), (id, token) => snapshot.Children(id, token), _viewModel.FolderPath, EmptyFolderName());
+                // CHANGED (round 39): the snapshot is passed along, so the map keys its kept tree and its
+                // flat whole-drive layout to the new one instead of the one it replaced.
+                Treemap.RefreshSource(snapshot.Item(0), (id, token) => snapshot.Children(id, token), _viewModel.FolderPath,
+                    EmptyFolderName(), snapshot, snapshot.Item);
             else
                 Treemap.SetSource(snapshot.Item(0), (id, token) => snapshot.Children(id, token), _viewModel.FolderPath,
                     EmptyFolderName(), snapshot.Item, snapshot);

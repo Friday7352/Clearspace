@@ -77,9 +77,18 @@ internal static class DiskUsageSnapshotCache
         {
             try
             {
+                // CHANGED (round 42): only as many drives as are kept, and never one that already has a
+                // snapshot of any kind. Warming every drive on every index change meant that with more
+                // drives than slots, each change rebuilt and evicted whole-drive snapshots in turn; and a
+                // view holding a snapshot with this session's deletions excluded was replaced by a plain
+                // one, which the view then rebuilt again.
+                var room = MaxEntries;
+                lock (Lock) room -= Entries.Count;
                 foreach (var volume in FileIndexService.CaptureVolumesForDiskUsage())
                 {
                     if (token.IsCancellationRequested) return;
+                    lock (Lock) if (Entries.ContainsKey(volume.Root)) continue;
+                    if (room-- <= 0) return;
                     // Exclusions come from deletions made in this session; there are none to apply
                     // ahead of time, and a view that has some simply builds its own.
                     Get(volume, token, []);
@@ -114,6 +123,15 @@ internal static class DiskUsageSnapshotCache
     /// <summary>Stores a snapshot produced elsewhere, such as the one reconciled after a deletion.</summary>
     public static DiskUsageSnapshot Store(DiskUsageSnapshot snapshot, IReadOnlyList<string> exclusions)
         => Store(snapshot, Signature(exclusions));
+
+    /// <summary>NEW (round 42): whether this exact snapshot is still one the cache holds.</summary>
+    public static bool IsHeld(object snapshot)
+    {
+        lock (Lock)
+            foreach (var entry in Entries.Values)
+                if (ReferenceEquals(entry.Snapshot, snapshot)) return true;
+        return false;
+    }
 
     public static void Invalidate(string root)
     {

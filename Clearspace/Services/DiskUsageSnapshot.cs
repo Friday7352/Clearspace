@@ -14,7 +14,8 @@ internal sealed record DiskUsageItem(int Id, string Name, long Bytes, long FileC
 
 // Published indexes are immutable. Keep one version alive while the user explores it.
 // Parallel arrays avoid allocating an object and a child list for every indexed file.
-internal sealed class DiskUsageSnapshot
+// CHANGED (round 39): also an IFlatSource, so the whole-drive flat layout can read it directly.
+internal sealed class DiskUsageSnapshot : IFlatSource
 {
     private readonly VolumeIndex _index;
     private readonly long[] _bytes;
@@ -97,6 +98,19 @@ internal sealed class DiskUsageSnapshot
             result._files[parent] += result._files[i];
         }
         return result;
+    }
+
+    // NEW (round 39): direct reads for FlatTreemapLayout. Children() allocates a record and a name
+    // string per child, which for a whole drive is the same million small objects the flat layout
+    // exists to avoid.
+    public long BytesOf(int id) => _bytes[id];
+    public long FilesOf(int id) => _files[id];
+    public bool IsFolderEntry(int id) => _index.Entry(id).IsFolder;
+    public ReadOnlySpan<char> NameOf(int id) => _index.NameSpan(id);
+    public void ChildIds(int folder, List<int> into)
+    {
+        for (var child = _firstChild[folder]; child >= 0; child = _nextSibling[child])
+            if (!_excluded[child]) into.Add(child);
     }
 
     public DiskUsageItem Item(int id) => new(id, _index.GetName(id), _bytes[id], _files[id], _index.Entry(id).IsFolder);

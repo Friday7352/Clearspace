@@ -52,6 +52,7 @@ internal sealed class IndexOverlay
 
         lock (_gate)
         {
+            if (Overflowed) return;   // NEW (round 42)
             _removed.Remove(path);
             _added.Add(path);
             CheckSize();
@@ -65,6 +66,7 @@ internal sealed class IndexOverlay
 
         lock (_gate)
         {
+            if (Overflowed) return;   // NEW (round 42)
             _added.Remove(path);
             _removed.Add(path);
 
@@ -168,9 +170,17 @@ internal sealed class IndexOverlay
         }
     }
 
+    // CHANGED (round 42): past the limit the overlay used to set the flag and keep adding every path
+    // anyway - full-path strings, a few hundred bytes each, growing for the whole session. Once it has
+    // overflowed its contents are not trusted (the index is no longer reported as live), so they are
+    // dropped and nothing more is recorded until a rescan clears it.
     private void CheckSize()
     {
-        if (_added.Count + _removed.Count > MaxTracked)
-            Overflowed = true;
+        if (_added.Count + _removed.Count <= MaxTracked) return;
+        Overflowed = true;
+        _added.Clear();
+        _added.TrimExcess();
+        _removed.Clear();
+        _removed.TrimExcess();
     }
 }

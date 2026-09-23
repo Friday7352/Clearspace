@@ -90,6 +90,13 @@ another drive, so coming back is immediate and keeps the depth you had opened.
 With **Build in the background** on (the default), Clearspace keeps reading the rest
 of the drive while you look at part of it, so zooming in later finds it already laid
 out. What is on screen is always read first.
+
+With **Render everything** on, the whole drive is laid out once when the analyzer
+opens - about a second for a million files - into a compact table of roughly
+30 MB per million files, so every block at every depth is on screen immediately
+and zooming never waits for anything to load. The layout is kept when you switch
+drives, and refreshes and file changes (up to six levels below the folder you are
+in) lay it out again in the background and swap it in when it is ready.
 Folder sizes are aggregated once and kept warm, so opening the analyzer shows the
 map immediately instead of calculating first. They are recomputed when you choose
 **Refresh** or when a full index build finishes; while the view is open it also

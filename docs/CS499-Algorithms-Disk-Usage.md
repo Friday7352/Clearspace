@@ -166,6 +166,54 @@ separately so they never take an on-screen slot, pause entirely while the camera
 70% of the normal node budget whichever mode is active. Trees kept across drive switches are bounded
 to 450,000 nodes in total, because every kept node is heap the collector traces during a gesture.
 
+"Render everything" no longer gets its detail by materialising a node object for every file.
+Each node cost roughly 400 bytes, plus an item record and a name string, so a million-file drive
+was the better part of a gigabyte of small objects that every gen2 collection had to trace, and
+each folder appeared only once it had been read. The whole drive is now laid out up front into
+flat arrays in depth-first pre-order: four float edges relative to the parent, a subtree end
+index, the snapshot id, a quantised name hash for the colour spread and a flag byte - 31 bytes
+per entry, about 30 MB per million entries, in a handful of large arrays that hold no references
+and are never traced. Because a subtree is the contiguous range [i, End(i)), skipping one that is
+off screen or too small is a single jump, and siblings are walked by following End.
+
+The flat layout reproduces the node layout exactly: the same ordering (size, then name ignoring
+case, then id), the same "smaller items" grouping with the same group ids, and the same
+squarified call on the same world rectangles. A harness comparing it with the node recursion on
+a synthetic 1.2 million-entry drive, including folders large enough to nest groups inside
+groups, produced identical output entry for entry. Subtrees of folders holding more than 25,000
+files are laid out in parallel into separate buffers and appended in order, so the result is the
+same as the sequential walk; on two cores the whole synthetic drive took about 0.65 s.
+
+Nodes are still built for what needs an object - labels, hover, clicks and the open path - but
+only down to the normal prefetch size, so their number stays at the normal mode's ceiling. When
+the geometry walk reaches a folder with no nodes loaded, it draws that folder's contents straight
+from the arrays with the same gutter, shading, opening and colour rules, which is why a folder's
+nodes arriving later changes nothing on screen and no longer triggers a rebuild. A node finds its
+entry by walking down from the root, resolving all of a folder's children at once and checking
+ids as it goes, so a tree and a layout that disagree fall back to solid blocks rather than wrong
+ones. A refresh builds the new tree and the new flat layout in parallel from the same snapshot
+and swaps them in together.
+
+Rebuilding the scene no longer happens on the UI thread in a live window. Everything one build
+reads is captured when it is prepared, the walk writes only into its own buffers, and it runs on
+the thread pool together with filling the GPU vertex buffer (the Direct3D 9Ex device is created
+multithreaded). The previous scene keeps being drawn, stretched to the moving camera as it always
+is between rebuilds, and the new one is swapped in when ready. Only one walk runs at a time; a tree
+still being walked is never handed out of the kept-tree cache, and a result for a tree released in
+the meantime is discarded. The first scene of a source, tests and off-screen renders still build
+inline, since there is nothing to show while waiting.
+
+A change of colour level fades instead of snapping. The walk for the new level is paired with a
+twin for the old level on identical inputs, so the two scenes contain the same rectangles and
+differ only in colour; cross-fading them cannot double any edge, which is why the fade can run
+while the camera moves. Rebuilds that land during the fade build their own twin and continue it.
+
+Memory: the walk's command buffer is reused from build to build instead of growing from 16,384
+entries by doubling each time, and once the map has been idle for a few seconds after the heap has
+grown by 384 MB a single non-compacting full collection runs, because the analyzer's
+SustainedLowLatency mode otherwise never performs one and discarded buffers accumulate for as long
+as it is open.
+
 A laid-out tree now outlives the view that built it. Closing the analyzer, or switching to
 another drive and back, discarded every folder that had been read, laid out and allocated, and
 began again - which at a hundred thousand nodes is the wait. The tree is handed to a small static
@@ -500,4 +548,14 @@ actual index, prepare the reflective narrative against the assignment rubric,
 package original and enhanced source, and update the ePortfolio. This document
 records the implementation; it is not the student's reflective narrative.
 
-
+Colour changes follow the zoom and turn around the colour wheel instead of through grey. Every block
+of a scene carries two colours: under the level being shown, and under a second level - the folder the
+camera is zooming into, or the level a jump came from. The GPU mixes them per vertex each frame in
+OKLCH (lightness, chroma and hue interpolated separately, hue the short way round), because a straight
+RGB mix of complementary colours such as blue and orange passes through grey; checked on the palette,
+the OKLCH path never drops below the chroma of its ends, where the RGB path fell to near zero. The
+blend follows the zoom as a folder grows from about a third of the view to filling it, so entering it
+only hands over a scene already showing its colours. Each new scene starts its blend where the colours
+on screen already are. A folder's children also take the palette from the folder's own place in it, so
+the largest child keeps the folder's colour and nothing outside the folder changes colour at all. If
+the shader cannot be compiled, the fixed-function pipeline mixes the two colours in RGB instead.

@@ -137,7 +137,7 @@
                             <CheckBox x:Name="EverythingOption" Style="{StaticResource ViewerCheck}" Content="Render everything (experimental)" Margin="0,14,0,0"
                                       Checked="OnPerformanceOptionChanged" Unchecked="OnPerformanceOptionChanged"/>
                             <TextBlock Foreground="{StaticResource InkMuted}" FontSize="11" TextWrapping="Wrap" Margin="27,3,0,0"
-                                       Text="Draws every block at every depth, so zooming reveals nothing that was not already on screen. Your graphics card will not notice; the cost is that the whole folder has to be read and kept in memory. Watch the memory line on F3 in a very large folder."/>
+                                       Text="Draws every block at every depth, so zooming reveals nothing that was not already on screen. The whole drive is laid out once, in about a second, into a compact table of roughly 30 MB per million files, and kept while you switch drives. Refreshes and file changes lay it out again in the background."/>
                             <TextBlock Foreground="{StaticResource InkFaint}" FontSize="11" TextWrapping="Wrap" Margin="0,14,0,0"
                                        Text="Press F3 on the map for frame timings and memory."/>
                         </StackPanel>

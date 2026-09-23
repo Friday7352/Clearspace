@@ -51,7 +51,10 @@ internal sealed class VolumeIndex
     private IndexEntry[] _entries;
     private char[] _names;
 
-    private char[] _folded;
+    // REMOVED (round 41): _folded, a lower-cased copy of every name kept only for search. It was half
+    // of the index's name memory - hundreds of megabytes on a large drive - and matching the original
+    // names with OrdinalIgnoreCase measured the same speed (vectorised for ASCII, 10M names: 117 ms
+    // against 116 ms), so the copy bought nothing.
 
     private int _count;
     private int _poolLength;
@@ -63,7 +66,13 @@ internal sealed class VolumeIndex
         BuiltUtc = DateTime.UtcNow;
         _entries = new IndexEntry[InitialEntries];
         _names = new char[InitialPool];
-        _folded = new char[InitialPool];
+    }
+
+    // NEW (round 42): an index sized up front, for a copy whose final size is known.
+    private VolumeIndex(string root, uint serialNumber, int entries, int pool) : this(root, serialNumber)
+    {
+        _entries = new IndexEntry[Math.Max(InitialEntries, entries)];
+        _names = new char[Math.Max(InitialPool, pool)];
     }
 
     internal VolumeIndex(
@@ -82,25 +91,7 @@ internal sealed class VolumeIndex
         _count = count;
         _names = names;
         _poolLength = poolLength;
-
-        _folded = new char[names.Length];
-
-        const int FoldChunk = 1 << 16;
-        var source = names;
-        var target = _folded;
-        var chunks = (poolLength + FoldChunk - 1) / FoldChunk;
-
-        if (chunks > 0)
-        {
-            Parallel.For(0, chunks, chunk =>
-            {
-                var start = chunk * FoldChunk;
-                var end = Math.Min(poolLength, start + FoldChunk);
-
-                for (var i = start; i < end; i++)
-                    target[i] = char.ToLowerInvariant(source[i]);
-            });
-        }
+        _settled = true;   // NEW (round 42): loaded at its full size
     }
 
     public string Root { get; }
@@ -127,8 +118,11 @@ internal sealed class VolumeIndex
 
     internal int PoolLength => _poolLength;
 
+    // CHANGED (round 41): the names once (no folded copy), and the arrays as allocated rather than as
+    // filled - growth slack is memory too, and the F3 readout should show it.
     public long EstimatedBytes =>
-        ((long)_count * Marshal.SizeOf<IndexEntry>()) + ((long)_poolLength * sizeof(char) * 2);
+        ((long)_entries.Length * Marshal.SizeOf<IndexEntry>()) + ((long)_names.Length * sizeof(char))
+        + ((long)(_firstChild?.Length ?? 0) + (_nextSibling?.Length ?? 0)) * sizeof(int);
 
 
     public int Add(
@@ -140,19 +134,12 @@ internal sealed class VolumeIndex
         FileAttributes attributes)
     {
         if (_count == _entries.Length)
-            Array.Resize(ref _entries, Math.Max(InitialEntries, _entries.Length * 2));
+            Array.Resize(ref _entries, Math.Max(InitialEntries, Grow(_entries.Length)));
 
         while (_poolLength + name.Length > _names.Length)
-        {
-            var grown = Math.Max(InitialPool, _names.Length * 2);
-            Array.Resize(ref _names, grown);
-            Array.Resize(ref _folded, grown);
-        }
+            Array.Resize(ref _names, Math.Max(InitialPool, Grow(_names.Length)));
 
         name.CopyTo(_names.AsSpan(_poolLength));
-
-        for (var i = 0; i < name.Length; i++)
-            _folded[_poolLength + i] = char.ToLowerInvariant(name[i]);
 
         var index = _count;
         _entries[index] = new IndexEntry
@@ -285,7 +272,9 @@ internal sealed class VolumeIndex
     // Copy without removed entries (parents keep preceding children). Caller holds WriteGate.
     internal VolumeIndex CompactedCopyLocked()
     {
-        var copy = new VolumeIndex(Root, SerialNumber) { BuiltUtc = BuiltUtc };
+        // CHANGED (round 42): sized for everything that is not removed, so the copy never grows; it
+        // used to start at 4,096 entries and resize its way up to the full index on every save.
+        var copy = new VolumeIndex(Root, SerialNumber, _count - _removedCount, _poolLength) { BuiltUtc = BuiltUtc };
         var remap = new int[_count];
         for (var i = 0; i < _count; i++)
         {
@@ -300,16 +289,23 @@ internal sealed class VolumeIndex
         return copy;
     }
 
+    // NEW (round 41): doubling is right while an index is small, but a compacted index for a large drive
+    // is hundreds of megabytes, and the first file added by a live update used to double it again -
+    // most of it empty for the rest of the session. Past a million entries it grows by an eighth.
+    // CHANGED (round 42): only once the index has settled (loaded, or compacted after a build). While a
+    // scan or a copy is still filling it, growing by an eighth meant twenty-odd full copies of a
+    // multi-gigabyte array on the way up - several gigabytes of garbage per save - so it doubles then.
+    private bool _settled;
+    private int Grow(int length) => !_settled || length < (1 << 20) ? length * 2 : (int)Math.Min(Array.MaxLength, length + (long)length / 8);
+
     public void Compact()
     {
+        _settled = true;
         if (_entries.Length != _count)
             Array.Resize(ref _entries, _count);
 
         if (_names.Length != _poolLength)
-        {
             Array.Resize(ref _names, _poolLength);
-            Array.Resize(ref _folded, _poolLength);
-        }
     }
 
     public ReadOnlySpan<char> NameSpan(int index)
@@ -417,12 +413,13 @@ internal sealed class VolumeIndex
                     if (filesOnly && isFolder)
                         continue;
 
-                    var name = _folded.AsSpan(_entries[i].NameOffset, _entries[i].NameLength);
+                    // CHANGED (round 41): the original name, matched ignoring case (terms arrive lower-cased).
+                    var name = _names.AsSpan(_entries[i].NameOffset, _entries[i].NameLength);
                     var matched = true;
 
                     for (var t = 0; t < foldedTerms.Count; t++)
                     {
-                        if (name.IndexOf(foldedTerms[t].AsSpan()) < 0)
+                        if (name.IndexOf(foldedTerms[t].AsSpan(), StringComparison.OrdinalIgnoreCase) < 0)
                         {
                             matched = false;
                             break;

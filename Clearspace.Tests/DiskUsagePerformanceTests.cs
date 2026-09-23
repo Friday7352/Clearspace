@@ -264,7 +264,8 @@ public sealed class DiskUsagePerformanceTests
         AssertColor(0x40C080, gpu.ReadPixelForTest(50, 80));
         Assert.AreEqual(1, gpu.CachedGeometryCount, "Finished transitions must release the old GPU buffer.");
         Assert.AreEqual(2, gpu.GeometryUploads, "Resizing a render target must not discard reusable vertices.");
-        Assert.AreEqual(96L, gpu.CachedGeometryBytes);
+        // CHANGED (round 43): six vertices of 20 bytes - position, colour, and the second colour the shader mixes toward.
+        Assert.AreEqual(120L, gpu.CachedGeometryBytes);
         gpu.Dispose();
         Assert.AreEqual(0, gpu.CachedGeometryCount);
         return Task.CompletedTask;
