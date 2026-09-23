@@ -90,11 +90,13 @@ public partial class DiskUsageView : UserControl, IDisposable
         LowDetailOption.IsChecked = SettingsService.GetDiskMapLowDetail();
         ConserveOption.IsChecked = SettingsService.GetDiskMapConserveMemory();
         EverythingOption.IsChecked = SettingsService.GetDiskMapRenderEverything();
+        BackgroundOption.IsChecked = SettingsService.GetDiskMapBackgroundBuilding();
         _applyingOptions = false;
         Treemap.GpuEnabled = GpuOption.IsChecked == true;
         Treemap.LowDetail = LowDetailOption.IsChecked == true;
         Treemap.ConserveMemory = ConserveOption.IsChecked == true;
         Treemap.RenderEverything = EverythingOption.IsChecked == true;
+        Treemap.BackgroundBuilding = BackgroundOption.IsChecked == true;
     }
 
     private void OnToggleSettings(object sender, RoutedEventArgs e) => SettingsPopup.IsOpen = !SettingsPopup.IsOpen;
@@ -109,14 +111,17 @@ public partial class DiskUsageView : UserControl, IDisposable
         var low = LowDetailOption.IsChecked == true;
         var lean = ConserveOption.IsChecked == true;
         var everything = EverythingOption.IsChecked == true;
+        var background = BackgroundOption.IsChecked == true;
         SettingsService.SetDiskMapGpu(gpu);
         SettingsService.SetDiskMapLowDetail(low);
         SettingsService.SetDiskMapConserveMemory(lean);
         SettingsService.SetDiskMapRenderEverything(everything);
+        SettingsService.SetDiskMapBackgroundBuilding(background);
         Treemap.GpuEnabled = gpu;
         Treemap.LowDetail = low;
         Treemap.ConserveMemory = lean;
         Treemap.RenderEverything = everything;
+        Treemap.BackgroundBuilding = background;
         Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Background,
             new Action(() => { if (!_disposed) RendererText.Text = Treemap.RendererLabel; }));
     }
@@ -258,7 +263,8 @@ public partial class DiskUsageView : UserControl, IDisposable
             if (_viewModel.IsLiveRefresh)
                 Treemap.RefreshSource(snapshot.Item(0), (id, token) => snapshot.Children(id, token), _viewModel.FolderPath, EmptyFolderName());
             else
-                Treemap.SetSource(snapshot.Item(0), (id, token) => snapshot.Children(id, token), _viewModel.FolderPath, EmptyFolderName(), snapshot.Item);
+                Treemap.SetSource(snapshot.Item(0), (id, token) => snapshot.Children(id, token), _viewModel.FolderPath,
+                    EmptyFolderName(), snapshot.Item, snapshot);
         }
         else if (e.PropertyName == nameof(DiskUsageViewModel.MapItems))
             Treemap.ShowFolder(_viewModel.FolderPath, EmptyFolderName());

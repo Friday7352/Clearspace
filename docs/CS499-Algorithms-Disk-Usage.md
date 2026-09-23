@@ -147,6 +147,38 @@ while the software rasterizer fills them span by span and keeps a 10,000 budget.
 than one level below the labelled one also barely darkened (0.8), so its frame disappeared and
 everything under the second level read as one field; every level now recesses.
 
+Folders are read ahead of being needed. Whatever load capacity is left after the folders on
+screen have been claimed goes to a breadth-first frontier that walks the rest of the tree while the
+window is open - breadth-first because the next thing zoomed into is more likely to be large and
+shallow than small and deep. The frontier is seeded from a finished build, extended as each folder
+arrives, and recovered by walking a tree taken back from the cache, which is already part-read. It
+stops at 80% of the node ceiling so that reading ahead never provokes the eviction sweep it would
+then be fighting. Each finished load already schedules a frame and the pump runs on every frame, so
+the two carry each other without a timer.
+
+Reading ahead must never cost the view on screen anything, and the first version did. Every folder
+it finished bumped the detail revision, which rebuilds the whole geometry once the load-settle gate
+passes - for folders nowhere near the screen, and in the middle of a zoom - and its loads held the
+same slots that on-screen folders are requested through. A finished background load now changes the
+scene only if its folder was drawn in the current geometry, and even then the rebuild is held until
+the camera has been still for 0.6 s and at most once every 1.5 s. Background loads are counted
+separately so they never take an on-screen slot, pause entirely while the camera moves, and stop at
+70% of the normal node budget whichever mode is active. Trees kept across drive switches are bounded
+to 450,000 nodes in total, because every kept node is heap the collector traces during a gesture.
+
+A laid-out tree now outlives the view that built it. Closing the analyzer, or switching to
+another drive and back, discarded every folder that had been read, laid out and allocated, and
+began again - which at a hundred thousand nodes is the wait. The tree is handed to a small static
+cache on the way out, keyed by the snapshot it was laid out over and by the viewport's aspect
+bucketed at the 8% step that forces a re-layout anyway, and taken back on the way in; two entries
+are kept, which covers the drive in use and the one before it. It is dropped whenever the
+snapshots behind it are, since its nodes hold that snapshot's items.
+
+It is deliberately not written to disk. Nothing in it came from disk: the sizes are read from the
+file index already in memory, and the cost is the squarified layout and the node allocation.
+Serializing the result and reading it back would have to allocate the same objects again, plus the
+I/O, so it would be slower than rebuilding. What is worth keeping is the built result, in memory.
+
 Rebuilding the geometry is the one cost that remains proportional to the number of blocks, and
 two things in it were paid per node without needing to be. Colour was carried as
 `System.Windows.Media.Color`, a struct holding scRGB floats alongside the sRGB bytes, so every

@@ -85,6 +85,11 @@ exact byte proportions within each folder. Deeper folders load in the background
 as they grow on screen, and very large folders group their smallest items so
 drawing stays fast at any zoom.
 
+A folder tree you have explored is kept when you close the analyzer or switch to
+another drive, so coming back is immediate and keeps the depth you had opened.
+With **Build in the background** on (the default), Clearspace keeps reading the rest
+of the drive while you look at part of it, so zooming in later finds it already laid
+out. What is on screen is always read first.
 Folder sizes are aggregated once and kept warm, so opening the analyzer shows the
 map immediately instead of calculating first. They are recomputed when you choose
 **Refresh** or when a full index build finishes; while the view is open it also

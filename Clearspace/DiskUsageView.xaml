@@ -130,6 +130,10 @@
                                       Checked="OnPerformanceOptionChanged" Unchecked="OnPerformanceOptionChanged"/>
                             <TextBlock Foreground="{StaticResource InkMuted}" FontSize="11" TextWrapping="Wrap" Margin="27,3,0,0"
                                        Text="Draws fewer blocks per frame, keeps far fewer labels in memory, and holds folder sizes for one drive only instead of keeping them warm. Names reappear as you look at them."/>
+                            <CheckBox x:Name="BackgroundOption" Style="{StaticResource ViewerCheck}" Content="Build in the background" Margin="0,14,0,0"
+                                      Checked="OnPerformanceOptionChanged" Unchecked="OnPerformanceOptionChanged"/>
+                            <TextBlock Foreground="{StaticResource InkMuted}" FontSize="11" TextWrapping="Wrap" Margin="27,3,0,0"
+                                       Text="Keeps reading the rest of the drive while you look at part of it, so zooming in later finds it already laid out. What is on screen is always read first. A tree you have built is kept when you close the analyzer or switch drives."/>
                             <CheckBox x:Name="EverythingOption" Style="{StaticResource ViewerCheck}" Content="Render everything (experimental)" Margin="0,14,0,0"
                                       Checked="OnPerformanceOptionChanged" Unchecked="OnPerformanceOptionChanged"/>
                             <TextBlock Foreground="{StaticResource InkMuted}" FontSize="11" TextWrapping="Wrap" Margin="27,3,0,0"
@@ -231,8 +235,11 @@
                         <Grid.ToolTip>
                             <StackPanel MaxWidth="420">
                                 <TextBlock Text="{Binding Name}" TextWrapping="Wrap"/>
+                                <!-- FIXED (round 37): Run.Text binds two-way by default in WPF, unlike
+                                     TextBlock.Text, so these threw the moment the tooltip was built over
+                                     SizeText and ShareText, which are computed and have no setter. -->
                                 <TextBlock Margin="0,4,0,0">
-                                    <Run Text="{Binding SizeText}"/><Run Text=" · "/><Run Text="{Binding ShareText}"/>
+                                    <Run Text="{Binding SizeText, Mode=OneWay}"/><Run Text=" · "/><Run Text="{Binding ShareText, Mode=OneWay}"/>
                                 </TextBlock>
                             </StackPanel>
                         </Grid.ToolTip>

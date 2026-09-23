@@ -18,13 +18,13 @@ namespace Clearspace.Services;
 
 internal static class DiskUsageSnapshotCache
 {
-    // CHANGED (round 20): "Conserve memory" keeps one volume rather than two and does not hold a
-    // snapshot for a drive nobody is looking at. A snapshot of a large volume is the single biggest
-    // block of memory the map is responsible for, so that setting has to reach it.
-    // CHANGED (round 23): one volume, not two. A snapshot costs 25 bytes per indexed entry, which on
-    // a drive with millions of files is hundreds of megabytes - far more than everything the map
-    // itself holds - and a second drive's copy was being kept for an open that might never come.
-    private static int MaxEntries => 1;
+    // CHANGED (round 36): two volumes again. Keeping one meant that opening a second drive evicted
+    // the first, so returning to it rebuilt its snapshot - and a rebuilt snapshot is a new instance,
+    // which the laid-out tree kept for that drive no longer belonged to, so the entire tree was
+    // rebuilt with it. Two entries is what makes switching between a pair of drives free. Measured
+    // at 46-79 MB each on a real drive, which is cheap for that. "Conserve memory" still keeps one
+    // and gives up the round trip along with everything else that setting gives up.
+    private static int MaxEntries => SettingsService.GetDiskMapConserveMemory() ? 1 : 2;
 
     /// <summary>Bytes held by cached snapshots, for the F3 readout.</summary>
     public static long RetainedBytes
@@ -118,11 +118,13 @@ internal static class DiskUsageSnapshotCache
     public static void Invalidate(string root)
     {
         lock (Lock) Entries.Remove(root);
+        Controls.DiskUsageTreemap.ForgetCachedTrees();
     }
 
     public static void InvalidateAll()
     {
         lock (Lock) Entries.Clear();
+        Controls.DiskUsageTreemap.ForgetCachedTrees();
     }
 
     /// <summary>Drops snapshots whose volume has been fully scanned again since they were built.</summary>
@@ -131,7 +133,10 @@ internal static class DiskUsageSnapshotCache
         foreach (var volume in FileIndexService.CaptureVolumesForDiskUsage())
             lock (Lock)
                 if (Entries.TryGetValue(volume.Root, out var entry) && entry.Snapshot.BuiltUtc != volume.BuiltUtc)
+                {
                     Entries.Remove(volume.Root);
+                    Controls.DiskUsageTreemap.ForgetCachedTrees();
+                }
     }
 
     private static DiskUsageSnapshot Store(DiskUsageSnapshot snapshot, string signature)

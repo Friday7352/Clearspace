@@ -157,6 +157,99 @@ public sealed class DiskUsageTreemap : FrameworkElement, IDisposable
     private (DiskUsageItem Root, IReadOnlyList<int> Path, string? Missing)? _pending;
     private Func<int, CancellationToken, IReadOnlyList<DiskUsageItem>>? _children;
     private Func<int, DiskUsageItem>? _item;   // NEW (round 22): resolves a grouped member's id
+
+    // NEW (round 35): a laid-out tree outlives the view that built it. Closing the analyser, or
+    // switching to another drive and back, used to throw away every folder that had been read and
+    // laid out and start again - which is the wait. The tree is handed to this cache on the way out
+    // and taken back on the way in, so a return is immediate and keeps whatever depth was explored.
+    //
+    // Deliberately not on disk. Nothing here was read from disk: the sizes come from the file index
+    // that is already in memory, and the cost is laying out and allocating the nodes. Writing them
+    // out and reading them back would have to allocate exactly the same objects, plus the I/O, so it
+    // would be slower than rebuilding. What is worth keeping is the built result, in memory.
+    private sealed record TreeCacheEntry(object Key, int Aspect, Node Root, int Nodes);
+    private static readonly List<TreeCacheEntry> TreeCache = [];
+    private const int TreeCacheSize = 2;        // the drive you are on and the one you came from
+    private object? _cacheKey;
+    private readonly Queue<Node> _frontier = [];
+    private bool _background = true;
+    // NEW (round 38): background reading made zooming hitch. Every folder it finished bumped the
+    // detail revision, and a bumped revision rebuilds the whole geometry once the 0.45 s settle gate
+    // passes - even for a folder nowhere near the screen, and even mid-zoom. With "render
+    // everything" a rebuild is a ~150 ms walk plus a multi-megabyte array, so a zoom hitched about
+    // twice a second for as long as the drive was still being read. Background loads also held the
+    // same slots on-screen folders need, so what you zoomed into waited behind them.
+    private readonly HashSet<Node> _backgroundNodes = [];   // loads started by the frontier, not the screen
+    private int _backgroundLoads;
+    private bool _quietDetail;          // a background load changed something drawn; fold it in when idle
+    private double _buildStamp = double.NegativeInfinity;   // Now at the start of the last geometry build
+    private double _movedAt = double.NegativeInfinity;      // last frame the camera was moving
+    private const double BackgroundRest = .6;   // s the camera must be still before reading ahead resumes
+    private const double QuietRebuild = 1.5;    // s between rebuilds that only background loads asked for
+    // Reading ahead is meant to warm the next zoom, not to fill the tree to its ceiling: a tree near
+    // the ceiling is swept (a walk of every node on the UI thread) and every node is more gen2 heap
+    // the collector has to trace. "Render everything" loads what is on screen by itself anyway.
+    private int BackgroundCeiling => Math.Min(NodeCeiling, NodeBudget) * 7 / 10;
+    private const int TreeCacheNodeLimit = 450_000;   // nodes kept across all cached trees combined
+
+    // Reads the rest of the tree while you are looking at part of it, so switching or zooming later
+    // finds it already laid out. Off, folders are read only as they become large enough to show.
+    internal bool BackgroundBuilding
+    {
+        get => _background;
+        set
+        {
+            if (_background == value) return;
+            _background = value;
+            _frontier.Clear();
+            if (value && _root is not null) { SeedFrontier(_root); RequestCameraFrame(); }
+        }
+    }
+
+    // Aspect is bucketed at roughly the 8% step that forces a re-layout anyway.
+    private static int AspectBucket(double aspect) => (int)Math.Round(Math.Log(Math.Max(.05, aspect)) * 12);
+
+    private static Node? TakeCachedTree(object? key, double aspect, out int nodes)
+    {
+        nodes = 0;
+        if (key is null) return null;
+        var bucket = AspectBucket(aspect);
+        lock (TreeCache)
+            for (var i = 0; i < TreeCache.Count; i++)
+                if (ReferenceEquals(TreeCache[i].Key, key) && TreeCache[i].Aspect == bucket)
+                {
+                    var entry = TreeCache[i];
+                    TreeCache.RemoveAt(i);
+                    nodes = entry.Nodes;
+                    return entry.Root;
+                }
+        return null;
+    }
+
+    private void KeepTree(object? key, double aspect, Node? root, int nodes)
+    {
+        // Keeping a tree is trading memory for an instant return, which is the one thing
+        // "conserve memory" is asked to give up.
+        if (key is null || root is null || nodes <= 0 || _lean) return;
+        lock (TreeCache)
+        {
+            var bucket = AspectBucket(aspect);
+            TreeCache.RemoveAll(entry => ReferenceEquals(entry.Key, key) && entry.Aspect == bucket);
+            TreeCache.Add(new TreeCacheEntry(key, bucket, root, nodes));
+            while (TreeCache.Count > TreeCacheSize) TreeCache.RemoveAt(0);
+            // CHANGED (round 38): kept trees are live heap the collector traces on every gen2 pass
+            // while you zoom the current one. Two "render everything" trees are 2.4 million nodes on
+            // top of the one on screen, so the total is bounded and the oldest goes first. A single
+            // tree over the limit is still kept - it is the one you most likely return to.
+            while (TreeCache.Count > 1 && TreeCache.Sum(entry => (long)entry.Nodes) > TreeCacheNodeLimit) TreeCache.RemoveAt(0);
+        }
+    }
+
+    /// <summary>Drops every kept tree. Called when the snapshots behind them are replaced.</summary>
+    internal static void ForgetCachedTrees()
+    {
+        lock (TreeCache) TreeCache.Clear();
+    }
     private CancellationTokenSource _generation = new();
     private double _builtAspect = 1;
     private int _loads;
@@ -437,6 +530,10 @@ public sealed class DiskUsageTreemap : FrameworkElement, IDisposable
         Array.Clear(_batches);
         _batchCount = 0;
         _nodeLoads.Clear();
+        _frontier.Clear();
+        _backgroundNodes.Clear();   // NEW (round 38)
+        _backgroundLoads = 0;
+        _quietDetail = false;
         _pathSets.Clear();
         _openPath.Clear();
         _wanted.Clear();
@@ -470,6 +567,7 @@ public sealed class DiskUsageTreemap : FrameworkElement, IDisposable
         _generation.Cancel();
         StopFrames();
         _rebuild.Stop();
+        KeepTree(_cacheKey, _builtAspect, _root, _liveNodes);   // so reopening the analyser is immediate
         ReleaseTreeReferences();
         _previousCache = null;   // NEW (round 19): do not keep a held picture alive past close
         _root = null;
@@ -487,10 +585,13 @@ public sealed class DiskUsageTreemap : FrameworkElement, IDisposable
 
     /// <summary>Show a new index snapshot. <paramref name="path"/> lists folder ids below the root.</summary>
     internal void SetSource(DiskUsageItem root, Func<int, CancellationToken, IReadOnlyList<DiskUsageItem>> children,
-        IReadOnlyList<int> path, string? missingName = null, Func<int, DiskUsageItem>? item = null)
+        IReadOnlyList<int> path, string? missingName = null, Func<int, DiskUsageItem>? item = null,
+        object? cacheKey = null)
     {
         if (_disposed) return;
         _item = item ?? _item;
+        KeepTree(_cacheKey, _builtAspect, _root, _liveNodes);   // the tree being replaced is worth keeping
+        _cacheKey = cacheKey ?? _cacheKey;
         CancelLoads();
         _navigation++;
         ReleaseTreeReferences();
@@ -703,17 +804,23 @@ public sealed class DiskUsageTreemap : FrameworkElement, IDisposable
     {
         try
         {
-            var tree = await Task.Run(() => BuildTree(pending.Root, provider, _item, aspect,
+            var kept = TakeCachedTree(_cacheKey, aspect, out var keptNodes);
+            var tree = kept ?? await Task.Run(() => BuildTree(pending.Root, provider, _item, aspect,
                 new HashSet<int>(pending.Path), [], generation.Token), generation.Token);
             if (_disposed || generation != _generation) return;
             var requested = _pending ?? pending;
             if (Math.Abs(ViewAspect / aspect - 1) > .08)
             {
+                // Built for a shape the window no longer has. Keep it under that shape's bucket so
+                // returning to it costs nothing, and lay the tree out again for the current one.
+                KeepTree(_cacheKey, aspect, tree, kept is not null ? keptNodes : Sweep(tree, double.NegativeInfinity).Count);
                 SetSource(requested.Root, provider, requested.Path, requested.Missing, _item);
                 return;
             }
             _root = tree;
-            _liveNodes = Sweep(tree, double.NegativeInfinity).Count; // count only; nothing is old enough to collapse
+            // A kept tree already knows its size; a fresh one is counted once.
+            _liveNodes = kept is not null ? keptNodes : Sweep(tree, double.NegativeInfinity).Count;
+            SeedFrontier(tree);
             _pending = null;
             var focus = ExpandPath(pending.Path, out var complete);
             _missingName = complete ? null : pending.Missing;
@@ -957,12 +1064,15 @@ public sealed class DiskUsageTreemap : FrameworkElement, IDisposable
 
     // CHANGED (round 8): folders *and* grouped small items load here, off the UI thread, and the
     // child nodes are built there too; the UI thread only attaches the finished array.
-    private Task StartLoad(Node node)
+    private int ForegroundLoads => _loads - _backgroundLoads;
+
+    private Task StartLoad(Node node, bool background = false)
     {
         if (_nodeLoads.TryGetValue(node, out var existing)) return existing;
         if (_disposed || node.State != NodeState.Collapsed || (_children is null && !node.IsGroup)) return Task.CompletedTask;
         node.State = NodeState.Pending;
         _loads++;
+        if (background && _backgroundNodes.Add(node)) _backgroundLoads++;   // NEW (round 38)
         var generation = _generation;
         var task = LoadNodeAsync(node, generation, _children);
         if (!task.IsCompleted) _nodeLoads[node] = task;
@@ -984,7 +1094,16 @@ public sealed class DiskUsageTreemap : FrameworkElement, IDisposable
             if (_disposed || generation != _generation) return;
             node.Children = children;
             _liveNodes += children.Length;
-            _detailRevision++;
+            Extend(node);
+            // CHANGED (round 38): a folder that was not in the scene on screen cannot change it - it
+            // appears with its contents the next time the geometry is built for any other reason.
+            // One that was drawn but read in the background waits for a still camera and is folded
+            // in with its neighbours, instead of rebuilding the scene under a zoom.
+            if (node.LastDrawn >= _buildStamp)
+            {
+                if (_backgroundNodes.Contains(node)) _quietDetail = true;
+                else _detailRevision++;
+            }
             node.State = children.Length > 0 ? NodeState.Ready : NodeState.Leaf;
             node.ReadyAt = Now;
             _highlightResolved = false;
@@ -996,6 +1115,7 @@ public sealed class DiskUsageTreemap : FrameworkElement, IDisposable
             if (generation == _generation)
             {
                 _loads--;
+                if (_backgroundNodes.Remove(node)) _backgroundLoads--;   // NEW (round 38)
                 _nodeLoads.Remove(node);
                 // CHANGED (round 8): arriving detail doesn't force a full redraw mid-zoom; it is
                 // picked up by the next scheduled redraw (immediately when the camera is still).
@@ -1011,17 +1131,77 @@ public sealed class DiskUsageTreemap : FrameworkElement, IDisposable
 
     private void PumpLoads()
     {
-        if (_wanted.Count == 0) return;
         // Rendering everything means loading everything, so the speculative limit comes off.
         var limit = _everything ? 12 : IsAnimating || _dragging ? 1 : MaxLoads;
-        if (_loads >= limit) { _wanted.Clear(); return; }
-        _wanted.Sort((a, b) => b.Area.CompareTo(a.Area));
-        foreach (var (node, _) in _wanted)
+        // CHANGED (round 38): counted without background loads, so reading ahead never takes a slot
+        // from something on screen.
+        if (_wanted.Count > 0 && ForegroundLoads < limit)
         {
-            if (_loads >= limit) break;
-            if (node.State == NodeState.Collapsed) _ = StartLoad(node); // largest on screen first
+            _wanted.Sort((a, b) => b.Area.CompareTo(a.Area));
+            foreach (var (node, _) in _wanted)
+            {
+                if (ForegroundLoads >= limit) break;
+                if (node.State == NodeState.Collapsed) _ = StartLoad(node); // largest on screen first
+            }
         }
         _wanted.Clear();
+        PumpBackground();
+    }
+
+    // NEW (round 36): background building. What is on screen is read first, as always; whatever
+    // capacity is left goes to a breadth-first frontier that keeps reading the rest of the tree while
+    // the window is open. Breadth-first because the next thing you zoom into is more likely to be
+    // large and shallow than small and deep. It stops well short of the node ceiling, so it can fill
+    // a drive in without ever provoking the eviction sweep it would otherwise fight.
+    private void PumpBackground()
+    {
+        if (!_background || _disposed || _root is null) return;
+        // CHANGED (round 38): a lower, fixed ceiling (was 80% of whichever ceiling applied, which with
+        // "render everything" was 960,000 nodes), and nothing at all while the camera moves or has
+        // only just stopped - a zoom gets the whole machine, and reading ahead resumes once it rests.
+        if (_liveNodes >= BackgroundCeiling) return;
+        if (IsAnimating || _dragging || Now - _movedAt < BackgroundRest)
+        {
+            if (_frontier.Count > 0) _needsFrame = true;   // come back once the rest has elapsed
+            return;
+        }
+        var limit = _everything ? 4 : 2;
+        while (_backgroundLoads < limit && _frontier.Count > 0)
+        {
+            var node = _frontier.Dequeue();
+            if (node.State == NodeState.Collapsed) _ = StartLoad(node, background: true);
+        }
+        // Each finished load already asks for a frame, and this pump runs on every frame, so the two
+        // carry each other along. This only covers the case where nothing is in flight to wake us.
+        if (_loads == 0 && _frontier.Count > 0) RequestCameraFrame();
+    }
+
+    // A tree taken back from the cache is already part-read; the frontier has to be recovered from
+    // whatever is still collapsed in it, rather than from the root alone.
+    private void SeedFrontier(Node root)
+    {
+        _frontier.Clear();
+        if (!_background) return;
+        var pending = new Stack<Node>();
+        pending.Push(root);
+        while (pending.TryPop(out var node))
+        {
+            if (_frontier.Count > 200_000) return;
+            foreach (var child in node.Children)
+            {
+                if (!child.IsContainer) continue;
+                if (child.State == NodeState.Collapsed) _frontier.Enqueue(child);
+                else pending.Push(child);
+            }
+        }
+    }
+
+    /// <summary>Queues a node's container children for background reading.</summary>
+    private void Extend(Node node)
+    {
+        if (!_background || _frontier.Count > 200_000) return;
+        foreach (var child in node.Children)
+            if (child.IsContainer && child.State == NodeState.Collapsed) _frontier.Enqueue(child);
     }
 
     private Node ExpandPath(IReadOnlyList<int> path, out bool complete)
@@ -1544,6 +1724,14 @@ public sealed class DiskUsageTreemap : FrameworkElement, IDisposable
         _sceneCamera = _camera;
         _textBudget = IsAnimating || _dragging ? 8 : TextPerFrame;
         if (ActualWidth < 1 || ActualHeight < 1) return;
+        // NEW (round 38): background detail is folded in only while the camera is still, at most once
+        // every QuietRebuild seconds, so reading ahead never costs a rebuild during a gesture.
+        if (IsAnimating || _dragging) _movedAt = Now;
+        else if (_quietDetail && Now - _movedAt >= BackgroundRest && Now - _cacheSince >= QuietRebuild)
+        {
+            _quietDetail = false;
+            _detailRevision++;
+        }
         EnsureBuilt();
         _container ??= _root is null ? null : ComputeContainer();
         _colorLevel ??= _container;
@@ -1597,7 +1785,7 @@ public sealed class DiskUsageTreemap : FrameworkElement, IDisposable
         if (_previousCache is { } old) _batches[_batchCount++] = BatchFor(old);
         if (_cache is { } current) _batches[_batchCount++] = BatchFor(current, blend);
         if (_batchCount < 2) _batches[1] = default;
-        _needsFrame |= blend < 1 || detailChange;
+        _needsFrame |= blend < 1 || detailChange || _quietDetail;   // CHANGED (round 38): so held detail lands
         _view = new Rect(0, 0, ActualWidth, ActualHeight);
         _viewLoose = Rect.Inflate(_view, 2, 2);
         // REMOVED (round 33): this walked every cached tile on every frame to maintain a flat list for
@@ -1640,6 +1828,7 @@ public sealed class DiskUsageTreemap : FrameworkElement, IDisposable
     private SceneCache BuildGeometryCache(Size viewport)
     {
         GeometryBuildCount++;
+        _buildStamp = Now;   // NEW (round 38): nodes stamped at or after this are in the scene being built
         // Overscan lets ordinary pans/zooms reuse geometry that was just outside
         // the viewport. Two 12,000-tile scenes bound CPU and GPU cache memory.
         // CHANGED (round 18): 35% overscan keeps the cached layer covering the viewport down to a
@@ -1845,7 +2034,9 @@ public sealed class DiskUsageTreemap : FrameworkElement, IDisposable
         _drawn.Add((node, drawn));
         node.LastDrawn = Now;   // stamped while the geometry is built, which is the only time it changes
         var prefetch = IsAnimating || _dragging ? ExpandHigh : PrefetchAt;
-        if (_loads < (_everything ? 12 : MaxLoads) && budget > 2 && node.State == NodeState.Collapsed && min >= prefetch)
+        // CHANGED (round 38): background loads no longer count here - with them filling every slot,
+        // on-screen folders were never even asked for, so zooming in revealed nothing until they drained.
+        if (ForegroundLoads < (_everything ? 12 : MaxLoads) && budget > 2 && node.State == NodeState.Collapsed && min >= prefetch)
             _wanted.Add((node, drawn.Width * drawn.Height));
 
         var color = isRoot ? _basePacked : NodeColor(node);

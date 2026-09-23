@@ -28,6 +28,8 @@ public sealed class SettingsData
 
     public bool DiskMapRenderEverything { get; set; }
 
+    public bool DiskMapBackgroundBuilding { get; set; } = true;
+
     public bool ShowHiddenItems { get; set; }
 
     public bool SearchEverywhere { get; set; }
@@ -195,6 +197,17 @@ public static class SettingsService
                 Current.FolderViewProfiles[folder] = profile!;
         }
 
+        Save();
+    }
+
+    public static bool GetDiskMapBackgroundBuilding() => Current.DiskMapBackgroundBuilding;
+
+    public static void SetDiskMapBackgroundBuilding(bool value)
+    {
+        if (Current.DiskMapBackgroundBuilding == value)
+            return;
+
+        Current.DiskMapBackgroundBuilding = value;
         Save();
     }
 
