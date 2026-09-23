@@ -864,6 +864,15 @@ public sealed class DiskUsageTreemap : FrameworkElement, IDisposable
 
     internal bool ClickAt(Point point)
     {
+        // NEW (round 44): out at the drive, any click goes back to the folder map as it was.
+        if (InDriveView)
+        {
+            _userMoved = true;
+            _message = null;
+            FlyTo(Fit(_root!));
+            if (_focusNode != _root) Report(_root!);
+            return true;
+        }
         var hit = NodeAt(point);
         var target = hit is null ? null : ClickTarget(hit);
         if (target is null) return false;
@@ -1506,12 +1515,112 @@ public sealed class DiskUsageTreemap : FrameworkElement, IDisposable
     }
 
     // Keep the camera on the drive and at the view's aspect ratio.
+    // NEW (round 44): the drive around the files. Zooming out past the whole folder map keeps going, and
+    // the rest of the drive comes into view around it at the same scale: the space Windows reports as
+    // free, and the used space the index does not account for (system files, the page file, anything it
+    // could not read). The folder map keeps its exact place - it sits in the top-left corner of a
+    // rectangle scaled up by sqrt(drive / files), and the extra space fills the L-shape to its right and
+    // below - so nothing is laid out again and zooming back in lands exactly where it was.
+    private (long Total, long Free)? _driveSpace;
+    private DriveView? _driveView;
+    private sealed record DriveView(Node Root, long Total, long Free, Rect World, DriveRegion[] Regions);
+    private readonly record struct DriveRegion(Node Label, Rect[] Parts, uint Color);
+    private static readonly uint FreeSpaceColor = Pack(Parse("#35413B"));   // quiet: room, not content
+    private static readonly uint OtherSpaceColor = GroupColor;               // the grey of "smaller items"
+    private const int FreeSpaceId = -900_001, OtherSpaceId = -900_002;
+    private static bool IsDriveRegion(Node node) => node.Item.Id is FreeSpaceId or OtherSpaceId;
+
+    /// <summary>NEW (round 44): the size and free space of the drive the current source is the root of.</summary>
+    internal void SetDriveSpace((long Total, long Free)? space)
+    {
+        if (_driveSpace == space) return;
+        _driveSpace = space is { Total: > 0 } ? space : null;
+        _driveView = null;
+        _target = Clamp(_target);
+        _camera = Clamp(_camera);
+        _detailRevision++;
+        RequestFrame();
+    }
+
+    private DriveView? CurrentDrive()
+    {
+        if (_root is null || _driveSpace is not { } space) return null;
+        if (_driveView is { } view && ReferenceEquals(view.Root, _root) && view.Total == space.Total && view.Free == space.Free) return view;
+        return _driveView = BuildDriveView(_root, space.Total, space.Free);
+    }
+
+    private static DriveView? BuildDriveView(Node root, long total, long free)
+    {
+        var used = root.Item.Bytes;
+        if (used <= 0) return null;
+        free = Math.Clamp(free, 0, total);
+        var other = Math.Max(0, total - free - used);
+        var whole = (double)used + other + free;
+        var k = Math.Sqrt(whole / used);
+        if (k < 1.001) return null;   // the files are the drive: nothing to zoom out to
+        var r = root.Bounds;
+        var world = new Rect(r.X, r.Y, r.Width * k, r.Height * k);
+        var right = new Rect(r.Right, r.Y, r.Width * (k - 1), r.Height * k);
+        var below = new Rect(r.X, r.Bottom, r.Width, r.Height * (k - 1));
+        // Other used space starts under the files; whatever does not fit there continues up the right-hand
+        // strip from the bottom. Free space is the rest. Areas are exactly proportional to bytes.
+        var otherArea = r.Width * r.Height * other / used;
+        var belowArea = below.Width * below.Height;
+        var otherParts = new List<Rect>();
+        var freeParts = new List<Rect>();
+        if (otherArea <= belowArea)
+        {
+            var width = belowArea <= 0 ? 0 : below.Width * otherArea / belowArea;
+            if (width > 0) otherParts.Add(new Rect(below.X, below.Y, width, below.Height));
+            freeParts.Add(right);
+            // CHANGED (round 45): the lower arm of the free space runs on under the right-hand strip, so the
+            // two overlap in the corner and read as one L-shaped region instead of two separate blocks.
+            if (below.Width - width > 0) freeParts.Add(new Rect(below.X + width, below.Y, world.Right - below.X - width, below.Height));
+        }
+        else
+        {
+            otherParts.Add(below);
+            var height = Math.Min(right.Height, (otherArea - belowArea) / right.Width);
+            otherParts.Add(new Rect(right.X, right.Bottom - height, right.Width, height));
+            if (right.Height - height > 0) freeParts.Add(new Rect(right.X, right.Y, right.Width, right.Height - height));
+        }
+        var regions = new List<DriveRegion>();
+        if (free > 0) regions.Add(Region(FreeSpaceId, "Free space", free, freeParts, FreeSpaceColor));
+        if (other > 0) regions.Add(Region(OtherSpaceId, "Used, not indexed", other, otherParts, OtherSpaceColor));
+        return new DriveView(root, total, free, world, [.. regions]);
+
+        DriveRegion Region(int id, string name, long bytes, List<Rect> parts, uint color)
+        {
+            // Largest piece first: that is where its label goes.
+            var ordered = parts.Where(part => part.Width > 0 && part.Height > 0).OrderByDescending(part => part.Width * part.Height).ToArray();
+            var label = new Node(new DiskUsageItem(id, name, bytes, 0, false), ordered.Length > 0 ? ordered[0] : world, null, null, (long)whole, 0);
+            return new DriveRegion(label, ordered, color);
+        }
+    }
+
+    // True while the camera is out past the whole folder map, showing the drive around it.
+    private bool InDriveView => _root is not null && CurrentDrive() is not null && _camera.Width > FitRaw(_root.Bounds, 0).Width * 1.02;
+
+    private static Rect Lerp(Rect from, Rect to, double t) => new(from.X + (to.X - from.X) * t, from.Y + (to.Y - from.Y) * t,
+        from.Width + (to.Width - from.Width) * t, from.Height + (to.Height - from.Height) * t);
+
     private Rect Clamp(Rect camera)
     {
         if (_root is null) return camera;
         var world = _root.Bounds;
         var full = FitRaw(world, 0);
-        var width = Math.Clamp(camera.Width, full.Width * 1e-9, full.Width);
+        var widest = full.Width;
+        // NEW (round 44): past the whole folder map the frame grows toward the drive's. The bounds grow from
+        // the files' rectangle to the drive's in step with the zoom, so the camera slides out of its corner
+        // continuously rather than jumping, and inside the folder map nothing changes at all.
+        if (CurrentDrive() is { } drive)
+        {
+            var driveFull = FitRaw(drive.World, 0);
+            widest = driveFull.Width;
+            if (camera.Width > full.Width && driveFull.Width > full.Width)
+                world = Lerp(world, drive.World, Clamp01((camera.Width - full.Width) / (driveFull.Width - full.Width)));
+        }
+        var width = Math.Clamp(camera.Width, full.Width * 1e-9, widest);
         var height = width / ViewAspect;
         var center = Center(camera);
         var x = width >= world.Width ? world.X + world.Width / 2 : Math.Clamp(center.X, world.Left + width / 2, world.Right - width / 2);
@@ -1701,6 +1810,29 @@ public sealed class DiskUsageTreemap : FrameworkElement, IDisposable
         return p <= .001 ? (null, 0) : (child, p);
     }
 
+    // NEW (round 45): how long a step may wait for its scene before falling back to the timed fade - only
+    // reached when the zoom blend never had a scene for that folder (a very fast jump, a failed build).
+    private const double StepPatience = .7;
+
+    // The next level from `from` toward `to`: its child on the way down, its parent on the way up, or null
+    // when `to` is neither below nor above it.
+    private static Node? StepToward(Node from, Node to)
+    {
+        if (IsAncestorOf(to, from)) return from.Parent;
+        if (!IsAncestorOf(from, to)) return null;
+        var node = to;
+        while (node.Parent is not null && node.Parent != from) node = node.Parent;
+        return node.Parent == from ? node : null;
+    }
+
+    // Whether the scene on screen already shows the colours the step would lead to.
+    private bool ReadyToStep(Node step)
+    {
+        if (_cache is not { } cache || cache.Level != _colorLevel || IsTimed(cache)) return _cache is null;
+        if (step.Parent == _colorLevel) return cache.LevelB == step && _colorBlend >= .96;   // in: fully blended to it
+        return cache.LevelB is null || _colorBlend <= .04;                                  // out: blend back at its level
+    }
+
     // NEW (round 43): which two colour levels the next scene should carry.
     //  - Normally: the colour level, and the folder the zoom is heading into (or none).
     //  - Right after a step the zoom did not blend (a jump of more than one level, the back button): the
@@ -1739,7 +1871,14 @@ public sealed class DiskUsageTreemap : FrameworkElement, IDisposable
             return;
         }
         var want = levelB == _colorLevel ? 1 : levelB == _approachTarget && cache.Level == _colorLevel ? _approachP : 0;
-        _colorBlend += (want - _colorBlend) * (1 - Math.Exp(-step / ApproachEase));
+        // NEW (round 45): a step waiting on the blend steers it - fully in when the camera is already inside
+        // the folder being stepped into, back to nothing when it has left the level for its parent.
+        if (_container is { } inside && _colorLevel is { } level && inside != level && StepToward(level, inside) is { } pending)
+            want = pending.Parent == level ? (levelB == pending ? 1 : want) : 0;
+        // CHANGED (round 45): the further the blend has to go - a scene arriving after the zoom had already
+        // moved on - the more gently it catches up, so late colours drift in rather than pop.
+        var ease = ApproachEase + .35 * Math.Abs(want - _colorBlend);
+        _colorBlend += (want - _colorBlend) * (1 - Math.Exp(-step / ease));
         if (Math.Abs(want - _colorBlend) < .002) _colorBlend = want;
         else _needsFrame = true;
     }
@@ -1757,16 +1896,24 @@ public sealed class DiskUsageTreemap : FrameworkElement, IDisposable
         // and only arriving somewhere changes the colours.
         if (_container != _colorLevel)
         {
-            // NEW (round 42): one level in or out is already blended by the zoom, so it follows at once.
-            var adjacent = ApproachEnabled && _colorLevel is not null
-                && (_container.Parent == _colorLevel || _colorLevel.Parent == _container);
-            if (adjacent)
+            // CHANGED (round 45): a zoom in or out, through any number of levels, moves the colour level one
+            // level at a time, and each step waits until the scene on screen is already showing where the
+            // step leads. Stepping in: the zoom blend toward that folder has reached its colours. Stepping
+            // out: the blend toward the folder being left has run back down. The step itself then changes
+            // nothing you can see, and the next level's blend picks up from there - a fast zoom through
+            // three folders is three short blends in a row instead of a pause and a jump. Round 42 switched
+            // at once whenever the step was one level, even when the scene had not caught up, which is
+            // where the snaps came from. Anything else (a sideways jump) still settles, then fades.
+            var step = ApproachEnabled && _colorLevel is not null ? StepToward(_colorLevel, _container) : null;
+            if (step is not null && _container != _colorPending) { _colorPending = _container; _colorPendingSince = now; }
+            if (step is not null && ReadyToStep(step))
             {
                 _colorPrevious = _colorLevel;
-                _colorLevel = _container;
+                _colorLevel = step;
                 _colorSince = now;
-                _colorPending = null;
+                _colorPendingSince = now;   // the next step starts its own wait
             }
+            else if (step is not null && now - _colorPendingSince < StepPatience) { }   // wait for the scene
             else
             {
                 if (_container != _colorPending) { _colorPending = _container; _colorPendingSince = now; }
@@ -2225,6 +2372,7 @@ public sealed class DiskUsageTreemap : FrameworkElement, IDisposable
         public required double Stamp;          // the control's clock when prepared; stamped on drawn nodes
         public required int Revision;
         public required HashSet<Node> OpenPath;
+        public required DriveRegion[]? Drive;   // NEW (round 44): the drive around the files, or null
 
         // Outputs.
         public required TileCommand[] Commands;
@@ -2249,6 +2397,7 @@ public sealed class DiskUsageTreemap : FrameworkElement, IDisposable
             var coverage = Rect.Inflate(new Rect(Viewport), Viewport.Width * .35, Viewport.Height * .35);
             View = coverage;
             ViewLoose = Rect.Inflate(coverage, 2, 2);
+            if (Drive is { } drive) foreach (var region in drive) DrawDriveRegion(region);   // NEW (round 44)
             if (Root is { Item.Bytes: > 0 }) DrawNode(Root, ToScreen(Root.Bounds), 1, 1, 1, Rect.Empty, Budget, BasePacked, BasePacked, 0, true);
             // CHANGED (round 41): the geometry takes the working buffer itself rather than a copy of it.
             var cache = new SceneCache(Camera, Viewport, coverage, new TileGeometry(Commands, CommandCount),
@@ -2260,6 +2409,31 @@ public sealed class DiskUsageTreemap : FrameworkElement, IDisposable
             };
             Milliseconds = clock.Elapsed.TotalMilliseconds;
             return cache;
+        }
+
+        // NEW (round 44): one region of the drive view - free or other used space. Solid, inset by a gap so it
+        // reads as separate from the files, labelled in its largest piece. It only ever shows once the
+        // camera is out past the folder map; inside it, it is off screen and costs nothing.
+        private void DrawDriveRegion(DriveRegion region)
+        {
+            for (var i = 0; i < region.Parts.Length; i++)
+            {
+                var screen = ToScreen(region.Parts[i]);
+                if (!screen.IntersectsWith(ViewLoose)) continue;
+                var tile = Deflate(screen, Math.Clamp(Math.Min(screen.Width, screen.Height) * .01, .75, 6));
+                if (tile.Width <= 0 || tile.Height <= 0) continue;
+                EmitSolid(tile, region.Color, region.Color);
+                // NEW (round 45): recorded for hit testing, so hovering a region shows what it is.
+                var hit = Rect.Intersect(tile, ViewLoose);
+                if (!hit.IsEmpty) Drawn.Add((region.Label, hit));
+                if (i != 0) continue;
+                var visible = Rect.Intersect(tile, View);
+                if (visible.IsEmpty || visible.Width <= 1 || visible.Height <= 1) continue;
+                region.Label.LastDrawn = Stamp;   // keeps its label text from being handed back every frame
+                var caption = new Caption(region.Label, visible, Rect.Empty, 1);
+                Deferred.Add(caption);
+                if (ColorLevelB is not null) DeferredB.Add(caption);
+            }
         }
 
         private Rect ToScreen(Rect world)
@@ -2666,6 +2840,7 @@ public sealed class DiskUsageTreemap : FrameworkElement, IDisposable
             Stamp = Now,
             Revision = _detailRevision,
             OpenPath = openPath,
+            Drive = CurrentDrive()?.Regions,   // NEW (round 44)
             // CHANGED (round 41): a buffer from the pool, sized from the last scene so it rarely grows.
             // It becomes the scene's geometry and returns to the pool when that scene leaves the screen.
             Commands = TakeCommandBuffer(Math.Max(16384, _lastCommandCount + _lastCommandCount / 4)),
@@ -3413,7 +3588,7 @@ public sealed class DiskUsageTreemap : FrameworkElement, IDisposable
         _hover = _mouseInside && !_dragging ? NodeAt(_mouse) : null;
         var target = _hover is null ? null : ClickTarget(_hover);
         // REVERTED (round 4): plain outline on hover.
-        if (target is not null && _flight is null) Outline(dc, target, HoverEdge);
+        if (target is not null && _flight is null && !InDriveView) Outline(dc, target, HoverEdge);   // CHANGED (round 44)
         DrawHoverCard(dc);
         if (_showStats) DrawStats(dc);
     }
@@ -3433,7 +3608,7 @@ public sealed class DiskUsageTreemap : FrameworkElement, IDisposable
                 $"walk {_statWalk:0.0} · labels {_statLabels:0.0} · raster {_statRaster:0.0} · upload {_statUpload:0.0} ms · " +
                 // NEW (round 40): the last scene build, which runs off the UI thread in a live window.
                 $"last build {_lastBuildMilliseconds:0} ms{(CanWalkInBackground ? " (background)" : "")}\n" +
-                $"{(_gpuShown ? (_gpu?.IsMultisampled == true ? "GPU 4×AA" : "GPU") : "CPU")} · {_statTiles:N0} tiles · {_statPixelsW}×{_statPixelsH} px · " +
+                $"{(_gpuShown ? (_gpu?.IsMultisampled == true ? "GPU 4×AA" : "GPU") : "CPU")}{(_gpuShown ? (_gpu?.HasColorShader == true ? " · OKLCH fade" : " · RGB fade") : "")} · {_statTiles:N0} tiles · {_statPixelsW}×{_statPixelsH} px · " +
                 $"{_loads} loading · gen2 GCs {GC.CollectionCount(2) - _gen2Start}\n" +
                 $"cache · {GeometryBuildCount} builds · {GeometryReuseCount} reused frames · {GpuGeometryUploads} GPU uploads\n" +
                 // NEW (round 20): where the memory actually is. The rectangles are the cheap part;
@@ -3479,9 +3654,12 @@ public sealed class DiskUsageTreemap : FrameworkElement, IDisposable
     private void DrawHoverCard(DrawingContext dc)
     {
         if (_hover is not { } hovered || hovered == _root || _dragging || _flight is not null) return;
+        // CHANGED (round 45): out at the drive, only the free and unindexed regions get a card; the files
+        // themselves are one click back to the folder map.
+        if (InDriveView != IsDriveRegion(hovered)) return;
         // CHANGED: describe the labeled block under the pointer (the item directly inside the
         // current folder), not the tiny tile within it. Zooming in moves the card a level deeper.
-        if (ClickTarget(hovered) is not { } node) return;
+        if ((IsDriveRegion(hovered) ? hovered : ClickTarget(hovered)) is not { } node) return;
         const double pad = 12, swatch = 9, maxText = 340;
         if (_hoverText?.Node != node || _hoverText.Focus != _focusNode)
         {
@@ -3489,7 +3667,8 @@ public sealed class DiskUsageTreemap : FrameworkElement, IDisposable
             var name = Make(node.Item.Name, 13, true);
             name.SetForegroundBrush(Ink);
             name.MaxTextWidth = maxText;
-            var description = Make($"{DiskUsagePalette.CategoryName(node.Item)} · {node.SizeText}" +
+            var description = Make(IsDriveRegion(node) ? $"{node.SizeText} · {node.ShareText} of the drive"   // NEW (round 45)
+                : $"{DiskUsagePalette.CategoryName(node.Item)} · {node.SizeText}" +
                 (folder is null ? "" : $" · {node.ShareText} of {folder.Item.Name.TrimEnd('\\')}"), 11.5, false);
             description.SetForegroundBrush(InkMuted);
             description.MaxTextWidth = maxText - swatch - 7;
@@ -3514,7 +3693,8 @@ public sealed class DiskUsageTreemap : FrameworkElement, IDisposable
         var line = y + pad + title.Height + 3;
         // CHANGED (round 40): computed, not read through the node's colour cache - that cache is the
         // geometry walk's, and the walk may be writing it on another thread right now.
-        var swatchColor = _colorLevel is { } swatchLevel ? ComputeColor(node, swatchLevel) : _basePacked;
+        var swatchColor = IsDriveRegion(node) ? (node.Item.Id == FreeSpaceId ? FreeSpaceColor : OtherSpaceColor)   // NEW (round 45)
+            : _colorLevel is { } swatchLevel ? ComputeColor(node, swatchLevel) : _basePacked;
         dc.DrawEllipse(BrushFor(Unpack(swatchColor), 1), null, new Point(x + pad + swatch / 2, line + detail.Height / 2), swatch / 2, swatch / 2);
         dc.DrawText(detail, new Point(x + pad + swatch + 7, line));
         if (hint is not null) dc.DrawText(hint, new Point(x + pad, line + detail.Height + 6));
@@ -3522,6 +3702,11 @@ public sealed class DiskUsageTreemap : FrameworkElement, IDisposable
 
     private string HintFor(Node target)
     {
+        // NEW (round 45): what the two drive regions are.
+        if (target.Item.Id == FreeSpaceId) return "Space on the drive not used by anything · click for the files";
+        if (target.Item.Id == OtherSpaceId)
+            return "Used on the drive but not in the index: file system metadata, restore points, the recycle bin, " +
+                   "and folders Clearspace could not read · click for the files";
         if (target.IsContainer) return target.IsGroup ? "Click to zoom in" : "Click to open";
         return target.Parent is not null && FolderOf(target.Parent) == _focusNode
             ? "Click to select · right-click for options" : "Click to open its folder";
@@ -3706,7 +3891,7 @@ public sealed class DiskUsageTreemap : FrameworkElement, IDisposable
         }
         // Hover only touches the overlay layer; the scene is not redrawn.
         var target = !_dragging && NodeAt(_mouse) is { } hit ? ClickTarget(hit) : null;
-        var cursor = _dragging ? Cursors.SizeAll : target is not null ? Cursors.Hand : null;
+        var cursor = _dragging ? Cursors.SizeAll : target is not null || InDriveView ? Cursors.Hand : null;   // CHANGED (round 44)
         if (Cursor != cursor) Cursor = cursor;
         _overlayDirty = true;
         if (!_hooked) RenderOverlay();

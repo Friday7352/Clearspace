@@ -242,6 +242,27 @@ public partial class DiskUsageView : UserControl, IDisposable
         }));
     }
 
+    // NEW (round 44): the size and free space of the drive the map shows, for zooming out past the files to
+    // see them against the whole drive. Read off the UI thread (a slow or sleeping drive can take a while
+    // to answer), and only for a drive's root - a map of a folder has no drive around it to show.
+    private void UpdateDriveSpace(string root)
+    {
+        Task.Run<(long Total, long Free)?>(() =>
+        {
+            try
+            {
+                if (!string.Equals(System.IO.Path.GetPathRoot(root), root, StringComparison.OrdinalIgnoreCase)) return null;
+                var drive = new System.IO.DriveInfo(root);
+                return drive.IsReady ? (drive.TotalSize, drive.TotalFreeSpace) : null;
+            }
+            catch (Exception) { return null; }
+        }).ContinueWith(task => Dispatcher.InvokeAsync(() =>
+        {
+            if (!_disposed && string.Equals(_viewModel.Snapshot?.Root, root, StringComparison.OrdinalIgnoreCase))
+                Treemap.SetDriveSpace(task.Result);
+        }), TaskScheduler.Default);
+    }
+
     private void OnFileOperationCompleted(object? sender, EventArgs e) => FileOperationCompleted?.Invoke(this, e);
     private async void OnTileDelete(DiskUsageItem item)
     {
@@ -279,6 +300,7 @@ public partial class DiskUsageView : UserControl, IDisposable
             else
                 Treemap.SetSource(snapshot.Item(0), (id, token) => snapshot.Children(id, token), _viewModel.FolderPath,
                     EmptyFolderName(), snapshot.Item, snapshot);
+            UpdateDriveSpace(snapshot.Root);   // NEW (round 44)
         }
         else if (e.PropertyName == nameof(DiskUsageViewModel.MapItems))
             Treemap.ShowFolder(_viewModel.FolderPath, EmptyFolderName());
