@@ -10,9 +10,9 @@ internal static class FileIndexStore
 {
     private const int Magic = 0x58495343; // 'CSIX'
 
-    // CHANGED: 2 = cloud-sync (OneDrive) folders are now scanned. The layout is unchanged; the
-    // bump just discards indexes built without them so they are rebuilt on the next launch.
-    private const int FormatVersion = 2;
+    // Version 3 invalidates depth-limited indexes. The binary layout is unchanged;
+    // a one-time background rebuild includes descendants beyond the former 32-level limit.
+    private const int FormatVersion = 3;
 
     private const int MaxEntries = 40_000_000;
     private const int MaxPool = 800_000_000;
@@ -113,7 +113,15 @@ internal static class FileIndexStore
                 stream.ReadExactly(MemoryMarshal.AsBytes(entries.AsSpan(0, entryCount)));
                 stream.ReadExactly(MemoryMarshal.AsBytes(names.AsSpan(0, poolLength)));
 
-                if (FileIndexBuilder.GetSerialNumber(root) != serial)
+                // CHANGED (round 50): a network drive's index is kept while network indexing is on, even
+                // when the share is out of reach right now (its sizes are still worth seeing, and indexing
+                // a NAS again is slow); it is dropped when network indexing is off. Asking an unreachable
+                // server for its serial number could also take a long time, so it is not asked.
+                if (NetworkDrives.IsNetworkRoot(root))
+                {
+                    if (!NetworkDrives.Enabled) continue;
+                }
+                else if (FileIndexBuilder.GetSerialNumber(root) != serial)
                     continue;
 
                 volumes.Add(new VolumeIndex(

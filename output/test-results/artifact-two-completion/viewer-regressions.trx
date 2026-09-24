@@ -1,0 +1,171 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TestRun id="bcbfb6fb-4a4c-42de-8235-871f31536593" name="Payton@PAYTONPC 2026-09-23 13:01:25" runUser="PaytonPC\Payton" xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010">
+  <Times creation="2026-09-23T13:01:25.3168426-05:00" queuing="2026-09-23T13:01:25.3168427-05:00" start="2026-09-23T13:01:23.5185713-05:00" finish="2026-09-23T13:01:37.6912032-05:00" />
+  <TestSettings name="default" id="230178fc-779f-458a-9a33-abb2689a2b17">
+    <Deployment runDeploymentRoot="Payton_PAYTONPC_2026-09-23_13_01_25" />
+  </TestSettings>
+  <Results>
+    <UnitTestResult executionId="5daa24f3-03ad-4b2b-a7dd-1fd97b47efa6" testId="d644b325-5b9f-6e38-8cf4-cb7d49966deb" testName="MapZoomsContinuouslyBetweenFoldersWithRealApplicationStyles" computerName="PAYTONPC" duration="00:00:03.7182075" startTime="2026-09-23T13:01:33.8463084-05:00" endTime="2026-09-23T13:01:37.5655884-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="5daa24f3-03ad-4b2b-a7dd-1fd97b47efa6">
+      <Output>
+        <StdOut>TestContext Messages:&#xD;
+100,000 files: first frame 103 ms; 222 tiles drawn.</StdOut>
+        <ErrorInfo>
+          <Message>Assert.Fail failed. Closer zoom must expose individual files.</Message>
+          <StackTrace>   at Clearspace.Tests.DiskUsageWindowTests.WaitFor(Func`1 condition, String message) in E:\GithubRepos\File Explorer Remake\Clearspace.Tests\DiskUsageWindowTests.cs:line 253&#xD;
+   at Clearspace.Tests.DiskUsageWindowTests.&lt;&gt;c__DisplayClass4_1.&lt;&lt;MapZoomsContinuouslyBetweenFoldersWithRealApplicationStyles&gt;b__1&gt;d.MoveNext() in E:\GithubRepos\File Explorer Remake\Clearspace.Tests\DiskUsageWindowTests.cs:line 215&#xD;
+--- End of stack trace from previous location ---&#xD;
+   at Clearspace.Tests.DiskUsageWindowTests.MapZoomsContinuouslyBetweenFoldersWithRealApplicationStyles() in E:\GithubRepos\File Explorer Remake\Clearspace.Tests\DiskUsageWindowTests.cs:line 230&#xD;
+   at System.Reflection.MethodBaseInvoker.InterpretedInvoke_Method(Object obj, IntPtr* args)&#xD;
+   at System.Reflection.MethodBaseInvoker.InvokeWithNoArgs(Object obj, BindingFlags invokeAttr)&#xD;
+</StackTrace>
+        </ErrorInfo>
+      </Output>
+      <ResultFiles>
+        <ResultFile path="PAYTONPC\disk-usage-dense-detail.png" />
+        <ResultFile path="PAYTONPC\disk-usage-dense-detail[10].png" />
+        <ResultFile path="PAYTONPC\disk-usage-dense-detail[11].png" />
+        <ResultFile path="PAYTONPC\disk-usage-dense-detail[12].png" />
+        <ResultFile path="PAYTONPC\disk-usage-dense-detail[13].png" />
+        <ResultFile path="PAYTONPC\disk-usage-dense-detail[14].png" />
+        <ResultFile path="PAYTONPC\disk-usage-dense-detail[15].png" />
+        <ResultFile path="PAYTONPC\disk-usage-dense-detail[16].png" />
+        <ResultFile path="PAYTONPC\disk-usage-dense-detail[17].png" />
+        <ResultFile path="PAYTONPC\disk-usage-dense-detail[18].png" />
+        <ResultFile path="PAYTONPC\disk-usage-dense-detail[19].png" />
+        <ResultFile path="PAYTONPC\disk-usage-dense-detail[1].png" />
+        <ResultFile path="PAYTONPC\disk-usage-dense-detail[20].png" />
+        <ResultFile path="PAYTONPC\disk-usage-dense-detail[21].png" />
+        <ResultFile path="PAYTONPC\disk-usage-dense-detail[22].png" />
+        <ResultFile path="PAYTONPC\disk-usage-dense-detail[23].png" />
+        <ResultFile path="PAYTONPC\disk-usage-dense-detail[24].png" />
+        <ResultFile path="PAYTONPC\disk-usage-dense-detail[25].png" />
+        <ResultFile path="PAYTONPC\disk-usage-dense-detail[26].png" />
+        <ResultFile path="PAYTONPC\disk-usage-dense-detail[27].png" />
+        <ResultFile path="PAYTONPC\disk-usage-dense-detail[28].png" />
+        <ResultFile path="PAYTONPC\disk-usage-dense-detail[29].png" />
+        <ResultFile path="PAYTONPC\disk-usage-dense-detail[2].png" />
+        <ResultFile path="PAYTONPC\disk-usage-dense-detail[30].png" />
+        <ResultFile path="PAYTONPC\disk-usage-dense-detail[31].png" />
+        <ResultFile path="PAYTONPC\disk-usage-dense-detail[32].png" />
+        <ResultFile path="PAYTONPC\disk-usage-dense-detail[33].png" />
+        <ResultFile path="PAYTONPC\disk-usage-dense-detail[34].png" />
+        <ResultFile path="PAYTONPC\disk-usage-dense-detail[35].png" />
+        <ResultFile path="PAYTONPC\disk-usage-dense-detail[36].png" />
+        <ResultFile path="PAYTONPC\disk-usage-dense-detail[37].png" />
+        <ResultFile path="PAYTONPC\disk-usage-dense-detail[38].png" />
+        <ResultFile path="PAYTONPC\disk-usage-dense-detail[39].png" />
+        <ResultFile path="PAYTONPC\disk-usage-dense-detail[3].png" />
+        <ResultFile path="PAYTONPC\disk-usage-dense-detail[40].png" />
+        <ResultFile path="PAYTONPC\disk-usage-dense-detail[41].png" />
+        <ResultFile path="PAYTONPC\disk-usage-dense-detail[42].png" />
+        <ResultFile path="PAYTONPC\disk-usage-dense-detail[43].png" />
+        <ResultFile path="PAYTONPC\disk-usage-dense-detail[44].png" />
+        <ResultFile path="PAYTONPC\disk-usage-dense-detail[45].png" />
+        <ResultFile path="PAYTONPC\disk-usage-dense-detail[46].png" />
+        <ResultFile path="PAYTONPC\disk-usage-dense-detail[47].png" />
+        <ResultFile path="PAYTONPC\disk-usage-dense-detail[48].png" />
+        <ResultFile path="PAYTONPC\disk-usage-dense-detail[49].png" />
+        <ResultFile path="PAYTONPC\disk-usage-dense-detail[4].png" />
+        <ResultFile path="PAYTONPC\disk-usage-dense-detail[50].png" />
+        <ResultFile path="PAYTONPC\disk-usage-dense-detail[51].png" />
+        <ResultFile path="PAYTONPC\disk-usage-dense-detail[52].png" />
+        <ResultFile path="PAYTONPC\disk-usage-dense-detail[53].png" />
+        <ResultFile path="PAYTONPC\disk-usage-dense-detail[54].png" />
+        <ResultFile path="PAYTONPC\disk-usage-dense-detail[55].png" />
+        <ResultFile path="PAYTONPC\disk-usage-dense-detail[56].png" />
+        <ResultFile path="PAYTONPC\disk-usage-dense-detail[57].png" />
+        <ResultFile path="PAYTONPC\disk-usage-dense-detail[58].png" />
+        <ResultFile path="PAYTONPC\disk-usage-dense-detail[59].png" />
+        <ResultFile path="PAYTONPC\disk-usage-dense-detail[5].png" />
+        <ResultFile path="PAYTONPC\disk-usage-dense-detail[60].png" />
+        <ResultFile path="PAYTONPC\disk-usage-dense-detail[61].png" />
+        <ResultFile path="PAYTONPC\disk-usage-dense-detail[62].png" />
+        <ResultFile path="PAYTONPC\disk-usage-dense-detail[63].png" />
+        <ResultFile path="PAYTONPC\disk-usage-dense-detail[64].png" />
+        <ResultFile path="PAYTONPC\disk-usage-dense-detail[65].png" />
+        <ResultFile path="PAYTONPC\disk-usage-dense-detail[66].png" />
+        <ResultFile path="PAYTONPC\disk-usage-dense-detail[67].png" />
+        <ResultFile path="PAYTONPC\disk-usage-dense-detail[68].png" />
+        <ResultFile path="PAYTONPC\disk-usage-dense-detail[69].png" />
+        <ResultFile path="PAYTONPC\disk-usage-dense-detail[6].png" />
+        <ResultFile path="PAYTONPC\disk-usage-dense-detail[70].png" />
+        <ResultFile path="PAYTONPC\disk-usage-dense-detail[71].png" />
+        <ResultFile path="PAYTONPC\disk-usage-dense-detail[72].png" />
+        <ResultFile path="PAYTONPC\disk-usage-dense-detail[73].png" />
+        <ResultFile path="PAYTONPC\disk-usage-dense-detail[74].png" />
+        <ResultFile path="PAYTONPC\disk-usage-dense-detail[75].png" />
+        <ResultFile path="PAYTONPC\disk-usage-dense-detail[76].png" />
+        <ResultFile path="PAYTONPC\disk-usage-dense-detail[77].png" />
+        <ResultFile path="PAYTONPC\disk-usage-dense-detail[78].png" />
+        <ResultFile path="PAYTONPC\disk-usage-dense-detail[79].png" />
+        <ResultFile path="PAYTONPC\disk-usage-dense-detail[7].png" />
+        <ResultFile path="PAYTONPC\disk-usage-dense-detail[8].png" />
+        <ResultFile path="PAYTONPC\disk-usage-dense-detail[9].png" />
+        <ResultFile path="PAYTONPC\disk-usage-dense.png" />
+        <ResultFile path="PAYTONPC\disk-usage-empty.png" />
+        <ResultFile path="PAYTONPC\disk-usage-folder-transition.png" />
+        <ResultFile path="PAYTONPC\disk-usage-folder.png" />
+        <ResultFile path="PAYTONPC\disk-usage-folder[1].png" />
+        <ResultFile path="PAYTONPC\disk-usage-large.png" />
+        <ResultFile path="PAYTONPC\disk-usage-loading.png" />
+        <ResultFile path="PAYTONPC\disk-usage-restored.png" />
+        <ResultFile path="PAYTONPC\disk-usage-restored[1].png" />
+        <ResultFile path="PAYTONPC\disk-usage-wheel-before-enter.png" />
+        <ResultFile path="PAYTONPC\disk-usage-wheel-before-enter[1].png" />
+        <ResultFile path="PAYTONPC\disk-usage-wheel-folder.png" />
+        <ResultFile path="PAYTONPC\disk-usage-wheel-folder[1].png" />
+        <ResultFile path="PAYTONPC\disk-usage-wheel-out.png" />
+        <ResultFile path="PAYTONPC\disk-usage-wheel-out[1].png" />
+        <ResultFile path="PAYTONPC\disk-usage-wheel-start.png" />
+        <ResultFile path="PAYTONPC\disk-usage-wheel-start[1].png" />
+        <ResultFile path="PAYTONPC\disk-usage-wide.png" />
+        <ResultFile path="PAYTONPC\disk-usage-wide[1].png" />
+        <ResultFile path="PAYTONPC\disk-usage-wide[2].png" />
+      </ResultFiles>
+    </UnitTestResult>
+    <UnitTestResult executionId="70dc1c5f-b704-4684-89a3-b90861ee08dd" testId="1f067f4c-b1c0-84db-a68a-36dc12094df3" testName="BusyGpuDefersLabelsHitTargetsAndTilesTogether" computerName="PAYTONPC" duration="00:00:00.4453670" startTime="2026-09-23T13:01:23.9393104-05:00" endTime="2026-09-23T13:01:24.3937970-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="70dc1c5f-b704-4684-89a3-b90861ee08dd" />
+    <UnitTestResult executionId="5076b728-6a5c-4386-bea2-dcfb097f3269" testId="a91d2968-8c38-20f5-1be1-ed4e368a6f7d" testName="ZoomPrefetchStartsOnlyOneBackgroundFolderAtATime" computerName="PAYTONPC" duration="00:00:09.4477274" startTime="2026-09-23T13:01:24.3968421-05:00" endTime="2026-09-23T13:01:33.8448547-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="5076b728-6a5c-4386-bea2-dcfb097f3269">
+      <Output>
+        <ErrorInfo>
+          <Message>Assert.IsTrue failed. Background map work did not complete.</Message>
+          <StackTrace>   at Clearspace.Tests.DiskUsagePerformanceTests.WaitFor(Func`1 condition) in E:\GithubRepos\File Explorer Remake\Clearspace.Tests\DiskUsagePerformanceTests.cs:line 464&#xD;
+   at Clearspace.Tests.DiskUsagePerformanceTests.&lt;&gt;c.&lt;&lt;ZoomPrefetchStartsOnlyOneBackgroundFolderAtATime&gt;b__13_0&gt;d.MoveNext() in E:\GithubRepos\File Explorer Remake\Clearspace.Tests\DiskUsagePerformanceTests.cs:line 359&#xD;
+--- End of stack trace from previous location ---&#xD;
+   at Clearspace.Tests.DiskUsagePerformanceTests.&lt;&gt;c__DisplayClass19_1.&lt;&lt;RunSta&gt;b__1&gt;d.MoveNext() in E:\GithubRepos\File Explorer Remake\Clearspace.Tests\DiskUsagePerformanceTests.cs:line 476&#xD;
+--- End of stack trace from previous location ---&#xD;
+   at Clearspace.Tests.DiskUsagePerformanceTests.RunSta(Func`1 action) in E:\GithubRepos\File Explorer Remake\Clearspace.Tests\DiskUsagePerformanceTests.cs:line 485&#xD;
+   at Clearspace.Tests.DiskUsagePerformanceTests.ZoomPrefetchStartsOnlyOneBackgroundFolderAtATime() in E:\GithubRepos\File Explorer Remake\Clearspace.Tests\DiskUsagePerformanceTests.cs:line 336&#xD;
+   at System.Reflection.MethodBaseInvoker.InterpretedInvoke_Method(Object obj, IntPtr* args)&#xD;
+   at System.Reflection.MethodBaseInvoker.InvokeWithNoArgs(Object obj, BindingFlags invokeAttr)&#xD;
+</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+  </Results>
+  <TestDefinitions>
+    <UnitTest name="BusyGpuDefersLabelsHitTargetsAndTilesTogether" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="1f067f4c-b1c0-84db-a68a-36dc12094df3">
+      <Execution id="70dc1c5f-b704-4684-89a3-b90861ee08dd" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.DiskUsagePerformanceTests" name="BusyGpuDefersLabelsHitTargetsAndTilesTogether" />
+    </UnitTest>
+    <UnitTest name="MapZoomsContinuouslyBetweenFoldersWithRealApplicationStyles" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="d644b325-5b9f-6e38-8cf4-cb7d49966deb">
+      <Execution id="5daa24f3-03ad-4b2b-a7dd-1fd97b47efa6" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.DiskUsageWindowTests" name="MapZoomsContinuouslyBetweenFoldersWithRealApplicationStyles" />
+    </UnitTest>
+    <UnitTest name="ZoomPrefetchStartsOnlyOneBackgroundFolderAtATime" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="a91d2968-8c38-20f5-1be1-ed4e368a6f7d">
+      <Execution id="5076b728-6a5c-4386-bea2-dcfb097f3269" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.DiskUsagePerformanceTests" name="ZoomPrefetchStartsOnlyOneBackgroundFolderAtATime" />
+    </UnitTest>
+  </TestDefinitions>
+  <TestEntries>
+    <TestEntry testId="d644b325-5b9f-6e38-8cf4-cb7d49966deb" executionId="5daa24f3-03ad-4b2b-a7dd-1fd97b47efa6" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="1f067f4c-b1c0-84db-a68a-36dc12094df3" executionId="70dc1c5f-b704-4684-89a3-b90861ee08dd" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="a91d2968-8c38-20f5-1be1-ed4e368a6f7d" executionId="5076b728-6a5c-4386-bea2-dcfb097f3269" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+  </TestEntries>
+  <TestLists>
+    <TestList name="Results Not in a List" id="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestList name="All Loaded Results" id="19431567-8539-422a-85d7-44ee4e166bda" />
+  </TestLists>
+  <ResultSummary outcome="Failed">
+    <Counters total="3" executed="3" passed="1" failed="2" error="0" timeout="0" aborted="0" inconclusive="0" passedButRunAborted="0" notRunnable="0" notExecuted="0" disconnected="0" warning="0" completed="0" inProgress="0" pending="0" />
+  </ResultSummary>
+</TestRun>

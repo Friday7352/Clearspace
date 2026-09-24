@@ -1,5 +1,4 @@
-// Clearspace | Index changes collected between rebuilds.
-
+// Clearspace | Bounded changes and recovery generations, isolated by volume.
 using System.IO;
 using Clearspace.Models;
 
@@ -8,179 +7,138 @@ namespace Clearspace.Services;
 internal sealed class IndexOverlay
 {
     private const int MaxTracked = 100_000;
-
     private const int MaxRemovedTrees = 256;
-
     private readonly Lock _gate = new();
-    private readonly HashSet<string> _added = new(StringComparer.OrdinalIgnoreCase);
-    private readonly HashSet<string> _removed = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, Changes> _volumes = new(StringComparer.OrdinalIgnoreCase);
 
-    private readonly List<string> _removedTrees = [];
-
-    public bool Overflowed { get; private set; }
-
-    public int Count
+    private sealed class Changes
     {
-        get
+        public readonly HashSet<string> Added = new(StringComparer.OrdinalIgnoreCase);
+        public readonly HashSet<string> Removed = new(StringComparer.OrdinalIgnoreCase);
+        public readonly List<string> RemovedTrees = [];
+        public long Generation;
+        public bool Overflowed;
+        public int Count => Added.Count + Removed.Count;
+        public void Clear()
         {
-            lock (_gate)
-                return _added.Count + _removed.Count;
+            Added.Clear(); Removed.Clear(); RemovedTrees.Clear();
+            Added.TrimExcess(); Removed.TrimExcess();
         }
     }
 
-    public void Clear()
+    // Delivered outside the lock; the service queues a rescan of only this root.
+    public event Action<string>? LostChanges;
+    private static string Root(string path) => (Path.GetPathRoot(path) ?? path).TrimEnd('\\', '/') + "\\";
+    private Changes Get(string root)
+    {
+        if (!_volumes.TryGetValue(root, out var changes)) _volumes[root] = changes = new();
+        return changes;
+    }
+
+    public int Count { get { lock (_gate) return _volumes.Values.Sum(changes => changes.Count); } }
+    public bool IsHealthy(string root)
+    {
+        lock (_gate) return !_volumes.TryGetValue(Root(root), out var changes) || !changes.Overflowed;
+    }
+
+    public long Generation(string root)
+    {
+        lock (_gate) return Get(Root(root)).Generation;
+    }
+
+    // Only a successfully published replacement may recover a volume. New failures during
+    // a scan change the generation and cannot be erased by an older scan finishing.
+    public bool TryRecover(string root, long generation)
     {
         lock (_gate)
         {
-            _added.Clear();
-            _removed.Clear();
-            _removedTrees.Clear();
-            Overflowed = false;
+            var changes = Get(Root(root));
+            if (changes.Generation != generation) return false;
+            changes.Clear();
+            changes.Overflowed = false;
+            return true;
         }
     }
 
-    public void MarkOverflowed()
+    public void MarkOverflowed(string root)
     {
-        lock (_gate)
-            Overflowed = true;
+        root = Root(root);
+        lock (_gate) Lose(Get(root));
+        LostChanges?.Invoke(root);
     }
 
-    public void OnCreated(string path)
+    private static void Lose(Changes changes)
     {
-        if (string.IsNullOrEmpty(path))
-            return;
-
-        lock (_gate)
-        {
-            if (Overflowed) return;   // NEW (round 42)
-            _removed.Remove(path);
-            _added.Add(path);
-            CheckSize();
-        }
+        changes.Generation++;
+        changes.Overflowed = true;
+        changes.Clear();
     }
 
-    public void OnDeleted(string path)
-    {
-        if (string.IsNullOrEmpty(path))
-            return;
-
-        lock (_gate)
-        {
-            if (Overflowed) return;   // NEW (round 42)
-            _added.Remove(path);
-            _removed.Add(path);
-
-            if (!Path.HasExtension(path))
-            {
-                if (_removedTrees.Count >= MaxRemovedTrees)
-                    Overflowed = true;
-                else
-                    _removedTrees.Add(path);
-            }
-
-            CheckSize();
-        }
-    }
-
+    public void OnCreated(string path) => Record(path, false);
+    public void OnDeleted(string path) => Record(path, true);
     public void OnRenamed(string oldPath, string newPath)
     {
         OnDeleted(oldPath);
         OnCreated(newPath);
     }
 
+    private void Record(string path, bool deleted)
+    {
+        if (string.IsNullOrEmpty(path)) return;
+        var root = Root(path);
+        var lost = false;
+        lock (_gate)
+        {
+            var changes = Get(root);
+            if (changes.Overflowed) return;
+            if (deleted)
+            {
+                changes.Added.Remove(path);
+                changes.Removed.Add(path);
+                // A deleted directory may contain dots; event args do not tell us its kind.
+                if (!changes.RemovedTrees.Contains(path, StringComparer.OrdinalIgnoreCase))
+                    changes.RemovedTrees.Add(path);
+            }
+            else
+            {
+                changes.Removed.Remove(path);
+                changes.RemovedTrees.RemoveAll(tree => tree.Equals(path, StringComparison.OrdinalIgnoreCase));
+                changes.Added.Add(path);
+            }
+            if (changes.RemovedTrees.Count > MaxRemovedTrees || _volumes.Values.Sum(value => value.Count) > MaxTracked)
+            {
+                Lose(changes);
+                lost = true;
+            }
+        }
+        if (lost) LostChanges?.Invoke(root);
+    }
+
     public bool IsRemoved(string path)
     {
         lock (_gate)
         {
-            if (_removed.Count == 0)
-                return false;
-
-            if (_removed.Contains(path))
-                return true;
-
-            if (_removedTrees.Count == 0)
-                return false;
-
-            for (var i = 0; i < _removedTrees.Count; i++)
-            {
-                var tree = _removedTrees[i];
-
-                if (path.Length > tree.Length &&
-                    path.StartsWith(tree, StringComparison.OrdinalIgnoreCase) &&
-                    path[tree.Length] == Path.DirectorySeparatorChar)
-                {
-                    return true;
-                }
-            }
-
-            return false;
+            if (!_volumes.TryGetValue(Root(path), out var changes)) return false;
+            return changes.Removed.Contains(path) || changes.RemovedTrees.Any(tree =>
+                path.Length > tree.Length && path.StartsWith(tree, StringComparison.OrdinalIgnoreCase) &&
+                path[tree.Length] == Path.DirectorySeparatorChar);
         }
     }
 
-    public void CollectMatches(
-        IReadOnlyList<string> foldedTerms,
-        bool showHidden,
-        int limit,
-        List<FileSystemItem> results)
+    public void CollectMatches(IReadOnlyList<string> foldedTerms, bool showHidden, int limit, List<FileSystemItem> results)
     {
         string[] candidates;
-
-        lock (_gate)
-        {
-            if (_added.Count == 0)
-                return;
-
-            candidates = [.. _added];
-        }
-
+        lock (_gate) candidates = [.. _volumes.Values.Where(changes => !changes.Overflowed).SelectMany(changes => changes.Added)];
         foreach (var path in candidates)
         {
-            if (results.Count >= limit)
-                return;
-
+            if (results.Count >= limit) return;
             var name = Path.GetFileName(path);
-
-            if (name.Length == 0)
-                continue;
-
+            if (name.Length == 0) continue;
             var folded = name.ToLowerInvariant();
-            var matched = true;
-
-            for (var i = 0; i < foldedTerms.Count; i++)
-            {
-                if (!folded.Contains(foldedTerms[i], StringComparison.Ordinal))
-                {
-                    matched = false;
-                    break;
-                }
-            }
-
-            if (!matched)
-                continue;
-
+            if (foldedTerms.Any(term => !folded.Contains(term, StringComparison.Ordinal))) continue;
             var item = FileSystemItem.FromLocation(path);
-
-            if (item is null)
-                continue;
-
-            if (!showHidden && (item.IsHidden || (item.Attributes & FileAttributes.System) != 0))
-                continue;
-
+            if (item is null || (!showHidden && (item.IsHidden || (item.Attributes & FileAttributes.System) != 0))) continue;
             results.Add(item);
         }
-    }
-
-    // CHANGED (round 42): past the limit the overlay used to set the flag and keep adding every path
-    // anyway - full-path strings, a few hundred bytes each, growing for the whole session. Once it has
-    // overflowed its contents are not trusted (the index is no longer reported as live), so they are
-    // dropped and nothing more is recorded until a rescan clears it.
-    private void CheckSize()
-    {
-        if (_added.Count + _removed.Count <= MaxTracked) return;
-        Overflowed = true;
-        _added.Clear();
-        _added.TrimExcess();
-        _removed.Clear();
-        _removed.TrimExcess();
     }
 }

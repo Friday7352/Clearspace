@@ -28,6 +28,15 @@ public sealed class SettingsData
 
     public bool DiskMapRenderEverything { get; set; }
 
+    // NEW (round 50): index mapped network drives too (off by default: a large share is slow to read).
+    public bool IndexNetworkDrives { get; set; }
+
+    // NEW (round 46): experimental views of the disk usage map.
+    public bool DiskMapExperimentalViews { get; set; }
+    public int DiskMapExperimentalView { get; set; }     // 0 map, 1 3D blocks, 2 disk platter, 3 3D city (round 64)
+    public int DiskMap3DHeight { get; set; } = 1;        // Height3DMode
+    public int DiskMapPlatterStyle { get; set; }         // 0 platter, 1 grid
+
     public bool DiskMapBackgroundBuilding { get; set; } = true;
 
     public bool ShowHiddenItems { get; set; }
@@ -208,6 +217,37 @@ public static class SettingsService
             return;
 
         Current.DiskMapBackgroundBuilding = value;
+        Save();
+    }
+
+    // NEW (round 50)
+    public static bool GetIndexNetworkDrives() => Current.IndexNetworkDrives;
+
+    public static void SetIndexNetworkDrives(bool value)
+    {
+        if (Current.IndexNetworkDrives == value)
+            return;
+
+        Current.IndexNetworkDrives = value;
+        Save();
+    }
+
+    // NEW (round 46): experimental views.
+    public static bool GetDiskMapExperimentalViews() => Current.DiskMapExperimentalViews;
+    public static int GetDiskMapExperimentalView() => Current.DiskMapExperimentalView;
+    public static int GetDiskMap3DHeight() => Current.DiskMap3DHeight;
+    public static int GetDiskMapPlatterStyle() => Current.DiskMapPlatterStyle;
+
+    public static void SetDiskMapExperimentalViews(bool enabled, int view, int height, int platter)
+    {
+        if (Current.DiskMapExperimentalViews == enabled && Current.DiskMapExperimentalView == view &&
+            Current.DiskMap3DHeight == height && Current.DiskMapPlatterStyle == platter)
+            return;
+
+        Current.DiskMapExperimentalViews = enabled;
+        Current.DiskMapExperimentalView = view;
+        Current.DiskMap3DHeight = height;
+        Current.DiskMapPlatterStyle = platter;
         Save();
     }
 

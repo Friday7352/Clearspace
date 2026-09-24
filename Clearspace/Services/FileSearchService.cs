@@ -8,17 +8,16 @@ using Clearspace.Native;
 
 namespace Clearspace.Services;
 
-// CS499: The concurrent crawl has no automated tests, uses hard-to-test local functions, and does not report unreadable folders.
+// Iterative concurrent crawl; depth is bounded by the filesystem, not an arbitrary counter.
 internal static class FileSearchService
 {
-    private const int MaxDepth = 24;
 
 
     private sealed class VolumeQueue
     {
         public required string Root { get; init; }
         public required int Concurrency { get; init; }
-        public ConcurrentQueue<(string Path, int Depth)> Pending { get; } = new();
+        public ConcurrentQueue<string> Pending { get; } = new();
         public SemaphoreSlim Available { get; } = new(0);
 
         public int Outstanding;
@@ -63,7 +62,9 @@ internal static class FileSearchService
 
         try
         {
-            Task.WaitAll([.. workers], token);
+            // Workers observe stopToken themselves. Join before disposing their semaphores,
+            // including cancellation, so a canceled search never leaves workers running.
+            Task.WaitAll([.. workers]);
         }
         catch (AggregateException exception) when (exception.InnerExceptions.All(inner => inner is OperationCanceledException))
         {
@@ -110,7 +111,7 @@ internal static class FileSearchService
 
                 try
                 {
-                    Process(volume, entry.Path, entry.Depth);
+                    Process(volume, entry);
                 }
                 finally
                 {
@@ -133,7 +134,7 @@ internal static class FileSearchService
         }
 
 
-        void Process(VolumeQueue volume, string directory, int depth)
+        void Process(VolumeQueue volume, string directory)
         {
             List<FileSystemItem> entries;
 
@@ -152,12 +153,11 @@ internal static class FileSearchService
 
             foreach (var item in entries)
             {
-                if (item.IsFolder &&
-                    depth < MaxDepth &&
-                    (item.Attributes & FileAttributes.ReparsePoint) == 0)
+                stopToken.ThrowIfCancellationRequested();
+                if (FileIndexBuilder.CanDescend(item.Attributes, item.ReparseTag))
                 {
                     Interlocked.Increment(ref volume.Outstanding);
-                    volume.Pending.Enqueue((item.FullPath, depth + 1));
+                    volume.Pending.Enqueue(item.FullPath);
 
                     try
                     {
@@ -224,7 +224,7 @@ internal static class FileSearchService
             }
 
             Interlocked.Increment(ref volume.Outstanding);
-            volume.Pending.Enqueue((root, 0));
+            volume.Pending.Enqueue(root);
             volume.Available.Release();
         }
 

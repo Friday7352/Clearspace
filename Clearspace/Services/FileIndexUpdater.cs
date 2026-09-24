@@ -33,6 +33,7 @@ internal sealed class FileIndexUpdater : IDisposable
 
     // Raised on the updater thread after a batch is applied, with the paths that changed.
     public event Action<IReadOnlyList<string>>? Applied;
+    public event Action<string>? Failed;
 
     public void OnCreated(string path) => Enqueue(ChangeKind.Created, path);
     public void OnDeleted(string path) => Enqueue(ChangeKind.Deleted, path);
@@ -65,13 +66,27 @@ internal sealed class FileIndexUpdater : IDisposable
             Apply(index, kind, path, token);
     }
 
+    // Keep replay and publication together: an event arriving during the swap must target
+    // either the recorded replacement or the newly published volume, never only the old one.
+    public void PublishReplacement(VolumeIndex index, Action publish, CancellationToken token)
+    {
+        lock (_recordingGate)
+        {
+            var changes = EndRecording(index.Root);
+            Replay(index, changes, token);
+            publish();
+        }
+    }
+
     private void Enqueue(ChangeKind kind, string path)
     {
         if (string.IsNullOrEmpty(path)) return;
-        _queue.Enqueue((kind, path));
         lock (_recordingGate)
+        {
             foreach (var (root, changes) in _recording)
                 if (path.StartsWith(root, StringComparison.OrdinalIgnoreCase)) changes.Add((kind, path));
+            _queue.Enqueue((kind, path));
+        }
         _signal.Set();
     }
 
@@ -98,20 +113,23 @@ internal sealed class FileIndexUpdater : IDisposable
 
     private void ApplyBatch(List<(ChangeKind Kind, string Path)> batch, CancellationToken token)
     {
-        var volumes = _volumes();
         var applied = new List<string>();
         foreach (var (kind, path) in Coalesce(batch))
         {
-            var volume = Array.Find(volumes, v => path.StartsWith(v.Root, StringComparison.OrdinalIgnoreCase));
-            if (volume is null) continue;
+            VolumeIndex? volume = null;
             try
             {
-                if (Apply(volume, kind, path, token)) applied.Add(path);
+                lock (_recordingGate)
+                {
+                    volume = Array.Find(_volumes(), v => path.StartsWith(v.Root, StringComparison.OrdinalIgnoreCase));
+                    if (volume is not null && Apply(volume, kind, path, token)) applied.Add(path);
+                }
             }
             catch (OperationCanceledException) { throw; }
             catch (Exception exception)
             {
                 Trace.WriteLine($"Clearspace: could not apply a change to the index for {path}. {exception.Message}");
+                if (volume is not null) Failed?.Invoke(volume.Root);
             }
         }
         if (applied.Count > 0) Applied?.Invoke(applied);

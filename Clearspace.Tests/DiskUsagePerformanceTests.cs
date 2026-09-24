@@ -337,7 +337,10 @@ public sealed class DiskUsagePerformanceTests
     {
         // At rest these folders are below the prefetch threshold. Zooming makes
         // them large enough to load without allowing an earlier idle load burst.
-        using var map = CreateMap(200, 200);
+        using var map = CreateMap(100, 100);
+        // Idle prebuilding is now an independent feature. Isolate speculative zoom work;
+        // at 100px each of the 144 tiles is below the current 10px prefetch threshold.
+        map.BackgroundBuilding = false;
         using var release = new ManualResetEventSlim();
         var loads = 0;
         var roots = Enumerable.Range(1, 144).Select(id => new DiskUsageItem(id, $"Folder {id}", 100, 1, true)).ToArray();
@@ -351,9 +354,9 @@ public sealed class DiskUsagePerformanceTests
         await WaitFor(() => map.PendingLoads == 0);
         try
         {
-            map.ZoomWithWheel(new Point(100, 100), 720);
+            map.ZoomWithWheel(new Point(50, 50), 720);
             map.RenderTestFrame(.15);
-            await WaitFor(() => Volatile.Read(ref loads) > 0);
+            await WaitFor(() => { map.RenderTestFrame(); return Volatile.Read(ref loads) > 0; });
             Assert.AreEqual(1, map.PendingLoads, "Zooming must not launch a burst of speculative folder allocations.");
             Assert.AreEqual(1, Volatile.Read(ref loads));
         }

@@ -1,0 +1,996 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TestRun id="83fb24ba-149f-4a7e-a468-345c656907d3" name="Payton@PAYTONPC 2026-09-23 13:06:58" runUser="PaytonPC\Payton" xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010">
+  <Times creation="2026-09-23T13:06:58.2381853-05:00" queuing="2026-09-23T13:06:58.2381854-05:00" start="2026-09-23T13:06:57.5898562-05:00" finish="2026-09-23T13:07:10.7309033-05:00" />
+  <TestSettings name="default" id="9c3e0751-9c90-465a-82ac-6756505688c9">
+    <Deployment runDeploymentRoot="Payton_PAYTONPC_2026-09-23_13_06_58" />
+  </TestSettings>
+  <Results>
+    <UnitTestResult executionId="b29689de-428f-4adc-ba0f-ec2187936e5c" testId="d8badc5d-f51a-ed9e-f13f-38e926853d48" testName="CanceledFolderLoadDoesNotEnumerate" computerName="PAYTONPC" duration="00:00:00.0012404" startTime="2026-09-23T13:07:09.9918372-05:00" endTime="2026-09-23T13:07:09.9931554-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="b29689de-428f-4adc-ba0f-ec2187936e5c" />
+    <UnitTestResult executionId="e1d1a91e-8da8-4182-b1fe-5ac8acf72ee0" testId="193c34c4-6765-8b93-005f-0c3a63f07088" testName="PermissionFailureRemainsDistinctForUserFeedback" computerName="PAYTONPC" duration="00:00:00.0029191" startTime="2026-09-23T13:07:09.9887888-05:00" endTime="2026-09-23T13:07:09.9917769-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="e1d1a91e-8da8-4182-b1fe-5ac8acf72ee0" />
+    <UnitTestResult executionId="c7a865e8-56f2-44cd-8010-896e997a1174" testId="9f53921b-ba47-760a-e1e4-50b1a59d39ca" testName="NativeOutcomePreservesStatusAndDiagnostics (1223,False,Canceled,None)" computerName="PAYTONPC" duration="00:00:00.0000061" startTime="2026-09-23T13:07:09.9821933-05:00" endTime="2026-09-23T13:07:09.9822531-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="c7a865e8-56f2-44cd-8010-896e997a1174" />
+    <UnitTestResult executionId="b5163fe1-2775-40e9-9eb5-c77dd3edf0cc" testId="b6b9ddc6-f2a0-a051-4782-3ac4c48ad4dd" testName="DisposeCancelsDebounceWithoutCallingSources" computerName="PAYTONPC" duration="00:00:00.0009455" startTime="2026-09-23T13:07:10.0210645-05:00" endTime="2026-09-23T13:07:10.0220926-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="b5163fe1-2775-40e9-9eb5-c77dd3edf0cc" />
+    <UnitTestResult executionId="3dd4c60d-2862-473a-bc4d-43e6abbaf027" testId="71bd9ca9-34d1-aa22-e7d3-d8b8644d296e" testName="ClearingCompletedSearchRestoresBrowsingStatus (&quot;clearspace://cloud&quot;,0,&quot;No locations available&quot;)" computerName="PAYTONPC" duration="00:00:00.0000197" startTime="2026-09-23T13:07:10.0120277-05:00" endTime="2026-09-23T13:07:10.0121023-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="3dd4c60d-2862-473a-bc4d-43e6abbaf027" />
+    <UnitTestResult executionId="d2019b3c-0195-4169-84e6-e3351022246b" testId="03a420c6-8667-75c5-94e0-7530b36d36c9" testName="MissingFolderInReloadedHistoryDoesNotMoveHistoryPosition" computerName="PAYTONPC" duration="00:00:00.0010714" startTime="2026-09-23T13:07:07.9534104-05:00" endTime="2026-09-23T13:07:07.9545197-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="d2019b3c-0195-4169-84e6-e3351022246b" />
+    <UnitTestResult executionId="07c32c7d-394a-4fd6-983c-ff195194473d" testId="8d87c43b-eaab-73ac-ae47-ea5732a42e96" testName="LostEventsAndRecoveryAreIsolatedAndGenerationChecked" computerName="PAYTONPC" duration="00:00:00.0015029" startTime="2026-09-23T13:07:10.1976991-05:00" endTime="2026-09-23T13:07:10.1992396-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="07c32c7d-394a-4fd6-983c-ff195194473d" />
+    <UnitTestResult executionId="e87ce4ce-342e-4c48-ab39-08c4215f93d8" testId="6a8f53dc-2e84-9ae7-2c05-fb5caaaef58e" testName="ReloadReplacesSnapshotAndDriveSelectionUsesItsOwnHierarchy" computerName="PAYTONPC" duration="00:00:00.0011793" startTime="2026-09-23T13:07:07.2142979-05:00" endTime="2026-09-23T13:07:07.2155181-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="e87ce4ce-342e-4c48-ab39-08c4215f93d8" />
+    <UnitTestResult executionId="7bb13699-225f-4057-96b0-dd1c6a306d0b" testId="1377a481-74e3-d4ab-3190-ebb52730acfd" testName="BothTraversalsUseTheSameReparsePolicy (2684354572,False)" computerName="PAYTONPC" duration="00:00:00.0001707" startTime="2026-09-23T13:07:10.1968389-05:00" endTime="2026-09-23T13:07:10.1971616-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="7bb13699-225f-4057-96b0-dd1c6a306d0b" />
+    <UnitTestResult executionId="dbcb9618-4097-4443-89be-a230d9cd0029" testId="5146c5dd-69f5-e5ed-03a8-77937e046449" testName="SupersededLoadCannotReplaceANewerDrive" computerName="PAYTONPC" duration="00:00:00.0071064" startTime="2026-09-23T13:07:07.2155379-05:00" endTime="2026-09-23T13:07:07.2227030-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="dbcb9618-4097-4443-89be-a230d9cd0029" />
+    <UnitTestResult executionId="b249b55a-395a-4047-91b9-bfeffea3db16" testId="4f40ef91-402c-57b3-6878-168cf354ef00" testName="MissingIndexedEntriesAreRemovedAndHiddenResultsFiltered" computerName="PAYTONPC" duration="00:00:00.0005249" startTime="2026-09-23T13:07:10.0133185-05:00" endTime="2026-09-23T13:07:10.0138767-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="b249b55a-395a-4047-91b9-bfeffea3db16" />
+    <UnitTestResult executionId="ceca05da-6f00-4dc1-9d70-bd3f86366ff0" testId="833277c3-4e4d-59e3-3c81-475df791e238" testName="InvalidDestinationNeverCallsWindows (&quot;C:\dest\u0000hidden&quot;)" computerName="PAYTONPC" duration="00:00:00.0000030" startTime="2026-09-23T13:07:09.9855833-05:00" endTime="2026-09-23T13:07:09.9856158-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="ceca05da-6f00-4dc1-9d70-bd3f86366ff0" />
+    <UnitTestResult executionId="7a4858e2-672a-470e-a416-8609e7682700" testId="1f067f4c-b1c0-84db-a68a-36dc12094df3" testName="BusyGpuDefersLabelsHitTargetsAndTilesTogether" computerName="PAYTONPC" duration="00:00:00.2245113" startTime="2026-09-23T13:07:06.2907257-05:00" endTime="2026-09-23T13:07:06.5153134-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="7a4858e2-672a-470e-a416-8609e7682700" />
+    <UnitTestResult executionId="097133ff-b280-4382-b0a3-ca4327106364" testId="90870f83-542d-9ac6-d05c-3b77335e3a1e" testName="ClearingCompletedSearchRestoresBrowsingStatus (&quot;clearspace://my-pc&quot;,1,&quot;1 drive&quot;)" computerName="PAYTONPC" duration="00:00:00.0000239" startTime="2026-09-23T13:07:10.0117210-05:00" endTime="2026-09-23T13:07:10.0118112-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="097133ff-b280-4382-b0a3-ca4327106364" />
+    <UnitTestResult executionId="3a2e3859-7e3d-4a32-90e9-922b67d7ecb4" testId="86101756-059c-0ae9-3f27-48643e91d9a0" testName="RequestsRejectRootsGroupsForeignChildrenAndUnsafeNames" computerName="PAYTONPC" duration="00:00:00.0029614" startTime="2026-09-23T13:06:58.1639253-05:00" endTime="2026-09-23T13:06:58.1669735-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="3a2e3859-7e3d-4a32-90e9-922b67d7ecb4" />
+    <UnitTestResult executionId="8f5ec6a5-49c7-4612-9783-1541ef65a1fd" testId="f61700b6-fb4c-d8e4-db35-5e07a33415df" testName="CombinedResultsRespectLimit" computerName="PAYTONPC" duration="00:00:00.0070707" startTime="2026-09-23T13:07:10.0138921-05:00" endTime="2026-09-23T13:07:10.0210147-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="8f5ec6a5-49c7-4612-9783-1541ef65a1fd" />
+    <UnitTestResult executionId="376764ed-8846-4761-8e57-c4cb546ce784" testId="28b8c877-544b-bd2a-39f9-64d7e3682d09" testName="InvalidSourceNeverCallsWindows (&quot; &quot;)" computerName="PAYTONPC" duration="00:00:00.0000821" startTime="2026-09-23T13:07:09.9845008-05:00" endTime="2026-09-23T13:07:09.9846283-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="376764ed-8846-4761-8e57-c4cb546ce784" />
+    <UnitTestResult executionId="76dfa024-4b05-4844-8469-bf359f17a0a2" testId="b8b18cb2-f9f1-7e7e-71ba-bfabd2244d93" testName="FoldedSearchFiltersHiddenAndSystemEntries" computerName="PAYTONPC" duration="00:00:00.0010671" startTime="2026-09-23T13:07:09.9745091-05:00" endTime="2026-09-23T13:07:09.9756731-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="76dfa024-4b05-4844-8469-bf359f17a0a2" />
+    <UnitTestResult executionId="414ea4b4-37c4-4399-9b8d-e2fa3576b90f" testId="89685cc1-843f-50e2-6c89-0ac4b2a5c232" testName="KindFilterDistinguishesFilesFromDirectories" computerName="PAYTONPC" duration="00:00:00.0001277" startTime="2026-09-23T13:07:10.0480727-05:00" endTime="2026-09-23T13:07:10.0482337-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="414ea4b4-37c4-4399-9b8d-e2fa3576b90f" />
+    <UnitTestResult executionId="3c775d2b-c084-4fc1-8a52-43f78cf4b59c" testId="eb246522-5393-8697-de5a-870a4b3824a3" testName="SaveFailureIsReportedAndClearedAfterRecovery" computerName="PAYTONPC" duration="00:00:00.0128220" startTime="2026-09-23T13:07:10.0295497-05:00" endTime="2026-09-23T13:07:10.0424296-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="3c775d2b-c084-4fc1-8a52-43f78cf4b59c">
+      <Output>
+        <StdOut>Debug Trace:&#xD;
+Clearspace: could not save tags. System.IO.IOException: Disk unavailable&#xD;
+   at Clearspace.Tests.TagAndQueryTests.&lt;&gt;c__DisplayClass7_0.&lt;SaveFailureIsReportedAndClearedAfterRecovery&gt;b__1(String _) in E:\GithubRepos\File Explorer Remake\Clearspace.Tests\TagAndQueryTests.cs:line 82&#xD;
+   at Clearspace.Services.TagStore.Save() in E:\GithubRepos\File Explorer Remake\Clearspace\Services\TagStore.cs:line 120</StdOut>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="969e16ca-33ff-47e1-bf2a-d52b31959704" testId="6b7f6082-e36e-67df-08ee-0036d39c653e" testName="CollapsedCategoryDoesNotLoadItsChildren" computerName="PAYTONPC" duration="00:00:00.0001559" startTime="2026-09-23T13:07:09.9945152-05:00" endTime="2026-09-23T13:07:09.9947025-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="969e16ca-33ff-47e1-bf2a-d52b31959704" />
+    <UnitTestResult executionId="2910a001-e477-462f-8593-816031f77c18" testId="2542f969-45c5-ba9c-7fee-eb7fd9188091" testName="NativeOutcomePreservesStatusAndDiagnostics (5,True,Canceled,AccessDenied)" computerName="PAYTONPC" duration="00:00:00.0000042" startTime="2026-09-23T13:07:09.9824981-05:00" endTime="2026-09-23T13:07:09.9825398-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="2910a001-e477-462f-8593-816031f77c18" />
+    <UnitTestResult executionId="a6192f84-ac5b-4f6a-911d-b9927a52fcdb" testId="639de04d-5671-735b-3fa4-3485e2598d18" testName="ClearingCompletedSearchRestoresBrowsingStatus (&quot;clearspace://your-files&quot;,1,&quot;1 location&quot;)" computerName="PAYTONPC" duration="00:00:00.0000170" startTime="2026-09-23T13:07:10.0121148-05:00" endTime="2026-09-23T13:07:10.0121716-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="a6192f84-ac5b-4f6a-911d-b9927a52fcdb" />
+    <UnitTestResult executionId="41b8d0f2-0dda-457a-8bb2-2a8392c74a3e" testId="36502015-2cfc-af8d-ef45-70ef78761b6a" testName="ExplicitUnknownTagMatchesNothingAndKnownTagUsesInjectedStore" computerName="PAYTONPC" duration="00:00:00.0001919" startTime="2026-09-23T13:07:10.0478385-05:00" endTime="2026-09-23T13:07:10.0480568-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="41b8d0f2-0dda-457a-8bb2-2a8392c74a3e" />
+    <UnitTestResult executionId="f70c6f5e-794f-40e7-bb49-1c042bf17058" testId="c51b2e62-0327-d006-0720-8905d61affeb" testName="FrameRequestsCoalesceAndLetInputRunFirst" computerName="PAYTONPC" duration="00:00:00.0914903" startTime="2026-09-23T13:07:05.2998781-05:00" endTime="2026-09-23T13:07:05.3915768-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="f70c6f5e-794f-40e7-bb49-1c042bf17058" />
+    <UnitTestResult executionId="17ee46b1-3f99-4628-8550-fe7ae0f8c0d8" testId="e7e07e45-86da-30b7-4423-2c44597d47a1" testName="GpuRendererPresentsAndResizesWhenAvailable" computerName="PAYTONPC" duration="00:00:00.3127163" startTime="2026-09-23T13:07:06.8798657-05:00" endTime="2026-09-23T13:07:07.1927268-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="17ee46b1-3f99-4628-8550-fe7ae0f8c0d8">
+      <Output>
+        <StdOut>TestContext Messages:&#xD;
+GPU smoke check: 12/12 frames presented; multisampling True; resize exercised.</StdOut>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="6df73340-072a-4871-b97b-3c7ab73c5279" testId="6327ea4e-6402-f315-4762-474b2de2680e" testName="CoverageLostDuringIndexLookupIsRechecked" computerName="PAYTONPC" duration="00:00:00.0005015" startTime="2026-09-23T13:07:10.0235053-05:00" endTime="2026-09-23T13:07:10.0240597-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="6df73340-072a-4871-b97b-3c7ab73c5279" />
+    <UnitTestResult executionId="e42c9f43-768e-452c-9da6-5bd8d9bc65b5" testId="7ad0a406-698e-1b78-f163-9959fd1b2b77" testName="ExclusionsDoNotHideSameNamedSiblingsOrNewerIndexVersions" computerName="PAYTONPC" duration="00:00:00.0003213" startTime="2026-09-23T13:06:58.2089927-05:00" endTime="2026-09-23T13:06:58.2093643-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="e42c9f43-768e-452c-9da6-5bd8d9bc65b5" />
+    <UnitTestResult executionId="9628ab9b-8302-44e0-a853-7fea691bd6f2" testId="670b0504-2b49-0f97-0489-d6c0bf347cbd" testName="ClearingCompletedSearchRestoresBrowsingStatus (&quot;clearspace://network&quot;,0,&quot;No mapped network locations&quot;)" computerName="PAYTONPC" duration="00:00:00.0000153" startTime="2026-09-23T13:07:10.0118243-05:00" endTime="2026-09-23T13:07:10.0118854-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="9628ab9b-8302-44e0-a853-7fea691bd6f2" />
+    <UnitTestResult executionId="e54c9773-48aa-45a5-bce0-16d9c855ec4b" testId="10179edc-562b-4437-9c38-9eca5b513ff2" testName="TreemapHandlesEmptyInvalidAndSingleItemInputs" computerName="PAYTONPC" duration="00:00:00.0006680" startTime="2026-09-23T13:07:07.2097342-05:00" endTime="2026-09-23T13:07:07.2104549-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="e54c9773-48aa-45a5-bce0-16d9c855ec4b" />
+    <UnitTestResult executionId="4953d5ad-3baf-4a9c-b573-f4f58cd8209a" testId="344d1813-6e92-a7bb-567b-26715fb0dadf" testName="InvalidSourceNeverCallsWindows (&quot;C:\source\*.txt&quot;)" computerName="PAYTONPC" duration="00:00:00.0000051" startTime="2026-09-23T13:07:09.9846934-05:00" endTime="2026-09-23T13:07:09.9847907-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="4953d5ad-3baf-4a9c-b573-f4f58cd8209a" />
+    <UnitTestResult executionId="bc8cd607-bac3-4345-9ab5-82f96d9267a7" testId="3fe6993a-f79d-85b9-3e11-22e838f8be61" testName="HistoryTruncatesForwardBranchAfterNewNavigation" computerName="PAYTONPC" duration="00:00:00.0002176" startTime="2026-09-23T13:07:09.9931756-05:00" endTime="2026-09-23T13:07:09.9934318-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="bc8cd607-bac3-4345-9ab5-82f96d9267a7" />
+    <UnitTestResult executionId="f4030039-9182-4006-9de1-219fa9720a60" testId="c14c69d7-830e-d300-fe0d-496b044f7fb4" testName="EmptySelectionIsRejectedByEveryBatchOperation" computerName="PAYTONPC" duration="00:00:00.0002198" startTime="2026-09-23T13:07:09.9856241-05:00" endTime="2026-09-23T13:07:09.9858710-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="f4030039-9182-4006-9de1-219fa9720a60" />
+    <UnitTestResult executionId="d59177d8-f752-42bd-8db3-16d9a05272f7" testId="cf3b3d23-570d-54c8-33e1-cfbfeeed4027" testName="MergesAllSourcesWithoutCaseInsensitiveDuplicates" computerName="PAYTONPC" duration="00:00:00.0062054" startTime="2026-09-23T13:07:09.9959535-05:00" endTime="2026-09-23T13:07:10.0022925-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="d59177d8-f752-42bd-8db3-16d9a05272f7" />
+    <UnitTestResult executionId="06bd637e-ea87-47d0-99d7-c37d5f81d7e7" testId="58bddaa2-2a2d-fe66-e1b6-a3c211a01e3e" testName="NativeRequestRetainsPathsFlagsAndOwner (Move,1)" computerName="PAYTONPC" duration="00:00:00.0001735" startTime="2026-09-23T13:07:09.9838619-05:00" endTime="2026-09-23T13:07:09.9840923-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="06bd637e-ea87-47d0-99d7-c37d5f81d7e7" />
+    <UnitTestResult executionId="fea7129c-1224-40f2-8cb5-99b49a7e5b19" testId="9019e099-72f8-628a-20ce-c848580d1306" testName="NativeOutcomePreservesStatusAndDiagnostics (2,False,Failed,NotFound)" computerName="PAYTONPC" duration="00:00:00.0000045" startTime="2026-09-23T13:07:09.9823946-05:00" endTime="2026-09-23T13:07:09.9824364-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="fea7129c-1224-40f2-8cb5-99b49a7e5b19" />
+    <UnitTestResult executionId="fe7645ab-0799-4798-a099-0aa003f7e9d5" testId="8e512ed7-b3f6-de6e-54ca-ebb6abebccab" testName="MalformedJsonFallsBackToDefaultsWithoutOverwritingInput" computerName="PAYTONPC" duration="00:00:00.0006636" startTime="2026-09-23T13:07:10.0444509-05:00" endTime="2026-09-23T13:07:10.0451647-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="fe7645ab-0799-4798-a099-0aa003f7e9d5" />
+    <UnitTestResult executionId="788f8712-5917-469d-b625-0b0dc282f09e" testId="b170cda7-0486-2fa5-3411-3762880e21e0" testName="NativeOutcomePreservesStatusAndDiagnostics (5,False,Failed,AccessDenied)" computerName="PAYTONPC" duration="00:00:00.0000045" startTime="2026-09-23T13:07:09.9822642-05:00" endTime="2026-09-23T13:07:09.9823088-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="788f8712-5917-469d-b625-0b0dc282f09e" />
+    <UnitTestResult executionId="c7365c1d-17d8-474e-9afe-8d1c951a6e25" testId="a49e156d-234a-bdab-e86d-d05a278f5b1e" testName="EntryAndNamePoolsGrowWithoutLosingData" computerName="PAYTONPC" duration="00:00:00.0007874" startTime="2026-09-23T13:07:09.9766726-05:00" endTime="2026-09-23T13:07:09.9774938-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="c7365c1d-17d8-474e-9afe-8d1c951a6e25" />
+    <UnitTestResult executionId="fcc89872-0fa0-4e3e-8bd0-7f2fd047496d" testId="7e1838a9-d296-8e4a-deb6-f6219613d811" testName="BothSearchPathsReachFortyEightLevelsAndTrackRenamesAndDeletions" computerName="PAYTONPC" duration="00:00:00.0689224" startTime="2026-09-23T13:07:10.0485110-05:00" endTime="2026-09-23T13:07:10.1175685-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="fcc89872-0fa0-4e3e-8bd0-7f2fd047496d">
+      <Output>
+        <StdOut>TestContext Messages:&#xD;
+48-level native traversal: 4.75 ms; estimated index bytes 327,680.</StdOut>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="8ee71e02-bb7c-46f9-8e8c-74484675be9d" testId="002f5b0a-d613-afe7-9e74-fe5279f5327c" testName="FlatLayoutPreservesEveryFileAndProportionalNonOverlappingAreas (1000,1)" computerName="PAYTONPC" duration="00:00:00.0230508" startTime="2026-09-23T13:06:57.9907472-05:00" endTime="2026-09-23T13:06:58.0237076-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="8ee71e02-bb7c-46f9-8e8c-74484675be9d">
+      <Output>
+        <StdOut>TestContext Messages:&#xD;
+Flat layout: 1,000 files, 1,009 tiles, 9.32 ms, 55,161 retained array bytes.</StdOut>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="3eda6140-0ce1-42d7-8e48-b01bfef68aba" testId="6723921e-4e93-8a41-139e-21042cffe488" testName="NativeRequestRetainsPathsFlagsAndOwner (Delete,3)" computerName="PAYTONPC" duration="00:00:00.0000043" startTime="2026-09-23T13:07:09.9841774-05:00" endTime="2026-09-23T13:07:09.9842124-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="3eda6140-0ce1-42d7-8e48-b01bfef68aba" />
+    <UnitTestResult executionId="4270de70-0f5f-469d-93c6-324b086ce769" testId="62e15699-ce4c-ae40-1ccc-957c19638cb5" testName="DrainsFinalCrawlBatchBeforeReportingCompletion" computerName="PAYTONPC" duration="00:00:00.0003776" startTime="2026-09-23T13:07:10.0128924-05:00" endTime="2026-09-23T13:07:10.0133034-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="4270de70-0f5f-469d-93c6-324b086ce769" />
+    <UnitTestResult executionId="7de708a5-0107-451b-a53f-766bf9ea06c1" testId="47523091-6aac-5008-6810-7b1056803fe5" testName="StableLayoutKeepsOrderWhenSizesCrossAndHandlesInsertionsAndRemovals" computerName="PAYTONPC" duration="00:00:00.0172545" startTime="2026-09-23T13:06:58.0805948-05:00" endTime="2026-09-23T13:06:58.0979468-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="7de708a5-0107-451b-a53f-766bf9ea06c1" />
+    <UnitTestResult executionId="bdf0f019-6773-4a3e-b38b-868a9dd19caf" testId="bf28598f-5276-ac84-f385-92edcb8bdedc" testName="DenseCameraFramesHaveBoundedWorkAndReportTimings (4748,1220,True)" computerName="PAYTONPC" duration="00:00:03.7660799" startTime="2026-09-23T13:07:01.5329336-05:00" endTime="2026-09-23T13:07:05.2994965-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="bdf0f019-6773-4a3e-b38b-868a9dd19caf">
+      <Output>
+        <StdOut>TestContext Messages:&#xD;
+GPU, 4748x1220, 25,600 files, 180 camera frames: median 0.12 ms, p95 4.45 ms, max 11.05 ms; walk median 0.00 ms, p95 0.00 ms; UI allocation 140,483 bytes/frame; peak 7,873 tiles; 12 builds, 687 reused frames, 12 GPU uploads.</StdOut>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="f3cffb4f-5083-452c-a44c-17068bf8ddf3" testId="0fce0c27-fa27-0faf-6d17-f6b69be966c5" testName="CanceledOrDisposedLoadCannotPublishResults" computerName="PAYTONPC" duration="00:00:00.0009001" startTime="2026-09-23T13:07:07.2133365-05:00" endTime="2026-09-23T13:07:07.2142778-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="f3cffb4f-5083-452c-a44c-17068bf8ddf3" />
+    <UnitTestResult executionId="2d55033e-8d36-45c8-a115-3fbe4e839130" testId="0fa96abd-799f-1295-b7e2-bd4f3366a801" testName="OverlayCapacityFailureOnlyDisablesTheOffendingDrive" computerName="PAYTONPC" duration="00:00:00.0787232" startTime="2026-09-23T13:07:10.1996806-05:00" endTime="2026-09-23T13:07:10.2784987-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="2d55033e-8d36-45c8-a115-3fbe4e839130" />
+    <UnitTestResult executionId="066ecc8c-b31c-4a59-9a9f-9bd661317eaa" testId="036d855e-0849-dd30-87b2-63df52691950" testName="ClearingCompletedSearchRestoresBrowsingStatus (&quot;C:\source&quot;,2,&quot;2 folders, 0 files&quot;)" computerName="PAYTONPC" duration="00:00:00.0003265" startTime="2026-09-23T13:07:10.0112948-05:00" endTime="2026-09-23T13:07:10.0117023-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="066ecc8c-b31c-4a59-9a9f-9bd661317eaa" />
+    <UnitTestResult executionId="73526c78-b42d-4934-97af-b906807b3e3a" testId="7a38b1e4-d758-ee78-a157-8a5fb563db19" testName="EmptyQueryHasNoFilters (null)" computerName="PAYTONPC" duration="00:00:00.0000706" startTime="2026-09-23T13:07:10.0451921-05:00" endTime="2026-09-23T13:07:10.0453716-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="73526c78-b42d-4934-97af-b906807b3e3a" />
+    <UnitTestResult executionId="848114d5-273b-47ee-8cfb-a3fc7b6b2d8b" testId="fc588aa4-aaff-665c-1410-789b7951c1ca" testName="EmptyQueryPreservesNavigationStatusWhenStatusUpdateIsNotRequested" computerName="PAYTONPC" duration="00:00:00.0003407" startTime="2026-09-23T13:07:10.0124952-05:00" endTime="2026-09-23T13:07:10.0128753-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="848114d5-273b-47ee-8cfb-a3fc7b6b2d8b" />
+    <UnitTestResult executionId="87dd3e90-97f0-473b-b264-50659e87b15b" testId="cf723f4d-1c21-5d23-b945-ec26c225efec" testName="MissingPathsArePrunedUsingIsolatedExistenceCheck" computerName="PAYTONPC" duration="00:00:00.0005602" startTime="2026-09-23T13:07:10.0425634-05:00" endTime="2026-09-23T13:07:10.0432134-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="87dd3e90-97f0-473b-b264-50659e87b15b" />
+    <UnitTestResult executionId="5863bfc8-c0a0-40d6-8cc5-af97ae192d46" testId="9c1bb674-b69a-0a86-2ecb-12a6d9d1b2e4" testName="EventsDuringReplacementAreAppliedToThePublishedIndex" computerName="PAYTONPC" duration="00:00:00.3591236" startTime="2026-09-23T13:07:10.2785718-05:00" endTime="2026-09-23T13:07:10.6378166-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="5863bfc8-c0a0-40d6-8cc5-af97ae192d46" />
+    <UnitTestResult executionId="8a883b3a-6283-40b4-82b5-9432aa147d8d" testId="4e070c3c-9752-8264-a78a-2b488783401d" testName="DisplaySharesAndGroupedTilesPreserveTotalsAndMatchListColors" computerName="PAYTONPC" duration="00:00:00.0016102" startTime="2026-09-23T13:07:07.9545380-05:00" endTime="2026-09-23T13:07:07.9561949-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="8a883b3a-6283-40b4-82b5-9432aa147d8d" />
+    <UnitTestResult executionId="bce7a169-ff9f-4fa7-846a-b6707c1e9fba" testId="6499b362-3804-188a-349c-a2eb013c894c" testName="MapListingWaitsWhenZoomResumesDuringPreparation" computerName="PAYTONPC" duration="00:00:00.7245617" startTime="2026-09-23T13:07:07.2240660-05:00" endTime="2026-09-23T13:07:07.9487161-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="bce7a169-ff9f-4fa7-846a-b6707c1e9fba" />
+    <UnitTestResult executionId="12ad17d1-715a-441c-afdd-f56769e8ea88" testId="51bba982-c1a7-4ddc-fcc1-d6df78adb6e4" testName="ViewModelSupportsInitialFolderDrillDownUpAndMissingFolder" computerName="PAYTONPC" duration="00:00:00.0015337" startTime="2026-09-23T13:07:07.2106849-05:00" endTime="2026-09-23T13:07:07.2122621-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="12ad17d1-715a-441c-afdd-f56769e8ea88" />
+    <UnitTestResult executionId="fb70e5f9-b2aa-4ba0-8e62-df8399d796b8" testId="45a0576d-29c1-2a88-c7d2-7bfb45b7837d" testName="NoIndexAndInvalidIndexProduceActionableEmptyStates" computerName="PAYTONPC" duration="00:00:00.0009908" startTime="2026-09-23T13:07:07.2122841-05:00" endTime="2026-09-23T13:07:07.2133177-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="fb70e5f9-b2aa-4ba0-8e62-df8399d796b8" />
+    <UnitTestResult executionId="d9b52c6d-f502-44ad-894a-e2682bfe8f2b" testId="73dc3ab0-fffb-9635-fc00-efeb155ad832" testName="CoveredIndexSkipsOtherSourcesUnlessContentSearchNeedsWindows" computerName="PAYTONPC" duration="00:00:00.0022543" startTime="2026-09-23T13:07:10.0023713-05:00" endTime="2026-09-23T13:07:10.0047518-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="d9b52c6d-f502-44ad-894a-e2682bfe8f2b" />
+    <UnitTestResult executionId="cd6609b0-a889-452a-b68c-c927ae1234a7" testId="fe288705-7c68-0cd4-dced-3a0656d6b333" testName="ClearingCompletedSearchRestoresBrowsingStatus (&quot;clearspace://category/documents&quot;,2,&quot;2 locations&quot;)" computerName="PAYTONPC" duration="00:00:00.0000184" startTime="2026-09-23T13:07:10.0121825-05:00" endTime="2026-09-23T13:07:10.0122421-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="cd6609b0-a889-452a-b68c-c927ae1234a7" />
+    <UnitTestResult executionId="2dc3aa80-d63b-48a0-be58-2e80fe14b969" testId="df369080-ab75-6c56-2cb6-1f91155cdf9d" testName="FlatLayoutPreservesEveryFileAndProportionalNonOverlappingAreas (30000,3.89)" computerName="PAYTONPC" duration="00:00:00.0491443" startTime="2026-09-23T13:06:58.0269600-05:00" endTime="2026-09-23T13:06:58.0763420-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="2dc3aa80-d63b-48a0-be58-2e80fe14b969">
+      <Output>
+        <StdOut>TestContext Messages:&#xD;
+Flat layout: 30,000 files, 30,203 tiles, 25.27 ms, 850,392 retained array bytes.</StdOut>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="bf574de3-083b-4a6c-b70a-878e076fe0b3" testId="738183e7-4f21-a2e2-95ea-ed0ec622cf02" testName="NativeOutcomePreservesStatusAndDiagnostics (3,False,Failed,NotFound)" computerName="PAYTONPC" duration="00:00:00.0000048" startTime="2026-09-23T13:07:09.9824454-05:00" endTime="2026-09-23T13:07:09.9824897-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="bf574de3-083b-4a6c-b70a-878e076fe0b3" />
+    <UnitTestResult executionId="a73b802a-15e4-45b0-85ba-225f844c93a2" testId="a347be21-6be2-5eef-d450-853f87bb13e7" testName="InvalidHierarchyAndOverflowFailExplicitly" computerName="PAYTONPC" duration="00:00:00.0004183" startTime="2026-09-23T13:07:07.2015877-05:00" endTime="2026-09-23T13:07:07.2020850-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="a73b802a-15e4-45b0-85ba-225f844c93a2" />
+    <UnitTestResult executionId="d304fbe8-24db-4e8f-871f-e0c6dc553755" testId="40a2a42e-8897-e4b0-777c-c5d9060ece41" testName="BusyGpuFrameReleasesItsLockAndTheNextFrameCanRender" computerName="PAYTONPC" duration="00:00:00.1850813" startTime="2026-09-23T13:07:06.6945514-05:00" endTime="2026-09-23T13:07:06.8797771-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="d304fbe8-24db-4e8f-871f-e0c6dc553755" />
+    <UnitTestResult executionId="a34be106-09c2-46c3-ad0a-0956f3b99904" testId="045e79d2-cfcc-1afa-728f-6339fbbe7dc2" testName="SamePathRefreshDoesNotDuplicateHistoryAndVirtualHubCannotGoUp" computerName="PAYTONPC" duration="00:00:00.0001640" startTime="2026-09-23T13:07:09.9934479-05:00" endTime="2026-09-23T13:07:09.9936439-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="a34be106-09c2-46c3-ad0a-0956f3b99904" />
+    <UnitTestResult executionId="070ce6c1-9bd0-4970-bedc-faaa70c0402d" testId="18d709e2-a397-51f0-2807-d61c18daa0e3" testName="EmptyCompactedIndexCanAcceptItsFirstEntry" computerName="PAYTONPC" duration="00:00:00.0000844" startTime="2026-09-23T13:07:09.9765430-05:00" endTime="2026-09-23T13:07:09.9766582-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="070ce6c1-9bd0-4970-bedc-faaa70c0402d" />
+    <UnitTestResult executionId="502dfcdf-eba8-4692-9d55-f297e6d6d33a" testId="58bba699-0e3b-893b-ada0-a6ed0f8053ab" testName="NativeOutcomePreservesStatusAndDiagnostics (65652,False,Failed,Other)" computerName="PAYTONPC" duration="00:00:00.0000041" startTime="2026-09-23T13:07:09.9825973-05:00" endTime="2026-09-23T13:07:09.9826363-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="502dfcdf-eba8-4692-9d55-f297e6d6d33a" />
+    <UnitTestResult executionId="ca71d126-4d79-48a5-8707-c36f4295fe71" testId="65642bbf-5ad2-58be-3533-5878786d36cf" testName="BothTraversalsUseTheSameReparsePolicy (2415919130,True)" computerName="PAYTONPC" duration="00:00:00.0000073" startTime="2026-09-23T13:07:10.1975745-05:00" endTime="2026-09-23T13:07:10.1976465-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="ca71d126-4d79-48a5-8707-c36f4295fe71" />
+    <UnitTestResult executionId="857d9df9-ff39-426f-9e15-e2d1d1695958" testId="03db2dcb-05b2-806c-8e4b-9c272507f8e8" testName="ToggleMixedSelectionAddsToAllThenRemovesFromAll" computerName="PAYTONPC" duration="00:00:00.0007509" startTime="2026-09-23T13:07:10.0277705-05:00" endTime="2026-09-23T13:07:10.0285694-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="857d9df9-ff39-426f-9e15-e2d1d1695958" />
+    <UnitTestResult executionId="350150b6-124c-49b1-8450-b094e30c5b62" testId="9d7881b7-34e6-62fb-a9ac-900dad44d08a" testName="IndexAndCrawlCancelDuringTraversal" computerName="PAYTONPC" duration="00:00:00.0533533" startTime="2026-09-23T13:07:10.1419145-05:00" endTime="2026-09-23T13:07:10.1954192-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="350150b6-124c-49b1-8450-b094e30c5b62" />
+    <UnitTestResult executionId="160daaaa-8dc4-4315-9bec-424d5f6aab8d" testId="9accb4f8-d878-8d2b-e04b-ddf2829b67c7" testName="InvalidSourceNeverCallsWindows (&quot;C:\source\file.txt\u0000C:\other.txt&quot;)" computerName="PAYTONPC" duration="00:00:00.0000088" startTime="2026-09-23T13:07:09.9850700-05:00" endTime="2026-09-23T13:07:09.9852414-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="160daaaa-8dc4-4315-9bec-424d5f6aab8d" />
+    <UnitTestResult executionId="30b9ea2f-645f-46b9-8971-29ebdf46d4e2" testId="7b856f5c-c98a-525b-e91d-5301dbd01293" testName="MoveMergesDestinationTagsAndRemovesOldAssignment" computerName="PAYTONPC" duration="00:00:00.0002497" startTime="2026-09-23T13:07:10.0285913-05:00" endTime="2026-09-23T13:07:10.0288820-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="30b9ea2f-645f-46b9-8971-29ebdf46d4e2" />
+    <UnitTestResult executionId="c6bb090b-6098-4595-9183-57c09e962552" testId="df3bd1f3-052e-0c08-bd1e-be6348e4431e" testName="LoadedMapKeepsZoomingThroughTheInputFriendlyFrameQueue" computerName="PAYTONPC" duration="00:00:00.6480110" startTime="2026-09-23T13:07:05.3916769-05:00" endTime="2026-09-23T13:07:06.0398544-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="c6bb090b-6098-4595-9183-57c09e962552" />
+    <UnitTestResult executionId="c78e000c-151c-4231-9889-044b53fd04e4" testId="34d08d56-934e-1f9d-a15d-96ab10322eab" testName="NativeOutcomePreservesStatusAndDiagnostics (183,False,Failed,Other)" computerName="PAYTONPC" duration="00:00:00.0000040" startTime="2026-09-23T13:07:09.9825491-05:00" endTime="2026-09-23T13:07:09.9825884-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="c78e000c-151c-4231-9889-044b53fd04e4" />
+    <UnitTestResult executionId="d1eb016d-016d-4c70-bf77-cbb537cef794" testId="ff508cf4-6416-d6f2-4071-dc9327455359" testName="AggregatesDescendantsExactlyOnceAndKeepsZeroSizeEntries" computerName="PAYTONPC" duration="00:00:00.0007974" startTime="2026-09-23T13:07:07.1928173-05:00" endTime="2026-09-23T13:07:07.1938167-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="d1eb016d-016d-4c70-bf77-cbb537cef794" />
+    <UnitTestResult executionId="7dd8a52c-a1ec-4ba9-9eb8-e682f289dc51" testId="3a9a2f58-f4b5-4c48-8484-2d20377d1b71" testName="NativeOutcomePreservesStatusAndDiagnostics (9876,False,Failed,Other)" computerName="PAYTONPC" duration="00:00:00.0000084" startTime="2026-09-23T13:07:09.9828473-05:00" endTime="2026-09-23T13:07:09.9829124-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="7dd8a52c-a1ec-4ba9-9eb8-e682f289dc51" />
+    <UnitTestResult executionId="b3344816-e446-4749-b49a-390d38ac1a9e" testId="2fd19611-b392-26f3-435e-9e7b1ed32769" testName="DisabledWindowsSettingIsRespectedEvenForContentSearch" computerName="PAYTONPC" duration="00:00:00.0004352" startTime="2026-09-23T13:07:10.0061052-05:00" endTime="2026-09-23T13:07:10.0065879-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="b3344816-e446-4749-b49a-390d38ac1a9e" />
+    <UnitTestResult executionId="e82515c7-7dfb-4029-8136-b40c91cdfa16" testId="6b45fa7e-ee42-e5ae-0c8b-72ce1987d510" testName="InvalidDestinationNeverCallsWindows (&quot;&quot;)" computerName="PAYTONPC" duration="00:00:00.0000809" startTime="2026-09-23T13:07:09.9853878-05:00" endTime="2026-09-23T13:07:09.9855105-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="e82515c7-7dfb-4029-8136-b40c91cdfa16" />
+    <UnitTestResult executionId="d9435b50-e003-4158-8d1f-7e6ceae6c3d3" testId="1e6155a4-2e80-2207-7704-16f28faf2983" testName="SearchHonorsKindTermsLimitAndCancellation" computerName="PAYTONPC" duration="00:00:00.0004226" startTime="2026-09-23T13:07:09.9757213-05:00" endTime="2026-09-23T13:07:09.9762193-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="d9435b50-e003-4158-8d1f-7e6ceae6c3d3" />
+    <UnitTestResult executionId="6a35f54c-4cb3-4645-9ba3-809f5db15d57" testId="022a0dd7-8322-c23c-eef9-4810f79a97dc" testName="DenseCameraFramesHaveBoundedWorkAndReportTimings (1280,800)" computerName="PAYTONPC" duration="00:00:01.1251006" startTime="2026-09-23T13:06:58.8985089-05:00" endTime="2026-09-23T13:07:00.0238390-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="6a35f54c-4cb3-4645-9ba3-809f5db15d57">
+      <Output>
+        <StdOut>TestContext Messages:&#xD;
+CPU fallback, 1280x800, 25,600 files, 180 camera frames: median 0.49 ms, p95 2.16 ms, max 6.12 ms; walk median 0.00 ms, p95 1.07 ms; UI allocation 68,179 bytes/frame; peak 7,873 tiles; 10 builds, 195 reused frames, 0 GPU uploads.</StdOut>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="dff891ab-738b-4613-baed-38e2a711aab4" testId="f868e37e-c0b5-1a65-6c26-57410d938084" testName="LiveSubtreeScanHasNoDepthCap" computerName="PAYTONPC" duration="00:00:00.0240263" startTime="2026-09-23T13:07:10.1176581-05:00" endTime="2026-09-23T13:07:10.1418304-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="dff891ab-738b-4613-baed-38e2a711aab4" />
+    <UnitTestResult executionId="20dd5c5e-cce5-41e5-bfc6-fa7f2bb7b3f3" testId="b27f9a5f-b4d8-376e-aee1-6156ec9a5793" testName="NativeRequestRetainsPathsFlagsAndOwner (Copy,2)" computerName="PAYTONPC" duration="00:00:00.0008562" startTime="2026-09-23T13:07:09.9829259-05:00" endTime="2026-09-23T13:07:09.9838431-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="20dd5c5e-cce5-41e5-bfc6-fa7f2bb7b3f3" />
+    <UnitTestResult executionId="84dd2bd1-cce9-45d3-80dc-291ddbbcf2dd" testId="0eb96573-9f48-4697-4c3d-e2450c34eb57" testName="NativeOutcomePreservesStatusAndDiagnostics (0,False,Succeeded,None)" computerName="PAYTONPC" duration="00:00:00.0017980" startTime="2026-09-23T13:07:09.9775157-05:00" endTime="2026-09-23T13:07:09.9797406-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="84dd2bd1-cce9-45d3-80dc-291ddbbcf2dd" />
+    <UnitTestResult executionId="69907ec5-7d8d-4c68-998c-d4174667aed6" testId="39d96759-a569-6f0a-d3e5-2b722ea78aa9" testName="AccessErrorsDoNotRemoveItemsOrChangeTotals" computerName="PAYTONPC" duration="00:00:00.0010690" startTime="2026-09-23T13:06:58.2067154-05:00" endTime="2026-09-23T13:06:58.2078660-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="69907ec5-7d8d-4c68-998c-d4174667aed6" />
+    <UnitTestResult executionId="59137d23-ce2e-475e-8c61-4075735aa2e4" testId="125dfd71-bb14-da9e-8107-21e7c0eea706" testName="CreateReusesCaseInsensitiveNamesAndGeneratesUniqueIds" computerName="PAYTONPC" duration="00:00:00.0011301" startTime="2026-09-23T13:07:10.0432414-05:00" endTime="2026-09-23T13:07:10.0444234-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="59137d23-ce2e-475e-8c61-4075735aa2e4" />
+    <UnitTestResult executionId="0e4b7864-7dc9-4cd2-84c8-0183137b9b43" testId="edc62e51-aa4b-8860-1ba4-c1f90ec6b70b" testName="ConfirmedPermanentDeleteBypassesRecycleBinAndPassesOnlyExactPaths" computerName="PAYTONPC" duration="00:00:00.0025349" startTime="2026-09-23T13:06:58.1611939-05:00" endTime="2026-09-23T13:06:58.1638859-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="0e4b7864-7dc9-4cd2-84c8-0183137b9b43" />
+    <UnitTestResult executionId="861d9420-730b-4945-a82f-fe80ef6e462c" testId="0d893e71-31c7-e55c-9f4b-074eeecd11fc" testName="CompactionPreservesSearchAndSupportsFurtherEntries" computerName="PAYTONPC" duration="00:00:00.0001816" startTime="2026-09-23T13:07:09.9762641-05:00" endTime="2026-09-23T13:07:09.9765276-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="861d9420-730b-4945-a82f-fe80ef6e462c" />
+    <UnitTestResult executionId="c670671d-78bc-4a5b-9ee2-62fde0a28b33" testId="43083274-a6ac-31dd-121f-71e176a3a2f6" testName="DisposeCancelsPendingNavigation" computerName="PAYTONPC" duration="00:00:00.0002844" startTime="2026-09-23T13:07:09.9872033-05:00" endTime="2026-09-23T13:07:09.9875226-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="c670671d-78bc-4a5b-9ee2-62fde0a28b33" />
+    <UnitTestResult executionId="764e0b2e-ebb4-4d19-9406-cb0a94636b1c" testId="47157653-f396-a591-e5d9-5d0822b4e9f2" testName="UnavailableRootCannotPublishAnEmptySuccessfulIndex" computerName="PAYTONPC" duration="00:00:00.0011852" startTime="2026-09-23T13:07:10.1954947-05:00" endTime="2026-09-23T13:07:10.1967907-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="764e0b2e-ebb4-4d19-9406-cb0a94636b1c" />
+    <UnitTestResult executionId="feb4a313-17f6-44f1-9d41-acd7a47f8e21" testId="d800ce15-cb34-d296-4941-86ecf8f81794" testName="InvalidDestinationNeverCallsWindows (&quot;relative&quot;)" computerName="PAYTONPC" duration="00:00:00.0000122" startTime="2026-09-23T13:07:09.9855255-05:00" endTime="2026-09-23T13:07:09.9855746-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="feb4a313-17f6-44f1-9d41-acd7a47f8e21" />
+    <UnitTestResult executionId="b7455e7f-807e-4be8-9edd-5652de2e2aba" testId="3b7823f9-ab87-c4f0-5400-68392995d4e8" testName="InvalidDestinationNeverCallsWindows (null)" computerName="PAYTONPC" duration="00:00:00.0000862" startTime="2026-09-23T13:07:09.9852554-05:00" endTime="2026-09-23T13:07:09.9853733-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="b7455e7f-807e-4be8-9edd-5652de2e2aba" />
+    <UnitTestResult executionId="5edb0b01-f044-464c-955b-f23039b769da" testId="57c9bdc5-2c15-0c31-6171-1cb41f107c36" testName="UnsupportedFiltersRemainLiteralInsteadOfMatchingEverything (&quot;unknown:value&quot;)" computerName="PAYTONPC" duration="00:00:00.0000100" startTime="2026-09-23T13:07:10.0477739-05:00" endTime="2026-09-23T13:07:10.0478288-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="5edb0b01-f044-464c-955b-f23039b769da" />
+    <UnitTestResult executionId="bf2778a7-7e88-45f5-8dd7-189e1ab4904c" testId="6466f0a5-a55b-47dd-17cd-cc425184a54d" testName="ClosingMapCancelsBackgroundWorkAndPreventsRestart" computerName="PAYTONPC" duration="00:00:00.0926979" startTime="2026-09-23T13:07:06.6016227-05:00" endTime="2026-09-23T13:07:06.6944650-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="bf2778a7-7e88-45f5-8dd7-189e1ab4904c" />
+    <UnitTestResult executionId="d200e89e-1e2f-4a02-b95b-7b8d28083f95" testId="7c80a546-81e4-b7ad-e29b-222373458ad2" testName="AggregationAndChildEnumerationHonorCancellation" computerName="PAYTONPC" duration="00:00:00.0001837" startTime="2026-09-23T13:07:07.2021055-05:00" endTime="2026-09-23T13:07:07.2023302-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="d200e89e-1e2f-4a02-b95b-7b8d28083f95" />
+    <UnitTestResult executionId="44a6400c-7459-42e2-97d0-88e36c24adee" testId="47c7a1fa-9de4-31e5-3e9f-ec15f4486915" testName="CoveredIndexStillCrawlsForFilterOnlyQueries (&quot;ext:txt&quot;,Normal)" computerName="PAYTONPC" duration="00:00:00.0007121" startTime="2026-09-23T13:07:10.0048100-05:00" endTime="2026-09-23T13:07:10.0056786-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="44a6400c-7459-42e2-97d0-88e36c24adee" />
+    <UnitTestResult executionId="f9c49f94-93e6-463a-ad9d-26fe4430c96b" testId="2b1f6eeb-e081-d18a-d57a-d11f6075c4df" testName="NativeOutcomePreservesStatusAndDiagnostics (120,False,Failed,AccessDenied)" computerName="PAYTONPC" duration="00:00:00.0000053" startTime="2026-09-23T13:07:09.9823176-05:00" endTime="2026-09-23T13:07:09.9823858-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="f9c49f94-93e6-463a-ad9d-26fe4430c96b" />
+    <UnitTestResult executionId="1337c8ec-0b2c-4ba0-be45-ecc098405ffc" testId="fdb47a69-1258-e014-1000-88c277a380c4" testName="SupersededRequestCannotPublishAfterNewSearch" computerName="PAYTONPC" duration="00:00:00.0017679" startTime="2026-09-23T13:07:10.0074237-05:00" endTime="2026-09-23T13:07:10.0092376-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="1337c8ec-0b2c-4ba0-be45-ecc098405ffc" />
+    <UnitTestResult executionId="3f3bd0f6-b1b7-461d-8d83-a93a165ae45c" testId="e1894479-fbf6-6862-e62e-9d49ec686ab6" testName="GroupingPreservesTotalBytesAndFileCounts" computerName="PAYTONPC" duration="00:00:00.0006648" startTime="2026-09-23T13:07:07.2023474-05:00" endTime="2026-09-23T13:07:07.2030470-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="3f3bd0f6-b1b7-461d-8d83-a93a165ae45c" />
+    <UnitTestResult executionId="8c4b1743-d4f9-4dd4-a308-345699ba0e5b" testId="752bcf81-ffbd-0e0c-9840-d6c6669fe4d6" testName="FlatLayoutIsDeterministicAndHonorsCancellation" computerName="PAYTONPC" duration="00:00:00.0030228" startTime="2026-09-23T13:06:58.0767427-05:00" endTime="2026-09-23T13:06:58.0805631-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="8c4b1743-d4f9-4dd4-a308-345699ba0e5b" />
+    <UnitTestResult executionId="0cf4070b-9280-4056-a41e-4ad03d025c70" testId="a91d2968-8c38-20f5-1be1-ed4e368a6f7d" testName="ZoomPrefetchStartsOnlyOneBackgroundFolderAtATime" computerName="PAYTONPC" duration="00:00:00.0859628" startTime="2026-09-23T13:07:06.5154045-05:00" endTime="2026-09-23T13:07:06.6015377-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="0cf4070b-9280-4056-a41e-4ad03d025c70" />
+    <UnitTestResult executionId="9ce28984-1c23-49ec-a57f-7b26b212631d" testId="75bfe6e6-77bb-0348-1995-42da4fd7c098" testName="HealthyDriveIsNotCrawledWhenAnotherDriveLosesCoverage" computerName="PAYTONPC" duration="00:00:00.0012782" startTime="2026-09-23T13:07:10.0221345-05:00" endTime="2026-09-23T13:07:10.0234733-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="9ce28984-1c23-49ec-a57f-7b26b212631d" />
+    <UnitTestResult executionId="8b068342-b03e-4f9e-a453-c5631b98c043" testId="0646d064-ea53-8e51-b1cd-9af55eb3d6d2" testName="DeleteRemovesAssignmentsWithoutRemovingOtherTags" computerName="PAYTONPC" duration="00:00:00.0010199" startTime="2026-09-23T13:07:10.0263816-05:00" endTime="2026-09-23T13:07:10.0274575-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="8b068342-b03e-4f9e-a453-c5631b98c043" />
+    <UnitTestResult executionId="c8340900-b2c2-4d06-b1c7-8bc2ed1a9317" testId="0ebe066a-b188-0798-d98e-82bb2b66e24c" testName="BreadcrumbsCoverRootFoldersAndNamedVirtualCategories" computerName="PAYTONPC" duration="00:00:00.0003825" startTime="2026-09-23T13:07:09.9936585-05:00" endTime="2026-09-23T13:07:09.9940745-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="c8340900-b2c2-4d06-b1c7-8bc2ed1a9317" />
+    <UnitTestResult executionId="9e8d56ee-8a52-4355-a5fa-1f09f9e67d13" testId="7ca3de07-a43d-1398-8f43-3d0c4f9fd708" testName="TreemapTilesAreProportionalBoundedAndNonOverlapping" computerName="PAYTONPC" duration="00:00:00.0062607" startTime="2026-09-23T13:07:07.2030665-05:00" endTime="2026-09-23T13:07:07.2093652-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="9e8d56ee-8a52-4355-a5fa-1f09f9e67d13" />
+    <UnitTestResult executionId="c7ec2bfe-621c-4759-8e23-33b7db7c7bef" testId="5c347006-ef18-c9ee-72ec-b90a0c627b18" testName="SuccessfulFolderDeleteUpdatesTotalsHistoryAndDoesNotReappearOnRefresh" computerName="PAYTONPC" duration="00:00:00.0060044" startTime="2026-09-23T13:06:58.1802966-05:00" endTime="2026-09-23T13:06:58.1864057-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="c7ec2bfe-621c-4759-8e23-33b7db7c7bef" />
+    <UnitTestResult executionId="9ae6bb98-569d-4b34-912b-fa18fa37102d" testId="b065370d-cbcb-4da6-e044-a303046f488c" testName="ClearingCompletedSearchRestoresBrowsingStatus (&quot;C:\source&quot;,0,&quot;This folder is empty&quot;)" computerName="PAYTONPC" duration="00:00:00.0005304" startTime="2026-09-23T13:07:10.0106359-05:00" endTime="2026-09-23T13:07:10.0112744-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="9ae6bb98-569d-4b34-912b-fa18fa37102d" />
+    <UnitTestResult executionId="084cd178-685a-4390-9341-2e8560c5a821" testId="a7b32719-9eff-d796-4031-8d466db52224" testName="EmptyQueryHasNoFilters (&quot;&quot;)" computerName="PAYTONPC" duration="00:00:00.0002400" startTime="2026-09-23T13:07:10.0458426-05:00" endTime="2026-09-23T13:07:10.0462591-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="084cd178-685a-4390-9341-2e8560c5a821" />
+    <UnitTestResult executionId="9bd63f10-2c9b-4309-8c45-ba67aa0acef0" testId="224422d4-79c1-a32e-b7df-1dbcb111d071" testName="QuotedTermsAndExtensionFiltersAreParsedTogether" computerName="PAYTONPC" duration="00:00:00.0004177" startTime="2026-09-23T13:07:10.0464275-05:00" endTime="2026-09-23T13:07:10.0468845-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="9bd63f10-2c9b-4309-8c45-ba67aa0acef0" />
+    <UnitTestResult executionId="c41b292e-87a5-4a93-84c4-6faa8a6f822b" testId="235da73d-6c76-2491-d445-2c8b8cb4c41d" testName="HistoryCrossesDrivesAndFailedOrCanceledLoadsPreserveCurrentView" computerName="PAYTONPC" duration="00:00:00.0013513" startTime="2026-09-23T13:07:07.9520065-05:00" endTime="2026-09-23T13:07:07.9533939-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="c41b292e-87a5-4a93-84c4-6faa8a6f822b" />
+    <UnitTestResult executionId="6016e8bd-5747-4132-89be-b0b09ce4e9b9" testId="7ba259fc-0c3b-f869-f5ba-2ea3756e8371" testName="DeletionLocksNavigationAndRepeatedDeleteRequests" computerName="PAYTONPC" duration="00:00:00.0010315" startTime="2026-09-23T13:06:58.2078911-05:00" endTime="2026-09-23T13:06:58.2089720-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="6016e8bd-5747-4132-89be-b0b09ce4e9b9" />
+    <UnitTestResult executionId="32e87a4c-abd3-4bde-a499-0e517c370e34" testId="f861ec37-15f5-9bf9-2ce4-e60e0e9f650d" testName="BothTraversalsUseTheSameReparsePolicy (2684354563,False)" computerName="PAYTONPC" duration="00:00:00.0002458" startTime="2026-09-23T13:07:10.1971962-05:00" endTime="2026-09-23T13:07:10.1975488-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="32e87a4c-abd3-4bde-a499-0e517c370e34" />
+    <UnitTestResult executionId="e4e19a99-82df-44d6-a582-b933dd9a2cd2" testId="6295153f-fd2f-933e-dc69-d1407c9d27bc" testName="MultipleTermsAreAndedAndExtensionsAreAlternatives" computerName="PAYTONPC" duration="00:00:00.0000952" startTime="2026-09-23T13:07:10.0469114-05:00" endTime="2026-09-23T13:07:10.0470545-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="e4e19a99-82df-44d6-a582-b933dd9a2cd2" />
+    <UnitTestResult executionId="64862cfd-ba23-45c3-af36-902d0146291f" testId="e252aac2-7585-2248-9f32-0d633c10fced" testName="NativeOutcomePreservesStatusAndDiagnostics (0,True,Canceled,None)" computerName="PAYTONPC" duration="00:00:00.0003477" startTime="2026-09-23T13:07:09.9797826-05:00" endTime="2026-09-23T13:07:09.9802627-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="64862cfd-ba23-45c3-af36-902d0146291f" />
+    <UnitTestResult executionId="f55a881f-004d-4998-96ef-e64b28d2ac2f" testId="7a9573c3-57f6-4139-d280-34925d510d86" testName="FailedIndexFallsBackEvenWhenItClaimedCoverage" computerName="PAYTONPC" duration="00:00:00.0006561" startTime="2026-09-23T13:07:10.0066110-05:00" endTime="2026-09-23T13:07:10.0073952-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="f55a881f-004d-4998-96ef-e64b28d2ac2f" />
+    <UnitTestResult executionId="cf49b6d9-dc49-430e-8dca-b3a50fe5b849" testId="5353b82d-cf5f-40e5-91cc-1be0ce2a69e7" testName="InvalidSourceNeverCallsWindows (&quot;&quot;)" computerName="PAYTONPC" duration="00:00:00.0002009" startTime="2026-09-23T13:07:09.9842211-05:00" endTime="2026-09-23T13:07:09.9844855-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="cf49b6d9-dc49-430e-8dca-b3a50fe5b849" />
+    <UnitTestResult executionId="cd52d237-c93a-4be7-9f03-dae79c8fc21e" testId="5ea527b7-ad14-11df-0ff7-720155ea4597" testName="SidebarKeepsSectionOrderAndSeparatesNetworkDrives" computerName="PAYTONPC" duration="00:00:00.0003766" startTime="2026-09-23T13:07:09.9940901-05:00" endTime="2026-09-23T13:07:09.9944989-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="cd52d237-c93a-4be7-9f03-dae79c8fc21e" />
+    <UnitTestResult executionId="7f480a6d-5de8-4b91-8745-4c56dc7e61f1" testId="e5abb730-9c3e-212b-71ad-cc9342dc65fb" testName="FolderLoadingSortsAndPreparesResultsWithoutTouchingDisk" computerName="PAYTONPC" duration="00:00:00.0011886" startTime="2026-09-23T13:07:09.9875391-05:00" endTime="2026-09-23T13:07:09.9887644-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="7f480a6d-5de8-4b91-8745-4c56dc7e61f1" />
+    <UnitTestResult executionId="05d09207-84b2-4e3c-b374-b4d0609c3258" testId="f2ed8acc-d717-3405-1f78-2a3766f49241" testName="NewNavigationCancelsOldLoadAndOldDisposalCannotClearNewLoad" computerName="PAYTONPC" duration="00:00:00.0001995" startTime="2026-09-23T13:07:09.9865503-05:00" endTime="2026-09-23T13:07:09.9868416-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="05d09207-84b2-4e3c-b374-b4d0609c3258" />
+    <UnitTestResult executionId="1496e0ff-d880-4cd3-9271-885cebca6dcc" testId="d644b325-5b9f-6e38-8cf4-cb7d49966deb" testName="MapZoomsContinuouslyBetweenFoldersWithRealApplicationStyles" computerName="PAYTONPC" duration="00:00:02.0160512" startTime="2026-09-23T13:07:07.9562134-05:00" endTime="2026-09-23T13:07:09.9724006-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="1496e0ff-d880-4cd3-9271-885cebca6dcc">
+      <Output>
+        <StdOut>TestContext Messages:&#xD;
+100,000 files: first frame 249 ms; 46224 tiles drawn.</StdOut>
+      </Output>
+      <ResultFiles>
+        <ResultFile path="PAYTONPC\disk-usage-dense-detail.png" />
+        <ResultFile path="PAYTONPC\disk-usage-dense-detail[1].png" />
+        <ResultFile path="PAYTONPC\disk-usage-dense.png" />
+        <ResultFile path="PAYTONPC\disk-usage-empty.png" />
+        <ResultFile path="PAYTONPC\disk-usage-folder-transition.png" />
+        <ResultFile path="PAYTONPC\disk-usage-folder.png" />
+        <ResultFile path="PAYTONPC\disk-usage-folder[1].png" />
+        <ResultFile path="PAYTONPC\disk-usage-large.png" />
+        <ResultFile path="PAYTONPC\disk-usage-loading.png" />
+        <ResultFile path="PAYTONPC\disk-usage-restored.png" />
+        <ResultFile path="PAYTONPC\disk-usage-restored[1].png" />
+        <ResultFile path="PAYTONPC\disk-usage-wheel-before-enter.png" />
+        <ResultFile path="PAYTONPC\disk-usage-wheel-before-enter[1].png" />
+        <ResultFile path="PAYTONPC\disk-usage-wheel-folder.png" />
+        <ResultFile path="PAYTONPC\disk-usage-wheel-folder[1].png" />
+        <ResultFile path="PAYTONPC\disk-usage-wheel-out.png" />
+        <ResultFile path="PAYTONPC\disk-usage-wheel-out[1].png" />
+        <ResultFile path="PAYTONPC\disk-usage-wheel-start.png" />
+        <ResultFile path="PAYTONPC\disk-usage-wheel-start[1].png" />
+        <ResultFile path="PAYTONPC\disk-usage-wide.png" />
+        <ResultFile path="PAYTONPC\disk-usage-wide[1].png" />
+        <ResultFile path="PAYTONPC\disk-usage-wide[2].png" />
+      </ResultFiles>
+    </UnitTestResult>
+    <UnitTestResult executionId="4d721038-a630-43ae-b202-5f1501450843" testId="c8593dca-86aa-2929-5913-3520a3d70ee5" testName="NativeRequestRetainsPathsFlagsAndOwner (Rename,4)" computerName="PAYTONPC" duration="00:00:00.0000060" startTime="2026-09-23T13:07:09.9841075-05:00" endTime="2026-09-23T13:07:09.9841675-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="4d721038-a630-43ae-b202-5f1501450843" />
+    <UnitTestResult executionId="5e2f790f-d645-470a-9c7b-e780cee11ce0" testId="1ccd4431-529f-9a20-ef79-c5dc7636338f" testName="DenseCameraFramesHaveBoundedWorkAndReportTimings (4748,1220)" computerName="PAYTONPC" duration="00:00:01.5086440" startTime="2026-09-23T13:07:00.0239380-05:00" endTime="2026-09-23T13:07:01.5328192-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="5e2f790f-d645-470a-9c7b-e780cee11ce0">
+      <Output>
+        <StdOut>TestContext Messages:&#xD;
+CPU fallback, 4748x1220, 25,600 files, 180 camera frames: median 1.39 ms, p95 12.11 ms, max 16.26 ms; walk median 0.00 ms, p95 1.59 ms; UI allocation 194,264 bytes/frame; peak 7,873 tiles; 11 builds, 211 reused frames, 0 GPU uploads.</StdOut>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="6fed2457-a908-490b-b029-fc9140203d4d" testId="c879f46a-9007-fec8-809a-f5ccc47068f9" testName="ExpandedCategoryPreservesPinOwnershipAndEmptyCloudIsOmitted" computerName="PAYTONPC" duration="00:00:00.0007162" startTime="2026-09-23T13:07:09.9950917-05:00" endTime="2026-09-23T13:07:09.9959071-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="6fed2457-a908-490b-b029-fc9140203d4d" />
+    <UnitTestResult executionId="ab08e9a7-a649-4aa0-8d11-b1d17bb19373" testId="36fab588-000a-8f08-8dd1-7190f58307b1" testName="InvalidSourceNeverCallsWindows (&quot;C:\source\fi?e.txt&quot;)" computerName="PAYTONPC" duration="00:00:00.0000055" startTime="2026-09-23T13:07:09.9850072-05:00" endTime="2026-09-23T13:07:09.9850578-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="ab08e9a7-a649-4aa0-8d11-b1d17bb19373" />
+    <UnitTestResult executionId="59911537-ab7b-4d75-9484-cdecb578fbb5" testId="2fbc6c55-a8b7-e5a9-229c-bd70bf45b7f3" testName="PartialCancellationRemovesOnlyConfirmedMissingDescendants" computerName="PAYTONPC" duration="00:00:00.0014536" startTime="2026-09-23T13:06:58.2051352-05:00" endTime="2026-09-23T13:06:58.2066790-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="59911537-ab7b-4d75-9484-cdecb578fbb5" />
+    <UnitTestResult executionId="b56eb6de-2315-4e8b-aac7-d7478ae23c04" testId="25ecb33d-cc3f-e6e5-b62c-786b3e337925" testName="TagAssignmentIsCaseInsensitiveAndDoesNotDuplicate" computerName="PAYTONPC" duration="00:00:00.0021553" startTime="2026-09-23T13:07:10.0240819-05:00" endTime="2026-09-23T13:07:10.0263460-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="b56eb6de-2315-4e8b-aac7-d7478ae23c04" />
+    <UnitTestResult executionId="b32e9336-a60a-47b8-be6f-619eb183f032" testId="2ffe2e85-5967-bc10-2f21-33dc91fe2661" testName="InvalidSourceNeverCallsWindows (&quot;relative.txt&quot;)" computerName="PAYTONPC" duration="00:00:00.0000039" startTime="2026-09-23T13:07:09.9846430-05:00" endTime="2026-09-23T13:07:09.9846845-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="b32e9336-a60a-47b8-be6f-619eb183f032" />
+    <UnitTestResult executionId="b1c9051f-9412-47cf-9f04-a0f7fcd02ce2" testId="b41980ea-ae4c-e1b1-f63b-c9912249bc6c" testName="SnapshotCacheReusesUnchangedSourceButRejectsReplacementAndChangedExclusions" computerName="PAYTONPC" duration="00:00:00.0629260" startTime="2026-09-23T13:06:58.0979930-05:00" endTime="2026-09-23T13:06:58.1611243-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="b1c9051f-9412-47cf-9f04-a0f7fcd02ce2" />
+    <UnitTestResult executionId="8a224ca8-60cc-4f4f-b634-032a30e12f82" testId="06143ca0-1630-b3d8-3f26-e93e17017e09" testName="UnsupportedFiltersRemainLiteralInsteadOfMatchingEverything (&quot;type:999&quot;)" computerName="PAYTONPC" duration="00:00:00.0004438" startTime="2026-09-23T13:07:10.0472632-05:00" endTime="2026-09-23T13:07:10.0477558-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="8a224ca8-60cc-4f4f-b634-032a30e12f82" />
+    <UnitTestResult executionId="2c9cccea-95bf-4f8f-9691-9163ddb7abd0" testId="0dcbad1c-82f9-81e9-54ea-c42525c1d0a7" testName="IndexBuildsParentPathsAndRejectsOutOfRangeLookups" computerName="PAYTONPC" duration="00:00:00.0012480" startTime="2026-09-23T13:07:09.9730048-05:00" endTime="2026-09-23T13:07:09.9744501-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="2c9cccea-95bf-4f8f-9691-9163ddb7abd0" />
+    <UnitTestResult executionId="40366067-f96d-4212-91a4-df512815695d" testId="a43681db-a53c-3c15-582c-06e2fb83b087" testName="DetailBudgetFadesGraduallyAndReversibly" computerName="PAYTONPC" duration="00:00:00.0004597" startTime="2026-09-23T13:07:06.2901213-05:00" endTime="2026-09-23T13:07:06.2907004-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="40366067-f96d-4212-91a4-df512815695d" />
+    <UnitTestResult executionId="e7999f66-d713-460b-a511-f39755323a60" testId="5404ca71-0b9b-9663-d1e4-08818cb531ac" testName="ReturningToCurrentFolderCancelsDeferredMapListing" computerName="PAYTONPC" duration="00:00:00.0012465" startTime="2026-09-23T13:07:07.9491704-05:00" endTime="2026-09-23T13:07:07.9505587-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="e7999f66-d713-460b-a511-f39755323a60" />
+    <UnitTestResult executionId="a66ea3b0-9ab8-4cce-99a7-69b3dfa86e88" testId="cb089770-03c4-52dd-07f0-36d4e7f4820a" testName="CoveredIndexStillCrawlsForFilterOnlyQueries (&quot;is:folder&quot;,Directory)" computerName="PAYTONPC" duration="00:00:00.0002195" startTime="2026-09-23T13:07:10.0057222-05:00" endTime="2026-09-23T13:07:10.0060503-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="a66ea3b0-9ab8-4cce-99a7-69b3dfa86e88" />
+    <UnitTestResult executionId="34faaa1d-025e-4305-8624-d02e96dd804a" testId="3e5238c8-97dc-8f72-a377-8d99c7b733c1" testName="JsonRoundTripPreservesAnIntentionallyEmptyTagList" computerName="PAYTONPC" duration="00:00:00.0003495" startTime="2026-09-23T13:07:10.0288985-05:00" endTime="2026-09-23T13:07:10.0292838-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="34faaa1d-025e-4305-8624-d02e96dd804a" />
+    <UnitTestResult executionId="af7989dd-926d-450f-ad7f-350a4fb05876" testId="32f9aef4-f79d-d497-d42c-d20123097697" testName="NewNavigationTruncatesForwardHistoryButReloadAndSameFolderDoNot" computerName="PAYTONPC" duration="00:00:00.0013590" startTime="2026-09-23T13:07:07.9505853-05:00" endTime="2026-09-23T13:07:07.9519875-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="af7989dd-926d-450f-ad7f-350a4fb05876" />
+    <UnitTestResult executionId="6a086a48-fa94-4833-89cf-ff562fa4f890" testId="6723d7b0-c265-5030-c774-403e54cf07da" testName="DeepHierarchyUsesIterativeAggregationAndUntruncatedPaths" computerName="PAYTONPC" duration="00:00:00.0073033" startTime="2026-09-23T13:07:07.1941651-05:00" endTime="2026-09-23T13:07:07.2015247-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="6a086a48-fa94-4833-89cf-ff562fa4f890" />
+    <UnitTestResult executionId="e17182c9-8718-498c-9542-874880519e64" testId="74a8c812-0586-c842-4f35-1cf68b315ff1" testName="JsonRoundTripRetainsCaseInsensitiveAssignments" computerName="PAYTONPC" duration="00:00:00.0001984" startTime="2026-09-23T13:07:10.0293014-05:00" endTime="2026-09-23T13:07:10.0295343-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="e17182c9-8718-498c-9542-874880519e64" />
+    <UnitTestResult executionId="4d86698d-b41b-4060-8360-931077c488f7" testId="87b45570-c9de-6fb2-ea10-a7d72ec0e9f8" testName="CameraFramesReuseGeometryAndCachedTilesDoNotOverlap" computerName="PAYTONPC" duration="00:00:00.1059727" startTime="2026-09-23T13:07:06.0399460-05:00" endTime="2026-09-23T13:07:06.1461025-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="4d86698d-b41b-4060-8360-931077c488f7" />
+    <UnitTestResult executionId="1b538914-d2cb-4e2b-8335-198bcf57fe76" testId="772104cc-fab8-71b1-694c-6cc41cf52c81" testName="BothTraversalsUseTheSameReparsePolicy (2415980570,True)" computerName="PAYTONPC" duration="00:00:00.0000026" startTime="2026-09-23T13:07:10.1976586-05:00" endTime="2026-09-23T13:07:10.1976904-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="1b538914-d2cb-4e2b-8335-198bcf57fe76" />
+    <UnitTestResult executionId="8d655b6b-5c3d-47f3-be8a-c1aced729f6b" testId="10878190-e99f-828c-1a6d-fb95772a45b3" testName="UnsupportedFiltersRemainLiteralInsteadOfMatchingEverything (&quot;is:unknown&quot;)" computerName="PAYTONPC" duration="00:00:00.0000991" startTime="2026-09-23T13:07:10.0470724-05:00" endTime="2026-09-23T13:07:10.0472465-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="8d655b6b-5c3d-47f3-be8a-c1aced729f6b" />
+    <UnitTestResult executionId="cf72d792-9f46-4155-9d1d-20f1c0488b3e" testId="839bb2dc-0eea-526b-a8da-576aa05c4e18" testName="ClearingCompletedSearchRestoresBrowsingStatus (&quot;clearspace://network&quot;,2,&quot;2 network locations&quot;)" computerName="PAYTONPC" duration="00:00:00.0000168" startTime="2026-09-23T13:07:10.0118969-05:00" endTime="2026-09-23T13:07:10.0119508-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="cf72d792-9f46-4155-9d1d-20f1c0488b3e" />
+    <UnitTestResult executionId="07dd447e-a5b2-423a-a51a-cad4c7fafdd5" testId="721d31a5-1958-f5ae-a596-40872f58421c" testName="ClearingCompletedSearchRestoresBrowsingStatus (&quot;clearspace://pinned&quot;,0,&quot;No pinned directories yet&quot;)" computerName="PAYTONPC" duration="00:00:00.0000153" startTime="2026-09-23T13:07:10.0119637-05:00" endTime="2026-09-23T13:07:10.0120169-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="07dd447e-a5b2-423a-a51a-cad4c7fafdd5" />
+    <UnitTestResult executionId="86a50a4d-0213-49cb-b723-f05628d83b10" testId="da2f68ba-6de3-3245-ff71-fa964385fdb3" testName="SlowAndSupersededFolderLoadsNeverRunOnTheDispatcher" computerName="PAYTONPC" duration="00:00:00.6889037" startTime="2026-09-23T13:06:58.2093907-05:00" endTime="2026-09-23T13:06:58.8984047-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="86a50a4d-0213-49cb-b723-f05628d83b10" />
+    <UnitTestResult executionId="6c1e3bdd-f794-4bc4-bac6-cf37e4756fce" testId="34eeb41e-8105-36e9-ca6a-5a7142e4ceaf" testName="FolderLookupHonorsPathBoundariesAndCase" computerName="PAYTONPC" duration="00:00:00.0002421" startTime="2026-09-23T13:07:07.1938559-05:00" endTime="2026-09-23T13:07:07.1941466-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="6c1e3bdd-f794-4bc4-bac6-cf37e4756fce" />
+    <UnitTestResult executionId="492c5ee7-75fa-4ca7-a58a-767b7f264c2a" testId="cda325ea-36d5-2ac5-ebd4-3fe19bdd9501" testName="ResidentGpuGeometryMovesActualPixelsWithoutReuploading" computerName="PAYTONPC" duration="00:00:00.1435251" startTime="2026-09-23T13:07:06.1463344-05:00" endTime="2026-09-23T13:07:06.2900343-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="492c5ee7-75fa-4ca7-a58a-767b7f264c2a" />
+    <UnitTestResult executionId="fc2618de-99b5-4dd2-8069-3e46168cf36f" testId="eadd891c-dfb2-8a70-0fd5-45848fd6c6ea" testName="RefreshDoesNotEraseOperationFeedback" computerName="PAYTONPC" duration="00:00:00.0006173" startTime="2026-09-23T13:07:09.9858856-05:00" endTime="2026-09-23T13:07:09.9865345-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="fc2618de-99b5-4dd2-8069-3e46168cf36f" />
+    <UnitTestResult executionId="948e5eb5-fe32-408b-bb09-ffd9871463b2" testId="eda94749-2037-8116-acab-644e4ce9babd" testName="RejectingConfirmationNeverCallsDeleteOrChecksFiles" computerName="PAYTONPC" duration="00:00:00.0131590" startTime="2026-09-23T13:06:58.1670087-05:00" endTime="2026-09-23T13:06:58.1802453-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="948e5eb5-fe32-408b-bb09-ffd9871463b2" />
+    <UnitTestResult executionId="ed1465e5-2def-47d3-9718-16cb7bab112c" testId="e8e7bd5a-306f-1813-3b40-4279fda39be2" testName="FailedWatcherMarksOnlyItsDriveAndRequestsRecovery" computerName="PAYTONPC" duration="00:00:00.0018366" startTime="2026-09-23T13:07:10.6378868-05:00" endTime="2026-09-23T13:07:10.6404693-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="ed1465e5-2def-47d3-9718-16cb7bab112c">
+      <Output>
+        <StdOut>Debug Trace:&#xD;
+Clearspace: cannot watch C:\Users\Payton\AppData\Local\Temp\ClearspaceTraversalTests\7f082c26950f430a91590c82252d5883\not-present. The directory name 'C:\Users\Payton\AppData\Local\Temp\ClearspaceTraversalTests\7f082c26950f430a91590c82252d5883\not-present' does not exist. (Parameter 'path')</StdOut>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="dc3a6bc0-22a1-479b-9346-3768e3e28941" testId="19e03c7c-a4d7-5ed1-121e-b0758406db41" testName="EqualWeightsMakeSquareTilesInASquareViewport" computerName="PAYTONPC" duration="00:00:00.0001508" startTime="2026-09-23T13:07:07.2104751-05:00" endTime="2026-09-23T13:07:07.2106650-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="dc3a6bc0-22a1-479b-9346-3768e3e28941" />
+    <UnitTestResult executionId="cd21fff5-5cbf-4a54-a193-4fd92ebca788" testId="d1237cde-5699-af5a-6c3c-c0a60c99595c" testName="BackAndForwardFollowVisitedFoldersRatherThanParentFolders" computerName="PAYTONPC" duration="00:00:00.0012034" startTime="2026-09-23T13:07:07.2227568-05:00" endTime="2026-09-23T13:07:07.2240459-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="cd21fff5-5cbf-4a54-a193-4fd92ebca788" />
+    <UnitTestResult executionId="1aa297ad-6fcd-4b94-b889-c94867625c9b" testId="069711dc-28e7-987c-d1dc-ca1f595a751e" testName="EmptyQueryHasNoFilters (&quot;  &quot;)" computerName="PAYTONPC" duration="00:00:00.0000087" startTime="2026-09-23T13:07:10.0463088-05:00" endTime="2026-09-23T13:07:10.0464122-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="1aa297ad-6fcd-4b94-b889-c94867625c9b" />
+    <UnitTestResult executionId="cd05af9a-ee53-40f3-8b58-6a5acd483ade" testId="d14cbc63-b032-cea6-6bb1-19d56af7b434" testName="NativeOutcomePreservesStatusAndDiagnostics (117,False,Canceled,None)" computerName="PAYTONPC" duration="00:00:00.0000345" startTime="2026-09-23T13:07:09.9819985-05:00" endTime="2026-09-23T13:07:09.9821698-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="cd05af9a-ee53-40f3-8b58-6a5acd483ade" />
+    <UnitTestResult executionId="8cfdd838-c072-42c6-8d35-94a6e34e793b" testId="57e7d098-0ea1-fdaa-4ce9-68f49606baa3" testName="EmptyQueryCancelsPendingSearchAndRestoresDirectoryItems" computerName="PAYTONPC" duration="00:00:00.0010171" startTime="2026-09-23T13:07:10.0092667-05:00" endTime="2026-09-23T13:07:10.0103322-05:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="8cfdd838-c072-42c6-8d35-94a6e34e793b" />
+  </Results>
+  <TestDefinitions>
+    <UnitTest name="InvalidDestinationNeverCallsWindows (&quot;&quot;)" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="6b45fa7e-ee42-e5ae-0c8b-72ce1987d510">
+      <Execution id="e82515c7-7dfb-4029-8136-b40c91cdfa16" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.FileOperationTests" name="InvalidDestinationNeverCallsWindows" />
+    </UnitTest>
+    <UnitTest name="BusyGpuFrameReleasesItsLockAndTheNextFrameCanRender" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="40a2a42e-8897-e4b0-777c-c5d9060ece41">
+      <Execution id="d304fbe8-24db-4e8f-871f-e0c6dc553755" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.DiskUsagePerformanceTests" name="BusyGpuFrameReleasesItsLockAndTheNextFrameCanRender" />
+    </UnitTest>
+    <UnitTest name="GpuRendererPresentsAndResizesWhenAvailable" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="e7e07e45-86da-30b7-4423-2c44597d47a1">
+      <Execution id="17ee46b1-3f99-4628-8550-fe7ae0f8c0d8" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.DiskUsagePerformanceTests" name="GpuRendererPresentsAndResizesWhenAvailable" />
+    </UnitTest>
+    <UnitTest name="EventsDuringReplacementAreAppliedToThePublishedIndex" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="9c1bb674-b69a-0a86-2ecb-12a6d9d1b2e4">
+      <Execution id="5863bfc8-c0a0-40d6-8cc5-af97ae192d46" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.TraversalAndCoverageTests" name="EventsDuringReplacementAreAppliedToThePublishedIndex" />
+    </UnitTest>
+    <UnitTest name="SupersededRequestCannotPublishAfterNewSearch" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="fdb47a69-1258-e014-1000-88c277a380c4">
+      <Execution id="1337c8ec-0b2c-4ba0-be45-ecc098405ffc" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.SearchCoordinatorTests" name="SupersededRequestCannotPublishAfterNewSearch" />
+    </UnitTest>
+    <UnitTest name="ZoomPrefetchStartsOnlyOneBackgroundFolderAtATime" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="a91d2968-8c38-20f5-1be1-ed4e368a6f7d">
+      <Execution id="0cf4070b-9280-4056-a41e-4ad03d025c70" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.DiskUsagePerformanceTests" name="ZoomPrefetchStartsOnlyOneBackgroundFolderAtATime" />
+    </UnitTest>
+    <UnitTest name="FrameRequestsCoalesceAndLetInputRunFirst" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="c51b2e62-0327-d006-0720-8905d61affeb">
+      <Execution id="f70c6f5e-794f-40e7-bb49-1c042bf17058" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.DiskUsagePerformanceTests" name="FrameRequestsCoalesceAndLetInputRunFirst" />
+    </UnitTest>
+    <UnitTest name="ToggleMixedSelectionAddsToAllThenRemovesFromAll" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="03db2dcb-05b2-806c-8e4b-9c272507f8e8">
+      <Execution id="857d9df9-ff39-426f-9e15-e2d1d1695958" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.TagAndQueryTests" name="ToggleMixedSelectionAddsToAllThenRemovesFromAll" />
+    </UnitTest>
+    <UnitTest name="DeepHierarchyUsesIterativeAggregationAndUntruncatedPaths" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="6723d7b0-c265-5030-c774-403e54cf07da">
+      <Execution id="6a086a48-fa94-4833-89cf-ff562fa4f890" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.DiskUsageTests" name="DeepHierarchyUsesIterativeAggregationAndUntruncatedPaths" />
+    </UnitTest>
+    <UnitTest name="PermissionFailureRemainsDistinctForUserFeedback" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="193c34c4-6765-8b93-005f-0c3a63f07088">
+      <Execution id="e1d1a91e-8da8-4182-b1fe-5ac8acf72ee0" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.NavigationAndSidebarTests" name="PermissionFailureRemainsDistinctForUserFeedback" />
+    </UnitTest>
+    <UnitTest name="InvalidSourceNeverCallsWindows (&quot;C:\source\file.txt\u0000C:\other.txt&quot;)" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="9accb4f8-d878-8d2b-e04b-ddf2829b67c7">
+      <Execution id="160daaaa-8dc4-4315-9bec-424d5f6aab8d" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.FileOperationTests" name="InvalidSourceNeverCallsWindows" />
+    </UnitTest>
+    <UnitTest name="BusyGpuDefersLabelsHitTargetsAndTilesTogether" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="1f067f4c-b1c0-84db-a68a-36dc12094df3">
+      <Execution id="7a4858e2-672a-470e-a416-8609e7682700" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.DiskUsagePerformanceTests" name="BusyGpuDefersLabelsHitTargetsAndTilesTogether" />
+    </UnitTest>
+    <UnitTest name="RequestsRejectRootsGroupsForeignChildrenAndUnsafeNames" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="86101756-059c-0ae9-3f27-48643e91d9a0">
+      <Execution id="3a2e3859-7e3d-4a32-90e9-922b67d7ecb4" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.DiskUsageDeletionTests" name="RequestsRejectRootsGroupsForeignChildrenAndUnsafeNames" />
+    </UnitTest>
+    <UnitTest name="EmptyQueryCancelsPendingSearchAndRestoresDirectoryItems" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="57e7d098-0ea1-fdaa-4ce9-68f49606baa3">
+      <Execution id="8cfdd838-c072-42c6-8d35-94a6e34e793b" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.SearchCoordinatorTests" name="EmptyQueryCancelsPendingSearchAndRestoresDirectoryItems" />
+    </UnitTest>
+    <UnitTest name="InvalidHierarchyAndOverflowFailExplicitly" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="a347be21-6be2-5eef-d450-853f87bb13e7">
+      <Execution id="a73b802a-15e4-45b0-85ba-225f844c93a2" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.DiskUsageTests" name="InvalidHierarchyAndOverflowFailExplicitly" />
+    </UnitTest>
+    <UnitTest name="NativeOutcomePreservesStatusAndDiagnostics (9876,False,Failed,Other)" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="3a9a2f58-f4b5-4c48-8484-2d20377d1b71">
+      <Execution id="7dd8a52c-a1ec-4ba9-9eb8-e682f289dc51" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.FileOperationTests" name="NativeOutcomePreservesStatusAndDiagnostics" />
+    </UnitTest>
+    <UnitTest name="SlowAndSupersededFolderLoadsNeverRunOnTheDispatcher" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="da2f68ba-6de3-3245-ff71-fa964385fdb3">
+      <Execution id="86a50a4d-0213-49cb-b723-f05628d83b10" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.DiskUsagePerformanceTests" name="SlowAndSupersededFolderLoadsNeverRunOnTheDispatcher" />
+    </UnitTest>
+    <UnitTest name="NativeOutcomePreservesStatusAndDiagnostics (120,False,Failed,AccessDenied)" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="2b1f6eeb-e081-d18a-d57a-d11f6075c4df">
+      <Execution id="f9c49f94-93e6-463a-ad9d-26fe4430c96b" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.FileOperationTests" name="NativeOutcomePreservesStatusAndDiagnostics" />
+    </UnitTest>
+    <UnitTest name="EmptyQueryPreservesNavigationStatusWhenStatusUpdateIsNotRequested" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="fc588aa4-aaff-665c-1410-789b7951c1ca">
+      <Execution id="848114d5-273b-47ee-8cfb-a3fc7b6b2d8b" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.SearchCoordinatorTests" name="EmptyQueryPreservesNavigationStatusWhenStatusUpdateIsNotRequested" />
+    </UnitTest>
+    <UnitTest name="SnapshotCacheReusesUnchangedSourceButRejectsReplacementAndChangedExclusions" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="b41980ea-ae4c-e1b1-f63b-c9912249bc6c">
+      <Execution id="b1c9051f-9412-47cf-9f04-a0f7fcd02ce2" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.AlgorithmLayoutTests" name="SnapshotCacheReusesUnchangedSourceButRejectsReplacementAndChangedExclusions" />
+    </UnitTest>
+    <UnitTest name="ViewModelSupportsInitialFolderDrillDownUpAndMissingFolder" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="51bba982-c1a7-4ddc-fcc1-d6df78adb6e4">
+      <Execution id="12ad17d1-715a-441c-afdd-f56769e8ea88" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.DiskUsageTests" name="ViewModelSupportsInitialFolderDrillDownUpAndMissingFolder" />
+    </UnitTest>
+    <UnitTest name="CanceledOrDisposedLoadCannotPublishResults" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="0fce0c27-fa27-0faf-6d17-f6b69be966c5">
+      <Execution id="f3cffb4f-5083-452c-a44c-17068bf8ddf3" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.DiskUsageTests" name="CanceledOrDisposedLoadCannotPublishResults" />
+    </UnitTest>
+    <UnitTest name="ClearingCompletedSearchRestoresBrowsingStatus (&quot;clearspace://cloud&quot;,0,&quot;No locations available&quot;)" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="71bd9ca9-34d1-aa22-e7d3-d8b8644d296e">
+      <Execution id="3dd4c60d-2862-473a-bc4d-43e6abbaf027" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.SearchCoordinatorTests" name="ClearingCompletedSearchRestoresBrowsingStatus" />
+    </UnitTest>
+    <UnitTest name="NativeOutcomePreservesStatusAndDiagnostics (1223,False,Canceled,None)" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="9f53921b-ba47-760a-e1e4-50b1a59d39ca">
+      <Execution id="c7a865e8-56f2-44cd-8010-896e997a1174" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.FileOperationTests" name="NativeOutcomePreservesStatusAndDiagnostics" />
+    </UnitTest>
+    <UnitTest name="ClearingCompletedSearchRestoresBrowsingStatus (&quot;C:\source&quot;,0,&quot;This folder is empty&quot;)" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="b065370d-cbcb-4da6-e044-a303046f488c">
+      <Execution id="9ae6bb98-569d-4b34-912b-fa18fa37102d" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.SearchCoordinatorTests" name="ClearingCompletedSearchRestoresBrowsingStatus" />
+    </UnitTest>
+    <UnitTest name="BothSearchPathsReachFortyEightLevelsAndTrackRenamesAndDeletions" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="7e1838a9-d296-8e4a-deb6-f6219613d811">
+      <Execution id="fcc89872-0fa0-4e3e-8bd0-7f2fd047496d" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.TraversalAndCoverageTests" name="BothSearchPathsReachFortyEightLevelsAndTrackRenamesAndDeletions" />
+    </UnitTest>
+    <UnitTest name="SuccessfulFolderDeleteUpdatesTotalsHistoryAndDoesNotReappearOnRefresh" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="5c347006-ef18-c9ee-72ec-b90a0c627b18">
+      <Execution id="c7ec2bfe-621c-4759-8e23-33b7db7c7bef" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.DiskUsageDeletionTests" name="SuccessfulFolderDeleteUpdatesTotalsHistoryAndDoesNotReappearOnRefresh" />
+    </UnitTest>
+    <UnitTest name="EmptyQueryHasNoFilters (&quot;  &quot;)" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="069711dc-28e7-987c-d1dc-ca1f595a751e">
+      <Execution id="1aa297ad-6fcd-4b94-b889-c94867625c9b" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.TagAndQueryTests" name="EmptyQueryHasNoFilters" />
+    </UnitTest>
+    <UnitTest name="TreemapTilesAreProportionalBoundedAndNonOverlapping" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="7ca3de07-a43d-1398-8f43-3d0c4f9fd708">
+      <Execution id="9e8d56ee-8a52-4355-a5fa-1f09f9e67d13" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.DiskUsageTests" name="TreemapTilesAreProportionalBoundedAndNonOverlapping" />
+    </UnitTest>
+    <UnitTest name="ClearingCompletedSearchRestoresBrowsingStatus (&quot;clearspace://your-files&quot;,1,&quot;1 location&quot;)" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="639de04d-5671-735b-3fa4-3485e2598d18">
+      <Execution id="a6192f84-ac5b-4f6a-911d-b9927a52fcdb" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.SearchCoordinatorTests" name="ClearingCompletedSearchRestoresBrowsingStatus" />
+    </UnitTest>
+    <UnitTest name="NativeOutcomePreservesStatusAndDiagnostics (183,False,Failed,Other)" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="34d08d56-934e-1f9d-a15d-96ab10322eab">
+      <Execution id="c78e000c-151c-4231-9889-044b53fd04e4" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.FileOperationTests" name="NativeOutcomePreservesStatusAndDiagnostics" />
+    </UnitTest>
+    <UnitTest name="HealthyDriveIsNotCrawledWhenAnotherDriveLosesCoverage" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="75bfe6e6-77bb-0348-1995-42da4fd7c098">
+      <Execution id="9ce28984-1c23-49ec-a57f-7b26b212631d" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.SearchCoordinatorTests" name="HealthyDriveIsNotCrawledWhenAnotherDriveLosesCoverage" />
+    </UnitTest>
+    <UnitTest name="DeletionLocksNavigationAndRepeatedDeleteRequests" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="7ba259fc-0c3b-f869-f5ba-2ea3756e8371">
+      <Execution id="6016e8bd-5747-4132-89be-b0b09ce4e9b9" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.DiskUsageDeletionTests" name="DeletionLocksNavigationAndRepeatedDeleteRequests" />
+    </UnitTest>
+    <UnitTest name="MapZoomsContinuouslyBetweenFoldersWithRealApplicationStyles" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="d644b325-5b9f-6e38-8cf4-cb7d49966deb">
+      <Execution id="1496e0ff-d880-4cd3-9271-885cebca6dcc" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.DiskUsageWindowTests" name="MapZoomsContinuouslyBetweenFoldersWithRealApplicationStyles" />
+    </UnitTest>
+    <UnitTest name="NativeRequestRetainsPathsFlagsAndOwner (Rename,4)" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="c8593dca-86aa-2929-5913-3520a3d70ee5">
+      <Execution id="4d721038-a630-43ae-b202-5f1501450843" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.FileOperationTests" name="NativeRequestRetainsPathsFlagsAndOwner" />
+    </UnitTest>
+    <UnitTest name="NativeOutcomePreservesStatusAndDiagnostics (2,False,Failed,NotFound)" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="9019e099-72f8-628a-20ce-c848580d1306">
+      <Execution id="fea7129c-1224-40f2-8cb5-99b49a7e5b19" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.FileOperationTests" name="NativeOutcomePreservesStatusAndDiagnostics" />
+    </UnitTest>
+    <UnitTest name="UnsupportedFiltersRemainLiteralInsteadOfMatchingEverything (&quot;is:unknown&quot;)" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="10878190-e99f-828c-1a6d-fb95772a45b3">
+      <Execution id="8d655b6b-5c3d-47f3-be8a-c1aced729f6b" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.TagAndQueryTests" name="UnsupportedFiltersRemainLiteralInsteadOfMatchingEverything" />
+    </UnitTest>
+    <UnitTest name="MalformedJsonFallsBackToDefaultsWithoutOverwritingInput" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="8e512ed7-b3f6-de6e-54ca-ebb6abebccab">
+      <Execution id="fe7645ab-0799-4798-a099-0aa003f7e9d5" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.TagAndQueryTests" name="MalformedJsonFallsBackToDefaultsWithoutOverwritingInput" />
+    </UnitTest>
+    <UnitTest name="ClearingCompletedSearchRestoresBrowsingStatus (&quot;clearspace://network&quot;,2,&quot;2 network locations&quot;)" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="839bb2dc-0eea-526b-a8da-576aa05c4e18">
+      <Execution id="cf72d792-9f46-4155-9d1d-20f1c0488b3e" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.SearchCoordinatorTests" name="ClearingCompletedSearchRestoresBrowsingStatus" />
+    </UnitTest>
+    <UnitTest name="LostEventsAndRecoveryAreIsolatedAndGenerationChecked" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="8d87c43b-eaab-73ac-ae47-ea5732a42e96">
+      <Execution id="07c32c7d-394a-4fd6-983c-ff195194473d" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.TraversalAndCoverageTests" name="LostEventsAndRecoveryAreIsolatedAndGenerationChecked" />
+    </UnitTest>
+    <UnitTest name="CameraFramesReuseGeometryAndCachedTilesDoNotOverlap" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="87b45570-c9de-6fb2-ea10-a7d72ec0e9f8">
+      <Execution id="4d86698d-b41b-4060-8360-931077c488f7" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.DiskUsagePerformanceTests" name="CameraFramesReuseGeometryAndCachedTilesDoNotOverlap" />
+    </UnitTest>
+    <UnitTest name="BreadcrumbsCoverRootFoldersAndNamedVirtualCategories" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="0ebe066a-b188-0798-d98e-82bb2b66e24c">
+      <Execution id="c8340900-b2c2-4d06-b1c7-8bc2ed1a9317" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.NavigationAndSidebarTests" name="BreadcrumbsCoverRootFoldersAndNamedVirtualCategories" />
+    </UnitTest>
+    <UnitTest name="ReturningToCurrentFolderCancelsDeferredMapListing" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="5404ca71-0b9b-9663-d1e4-08818cb531ac">
+      <Execution id="e7999f66-d713-460b-a511-f39755323a60" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.DiskUsageTests" name="ReturningToCurrentFolderCancelsDeferredMapListing" />
+    </UnitTest>
+    <UnitTest name="BackAndForwardFollowVisitedFoldersRatherThanParentFolders" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="d1237cde-5699-af5a-6c3c-c0a60c99595c">
+      <Execution id="cd21fff5-5cbf-4a54-a193-4fd92ebca788" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.DiskUsageTests" name="BackAndForwardFollowVisitedFoldersRatherThanParentFolders" />
+    </UnitTest>
+    <UnitTest name="NoIndexAndInvalidIndexProduceActionableEmptyStates" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="45a0576d-29c1-2a88-c7d2-7bfb45b7837d">
+      <Execution id="fb70e5f9-b2aa-4ba0-8e62-df8399d796b8" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.DiskUsageTests" name="NoIndexAndInvalidIndexProduceActionableEmptyStates" />
+    </UnitTest>
+    <UnitTest name="MissingIndexedEntriesAreRemovedAndHiddenResultsFiltered" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="4f40ef91-402c-57b3-6878-168cf354ef00">
+      <Execution id="b249b55a-395a-4047-91b9-bfeffea3db16" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.SearchCoordinatorTests" name="MissingIndexedEntriesAreRemovedAndHiddenResultsFiltered" />
+    </UnitTest>
+    <UnitTest name="BothTraversalsUseTheSameReparsePolicy (2415919130,True)" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="65642bbf-5ad2-58be-3533-5878786d36cf">
+      <Execution id="ca71d126-4d79-48a5-8707-c36f4295fe71" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.TraversalAndCoverageTests" name="BothTraversalsUseTheSameReparsePolicy" />
+    </UnitTest>
+    <UnitTest name="QuotedTermsAndExtensionFiltersAreParsedTogether" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="224422d4-79c1-a32e-b7df-1dbcb111d071">
+      <Execution id="9bd63f10-2c9b-4309-8c45-ba67aa0acef0" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.TagAndQueryTests" name="QuotedTermsAndExtensionFiltersAreParsedTogether" />
+    </UnitTest>
+    <UnitTest name="MissingFolderInReloadedHistoryDoesNotMoveHistoryPosition" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="03a420c6-8667-75c5-94e0-7530b36d36c9">
+      <Execution id="d2019b3c-0195-4169-84e6-e3351022246b" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.DiskUsageTests" name="MissingFolderInReloadedHistoryDoesNotMoveHistoryPosition" />
+    </UnitTest>
+    <UnitTest name="FailedIndexFallsBackEvenWhenItClaimedCoverage" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="7a9573c3-57f6-4139-d280-34925d510d86">
+      <Execution id="f55a881f-004d-4998-96ef-e64b28d2ac2f" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.SearchCoordinatorTests" name="FailedIndexFallsBackEvenWhenItClaimedCoverage" />
+    </UnitTest>
+    <UnitTest name="CoveredIndexStillCrawlsForFilterOnlyQueries (&quot;is:folder&quot;,Directory)" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="cb089770-03c4-52dd-07f0-36d4e7f4820a">
+      <Execution id="a66ea3b0-9ab8-4cce-99a7-69b3dfa86e88" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.SearchCoordinatorTests" name="CoveredIndexStillCrawlsForFilterOnlyQueries" />
+    </UnitTest>
+    <UnitTest name="InvalidSourceNeverCallsWindows (&quot;&quot;)" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="5353b82d-cf5f-40e5-91cc-1be0ce2a69e7">
+      <Execution id="cf49b6d9-dc49-430e-8dca-b3a50fe5b849" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.FileOperationTests" name="InvalidSourceNeverCallsWindows" />
+    </UnitTest>
+    <UnitTest name="ClearingCompletedSearchRestoresBrowsingStatus (&quot;clearspace://network&quot;,0,&quot;No mapped network locations&quot;)" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="670b0504-2b49-0f97-0489-d6c0bf347cbd">
+      <Execution id="9628ab9b-8302-44e0-a853-7fea691bd6f2" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.SearchCoordinatorTests" name="ClearingCompletedSearchRestoresBrowsingStatus" />
+    </UnitTest>
+    <UnitTest name="CanceledFolderLoadDoesNotEnumerate" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="d8badc5d-f51a-ed9e-f13f-38e926853d48">
+      <Execution id="b29689de-428f-4adc-ba0f-ec2187936e5c" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.NavigationAndSidebarTests" name="CanceledFolderLoadDoesNotEnumerate" />
+    </UnitTest>
+    <UnitTest name="CollapsedCategoryDoesNotLoadItsChildren" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="6b7f6082-e36e-67df-08ee-0036d39c653e">
+      <Execution id="969e16ca-33ff-47e1-bf2a-d52b31959704" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.NavigationAndSidebarTests" name="CollapsedCategoryDoesNotLoadItsChildren" />
+    </UnitTest>
+    <UnitTest name="FlatLayoutPreservesEveryFileAndProportionalNonOverlappingAreas (30000,3.89)" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="df369080-ab75-6c56-2cb6-1f91155cdf9d">
+      <Execution id="2dc3aa80-d63b-48a0-be58-2e80fe14b969" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.AlgorithmLayoutTests" name="FlatLayoutPreservesEveryFileAndProportionalNonOverlappingAreas" />
+    </UnitTest>
+    <UnitTest name="LoadedMapKeepsZoomingThroughTheInputFriendlyFrameQueue" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="df3bd1f3-052e-0c08-bd1e-be6348e4431e">
+      <Execution id="c6bb090b-6098-4595-9183-57c09e962552" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.DiskUsagePerformanceTests" name="LoadedMapKeepsZoomingThroughTheInputFriendlyFrameQueue" />
+    </UnitTest>
+    <UnitTest name="IndexBuildsParentPathsAndRejectsOutOfRangeLookups" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="0dcbad1c-82f9-81e9-54ea-c42525c1d0a7">
+      <Execution id="2c9cccea-95bf-4f8f-9691-9163ddb7abd0" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.FileIndexTests" name="IndexBuildsParentPathsAndRejectsOutOfRangeLookups" />
+    </UnitTest>
+    <UnitTest name="DisposeCancelsPendingNavigation" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="43083274-a6ac-31dd-121f-71e176a3a2f6">
+      <Execution id="c670671d-78bc-4a5b-9ee2-62fde0a28b33" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.NavigationAndSidebarTests" name="DisposeCancelsPendingNavigation" />
+    </UnitTest>
+    <UnitTest name="FoldedSearchFiltersHiddenAndSystemEntries" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="b8b18cb2-f9f1-7e7e-71ba-bfabd2244d93">
+      <Execution id="76dfa024-4b05-4844-8469-bf359f17a0a2" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.FileIndexTests" name="FoldedSearchFiltersHiddenAndSystemEntries" />
+    </UnitTest>
+    <UnitTest name="RejectingConfirmationNeverCallsDeleteOrChecksFiles" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="eda94749-2037-8116-acab-644e4ce9babd">
+      <Execution id="948e5eb5-fe32-408b-bb09-ffd9871463b2" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.DiskUsageDeletionTests" name="RejectingConfirmationNeverCallsDeleteOrChecksFiles" />
+    </UnitTest>
+    <UnitTest name="CreateReusesCaseInsensitiveNamesAndGeneratesUniqueIds" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="125dfd71-bb14-da9e-8107-21e7c0eea706">
+      <Execution id="59137d23-ce2e-475e-8c61-4075735aa2e4" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.TagAndQueryTests" name="CreateReusesCaseInsensitiveNamesAndGeneratesUniqueIds" />
+    </UnitTest>
+    <UnitTest name="SamePathRefreshDoesNotDuplicateHistoryAndVirtualHubCannotGoUp" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="045e79d2-cfcc-1afa-728f-6339fbbe7dc2">
+      <Execution id="a34be106-09c2-46c3-ad0a-0956f3b99904" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.NavigationAndSidebarTests" name="SamePathRefreshDoesNotDuplicateHistoryAndVirtualHubCannotGoUp" />
+    </UnitTest>
+    <UnitTest name="StableLayoutKeepsOrderWhenSizesCrossAndHandlesInsertionsAndRemovals" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="47523091-6aac-5008-6810-7b1056803fe5">
+      <Execution id="7de708a5-0107-451b-a53f-766bf9ea06c1" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.AlgorithmLayoutTests" name="StableLayoutKeepsOrderWhenSizesCrossAndHandlesInsertionsAndRemovals" />
+    </UnitTest>
+    <UnitTest name="ClearingCompletedSearchRestoresBrowsingStatus (&quot;C:\source&quot;,2,&quot;2 folders, 0 files&quot;)" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="036d855e-0849-dd30-87b2-63df52691950">
+      <Execution id="066ecc8c-b31c-4a59-9a9f-9bd661317eaa" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.SearchCoordinatorTests" name="ClearingCompletedSearchRestoresBrowsingStatus" />
+    </UnitTest>
+    <UnitTest name="CoverageLostDuringIndexLookupIsRechecked" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="6327ea4e-6402-f315-4762-474b2de2680e">
+      <Execution id="6df73340-072a-4871-b97b-3c7ab73c5279" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.SearchCoordinatorTests" name="CoverageLostDuringIndexLookupIsRechecked" />
+    </UnitTest>
+    <UnitTest name="UnsupportedFiltersRemainLiteralInsteadOfMatchingEverything (&quot;type:999&quot;)" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="06143ca0-1630-b3d8-3f26-e93e17017e09">
+      <Execution id="8a224ca8-60cc-4f4f-b634-032a30e12f82" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.TagAndQueryTests" name="UnsupportedFiltersRemainLiteralInsteadOfMatchingEverything" />
+    </UnitTest>
+    <UnitTest name="DisplaySharesAndGroupedTilesPreserveTotalsAndMatchListColors" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="4e070c3c-9752-8264-a78a-2b488783401d">
+      <Execution id="8a883b3a-6283-40b4-82b5-9432aa147d8d" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.DiskUsageTests" name="DisplaySharesAndGroupedTilesPreserveTotalsAndMatchListColors" />
+    </UnitTest>
+    <UnitTest name="AggregatesDescendantsExactlyOnceAndKeepsZeroSizeEntries" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="ff508cf4-6416-d6f2-4071-dc9327455359">
+      <Execution id="d1eb016d-016d-4c70-bf77-cbb537cef794" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.DiskUsageTests" name="AggregatesDescendantsExactlyOnceAndKeepsZeroSizeEntries" />
+    </UnitTest>
+    <UnitTest name="ExclusionsDoNotHideSameNamedSiblingsOrNewerIndexVersions" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="7ad0a406-698e-1b78-f163-9959fd1b2b77">
+      <Execution id="e42c9f43-768e-452c-9da6-5bd8d9bc65b5" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.DiskUsageDeletionTests" name="ExclusionsDoNotHideSameNamedSiblingsOrNewerIndexVersions" />
+    </UnitTest>
+    <UnitTest name="HistoryTruncatesForwardBranchAfterNewNavigation" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="3fe6993a-f79d-85b9-3e11-22e838f8be61">
+      <Execution id="bc8cd607-bac3-4345-9ab5-82f96d9267a7" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.NavigationAndSidebarTests" name="HistoryTruncatesForwardBranchAfterNewNavigation" />
+    </UnitTest>
+    <UnitTest name="NativeRequestRetainsPathsFlagsAndOwner (Copy,2)" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="b27f9a5f-b4d8-376e-aee1-6156ec9a5793">
+      <Execution id="20dd5c5e-cce5-41e5-bfc6-fa7f2bb7b3f3" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.FileOperationTests" name="NativeRequestRetainsPathsFlagsAndOwner" />
+    </UnitTest>
+    <UnitTest name="JsonRoundTripPreservesAnIntentionallyEmptyTagList" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="3e5238c8-97dc-8f72-a377-8d99c7b733c1">
+      <Execution id="34faaa1d-025e-4305-8624-d02e96dd804a" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.TagAndQueryTests" name="JsonRoundTripPreservesAnIntentionallyEmptyTagList" />
+    </UnitTest>
+    <UnitTest name="NativeOutcomePreservesStatusAndDiagnostics (5,False,Failed,AccessDenied)" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="b170cda7-0486-2fa5-3411-3762880e21e0">
+      <Execution id="788f8712-5917-469d-b625-0b0dc282f09e" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.FileOperationTests" name="NativeOutcomePreservesStatusAndDiagnostics" />
+    </UnitTest>
+    <UnitTest name="InvalidDestinationNeverCallsWindows (&quot;relative&quot;)" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="d800ce15-cb34-d296-4941-86ecf8f81794">
+      <Execution id="feb4a313-17f6-44f1-9d41-acd7a47f8e21" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.FileOperationTests" name="InvalidDestinationNeverCallsWindows" />
+    </UnitTest>
+    <UnitTest name="TreemapHandlesEmptyInvalidAndSingleItemInputs" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="10179edc-562b-4437-9c38-9eca5b513ff2">
+      <Execution id="e54c9773-48aa-45a5-bce0-16d9c855ec4b" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.DiskUsageTests" name="TreemapHandlesEmptyInvalidAndSingleItemInputs" />
+    </UnitTest>
+    <UnitTest name="CoveredIndexStillCrawlsForFilterOnlyQueries (&quot;ext:txt&quot;,Normal)" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="47c7a1fa-9de4-31e5-3e9f-ec15f4486915">
+      <Execution id="44a6400c-7459-42e2-97d0-88e36c24adee" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.SearchCoordinatorTests" name="CoveredIndexStillCrawlsForFilterOnlyQueries" />
+    </UnitTest>
+    <UnitTest name="CoveredIndexSkipsOtherSourcesUnlessContentSearchNeedsWindows" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="73dc3ab0-fffb-9635-fc00-efeb155ad832">
+      <Execution id="d9b52c6d-f502-44ad-894a-e2682bfe8f2b" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.SearchCoordinatorTests" name="CoveredIndexSkipsOtherSourcesUnlessContentSearchNeedsWindows" />
+    </UnitTest>
+    <UnitTest name="HistoryCrossesDrivesAndFailedOrCanceledLoadsPreserveCurrentView" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="235da73d-6c76-2491-d445-2c8b8cb4c41d">
+      <Execution id="c41b292e-87a5-4a93-84c4-6faa8a6f822b" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.DiskUsageTests" name="HistoryCrossesDrivesAndFailedOrCanceledLoadsPreserveCurrentView" />
+    </UnitTest>
+    <UnitTest name="SupersededLoadCannotReplaceANewerDrive" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="5146c5dd-69f5-e5ed-03a8-77937e046449">
+      <Execution id="dbcb9618-4097-4443-89be-a230d9cd0029" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.DiskUsageTests" name="SupersededLoadCannotReplaceANewerDrive" />
+    </UnitTest>
+    <UnitTest name="EqualWeightsMakeSquareTilesInASquareViewport" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="19e03c7c-a4d7-5ed1-121e-b0758406db41">
+      <Execution id="dc3a6bc0-22a1-479b-9346-3768e3e28941" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.DiskUsageTests" name="EqualWeightsMakeSquareTilesInASquareViewport" />
+    </UnitTest>
+    <UnitTest name="MultipleTermsAreAndedAndExtensionsAreAlternatives" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="6295153f-fd2f-933e-dc69-d1407c9d27bc">
+      <Execution id="e4e19a99-82df-44d6-a582-b933dd9a2cd2" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.TagAndQueryTests" name="MultipleTermsAreAndedAndExtensionsAreAlternatives" />
+    </UnitTest>
+    <UnitTest name="OverlayCapacityFailureOnlyDisablesTheOffendingDrive" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="0fa96abd-799f-1295-b7e2-bd4f3366a801">
+      <Execution id="2d55033e-8d36-45c8-a115-3fbe4e839130" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.TraversalAndCoverageTests" name="OverlayCapacityFailureOnlyDisablesTheOffendingDrive" />
+    </UnitTest>
+    <UnitTest name="NativeRequestRetainsPathsFlagsAndOwner (Move,1)" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="58bddaa2-2a2d-fe66-e1b6-a3c211a01e3e">
+      <Execution id="06bd637e-ea87-47d0-99d7-c37d5f81d7e7" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.FileOperationTests" name="NativeRequestRetainsPathsFlagsAndOwner" />
+    </UnitTest>
+    <UnitTest name="DenseCameraFramesHaveBoundedWorkAndReportTimings (4748,1220,True)" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="bf28598f-5276-ac84-f385-92edcb8bdedc">
+      <Execution id="bdf0f019-6773-4a3e-b38b-868a9dd19caf" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.DiskUsagePerformanceTests" name="DenseCameraFramesHaveBoundedWorkAndReportTimings" />
+    </UnitTest>
+    <UnitTest name="DenseCameraFramesHaveBoundedWorkAndReportTimings (1280,800)" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="022a0dd7-8322-c23c-eef9-4810f79a97dc">
+      <Execution id="6a35f54c-4cb3-4645-9ba3-809f5db15d57" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.DiskUsagePerformanceTests" name="DenseCameraFramesHaveBoundedWorkAndReportTimings" />
+    </UnitTest>
+    <UnitTest name="LiveSubtreeScanHasNoDepthCap" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="f868e37e-c0b5-1a65-6c26-57410d938084">
+      <Execution id="dff891ab-738b-4613-baed-38e2a711aab4" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.TraversalAndCoverageTests" name="LiveSubtreeScanHasNoDepthCap" />
+    </UnitTest>
+    <UnitTest name="DetailBudgetFadesGraduallyAndReversibly" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="a43681db-a53c-3c15-582c-06e2fb83b087">
+      <Execution id="40366067-f96d-4212-91a4-df512815695d" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.DiskUsagePerformanceTests" name="DetailBudgetFadesGraduallyAndReversibly" />
+    </UnitTest>
+    <UnitTest name="InvalidSourceNeverCallsWindows (&quot; &quot;)" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="28b8c877-544b-bd2a-39f9-64d7e3682d09">
+      <Execution id="376764ed-8846-4761-8e57-c4cb546ce784" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.FileOperationTests" name="InvalidSourceNeverCallsWindows" />
+    </UnitTest>
+    <UnitTest name="UnavailableRootCannotPublishAnEmptySuccessfulIndex" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="47157653-f396-a591-e5d9-5d0822b4e9f2">
+      <Execution id="764e0b2e-ebb4-4d19-9406-cb0a94636b1c" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.TraversalAndCoverageTests" name="UnavailableRootCannotPublishAnEmptySuccessfulIndex" />
+    </UnitTest>
+    <UnitTest name="DeleteRemovesAssignmentsWithoutRemovingOtherTags" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="0646d064-ea53-8e51-b1cd-9af55eb3d6d2">
+      <Execution id="8b068342-b03e-4f9e-a453-c5631b98c043" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.TagAndQueryTests" name="DeleteRemovesAssignmentsWithoutRemovingOtherTags" />
+    </UnitTest>
+    <UnitTest name="EmptyQueryHasNoFilters (null)" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="7a38b1e4-d758-ee78-a157-8a5fb563db19">
+      <Execution id="73526c78-b42d-4934-97af-b906807b3e3a" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.TagAndQueryTests" name="EmptyQueryHasNoFilters" />
+    </UnitTest>
+    <UnitTest name="ExpandedCategoryPreservesPinOwnershipAndEmptyCloudIsOmitted" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="c879f46a-9007-fec8-809a-f5ccc47068f9">
+      <Execution id="6fed2457-a908-490b-b029-fc9140203d4d" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.NavigationAndSidebarTests" name="ExpandedCategoryPreservesPinOwnershipAndEmptyCloudIsOmitted" />
+    </UnitTest>
+    <UnitTest name="MoveMergesDestinationTagsAndRemovesOldAssignment" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="7b856f5c-c98a-525b-e91d-5301dbd01293">
+      <Execution id="30b9ea2f-645f-46b9-8971-29ebdf46d4e2" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.TagAndQueryTests" name="MoveMergesDestinationTagsAndRemovesOldAssignment" />
+    </UnitTest>
+    <UnitTest name="CompactionPreservesSearchAndSupportsFurtherEntries" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="0d893e71-31c7-e55c-9f4b-074eeecd11fc">
+      <Execution id="861d9420-730b-4945-a82f-fe80ef6e462c" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.FileIndexTests" name="CompactionPreservesSearchAndSupportsFurtherEntries" />
+    </UnitTest>
+    <UnitTest name="SearchHonorsKindTermsLimitAndCancellation" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="1e6155a4-2e80-2207-7704-16f28faf2983">
+      <Execution id="d9435b50-e003-4158-8d1f-7e6ceae6c3d3" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.FileIndexTests" name="SearchHonorsKindTermsLimitAndCancellation" />
+    </UnitTest>
+    <UnitTest name="KindFilterDistinguishesFilesFromDirectories" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="89685cc1-843f-50e2-6c89-0ac4b2a5c232">
+      <Execution id="414ea4b4-37c4-4399-9b8d-e2fa3576b90f" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.TagAndQueryTests" name="KindFilterDistinguishesFilesFromDirectories" />
+    </UnitTest>
+    <UnitTest name="DrainsFinalCrawlBatchBeforeReportingCompletion" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="62e15699-ce4c-ae40-1ccc-957c19638cb5">
+      <Execution id="4270de70-0f5f-469d-93c6-324b086ce769" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.SearchCoordinatorTests" name="DrainsFinalCrawlBatchBeforeReportingCompletion" />
+    </UnitTest>
+    <UnitTest name="InvalidSourceNeverCallsWindows (&quot;C:\source\*.txt&quot;)" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="344d1813-6e92-a7bb-567b-26715fb0dadf">
+      <Execution id="4953d5ad-3baf-4a9c-b573-f4f58cd8209a" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.FileOperationTests" name="InvalidSourceNeverCallsWindows" />
+    </UnitTest>
+    <UnitTest name="JsonRoundTripRetainsCaseInsensitiveAssignments" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="74a8c812-0586-c842-4f35-1cf68b315ff1">
+      <Execution id="e17182c9-8718-498c-9542-874880519e64" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.TagAndQueryTests" name="JsonRoundTripRetainsCaseInsensitiveAssignments" />
+    </UnitTest>
+    <UnitTest name="FailedWatcherMarksOnlyItsDriveAndRequestsRecovery" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="e8e7bd5a-306f-1813-3b40-4279fda39be2">
+      <Execution id="ed1465e5-2def-47d3-9718-16cb7bab112c" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.TraversalAndCoverageTests" name="FailedWatcherMarksOnlyItsDriveAndRequestsRecovery" />
+    </UnitTest>
+    <UnitTest name="InvalidSourceNeverCallsWindows (&quot;relative.txt&quot;)" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="2ffe2e85-5967-bc10-2f21-33dc91fe2661">
+      <Execution id="b32e9336-a60a-47b8-be6f-619eb183f032" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.FileOperationTests" name="InvalidSourceNeverCallsWindows" />
+    </UnitTest>
+    <UnitTest name="InvalidDestinationNeverCallsWindows (&quot;C:\dest\u0000hidden&quot;)" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="833277c3-4e4d-59e3-3c81-475df791e238">
+      <Execution id="ceca05da-6f00-4dc1-9d70-bd3f86366ff0" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.FileOperationTests" name="InvalidDestinationNeverCallsWindows" />
+    </UnitTest>
+    <UnitTest name="RefreshDoesNotEraseOperationFeedback" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="eadd891c-dfb2-8a70-0fd5-45848fd6c6ea">
+      <Execution id="fc2618de-99b5-4dd2-8069-3e46168cf36f" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.FileOperationTests" name="RefreshDoesNotEraseOperationFeedback" />
+    </UnitTest>
+    <UnitTest name="NativeRequestRetainsPathsFlagsAndOwner (Delete,3)" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="6723921e-4e93-8a41-139e-21042cffe488">
+      <Execution id="3eda6140-0ce1-42d7-8e48-b01bfef68aba" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.FileOperationTests" name="NativeRequestRetainsPathsFlagsAndOwner" />
+    </UnitTest>
+    <UnitTest name="BothTraversalsUseTheSameReparsePolicy (2684354563,False)" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="f861ec37-15f5-9bf9-2ce4-e60e0e9f650d">
+      <Execution id="32e87a4c-abd3-4bde-a499-0e517c370e34" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.TraversalAndCoverageTests" name="BothTraversalsUseTheSameReparsePolicy" />
+    </UnitTest>
+    <UnitTest name="MapListingWaitsWhenZoomResumesDuringPreparation" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="6499b362-3804-188a-349c-a2eb013c894c">
+      <Execution id="bce7a169-ff9f-4fa7-846a-b6707c1e9fba" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.DiskUsageTests" name="MapListingWaitsWhenZoomResumesDuringPreparation" />
+    </UnitTest>
+    <UnitTest name="NativeOutcomePreservesStatusAndDiagnostics (3,False,Failed,NotFound)" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="738183e7-4f21-a2e2-95ea-ed0ec622cf02">
+      <Execution id="bf574de3-083b-4a6c-b70a-878e076fe0b3" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.FileOperationTests" name="NativeOutcomePreservesStatusAndDiagnostics" />
+    </UnitTest>
+    <UnitTest name="FolderLookupHonorsPathBoundariesAndCase" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="34eeb41e-8105-36e9-ca6a-5a7142e4ceaf">
+      <Execution id="6c1e3bdd-f794-4bc4-bac6-cf37e4756fce" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.DiskUsageTests" name="FolderLookupHonorsPathBoundariesAndCase" />
+    </UnitTest>
+    <UnitTest name="NativeOutcomePreservesStatusAndDiagnostics (0,False,Succeeded,None)" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="0eb96573-9f48-4697-4c3d-e2450c34eb57">
+      <Execution id="84dd2bd1-cce9-45d3-80dc-291ddbbcf2dd" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.FileOperationTests" name="NativeOutcomePreservesStatusAndDiagnostics" />
+    </UnitTest>
+    <UnitTest name="ConfirmedPermanentDeleteBypassesRecycleBinAndPassesOnlyExactPaths" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="edc62e51-aa4b-8860-1ba4-c1f90ec6b70b">
+      <Execution id="0e4b7864-7dc9-4cd2-84c8-0183137b9b43" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.DiskUsageDeletionTests" name="ConfirmedPermanentDeleteBypassesRecycleBinAndPassesOnlyExactPaths" />
+    </UnitTest>
+    <UnitTest name="TagAssignmentIsCaseInsensitiveAndDoesNotDuplicate" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="25ecb33d-cc3f-e6e5-b62c-786b3e337925">
+      <Execution id="b56eb6de-2315-4e8b-aac7-d7478ae23c04" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.TagAndQueryTests" name="TagAssignmentIsCaseInsensitiveAndDoesNotDuplicate" />
+    </UnitTest>
+    <UnitTest name="ResidentGpuGeometryMovesActualPixelsWithoutReuploading" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="cda325ea-36d5-2ac5-ebd4-3fe19bdd9501">
+      <Execution id="492c5ee7-75fa-4ca7-a58a-767b7f264c2a" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.DiskUsagePerformanceTests" name="ResidentGpuGeometryMovesActualPixelsWithoutReuploading" />
+    </UnitTest>
+    <UnitTest name="EntryAndNamePoolsGrowWithoutLosingData" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="a49e156d-234a-bdab-e86d-d05a278f5b1e">
+      <Execution id="c7365c1d-17d8-474e-9afe-8d1c951a6e25" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.FileIndexTests" name="EntryAndNamePoolsGrowWithoutLosingData" />
+    </UnitTest>
+    <UnitTest name="FolderLoadingSortsAndPreparesResultsWithoutTouchingDisk" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="e5abb730-9c3e-212b-71ad-cc9342dc65fb">
+      <Execution id="7f480a6d-5de8-4b91-8745-4c56dc7e61f1" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.NavigationAndSidebarTests" name="FolderLoadingSortsAndPreparesResultsWithoutTouchingDisk" />
+    </UnitTest>
+    <UnitTest name="NativeOutcomePreservesStatusAndDiagnostics (0,True,Canceled,None)" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="e252aac2-7585-2248-9f32-0d633c10fced">
+      <Execution id="64862cfd-ba23-45c3-af36-902d0146291f" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.FileOperationTests" name="NativeOutcomePreservesStatusAndDiagnostics" />
+    </UnitTest>
+    <UnitTest name="UnsupportedFiltersRemainLiteralInsteadOfMatchingEverything (&quot;unknown:value&quot;)" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="57c9bdc5-2c15-0c31-6171-1cb41f107c36">
+      <Execution id="5edb0b01-f044-464c-955b-f23039b769da" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.TagAndQueryTests" name="UnsupportedFiltersRemainLiteralInsteadOfMatchingEverything" />
+    </UnitTest>
+    <UnitTest name="EmptyCompactedIndexCanAcceptItsFirstEntry" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="18d709e2-a397-51f0-2807-d61c18daa0e3">
+      <Execution id="070ce6c1-9bd0-4970-bedc-faaa70c0402d" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.FileIndexTests" name="EmptyCompactedIndexCanAcceptItsFirstEntry" />
+    </UnitTest>
+    <UnitTest name="MergesAllSourcesWithoutCaseInsensitiveDuplicates" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="cf3b3d23-570d-54c8-33e1-cfbfeeed4027">
+      <Execution id="d59177d8-f752-42bd-8db3-16d9a05272f7" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.SearchCoordinatorTests" name="MergesAllSourcesWithoutCaseInsensitiveDuplicates" />
+    </UnitTest>
+    <UnitTest name="AggregationAndChildEnumerationHonorCancellation" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="7c80a546-81e4-b7ad-e29b-222373458ad2">
+      <Execution id="d200e89e-1e2f-4a02-b95b-7b8d28083f95" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.DiskUsageTests" name="AggregationAndChildEnumerationHonorCancellation" />
+    </UnitTest>
+    <UnitTest name="CombinedResultsRespectLimit" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="f61700b6-fb4c-d8e4-db35-5e07a33415df">
+      <Execution id="8f5ec6a5-49c7-4612-9783-1541ef65a1fd" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.SearchCoordinatorTests" name="CombinedResultsRespectLimit" />
+    </UnitTest>
+    <UnitTest name="DisabledWindowsSettingIsRespectedEvenForContentSearch" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="2fd19611-b392-26f3-435e-9e7b1ed32769">
+      <Execution id="b3344816-e446-4749-b49a-390d38ac1a9e" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.SearchCoordinatorTests" name="DisabledWindowsSettingIsRespectedEvenForContentSearch" />
+    </UnitTest>
+    <UnitTest name="NativeOutcomePreservesStatusAndDiagnostics (65652,False,Failed,Other)" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="58bba699-0e3b-893b-ada0-a6ed0f8053ab">
+      <Execution id="502dfcdf-eba8-4692-9d55-f297e6d6d33a" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.FileOperationTests" name="NativeOutcomePreservesStatusAndDiagnostics" />
+    </UnitTest>
+    <UnitTest name="AccessErrorsDoNotRemoveItemsOrChangeTotals" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="39d96759-a569-6f0a-d3e5-2b722ea78aa9">
+      <Execution id="69907ec5-7d8d-4c68-998c-d4174667aed6" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.DiskUsageDeletionTests" name="AccessErrorsDoNotRemoveItemsOrChangeTotals" />
+    </UnitTest>
+    <UnitTest name="NewNavigationTruncatesForwardHistoryButReloadAndSameFolderDoNot" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="32f9aef4-f79d-d497-d42c-d20123097697">
+      <Execution id="af7989dd-926d-450f-ad7f-350a4fb05876" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.DiskUsageTests" name="NewNavigationTruncatesForwardHistoryButReloadAndSameFolderDoNot" />
+    </UnitTest>
+    <UnitTest name="BothTraversalsUseTheSameReparsePolicy (2415980570,True)" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="772104cc-fab8-71b1-694c-6cc41cf52c81">
+      <Execution id="1b538914-d2cb-4e2b-8335-198bcf57fe76" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.TraversalAndCoverageTests" name="BothTraversalsUseTheSameReparsePolicy" />
+    </UnitTest>
+    <UnitTest name="DenseCameraFramesHaveBoundedWorkAndReportTimings (4748,1220)" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="1ccd4431-529f-9a20-ef79-c5dc7636338f">
+      <Execution id="5e2f790f-d645-470a-9c7b-e780cee11ce0" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.DiskUsagePerformanceTests" name="DenseCameraFramesHaveBoundedWorkAndReportTimings" />
+    </UnitTest>
+    <UnitTest name="DisposeCancelsDebounceWithoutCallingSources" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="b6b9ddc6-f2a0-a051-4782-3ac4c48ad4dd">
+      <Execution id="b5163fe1-2775-40e9-9eb5-c77dd3edf0cc" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.SearchCoordinatorTests" name="DisposeCancelsDebounceWithoutCallingSources" />
+    </UnitTest>
+    <UnitTest name="FlatLayoutPreservesEveryFileAndProportionalNonOverlappingAreas (1000,1)" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="002f5b0a-d613-afe7-9e74-fe5279f5327c">
+      <Execution id="8ee71e02-bb7c-46f9-8e8c-74484675be9d" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.AlgorithmLayoutTests" name="FlatLayoutPreservesEveryFileAndProportionalNonOverlappingAreas" />
+    </UnitTest>
+    <UnitTest name="InvalidDestinationNeverCallsWindows (null)" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="3b7823f9-ab87-c4f0-5400-68392995d4e8">
+      <Execution id="b7455e7f-807e-4be8-9edd-5652de2e2aba" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.FileOperationTests" name="InvalidDestinationNeverCallsWindows" />
+    </UnitTest>
+    <UnitTest name="ClearingCompletedSearchRestoresBrowsingStatus (&quot;clearspace://my-pc&quot;,1,&quot;1 drive&quot;)" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="90870f83-542d-9ac6-d05c-3b77335e3a1e">
+      <Execution id="097133ff-b280-4382-b0a3-ca4327106364" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.SearchCoordinatorTests" name="ClearingCompletedSearchRestoresBrowsingStatus" />
+    </UnitTest>
+    <UnitTest name="MissingPathsArePrunedUsingIsolatedExistenceCheck" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="cf723f4d-1c21-5d23-b945-ec26c225efec">
+      <Execution id="87dd3e90-97f0-473b-b264-50659e87b15b" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.TagAndQueryTests" name="MissingPathsArePrunedUsingIsolatedExistenceCheck" />
+    </UnitTest>
+    <UnitTest name="PartialCancellationRemovesOnlyConfirmedMissingDescendants" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="2fbc6c55-a8b7-e5a9-229c-bd70bf45b7f3">
+      <Execution id="59911537-ab7b-4d75-9484-cdecb578fbb5" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.DiskUsageDeletionTests" name="PartialCancellationRemovesOnlyConfirmedMissingDescendants" />
+    </UnitTest>
+    <UnitTest name="ClearingCompletedSearchRestoresBrowsingStatus (&quot;clearspace://category/documents&quot;,2,&quot;2 locations&quot;)" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="fe288705-7c68-0cd4-dced-3a0656d6b333">
+      <Execution id="cd6609b0-a889-452a-b68c-c927ae1234a7" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.SearchCoordinatorTests" name="ClearingCompletedSearchRestoresBrowsingStatus" />
+    </UnitTest>
+    <UnitTest name="GroupingPreservesTotalBytesAndFileCounts" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="e1894479-fbf6-6862-e62e-9d49ec686ab6">
+      <Execution id="3f3bd0f6-b1b7-461d-8d83-a93a165ae45c" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.DiskUsageTests" name="GroupingPreservesTotalBytesAndFileCounts" />
+    </UnitTest>
+    <UnitTest name="FlatLayoutIsDeterministicAndHonorsCancellation" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="752bcf81-ffbd-0e0c-9840-d6c6669fe4d6">
+      <Execution id="8c4b1743-d4f9-4dd4-a308-345699ba0e5b" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.AlgorithmLayoutTests" name="FlatLayoutIsDeterministicAndHonorsCancellation" />
+    </UnitTest>
+    <UnitTest name="NewNavigationCancelsOldLoadAndOldDisposalCannotClearNewLoad" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="f2ed8acc-d717-3405-1f78-2a3766f49241">
+      <Execution id="05d09207-84b2-4e3c-b374-b4d0609c3258" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.NavigationAndSidebarTests" name="NewNavigationCancelsOldLoadAndOldDisposalCannotClearNewLoad" />
+    </UnitTest>
+    <UnitTest name="SaveFailureIsReportedAndClearedAfterRecovery" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="eb246522-5393-8697-de5a-870a4b3824a3">
+      <Execution id="3c775d2b-c084-4fc1-8a52-43f78cf4b59c" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.TagAndQueryTests" name="SaveFailureIsReportedAndClearedAfterRecovery" />
+    </UnitTest>
+    <UnitTest name="ClearingCompletedSearchRestoresBrowsingStatus (&quot;clearspace://pinned&quot;,0,&quot;No pinned directories yet&quot;)" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="721d31a5-1958-f5ae-a596-40872f58421c">
+      <Execution id="07dd447e-a5b2-423a-a51a-cad4c7fafdd5" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.SearchCoordinatorTests" name="ClearingCompletedSearchRestoresBrowsingStatus" />
+    </UnitTest>
+    <UnitTest name="NativeOutcomePreservesStatusAndDiagnostics (5,True,Canceled,AccessDenied)" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="2542f969-45c5-ba9c-7fee-eb7fd9188091">
+      <Execution id="2910a001-e477-462f-8593-816031f77c18" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.FileOperationTests" name="NativeOutcomePreservesStatusAndDiagnostics" />
+    </UnitTest>
+    <UnitTest name="NativeOutcomePreservesStatusAndDiagnostics (117,False,Canceled,None)" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="d14cbc63-b032-cea6-6bb1-19d56af7b434">
+      <Execution id="cd05af9a-ee53-40f3-8b58-6a5acd483ade" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.FileOperationTests" name="NativeOutcomePreservesStatusAndDiagnostics" />
+    </UnitTest>
+    <UnitTest name="BothTraversalsUseTheSameReparsePolicy (2684354572,False)" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="1377a481-74e3-d4ab-3190-ebb52730acfd">
+      <Execution id="7bb13699-225f-4057-96b0-dd1c6a306d0b" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.TraversalAndCoverageTests" name="BothTraversalsUseTheSameReparsePolicy" />
+    </UnitTest>
+    <UnitTest name="IndexAndCrawlCancelDuringTraversal" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="9d7881b7-34e6-62fb-a9ac-900dad44d08a">
+      <Execution id="350150b6-124c-49b1-8450-b094e30c5b62" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.TraversalAndCoverageTests" name="IndexAndCrawlCancelDuringTraversal" />
+    </UnitTest>
+    <UnitTest name="InvalidSourceNeverCallsWindows (&quot;C:\source\fi?e.txt&quot;)" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="36fab588-000a-8f08-8dd1-7190f58307b1">
+      <Execution id="ab08e9a7-a649-4aa0-8d11-b1d17bb19373" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.FileOperationTests" name="InvalidSourceNeverCallsWindows" />
+    </UnitTest>
+    <UnitTest name="SidebarKeepsSectionOrderAndSeparatesNetworkDrives" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="5ea527b7-ad14-11df-0ff7-720155ea4597">
+      <Execution id="cd52d237-c93a-4be7-9f03-dae79c8fc21e" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.NavigationAndSidebarTests" name="SidebarKeepsSectionOrderAndSeparatesNetworkDrives" />
+    </UnitTest>
+    <UnitTest name="EmptyQueryHasNoFilters (&quot;&quot;)" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="a7b32719-9eff-d796-4031-8d466db52224">
+      <Execution id="084cd178-685a-4390-9341-2e8560c5a821" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.TagAndQueryTests" name="EmptyQueryHasNoFilters" />
+    </UnitTest>
+    <UnitTest name="EmptySelectionIsRejectedByEveryBatchOperation" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="c14c69d7-830e-d300-fe0d-496b044f7fb4">
+      <Execution id="f4030039-9182-4006-9de1-219fa9720a60" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.FileOperationTests" name="EmptySelectionIsRejectedByEveryBatchOperation" />
+    </UnitTest>
+    <UnitTest name="ReloadReplacesSnapshotAndDriveSelectionUsesItsOwnHierarchy" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="6a8f53dc-2e84-9ae7-2c05-fb5caaaef58e">
+      <Execution id="e87ce4ce-342e-4c48-ab39-08c4215f93d8" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.DiskUsageTests" name="ReloadReplacesSnapshotAndDriveSelectionUsesItsOwnHierarchy" />
+    </UnitTest>
+    <UnitTest name="ClosingMapCancelsBackgroundWorkAndPreventsRestart" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="6466f0a5-a55b-47dd-17cd-cc425184a54d">
+      <Execution id="bf2778a7-7e88-45f5-8dd7-189e1ab4904c" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.DiskUsagePerformanceTests" name="ClosingMapCancelsBackgroundWorkAndPreventsRestart" />
+    </UnitTest>
+    <UnitTest name="ExplicitUnknownTagMatchesNothingAndKnownTagUsesInjectedStore" storage="e:\githubrepos\file explorer remake\clearspace.tests\bin\release\net10.0-windows\clearspace.tests.dll" id="36502015-2cfc-af8d-ef45-70ef78761b6a">
+      <Execution id="41b8d0f2-0dda-457a-8bb2-2a8392c74a3e" />
+      <TestMethod codeBase="E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll" adapterTypeName="executor://mstestadapter/v2" className="Clearspace.Tests.TagAndQueryTests" name="ExplicitUnknownTagMatchesNothingAndKnownTagUsesInjectedStore" />
+    </UnitTest>
+  </TestDefinitions>
+  <TestEntries>
+    <TestEntry testId="d8badc5d-f51a-ed9e-f13f-38e926853d48" executionId="b29689de-428f-4adc-ba0f-ec2187936e5c" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="193c34c4-6765-8b93-005f-0c3a63f07088" executionId="e1d1a91e-8da8-4182-b1fe-5ac8acf72ee0" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="9f53921b-ba47-760a-e1e4-50b1a59d39ca" executionId="c7a865e8-56f2-44cd-8010-896e997a1174" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="b6b9ddc6-f2a0-a051-4782-3ac4c48ad4dd" executionId="b5163fe1-2775-40e9-9eb5-c77dd3edf0cc" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="71bd9ca9-34d1-aa22-e7d3-d8b8644d296e" executionId="3dd4c60d-2862-473a-bc4d-43e6abbaf027" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="03a420c6-8667-75c5-94e0-7530b36d36c9" executionId="d2019b3c-0195-4169-84e6-e3351022246b" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="8d87c43b-eaab-73ac-ae47-ea5732a42e96" executionId="07c32c7d-394a-4fd6-983c-ff195194473d" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="6a8f53dc-2e84-9ae7-2c05-fb5caaaef58e" executionId="e87ce4ce-342e-4c48-ab39-08c4215f93d8" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="1377a481-74e3-d4ab-3190-ebb52730acfd" executionId="7bb13699-225f-4057-96b0-dd1c6a306d0b" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="5146c5dd-69f5-e5ed-03a8-77937e046449" executionId="dbcb9618-4097-4443-89be-a230d9cd0029" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="4f40ef91-402c-57b3-6878-168cf354ef00" executionId="b249b55a-395a-4047-91b9-bfeffea3db16" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="833277c3-4e4d-59e3-3c81-475df791e238" executionId="ceca05da-6f00-4dc1-9d70-bd3f86366ff0" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="1f067f4c-b1c0-84db-a68a-36dc12094df3" executionId="7a4858e2-672a-470e-a416-8609e7682700" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="90870f83-542d-9ac6-d05c-3b77335e3a1e" executionId="097133ff-b280-4382-b0a3-ca4327106364" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="86101756-059c-0ae9-3f27-48643e91d9a0" executionId="3a2e3859-7e3d-4a32-90e9-922b67d7ecb4" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="f61700b6-fb4c-d8e4-db35-5e07a33415df" executionId="8f5ec6a5-49c7-4612-9783-1541ef65a1fd" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="28b8c877-544b-bd2a-39f9-64d7e3682d09" executionId="376764ed-8846-4761-8e57-c4cb546ce784" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="b8b18cb2-f9f1-7e7e-71ba-bfabd2244d93" executionId="76dfa024-4b05-4844-8469-bf359f17a0a2" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="89685cc1-843f-50e2-6c89-0ac4b2a5c232" executionId="414ea4b4-37c4-4399-9b8d-e2fa3576b90f" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="eb246522-5393-8697-de5a-870a4b3824a3" executionId="3c775d2b-c084-4fc1-8a52-43f78cf4b59c" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="6b7f6082-e36e-67df-08ee-0036d39c653e" executionId="969e16ca-33ff-47e1-bf2a-d52b31959704" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="2542f969-45c5-ba9c-7fee-eb7fd9188091" executionId="2910a001-e477-462f-8593-816031f77c18" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="639de04d-5671-735b-3fa4-3485e2598d18" executionId="a6192f84-ac5b-4f6a-911d-b9927a52fcdb" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="36502015-2cfc-af8d-ef45-70ef78761b6a" executionId="41b8d0f2-0dda-457a-8bb2-2a8392c74a3e" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="c51b2e62-0327-d006-0720-8905d61affeb" executionId="f70c6f5e-794f-40e7-bb49-1c042bf17058" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="e7e07e45-86da-30b7-4423-2c44597d47a1" executionId="17ee46b1-3f99-4628-8550-fe7ae0f8c0d8" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="6327ea4e-6402-f315-4762-474b2de2680e" executionId="6df73340-072a-4871-b97b-3c7ab73c5279" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="7ad0a406-698e-1b78-f163-9959fd1b2b77" executionId="e42c9f43-768e-452c-9da6-5bd8d9bc65b5" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="670b0504-2b49-0f97-0489-d6c0bf347cbd" executionId="9628ab9b-8302-44e0-a853-7fea691bd6f2" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="10179edc-562b-4437-9c38-9eca5b513ff2" executionId="e54c9773-48aa-45a5-bce0-16d9c855ec4b" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="344d1813-6e92-a7bb-567b-26715fb0dadf" executionId="4953d5ad-3baf-4a9c-b573-f4f58cd8209a" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="3fe6993a-f79d-85b9-3e11-22e838f8be61" executionId="bc8cd607-bac3-4345-9ab5-82f96d9267a7" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="c14c69d7-830e-d300-fe0d-496b044f7fb4" executionId="f4030039-9182-4006-9de1-219fa9720a60" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="cf3b3d23-570d-54c8-33e1-cfbfeeed4027" executionId="d59177d8-f752-42bd-8db3-16d9a05272f7" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="58bddaa2-2a2d-fe66-e1b6-a3c211a01e3e" executionId="06bd637e-ea87-47d0-99d7-c37d5f81d7e7" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="9019e099-72f8-628a-20ce-c848580d1306" executionId="fea7129c-1224-40f2-8cb5-99b49a7e5b19" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="8e512ed7-b3f6-de6e-54ca-ebb6abebccab" executionId="fe7645ab-0799-4798-a099-0aa003f7e9d5" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="b170cda7-0486-2fa5-3411-3762880e21e0" executionId="788f8712-5917-469d-b625-0b0dc282f09e" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="a49e156d-234a-bdab-e86d-d05a278f5b1e" executionId="c7365c1d-17d8-474e-9afe-8d1c951a6e25" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="7e1838a9-d296-8e4a-deb6-f6219613d811" executionId="fcc89872-0fa0-4e3e-8bd0-7f2fd047496d" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="002f5b0a-d613-afe7-9e74-fe5279f5327c" executionId="8ee71e02-bb7c-46f9-8e8c-74484675be9d" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="6723921e-4e93-8a41-139e-21042cffe488" executionId="3eda6140-0ce1-42d7-8e48-b01bfef68aba" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="62e15699-ce4c-ae40-1ccc-957c19638cb5" executionId="4270de70-0f5f-469d-93c6-324b086ce769" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="47523091-6aac-5008-6810-7b1056803fe5" executionId="7de708a5-0107-451b-a53f-766bf9ea06c1" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="bf28598f-5276-ac84-f385-92edcb8bdedc" executionId="bdf0f019-6773-4a3e-b38b-868a9dd19caf" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="0fce0c27-fa27-0faf-6d17-f6b69be966c5" executionId="f3cffb4f-5083-452c-a44c-17068bf8ddf3" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="0fa96abd-799f-1295-b7e2-bd4f3366a801" executionId="2d55033e-8d36-45c8-a115-3fbe4e839130" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="036d855e-0849-dd30-87b2-63df52691950" executionId="066ecc8c-b31c-4a59-9a9f-9bd661317eaa" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="7a38b1e4-d758-ee78-a157-8a5fb563db19" executionId="73526c78-b42d-4934-97af-b906807b3e3a" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="fc588aa4-aaff-665c-1410-789b7951c1ca" executionId="848114d5-273b-47ee-8cfb-a3fc7b6b2d8b" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="cf723f4d-1c21-5d23-b945-ec26c225efec" executionId="87dd3e90-97f0-473b-b264-50659e87b15b" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="9c1bb674-b69a-0a86-2ecb-12a6d9d1b2e4" executionId="5863bfc8-c0a0-40d6-8cc5-af97ae192d46" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="4e070c3c-9752-8264-a78a-2b488783401d" executionId="8a883b3a-6283-40b4-82b5-9432aa147d8d" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="6499b362-3804-188a-349c-a2eb013c894c" executionId="bce7a169-ff9f-4fa7-846a-b6707c1e9fba" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="51bba982-c1a7-4ddc-fcc1-d6df78adb6e4" executionId="12ad17d1-715a-441c-afdd-f56769e8ea88" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="45a0576d-29c1-2a88-c7d2-7bfb45b7837d" executionId="fb70e5f9-b2aa-4ba0-8e62-df8399d796b8" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="73dc3ab0-fffb-9635-fc00-efeb155ad832" executionId="d9b52c6d-f502-44ad-894a-e2682bfe8f2b" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="fe288705-7c68-0cd4-dced-3a0656d6b333" executionId="cd6609b0-a889-452a-b68c-c927ae1234a7" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="df369080-ab75-6c56-2cb6-1f91155cdf9d" executionId="2dc3aa80-d63b-48a0-be58-2e80fe14b969" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="738183e7-4f21-a2e2-95ea-ed0ec622cf02" executionId="bf574de3-083b-4a6c-b70a-878e076fe0b3" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="a347be21-6be2-5eef-d450-853f87bb13e7" executionId="a73b802a-15e4-45b0-85ba-225f844c93a2" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="40a2a42e-8897-e4b0-777c-c5d9060ece41" executionId="d304fbe8-24db-4e8f-871f-e0c6dc553755" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="045e79d2-cfcc-1afa-728f-6339fbbe7dc2" executionId="a34be106-09c2-46c3-ad0a-0956f3b99904" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="18d709e2-a397-51f0-2807-d61c18daa0e3" executionId="070ce6c1-9bd0-4970-bedc-faaa70c0402d" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="58bba699-0e3b-893b-ada0-a6ed0f8053ab" executionId="502dfcdf-eba8-4692-9d55-f297e6d6d33a" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="65642bbf-5ad2-58be-3533-5878786d36cf" executionId="ca71d126-4d79-48a5-8707-c36f4295fe71" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="03db2dcb-05b2-806c-8e4b-9c272507f8e8" executionId="857d9df9-ff39-426f-9e15-e2d1d1695958" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="9d7881b7-34e6-62fb-a9ac-900dad44d08a" executionId="350150b6-124c-49b1-8450-b094e30c5b62" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="9accb4f8-d878-8d2b-e04b-ddf2829b67c7" executionId="160daaaa-8dc4-4315-9bec-424d5f6aab8d" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="7b856f5c-c98a-525b-e91d-5301dbd01293" executionId="30b9ea2f-645f-46b9-8971-29ebdf46d4e2" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="df3bd1f3-052e-0c08-bd1e-be6348e4431e" executionId="c6bb090b-6098-4595-9183-57c09e962552" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="34d08d56-934e-1f9d-a15d-96ab10322eab" executionId="c78e000c-151c-4231-9889-044b53fd04e4" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="ff508cf4-6416-d6f2-4071-dc9327455359" executionId="d1eb016d-016d-4c70-bf77-cbb537cef794" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="3a9a2f58-f4b5-4c48-8484-2d20377d1b71" executionId="7dd8a52c-a1ec-4ba9-9eb8-e682f289dc51" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="2fd19611-b392-26f3-435e-9e7b1ed32769" executionId="b3344816-e446-4749-b49a-390d38ac1a9e" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="6b45fa7e-ee42-e5ae-0c8b-72ce1987d510" executionId="e82515c7-7dfb-4029-8136-b40c91cdfa16" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="1e6155a4-2e80-2207-7704-16f28faf2983" executionId="d9435b50-e003-4158-8d1f-7e6ceae6c3d3" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="022a0dd7-8322-c23c-eef9-4810f79a97dc" executionId="6a35f54c-4cb3-4645-9ba3-809f5db15d57" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="f868e37e-c0b5-1a65-6c26-57410d938084" executionId="dff891ab-738b-4613-baed-38e2a711aab4" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="b27f9a5f-b4d8-376e-aee1-6156ec9a5793" executionId="20dd5c5e-cce5-41e5-bfc6-fa7f2bb7b3f3" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="0eb96573-9f48-4697-4c3d-e2450c34eb57" executionId="84dd2bd1-cce9-45d3-80dc-291ddbbcf2dd" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="39d96759-a569-6f0a-d3e5-2b722ea78aa9" executionId="69907ec5-7d8d-4c68-998c-d4174667aed6" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="125dfd71-bb14-da9e-8107-21e7c0eea706" executionId="59137d23-ce2e-475e-8c61-4075735aa2e4" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="edc62e51-aa4b-8860-1ba4-c1f90ec6b70b" executionId="0e4b7864-7dc9-4cd2-84c8-0183137b9b43" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="0d893e71-31c7-e55c-9f4b-074eeecd11fc" executionId="861d9420-730b-4945-a82f-fe80ef6e462c" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="43083274-a6ac-31dd-121f-71e176a3a2f6" executionId="c670671d-78bc-4a5b-9ee2-62fde0a28b33" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="47157653-f396-a591-e5d9-5d0822b4e9f2" executionId="764e0b2e-ebb4-4d19-9406-cb0a94636b1c" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="d800ce15-cb34-d296-4941-86ecf8f81794" executionId="feb4a313-17f6-44f1-9d41-acd7a47f8e21" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="3b7823f9-ab87-c4f0-5400-68392995d4e8" executionId="b7455e7f-807e-4be8-9edd-5652de2e2aba" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="57c9bdc5-2c15-0c31-6171-1cb41f107c36" executionId="5edb0b01-f044-464c-955b-f23039b769da" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="6466f0a5-a55b-47dd-17cd-cc425184a54d" executionId="bf2778a7-7e88-45f5-8dd7-189e1ab4904c" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="7c80a546-81e4-b7ad-e29b-222373458ad2" executionId="d200e89e-1e2f-4a02-b95b-7b8d28083f95" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="47c7a1fa-9de4-31e5-3e9f-ec15f4486915" executionId="44a6400c-7459-42e2-97d0-88e36c24adee" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="2b1f6eeb-e081-d18a-d57a-d11f6075c4df" executionId="f9c49f94-93e6-463a-ad9d-26fe4430c96b" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="fdb47a69-1258-e014-1000-88c277a380c4" executionId="1337c8ec-0b2c-4ba0-be45-ecc098405ffc" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="e1894479-fbf6-6862-e62e-9d49ec686ab6" executionId="3f3bd0f6-b1b7-461d-8d83-a93a165ae45c" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="752bcf81-ffbd-0e0c-9840-d6c6669fe4d6" executionId="8c4b1743-d4f9-4dd4-a308-345699ba0e5b" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="a91d2968-8c38-20f5-1be1-ed4e368a6f7d" executionId="0cf4070b-9280-4056-a41e-4ad03d025c70" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="75bfe6e6-77bb-0348-1995-42da4fd7c098" executionId="9ce28984-1c23-49ec-a57f-7b26b212631d" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="0646d064-ea53-8e51-b1cd-9af55eb3d6d2" executionId="8b068342-b03e-4f9e-a453-c5631b98c043" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="0ebe066a-b188-0798-d98e-82bb2b66e24c" executionId="c8340900-b2c2-4d06-b1c7-8bc2ed1a9317" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="7ca3de07-a43d-1398-8f43-3d0c4f9fd708" executionId="9e8d56ee-8a52-4355-a5fa-1f09f9e67d13" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="5c347006-ef18-c9ee-72ec-b90a0c627b18" executionId="c7ec2bfe-621c-4759-8e23-33b7db7c7bef" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="b065370d-cbcb-4da6-e044-a303046f488c" executionId="9ae6bb98-569d-4b34-912b-fa18fa37102d" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="a7b32719-9eff-d796-4031-8d466db52224" executionId="084cd178-685a-4390-9341-2e8560c5a821" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="224422d4-79c1-a32e-b7df-1dbcb111d071" executionId="9bd63f10-2c9b-4309-8c45-ba67aa0acef0" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="235da73d-6c76-2491-d445-2c8b8cb4c41d" executionId="c41b292e-87a5-4a93-84c4-6faa8a6f822b" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="7ba259fc-0c3b-f869-f5ba-2ea3756e8371" executionId="6016e8bd-5747-4132-89be-b0b09ce4e9b9" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="f861ec37-15f5-9bf9-2ce4-e60e0e9f650d" executionId="32e87a4c-abd3-4bde-a499-0e517c370e34" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="6295153f-fd2f-933e-dc69-d1407c9d27bc" executionId="e4e19a99-82df-44d6-a582-b933dd9a2cd2" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="e252aac2-7585-2248-9f32-0d633c10fced" executionId="64862cfd-ba23-45c3-af36-902d0146291f" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="7a9573c3-57f6-4139-d280-34925d510d86" executionId="f55a881f-004d-4998-96ef-e64b28d2ac2f" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="5353b82d-cf5f-40e5-91cc-1be0ce2a69e7" executionId="cf49b6d9-dc49-430e-8dca-b3a50fe5b849" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="5ea527b7-ad14-11df-0ff7-720155ea4597" executionId="cd52d237-c93a-4be7-9f03-dae79c8fc21e" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="e5abb730-9c3e-212b-71ad-cc9342dc65fb" executionId="7f480a6d-5de8-4b91-8745-4c56dc7e61f1" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="f2ed8acc-d717-3405-1f78-2a3766f49241" executionId="05d09207-84b2-4e3c-b374-b4d0609c3258" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="d644b325-5b9f-6e38-8cf4-cb7d49966deb" executionId="1496e0ff-d880-4cd3-9271-885cebca6dcc" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="c8593dca-86aa-2929-5913-3520a3d70ee5" executionId="4d721038-a630-43ae-b202-5f1501450843" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="1ccd4431-529f-9a20-ef79-c5dc7636338f" executionId="5e2f790f-d645-470a-9c7b-e780cee11ce0" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="c879f46a-9007-fec8-809a-f5ccc47068f9" executionId="6fed2457-a908-490b-b029-fc9140203d4d" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="36fab588-000a-8f08-8dd1-7190f58307b1" executionId="ab08e9a7-a649-4aa0-8d11-b1d17bb19373" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="2fbc6c55-a8b7-e5a9-229c-bd70bf45b7f3" executionId="59911537-ab7b-4d75-9484-cdecb578fbb5" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="25ecb33d-cc3f-e6e5-b62c-786b3e337925" executionId="b56eb6de-2315-4e8b-aac7-d7478ae23c04" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="2ffe2e85-5967-bc10-2f21-33dc91fe2661" executionId="b32e9336-a60a-47b8-be6f-619eb183f032" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="b41980ea-ae4c-e1b1-f63b-c9912249bc6c" executionId="b1c9051f-9412-47cf-9f04-a0f7fcd02ce2" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="06143ca0-1630-b3d8-3f26-e93e17017e09" executionId="8a224ca8-60cc-4f4f-b634-032a30e12f82" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="0dcbad1c-82f9-81e9-54ea-c42525c1d0a7" executionId="2c9cccea-95bf-4f8f-9691-9163ddb7abd0" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="a43681db-a53c-3c15-582c-06e2fb83b087" executionId="40366067-f96d-4212-91a4-df512815695d" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="5404ca71-0b9b-9663-d1e4-08818cb531ac" executionId="e7999f66-d713-460b-a511-f39755323a60" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="cb089770-03c4-52dd-07f0-36d4e7f4820a" executionId="a66ea3b0-9ab8-4cce-99a7-69b3dfa86e88" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="3e5238c8-97dc-8f72-a377-8d99c7b733c1" executionId="34faaa1d-025e-4305-8624-d02e96dd804a" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="32f9aef4-f79d-d497-d42c-d20123097697" executionId="af7989dd-926d-450f-ad7f-350a4fb05876" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="6723d7b0-c265-5030-c774-403e54cf07da" executionId="6a086a48-fa94-4833-89cf-ff562fa4f890" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="74a8c812-0586-c842-4f35-1cf68b315ff1" executionId="e17182c9-8718-498c-9542-874880519e64" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="87b45570-c9de-6fb2-ea10-a7d72ec0e9f8" executionId="4d86698d-b41b-4060-8360-931077c488f7" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="772104cc-fab8-71b1-694c-6cc41cf52c81" executionId="1b538914-d2cb-4e2b-8335-198bcf57fe76" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="10878190-e99f-828c-1a6d-fb95772a45b3" executionId="8d655b6b-5c3d-47f3-be8a-c1aced729f6b" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="839bb2dc-0eea-526b-a8da-576aa05c4e18" executionId="cf72d792-9f46-4155-9d1d-20f1c0488b3e" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="721d31a5-1958-f5ae-a596-40872f58421c" executionId="07dd447e-a5b2-423a-a51a-cad4c7fafdd5" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="da2f68ba-6de3-3245-ff71-fa964385fdb3" executionId="86a50a4d-0213-49cb-b723-f05628d83b10" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="34eeb41e-8105-36e9-ca6a-5a7142e4ceaf" executionId="6c1e3bdd-f794-4bc4-bac6-cf37e4756fce" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="cda325ea-36d5-2ac5-ebd4-3fe19bdd9501" executionId="492c5ee7-75fa-4ca7-a58a-767b7f264c2a" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="eadd891c-dfb2-8a70-0fd5-45848fd6c6ea" executionId="fc2618de-99b5-4dd2-8069-3e46168cf36f" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="eda94749-2037-8116-acab-644e4ce9babd" executionId="948e5eb5-fe32-408b-bb09-ffd9871463b2" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="e8e7bd5a-306f-1813-3b40-4279fda39be2" executionId="ed1465e5-2def-47d3-9718-16cb7bab112c" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="19e03c7c-a4d7-5ed1-121e-b0758406db41" executionId="dc3a6bc0-22a1-479b-9346-3768e3e28941" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="d1237cde-5699-af5a-6c3c-c0a60c99595c" executionId="cd21fff5-5cbf-4a54-a193-4fd92ebca788" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="069711dc-28e7-987c-d1dc-ca1f595a751e" executionId="1aa297ad-6fcd-4b94-b889-c94867625c9b" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="d14cbc63-b032-cea6-6bb1-19d56af7b434" executionId="cd05af9a-ee53-40f3-8b58-6a5acd483ade" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="57e7d098-0ea1-fdaa-4ce9-68f49606baa3" executionId="8cfdd838-c072-42c6-8d35-94a6e34e793b" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+  </TestEntries>
+  <TestLists>
+    <TestList name="Results Not in a List" id="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestList name="All Loaded Results" id="19431567-8539-422a-85d7-44ee4e166bda" />
+  </TestLists>
+  <ResultSummary outcome="Completed">
+    <Counters total="150" executed="150" passed="150" failed="0" error="0" timeout="0" aborted="0" inconclusive="0" passedButRunAborted="0" notRunnable="0" notExecuted="0" disconnected="0" warning="0" completed="0" inProgress="0" pending="0" />
+  </ResultSummary>
+</TestRun>

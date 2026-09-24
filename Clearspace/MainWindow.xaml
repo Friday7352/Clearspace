@@ -526,11 +526,11 @@
                               IsChecked="{Binding SearchFileContents}"
                               IsEnabled="{Binding IsWindowsIndexAvailable}"
                               ToolTip="Search inside files. On, this also finds documents that mention the word; off, it matches file and folder names only, which is faster. Contents are read from the Windows Search index, so it only covers locations Windows has indexed." />
-                <Button Style="{StaticResource IconButton}"
-                        Content="&#xE713;"
+                <Button Style="{StaticResource ViewerTextButton}"
+                        Content="Indexing"
                         Margin="0,0,7,0"
-                        Click="OnOpenIndexingOptions"
-                        ToolTip="Open Windows indexing options" />
+                        Click="OnIndexing"
+                        ToolTip="See indexed locations, scan progress and index storage" AutomationProperties.Name="Indexing overview" />
                 <Button Style="{StaticResource IconButton}"
                         Content="&#xE9F9;" Margin="0,0,7,0"
                         Click="OnDiskUsage" ToolTip="Disk usage · explore indexed file and folder sizes"
@@ -1055,8 +1055,7 @@
                                         HorizontalAlignment="Right"
                                         VerticalAlignment="Center">
 
-                                <Border Background="#14FFFFFF"
-                                        CornerRadius="5"
+                                <Border Background="#14FFFFFF" CornerRadius="5"
                                         Padding="9,3"
                                         Margin="0,0,8,0"
                                         ToolTip="This folder is kept in sync"
@@ -1075,11 +1074,10 @@
                                     </StackPanel>
                                 </Border>
 
-                                <Border Background="#14FFFFFF"
-                                        CornerRadius="5"
+                                <Button Style="{StaticResource ViewerTextButton}" Background="#14FFFFFF"
                                         Padding="9,3"
                                         Margin="0,0,8,0"
-                                        ToolTip="{Binding IndexTooltip}">
+                                        Click="OnIndexing" AutomationProperties.Name="View indexing details" ToolTip="View indexed locations, progress and storage">
                                     <StackPanel Orientation="Horizontal">
                                         <TextBlock Text="&#xE8F1;"
                                                    FontFamily="{StaticResource IconFont}"
@@ -1092,7 +1090,7 @@
                                                    VerticalAlignment="Center"
                                                    Foreground="{StaticResource InkMuted}" />
                                     </StackPanel>
-                                </Border>
+                                </Button>
 
                                 <Border Background="{StaticResource AccentSoft}"
                                         CornerRadius="5"
@@ -1442,5 +1440,6 @@
         </Border>
     </Grid>
         <ContentControl x:Name="DiskUsageHost" Visibility="Collapsed" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch"/>
+        <ContentControl x:Name="IndexingHost" Visibility="Collapsed" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch"/>
     </Grid>
 </Window>

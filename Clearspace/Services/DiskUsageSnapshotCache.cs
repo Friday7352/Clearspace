@@ -103,12 +103,12 @@ internal static class DiskUsageSnapshotCache
     public static DiskUsageSnapshot Get(VolumeIndex volume, CancellationToken token, IReadOnlyList<string> exclusions)
     {
         var signature = Signature(exclusions);
-        if (Lookup(volume.Root, signature) is { } held) return held;
+        if (Lookup(volume, signature) is { } held) return held;
         // One build per volume: a second caller waits here and then finds the finished snapshot,
         // rather than aggregating the same drive twice.
         lock (GateFor(volume.Root))
         {
-            if (Lookup(volume.Root, signature) is { } raced) return raced;
+            if (Lookup(volume, signature) is { } raced) return raced;
             return Store(DiskUsageSnapshot.Build(volume, token, exclusions), signature);
         }
     }
@@ -123,6 +123,14 @@ internal static class DiskUsageSnapshotCache
     /// <summary>Stores a snapshot produced elsewhere, such as the one reconciled after a deletion.</summary>
     public static DiskUsageSnapshot Store(DiskUsageSnapshot snapshot, IReadOnlyList<string> exclusions)
         => Store(snapshot, Signature(exclusions));
+
+    /// <summary>NEW (round 48): a snapshot already held for this volume, whatever its exclusions, without
+    /// building one or counting as a use - for the drive previews, which must not evict anything.</summary>
+    public static DiskUsageSnapshot? Peek(VolumeIndex volume)
+    {
+        lock (Lock)
+            return Entries.TryGetValue(volume.Root, out var entry) && ReferenceEquals(entry.Snapshot.Source, volume) ? entry.Snapshot : null;
+    }
 
     /// <summary>NEW (round 42): whether this exact snapshot is still one the cache holds.</summary>
     public static bool IsHeld(object snapshot)
@@ -171,12 +179,13 @@ internal static class DiskUsageSnapshotCache
         return snapshot;
     }
 
-    private static DiskUsageSnapshot? Lookup(string root, string signature)
+    private static DiskUsageSnapshot? Lookup(VolumeIndex volume, string signature)
     {
         lock (Lock)
         {
-            if (!Entries.TryGetValue(root, out var entry) || entry.Exclusions != signature) return null;
-            Entries[root] = entry with { Used = ++_clock };
+            if (!Entries.TryGetValue(volume.Root, out var entry) || entry.Exclusions != signature ||
+                !ReferenceEquals(entry.Snapshot.Source, volume)) return null;
+            Entries[volume.Root] = entry with { Used = ++_clock };
             return entry.Snapshot;
         }
     }

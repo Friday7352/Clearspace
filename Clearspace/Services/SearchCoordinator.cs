@@ -90,7 +90,9 @@ internal sealed class SearchCoordinator(ISearchSources sources, Action<SearchUpd
             if (roots.Count == 0) return;
             // The private index requires a filename term. Volume coverage alone
             // cannot answer filter-only queries such as ext:txt or is:folder.
-            var covered = query.Terms.Count > 0 && roots.All(sources.Covers);
+            var crawlRoots = roots.Where(root => query.Terms.Count == 0 || !sources.Covers(root)).ToArray();
+            var covered = crawlRoots.Length == 0;
+            var indexFailed = false;
             var scope = request.Everywhere ? "across all drives" : "in this folder and subfolders";
             Publish($"Searching {scope}… {found.Count:N0} found", !covered);
 
@@ -112,6 +114,7 @@ internal sealed class SearchCoordinator(ISearchSources sources, Action<SearchUpd
             {
                 // A failed private index cannot be treated as complete coverage.
                 covered = false;
+                indexFailed = true;
                 sourceFailed = true;
             }
 
@@ -127,6 +130,9 @@ internal sealed class SearchCoordinator(ISearchSources sources, Action<SearchUpd
                 catch (Exception) { sourceFailed = true; }
             }
 
+            // Coverage can be lost while asynchronous index work is in flight.
+            crawlRoots = roots.Where(root => indexFailed || query.Terms.Count == 0 || !sources.Covers(root)).ToArray();
+            covered = crawlRoots.Length == 0;
             if (!covered)
             {
                 // The channel serializes worker batches with UI publication, avoiding races
@@ -137,7 +143,7 @@ internal sealed class SearchCoordinator(ISearchSources sources, Action<SearchUpd
                 {
                     try
                     {
-                        var crawlCapped = await sources.CrawlAsync(query, roots, request.ShowHidden, MaxResults,
+                        var crawlCapped = await sources.CrawlAsync(query, crawlRoots, request.ShowHidden, MaxResults,
                             new InlineProgress<IReadOnlyList<FileSystemItem>>(batch => batches.Writer.TryWrite(batch)), token);
                         return (crawlCapped, false);
                     }

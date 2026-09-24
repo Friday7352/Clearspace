@@ -18,7 +18,20 @@ Run from the repository root. MSTest discovers the tests automatically.
   and sidebar composition.
 - `FileIndexTests`: path reconstruction, filtering, cancellation, compaction,
   capacity growth, and result limits.
+- `IndexingOverviewTests`: browsing actual indexed entries, removed-entry filtering,
+  pagination without dropped entries, cancellation, bounded scan diagnostics, and
+  truthful coverage details for older saved indexes. `DiskUsageWindowTests` also
+  checks the overview's navigation, background loading, disposal, and wide/compact
+  layout captures.
+- `TraversalAndCoverageTests`: native traversal through 48 nested folders,
+  cancellation, live subtree insertion, rename/delete replay, publication during
+  concurrent changes, shared reparse policy, and isolated per-drive recovery.
+- `AlgorithmLayoutTests`: deterministic compact layouts, proportionality,
+  non-overlap, subtree ranges, stable placement, and snapshot cache replacement.
+- `DiskUsagePerformanceTests` and `DiskUsageWindowTests`: dense scenes, CPU/GPU
+  presentation, camera input, busy-buffer hit testing, navigation, and image captures.
 
 Native file operations are simulated. Tag storage is isolated in memory and
-folder preparation uses supplied test sources. These tests do not replace a
+folder preparation uses supplied test sources. Native traversal tests create
+and clean up only GUID-named temporary fixtures. These tests do not replace a
 visual walkthrough or interactive checks of Windows file-operation dialogs.

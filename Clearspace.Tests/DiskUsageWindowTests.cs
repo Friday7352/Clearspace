@@ -36,6 +36,7 @@ public sealed class DiskUsageWindowTests
                     // Load resources without starting the real app or its filesystem services.
                     var app = new App();
                     app.InitializeComponent();
+                    await CheckIndexingOverview();
                     var index = Sample();
                     var second = new VolumeIndex(@"D:\", 2);
                     second.Add(-1, @"D:\", 0, 0, 0, FileAttributes.Directory);
@@ -162,7 +163,10 @@ public sealed class DiskUsageWindowTests
                         "Wheel zoom should enter the folder under the pointer.");
                     await Settle(window, map, "disk-usage-wheel-folder.png");
                     Assert.IsTrue(map.ZoomWithWheel(new Point(map.ActualWidth / 2, map.ActualHeight / 2), -1200));
-                    map.AdvanceTime(1);
+                    // The camera can now pull back past the file map to the whole PC. This
+                    // larger ten-notch gesture takes longer to settle than the former root clamp.
+                    map.AdvanceTime(3);
+                    Assert.IsFalse(map.IsAnimating, "Finish the gesture before waiting for the deferred sidebar update.");
                     await WaitFor(() => vm.CurrentPath == @"C:\", "Scrolling out of a folder should return to its parent.");
                     await Settle(window, map, "disk-usage-wheel-out.png");
 
@@ -200,7 +204,10 @@ public sealed class DiskUsageWindowTests
                     for (var i = 1; i <= 100000; i++) dense.Add(1, $"File {i}.dat", 1 + i % 127, 0, 0, FileAttributes.Normal);
                     var denseSnapshot = DiskUsageSnapshot.Build(dense, CancellationToken.None);
                     var timer = System.Diagnostics.Stopwatch.StartNew();
-                    map.SetSource(denseSnapshot.Item(0), (id, token) => denseSnapshot.Children(id, token), [1]);
+                    // Group membership now stores compact IDs; use the same item resolver and
+                    // snapshot key as the real view instead of relying on retained item objects.
+                    map.SetSource(denseSnapshot.Item(0), (id, token) => denseSnapshot.Children(id, token), [1],
+                        item: denseSnapshot.Item, cacheKey: denseSnapshot);
                     await WaitFor(() => map.PendingLoads == 0, "Initial folder layout should finish in the background.");
                     map.AdvanceTime(1);
                     Render(window, "disk-usage-dense.png", 1072, 900);
@@ -260,6 +267,68 @@ public sealed class DiskUsageWindowTests
     {
         var topLeft = WorldAt(map, screen.TopLeft);
         return new Rect(topLeft.X, topLeft.Y, screen.Width / map.ActualWidth * map.Camera.Width, screen.Height / map.ActualHeight * map.Camera.Height);
+    }
+
+    private async Task CheckIndexingOverview()
+    {
+        var index = Sample();
+        var scan = new IndexScanTracker();
+        scan.Visit(@"C:\Users\Example\Documents");
+        scan.Skip(@"C:\System Volume Information", "Access is denied");
+        scan.Complete();
+        var data = new IndexingSummary([
+            new(@"C:\", "Up to date", "Watching for changes. Unreadable folders and folder links may be skipped.", index.Count,
+                index.EstimatedBytes, index.BuiltUtc, scan.Capture(), index),
+            new(@"E:\", "Indexing", "Building its first index.", 246892, 64L << 20, DateTime.UtcNow, null, null),
+            new(@"F:\", "Not included", "Network indexing is off.", 0, 0, null, null, null)
+        ], @"C:\Users\Example\AppData\Local\Clearspace\index.db", 128L << 20, DateTime.UtcNow, null,
+            264L << 20, @"E:\", @"E:\Projects\Unity Projects\Assets", 246892, 18020, false);
+        using (var page = new IndexingView(() => data))
+        {
+            await page.RefreshAsync();
+            Assert.AreEqual("128 MiB", ((TextBlock)page.FindName("DiskSpace")).Text);
+            Assert.AreEqual(data.IndexPath, ((TextBox)page.FindName("StoragePath")).Text);
+            Assert.AreEqual(data.ActiveFolder, ((TextBlock)page.FindName("CurrentFolder")).Text);
+            var entries = (ListBox)page.FindName("EntryList");
+            Assert.IsTrue(entries.Items.Count > 0);
+            Render(page, "indexing-overview-wide.png", 1200, 1060);
+            Render(page, "indexing-overview-compact.png", 800, 740);
+            var workspace = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../.."));
+            Assert.IsTrue(File.Exists(Path.Combine(workspace, "Clearspace", "Clearspace.csproj")));
+            var previews = Path.Combine(workspace, "output", "previews", "indexing");
+            Directory.CreateDirectory(previews);
+            foreach (var name in new[] { "indexing-overview-wide.png", "indexing-overview-compact.png" })
+                File.Copy(Path.Combine(TestContext.TestResultsDirectory!, name), Path.Combine(previews, name), overwrite: true);
+            var rootCount = entries.Items.Count;
+            entries.SelectedItem = entries.Items.Cast<IndexedEntry>().Single(item => item.Name == "Videos");
+            entries.RaiseEvent(new KeyEventArgs(Keyboard.PrimaryDevice, new FakePresentationSource(), 0, Key.Enter) { RoutedEvent = Keyboard.KeyDownEvent });
+            await WaitFor(() => ((TextBlock)page.FindName("FolderPath")).Text.EndsWith("Videos"), "Index browser should open an indexed folder.");
+            Assert.IsTrue(entries.Items.Count < rootCount);
+            var drives = (ListBox)page.FindName("DriveList");
+            drives.SelectedIndex = 2;
+            Assert.AreEqual(0, entries.Items.Count, "Unindexed drives must not retain another drive's entries.");
+        }
+        using var started = new ManualResetEventSlim();
+        using var release = new ManualResetEventSlim();
+        using var delayed = new IndexingView(() => { started.Set(); release.Wait(TimeSpan.FromSeconds(3)); return data; });
+        var refresh = delayed.RefreshAsync();
+        try
+        {
+            await WaitFor(() => started.IsSet, "Status should run on a worker.");
+            var input = false;
+            await Dispatcher.CurrentDispatcher.InvokeAsync(() => input = true, DispatcherPriority.Input);
+            Assert.IsTrue(input);
+            delayed.Dispose();
+        }
+        finally { release.Set(); await refresh; }
+        Assert.AreEqual("—", ((TextBlock)delayed.FindName("EntryCount")).Text, "A closed page must ignore late refresh results.");
+    }
+
+    private sealed class FakePresentationSource : PresentationSource
+    {
+        public override Visual? RootVisual { get; set; }
+        public override bool IsDisposed => false;
+        protected override CompositionTarget? GetCompositionTargetCore() => null;
     }
 
     private RenderTargetBitmap Render(UserControl window, string name, int width, int height)

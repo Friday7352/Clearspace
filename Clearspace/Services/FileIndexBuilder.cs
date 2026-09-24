@@ -5,10 +5,9 @@ using Clearspace.Native;
 
 namespace Clearspace.Services;
 
-// CS499: Indexing uses a fixed background priority, has no partial fallback at the memory limit, and has no automated tests.
+// Iterative traversal has no arbitrary depth cap; reparse-point checks prevent link cycles.
 internal static class FileIndexBuilder
 {
-    private const int MaxDepth = 32;
 
     // Background mode lowers I/O priority as well as CPU priority.
     public static void EnterBackgroundMode()
@@ -30,15 +29,17 @@ internal static class FileIndexBuilder
         CancellationToken token,
         Action<VolumeIndex>? started = null)
     {
+        token.ThrowIfCancellationRequested();
         var index = new VolumeIndex(root, serialNumber);
+        var diagnostics = index.ScanDetails = new IndexScanTracker();
 
         var rootIndex = index.Add(-1, root.AsSpan(), 0, 0, 0, FileAttributes.Directory);
         // NEW: expose the index while it fills, so the disk usage view can show it growing.
         // Appends publish their count last, so a concurrent reader always sees whole entries.
         started?.Invoke(index);
 
-        var pending = new Stack<(string Path, int Parent, int Depth)>();
-        pending.Push((root, rootIndex, 0));
+        var pending = new Stack<(string Path, int Parent)>();
+        pending.Push((root, rootIndex));
 
         var sinceReport = 0;
 
@@ -46,8 +47,10 @@ internal static class FileIndexBuilder
         {
             token.ThrowIfCancellationRequested();
 
-            var (directory, parent, depth) = pending.Pop();
-            Scan(index, directory, parent, depth, pending, token);
+            var (directory, parent) = pending.Pop();
+            diagnostics.Visit(directory);
+            Scan(index, directory, parent, pending, token, diagnostics);
+            diagnostics.FinishFolder();
 
             if (index.EstimatedBytes > maxBytes)
                 return null;
@@ -60,6 +63,7 @@ internal static class FileIndexBuilder
         }
 
         index.Compact();
+        diagnostics.Complete();
         progress?.Invoke(index.Count);
         return index;
     }
@@ -70,14 +74,14 @@ internal static class FileIndexBuilder
     // Each directory is enumerated under the index's WriteGate so readers see whole entries.
     internal static void ScanSubtree(VolumeIndex index, string directory, int folderIndex, CancellationToken token)
     {
-        var pending = new Stack<(string Path, int Parent, int Depth)>();
-        pending.Push((directory, folderIndex, 0));
+        var pending = new Stack<(string Path, int Parent)>();
+        pending.Push((directory, folderIndex));
         while (pending.Count > 0)
         {
             token.ThrowIfCancellationRequested();
-            var (path, parent, depth) = pending.Pop();
+            var (path, parent) = pending.Pop();
             lock (index.WriteGate)
-                Scan(index, path, parent, depth, pending, token);
+                Scan(index, path, parent, pending, token);
         }
         index.MarkChanged();
     }
@@ -91,9 +95,9 @@ internal static class FileIndexBuilder
         VolumeIndex index,
         string directory,
         int parent,
-        int depth,
-        Stack<(string Path, int Parent, int Depth)> pending,
-        CancellationToken token)
+        Stack<(string Path, int Parent)> pending,
+        CancellationToken token,
+        IndexScanTracker? diagnostics = null)
     {
         var pattern = directory.EndsWith(Path.DirectorySeparatorChar)
             ? directory + "*"
@@ -108,7 +112,15 @@ internal static class FileIndexBuilder
             NativeMethods.FIND_FIRST_EX_LARGE_FETCH);
 
         if (handle.IsInvalid)
+        {
+            // Do not publish an empty replacement when a drive disappeared during recovery.
+            var error = System.Runtime.InteropServices.Marshal.GetLastWin32Error();
+            if (parent == 0 && error is not (NativeMethods.ERROR_FILE_NOT_FOUND or NativeMethods.ERROR_NO_MORE_FILES))
+                throw new IOException($"Cannot enumerate {directory}.", new System.ComponentModel.Win32Exception(error));
+            if (error is not (NativeMethods.ERROR_FILE_NOT_FOUND or NativeMethods.ERROR_NO_MORE_FILES))
+                diagnostics?.Skip(directory, new System.ComponentModel.Win32Exception(error).Message);
             return;
+        }
 
         do
         {
@@ -134,12 +146,13 @@ internal static class FileIndexBuilder
             // reparse point with a "cloud files" tag. Skipping all reparse points hid Desktop,
             // Documents, etc. whenever they were backed up to OneDrive. Cloud folders are now
             // scanned; symbolic links, junctions and mount points are still skipped (loops).
-            if ((attributes & FileAttributes.Directory) != 0 &&
-                depth < MaxDepth &&
-                ((attributes & FileAttributes.ReparsePoint) == 0 || IsCloudFilesTag(data.dwReserved0)))
+            if (CanDescend(attributes, data.dwReserved0))
             {
-                pending.Push((Join(directory, name), child, depth + 1));
+                pending.Push((Join(directory, name), child));
+                diagnostics?.DiscoverFolder();
             }
+            else if ((attributes & FileAttributes.Directory) != 0)
+                diagnostics?.Skip(Join(directory, name), "Folder link not followed (prevents loops)");
         }
         while (NativeMethods.FindNextFileW(handle, out data));
     }

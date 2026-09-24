@@ -101,6 +101,18 @@
         </Grid.RowDefinitions>
         <DockPanel Margin="0,0,0,8">
             <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                <!-- NEW (round 46): experimental views, shown once they are turned on in the map settings. -->
+                <StackPanel x:Name="ViewPickerPanel" Orientation="Horizontal" Visibility="Collapsed" Margin="0,0,16,0">
+                    <TextBlock Text="View" VerticalAlignment="Center" Foreground="{StaticResource InkMuted}" Margin="0,0,10,0"/>
+                    <ComboBox x:Name="ViewPicker" Width="118" Style="{StaticResource DrivePicker}" SelectionChanged="OnExperimentalViewPicked"
+                              AutomationProperties.Name="Map view">
+                        <ComboBoxItem Content="Map"/>
+                        <ComboBoxItem Content="3D blocks"/>
+                        <ComboBoxItem Content="Disk layout"/>
+                        <ComboBoxItem Content="3D city"/>   <!-- NEW (round 64): towers you can step inside -->
+                    </ComboBox>
+                </StackPanel>
+                <Button Content="Indexing" Click="OnIndexing" Style="{StaticResource ViewerTextButton}" Margin="0,0,8,0" ToolTip="See scan progress, indexed entries and storage"/>
                 <TextBlock Text="Drive" VerticalAlignment="Center" Foreground="{StaticResource InkMuted}" Margin="0,0,10,0"/>
                 <ComboBox x:Name="Drives" Width="95" Margin="0,0,8,0" Style="{StaticResource DrivePicker}" ItemsSource="{Binding Roots}"
                           SelectedItem="{Binding SelectedRoot, Mode=OneWay}" SelectionChanged="OnDriveChanged"
@@ -137,7 +149,19 @@
                             <CheckBox x:Name="EverythingOption" Style="{StaticResource ViewerCheck}" Content="Render everything (experimental)" Margin="0,14,0,0"
                                       Checked="OnPerformanceOptionChanged" Unchecked="OnPerformanceOptionChanged"/>
                             <TextBlock Foreground="{StaticResource InkMuted}" FontSize="11" TextWrapping="Wrap" Margin="27,3,0,0"
-                                       Text="Draws every block at every depth, so zooming reveals nothing that was not already on screen. The whole drive is laid out once, in about a second, into a compact table of roughly 30 MB per million files, and kept while you switch drives. Refreshes and file changes lay it out again in the background."/>
+                                       Text="Draws blocks at every depth down to a fifth of a pixel, up to 750,000 a frame shared across the screen by area, so zooming reveals little that was not already on screen and no part of the view is ever left blank. The whole drive is laid out once, in about a second, into a compact table of roughly 30 MB per million files, and kept while you switch drives. Refreshes and file changes lay it out again in the background."/>
+                            <!-- NEW (round 50) -->
+                            <TextBlock Text="Drives" FontWeight="SemiBold" Margin="0,18,0,10"/>
+                            <CheckBox x:Name="NetworkOption" Style="{StaticResource ViewerCheck}" Content="Index network drives"
+                                      Checked="OnNetworkOptionChanged" Unchecked="OnNetworkOptionChanged"/>
+                            <TextBlock Foreground="{StaticResource InkMuted}" FontSize="11" TextWrapping="Wrap" Margin="27,3,0,0"
+                                       Text="Also indexes mapped network drives, so they appear in the drive list, in the map and beside your other drives when zoomed out, and in search. The first pass reads the whole share over the network and can take a while on a large NAS. A share that is out of reach keeps its last index until it is back."/>
+                            <!-- NEW (round 46) -->
+                            <TextBlock Text="Experimental" FontWeight="SemiBold" Margin="0,18,0,10"/>
+                            <CheckBox x:Name="ExperimentsOption" Style="{StaticResource ViewerCheck}" Content="Experimental views"
+                                      Checked="OnExperimentalViewChanged" Unchecked="OnExperimentalViewChanged"/>
+                            <TextBlock Foreground="{StaticResource InkMuted}" FontSize="11" TextWrapping="Wrap" Margin="27,3,0,0"
+                                       Text="Adds a View picker next to the drive: the folder as 3D blocks, with a choice of what the height means, as a city of towers you can step inside (floors are subfolders, rooms and crates are what is on them), or the drive as it is laid out on disk, read from the file system like a defragmenter does. The map itself is unchanged and stays where you left it."/>
                             <TextBlock Foreground="{StaticResource InkFaint}" FontSize="11" TextWrapping="Wrap" Margin="0,14,0,0"
                                        Text="Press F3 on the map for frame timings and memory."/>
                         </StackPanel>
@@ -273,11 +297,33 @@
             <DockPanel>
                 <!-- CHANGED (round 2): legend removed; block colors now match the list rows instead
                      of file types. Only the gesture hints remain. -->
-                <TextBlock DockPanel.Dock="Bottom" Margin="2,10,2,0" HorizontalAlignment="Right"
+                <TextBlock x:Name="MapHint" DockPanel.Dock="Bottom" Margin="2,10,2,0" HorizontalAlignment="Right"
                            Text="Scroll to zoom · drag to pan · click to open · hover for details · Esc for the whole folder"
                            FontSize="11" Foreground="{StaticResource InkFaint}" TextTrimming="CharacterEllipsis"/>
-                <controls:DiskUsageTreemap x:Name="Treemap" AutomationProperties.Name="Disk usage map"
-                                           ToolTip="{x:Null}" MinWidth="200" MinHeight="200"/>
+                <!-- CHANGED (round 46): the map shares its area with the experimental views. It is only hidden
+                     while they show (not collapsed), so it keeps its size and scene and comes back instantly. -->
+                <Grid>
+                    <controls:DiskUsageTreemap x:Name="Treemap" AutomationProperties.Name="Disk usage map"
+                                               ToolTip="{x:Null}" MinWidth="200" MinHeight="200"/>
+                    <controls:DiskBlocks3DView x:Name="Blocks3D" Visibility="Collapsed" AutomationProperties.Name="3D disk usage view"/>
+                    <controls:DiskPlatterView x:Name="Platter" Visibility="Collapsed" AutomationProperties.Name="Disk layout view"/>
+                    <!-- NEW (round 64): the folder as a city; clicking a tower opens it as an exploded view with an elevator. -->
+                    <controls:DiskCityView x:Name="City3D" Visibility="Collapsed" AutomationProperties.Name="3D city view"/>
+                    <StackPanel HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,8,8,0" Orientation="Horizontal">
+                        <ComboBox x:Name="HeightPicker" Width="150" Style="{StaticResource DrivePicker}" Visibility="Collapsed"
+                                  SelectionChanged="OnExperimentalViewPicked" AutomationProperties.Name="Block height">
+                            <ComboBoxItem Content="Stacked folders"/>
+                            <ComboBoxItem Content="Height: size"/>
+                            <ComboBoxItem Content="Height: file count"/>
+                            <ComboBoxItem Content="File types"/>
+                        </ComboBox>
+                        <ComboBox x:Name="PlatterPicker" Width="120" Style="{StaticResource DrivePicker}" Visibility="Collapsed"
+                                  SelectionChanged="OnExperimentalViewPicked" AutomationProperties.Name="Disk layout style">
+                            <ComboBoxItem Content="Platter"/>
+                            <ComboBoxItem Content="Grid"/>
+                        </ComboBox>
+                    </StackPanel>
+                </Grid>
             </DockPanel>
         </DockPanel>
     </Grid>

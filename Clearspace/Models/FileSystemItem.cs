@@ -25,6 +25,7 @@ public sealed class FileSystemItem : ObservableObject
     }
 
     public FileAttributes Attributes { get; init; }
+    internal uint ReparseTag { get; init; }
 
     public long Size { get; init; }
 
@@ -275,6 +276,7 @@ public sealed class FileSystemItem : ObservableObject
             Name = name,
             FullPath = Path.Combine(directory, name),
             Attributes = data.dwFileAttributes,
+            ReparseTag = data.dwReserved0,
             Size = size,
             IsInCloudRoot = inCloudRoot,
             DateModified = ToDateTime(data.ftLastWriteTime),

@@ -67,6 +67,21 @@ internal static class DiskUsagePalette
         return extension.Length > 1 && KindByExtension.TryGetValue(extension[1..], out var kind) ? kind : Other;
     }
 
+    // NEW (round 46): file type by name, for views that read the snapshot directly (the 3D view's
+    // "file type" heights). The span lookup avoids a string per file on a whole-drive pass.
+    private static readonly Dictionary<string, int>.AlternateLookup<ReadOnlySpan<char>> KindBySpan =
+        KindByExtension.GetAlternateLookup<ReadOnlySpan<char>>();
+
+    /// <summary>Type index for a file name; <see cref="Other"/> when unknown.</summary>
+    public static int KindOf(ReadOnlySpan<char> name)
+    {
+        var extension = Path.GetExtension(name);
+        return extension.Length > 1 && KindBySpan.TryGetValue(extension[1..], out var kind) ? kind : Other;
+    }
+
+    public static int KindCount => Kinds.Length + 1;
+    public static string KindName(int kind) => kind >= 0 && kind < Kinds.Length ? Kinds[kind].Name : "Other files";
+
     public static string CategoryName(DiskUsageItem item)
     {
         if (item.Id < 0) return "Smaller items";

@@ -95,6 +95,7 @@ internal sealed class VolumeIndex
     }
 
     public string Root { get; }
+    internal IndexScanTracker? ScanDetails { get; set; }
 
     public uint SerialNumber { get; }
 

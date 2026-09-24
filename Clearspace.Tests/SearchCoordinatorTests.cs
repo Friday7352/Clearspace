@@ -221,6 +221,34 @@ public sealed class SearchCoordinatorTests
         Assert.AreEqual(0, sources.CrawlCalls);
     }
 
+    [TestMethod]
+    public async Task HealthyDriveIsNotCrawledWhenAnotherDriveLosesCoverage()
+    {
+        var overlay = new IndexOverlay();
+        overlay.MarkOverflowed(@"D:\");
+        var sources = new FakeSources { Roots = [@"C:\", @"D:\"], Coverage = overlay.IsHealthy };
+        using var coordinator = Create(sources, []);
+        await coordinator.SearchAsync(Request(false) with { Text = "needle", Everywhere = true }, [], true, TimeSpan.Zero);
+        CollectionAssert.AreEqual(new[] { @"D:\" }, sources.LastCrawlRoots!.ToArray());
+        overlay.TryRecover(@"D:\", overlay.Generation(@"D:\"));
+        await coordinator.SearchAsync(Request(false) with { Text = "needle", Everywhere = true }, [], true, TimeSpan.Zero);
+        Assert.AreEqual(1, sources.CrawlCalls, "A recovered drive uses the index again.");
+    }
+
+    [TestMethod]
+    public async Task CoverageLostDuringIndexLookupIsRechecked()
+    {
+        var healthy = true;
+        var sources = new FakeSources
+        {
+            Roots = [@"C:\", @"D:\"], Coverage = root => root == @"C:\" || healthy,
+            Index = _ => { healthy = false; return Task.FromResult<IReadOnlyList<FileSystemItem>>([]); }
+        };
+        using var coordinator = Create(sources, []);
+        await coordinator.SearchAsync(Request(false) with { Text = "needle" }, [], true, TimeSpan.Zero);
+        CollectionAssert.AreEqual(new[] { @"D:\" }, sources.LastCrawlRoots!.ToArray());
+    }
+
     private sealed class FakeSources : ISearchSources
     {
         public bool IsIndexLive => true;
@@ -233,8 +261,11 @@ public sealed class SearchCoordinatorTests
         public IReadOnlyList<FileSystemItem> Crawled { get; init; } = [];
         public IReadOnlyList<FileSystemItem> Missing { get; init; } = [];
         public Func<CancellationToken, Task<IReadOnlyList<FileSystemItem>>>? Index { get; set; }
-        public IReadOnlyList<string> ResolveRoots(SearchRequest request) => [request.CurrentPath];
-        public bool Covers(string root) => Covered;
+        public IReadOnlyList<string>? Roots { get; init; }
+        public Func<string, bool>? Coverage { get; init; }
+        public IReadOnlyList<string>? LastCrawlRoots { get; private set; }
+        public IReadOnlyList<string> ResolveRoots(SearchRequest request) => Roots ?? [request.CurrentPath];
+        public bool Covers(string root) => Coverage?.Invoke(root) ?? Covered;
         public IReadOnlyList<FileSystemItem> KnownItems(SearchQuery query) => [];
         public Task<IReadOnlyList<FileSystemItem>> IndexAsync(SearchQuery query, IReadOnlyList<string> roots, bool hidden, int limit, CancellationToken token)
             => Index?.Invoke(token) ?? Task.FromResult(Indexed);
@@ -249,6 +280,7 @@ public sealed class SearchCoordinatorTests
             IProgress<IReadOnlyList<FileSystemItem>> progress, CancellationToken token)
         {
             CrawlCalls++;
+            LastCrawlRoots = roots;
             progress.Report(Crawled);
             return Task.FromResult(false);
         }

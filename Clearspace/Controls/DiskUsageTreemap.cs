@@ -77,7 +77,9 @@ public sealed class DiskUsageTreemap : FrameworkElement, IDisposable
     // ---------------------------------------------------------------- model
     private enum NodeState { Leaf, Collapsed, Pending, Ready }
 
-    private record struct CachedText(FormattedText? Text, double Em, double NaturalWidth, Brush? Tint = null, double Width = -1, Drawing? Drawing = null);
+    // CHANGED (round 60): Source - the string the text was made from, so a label whose words change (the
+    // live memory view's sizes) is made again rather than kept.
+    private record struct CachedText(FormattedText? Text, double Em, double NaturalWidth, Brush? Tint = null, double Width = -1, Drawing? Drawing = null, string? Source = null);
 
     private sealed class Node
     {
@@ -109,7 +111,13 @@ public sealed class DiskUsageTreemap : FrameworkElement, IDisposable
         public string ShareText { get; }
         private string? _sizeText, _detailText;
         public string SizeText => _sizeText ??= Item.SizeText;
-        public string DetailText => _detailText ??= $"{SizeText} · {ShareText}";
+        public string DetailText => _detailText ??= Detail ?? $"{SizeText} · {ShareText}";
+        // NEW (round 51): a second line of its own (drive covers, the computer).
+        // CHANGED (round 60): settable, so a live block (the memory's) keeps its node - and its label - while
+        // its numbers change.
+        public string? Detail { get => _detail; set { _detail = value; _detailText = null; } }
+        public string? Tag { get; set; }       // NEW (round 58): what a name tag says after the name, in place of the size
+        private string? _detail;
         public NodeState State { get; set; }
         public Node[] Children { get; set; } = [];
         public int FirstGroup { get; set; }      // NEW (round 15): index of the first "smaller items" child (named ones precede it)
@@ -606,11 +614,13 @@ public sealed class DiskUsageTreemap : FrameworkElement, IDisposable
         _heapTrim.Tick += (_, _) => TrimHeapWhenIdle();   // started on Loaded, stopped on Unloaded
         _rebuild = new DispatcherTimer(DispatcherPriority.Background) { Interval = TimeSpan.FromMilliseconds(220) };
         _rebuild.Tick += (_, _) => { _rebuild.Stop(); Rebuild(); };
-        Loaded += (_, _) => { LoadResources(); RequestFrame(); _heapTrim.Start(); };
+        _memoryTimer.Tick += (_, _) => PollLive();   // NEW (round 59); (round 62) the processor too
+        Loaded += (_, _) => { LoadResources(); RequestFrame(); _heapTrim.Start(); _memoryTimer.Start(); };
         Unloaded += (_, _) =>
         {
             StopFrames();
             _heapTrim.Stop();
+            _memoryTimer.Stop();   // NEW (round 59)
             _rebuild.Stop();
             _gpu?.Dispose(); // NEW (round 14)
             _gpu = null;
@@ -672,6 +682,7 @@ public sealed class DiskUsageTreemap : FrameworkElement, IDisposable
         _navigation++;
         _generation.Cancel();
         _heapTrim.Stop();      // NEW (round 40)
+        _memoryTimer.Stop();   // NEW (round 59)
         _commandPool.Clear();  // NEW (round 41)
         _pooledGeometry.Clear();
         _flatWork?.Cancel();   // NEW (round 39)
@@ -695,9 +706,12 @@ public sealed class DiskUsageTreemap : FrameworkElement, IDisposable
     // ================================================================= public surface
 
     /// <summary>Show a new index snapshot. <paramref name="path"/> lists folder ids below the root.</summary>
+    // CHANGED (round 55): keepDrive - the same drive laid out again (the window was resized, or a tree
+    // finished for a shape the window no longer has). Its size, free space, hardware and the drive the camera
+    // was heading into belong to the drive, not the layout, and nothing would send them again.
     internal void SetSource(DiskUsageItem root, Func<int, CancellationToken, IReadOnlyList<DiskUsageItem>> children,
         IReadOnlyList<int> path, string? missingName = null, Func<int, DiskUsageItem>? item = null,
-        object? cacheKey = null)
+        object? cacheKey = null, bool keepDrive = false)
     {
         if (_disposed) return;
         _item = item ?? _item;
@@ -714,6 +728,15 @@ public sealed class DiskUsageTreemap : FrameworkElement, IDisposable
         _flight = null;
         _hover = null;
         _focusPoint = null;
+        _openingDrive = null;
+        _driveView = null;
+        if (!keepDrive)
+        {
+            _anchor = null;          // NEW (round 49)
+            _thisHardware = default; // NEW (round 51): the new drive's own hardware arrives with its space
+            _driveSpace = null;      // the new drive's own space arrives with it
+            _restoreView = null;
+        }
         _sourceFadeAt = Now;
         EnsureBuilt();
         RequestFrame();
@@ -768,6 +791,9 @@ public sealed class DiskUsageTreemap : FrameworkElement, IDisposable
         _pending = null;
         _root = null;
         _flight = null;
+        _anchor = null;          // NEW (round 49)
+        _openingDrive = null;
+        _thisHardware = default; // NEW (round 51)
         _container = _focusNode = _colorLevel = _colorPrevious = null;
         _hover = null;
         _drawn.Clear();
@@ -837,7 +863,7 @@ public sealed class DiskUsageTreemap : FrameworkElement, IDisposable
         get
         {
             if (_cache is not { } cache) return [];
-            var mapping = BatchFor(cache);
+            var mapping = BatchFor(cache, presented: true);
             return cache.Tiles.Select(tile => (tile.Node.Item, mapping.Transform(tile.Screen))).ToArray();
         }
     }
@@ -867,8 +893,26 @@ public sealed class DiskUsageTreemap : FrameworkElement, IDisposable
         // NEW (round 44): out at the drive, any click goes back to the folder map as it was.
         if (InDriveView)
         {
+            // NEW (round 47): except on another drive, which opens that drive.
+            if (NodeAt(point) is { } region && OtherDriveOf(region) is { } picked && CurrentDrive() is { } machine)   // by id, so a node from the last scene still works
+            {
+                // CHANGED (round 49): fly into it first; it opens where the camera lands, in the same place.
+                foreach (var box in machine.Drives)
+                    if (box.Index >= 0 && machine.Others[box.Index].Root == picked.Root) OpenDrive(machine, box, OtherDrivePath(region));
+                return true;
+            }
+            // NEW (round 59): in the memory, a click zooms into what was clicked - a program, a file, or the
+            // memory itself from its sticks.
+            if (NodeAt(point) is { } block && CurrentDrive() is { } view && view.ZoomTiles.TryGetValue(block.Item.Id, out var tile))
+            {
+                _userMoved = true;
+                _message = null;
+                FlyTo(FitRaw(tile, .04));
+                return true;
+            }
             _userMoved = true;
             _message = null;
+            _anchor = null;   // NEW (round 49)
             FlyTo(Fit(_root!));
             if (_focusNode != _root) Report(_root!);
             return true;
@@ -897,7 +941,28 @@ public sealed class DiskUsageTreemap : FrameworkElement, IDisposable
         var factor = Math.Pow(WheelStep, delta / 120d);
         var width = basis.Width * factor;
         var height = basis.Height * factor;
+        // NEW (round 49): zooming in over a drive heads into that drive - once the view is still wider than
+        // that drive's files, so a notch over the edge of a bigger drive cannot swing the camera out to it.
+        _openingDrive = null;   // any wheel movement takes over from a flight into a drive
         var next = Clamp(new Rect(anchorX - u * width, anchorY - v * height, width, height));
+        // NEW (round 58): zooming out stops first at the drives alone, framed; only a few more notches out
+        // (pushed within a second of each other) go on to the computer below them.
+        if (CurrentDrive() is { Row.IsEmpty: false } drives && ZoomOutDetent(drives, basis, next, delta) is { } held)
+        {
+            _flight = null;
+            _target = held;
+            RequestCameraFrame();
+            return true;
+        }
+        if (delta > 0) _detentPushes = 0;
+        // CHANGED (round 57): zooming in on another drive's files until they fill the view opens it - with
+        // the pointer on them, so zooming in elsewhere (the board, a drive's free space) just zooms.
+        if (delta > 0 && CurrentDrive() is { } machine && DriveAt(machine, new Point(anchorX, anchorY)) is { Index: >= 0 } into &&
+            into.Files.Contains(new Point(anchorX, anchorY)) && next.Width <= FitRaw(into.Files, 0).Width * 1.02)
+        {
+            OpenDrive(machine, into, null);
+            return true;
+        }
         _focusPoint = new Point(anchorX, anchorY);
         // Already showing as much as possible: scrolling out steps up to the parent folder,
         // so folders that span the whole drive's height can still be left with the wheel.
@@ -941,7 +1006,7 @@ public sealed class DiskUsageTreemap : FrameworkElement, IDisposable
                 // Built for a shape the window no longer has. Keep it under that shape's bucket so
                 // returning to it costs nothing, and lay the tree out again for the current one.
                 KeepTree(_cacheKey, aspect, tree, kept is not null ? keptNodes : Sweep(tree, double.NegativeInfinity).Count);
-                SetSource(requested.Root, provider, requested.Path, requested.Missing, _item);
+                SetSource(requested.Root, provider, requested.Path, requested.Missing, _item, keepDrive: true);   // CHANGED (round 55)
                 return;
             }
             _root = tree;
@@ -957,6 +1022,18 @@ public sealed class DiskUsageTreemap : FrameworkElement, IDisposable
             _reportedFocus = pending.Path.Count == 0 ? _root.Item.Id : pending.Path[^1];
             _userMoved = false;
             _camera = _target = Fit(focus);
+            // NEW (round 55): relaid for a new window shape while zoomed out over the drives: the camera goes
+            // back to the same part of the picture, rather than into the files.
+            if (_restoreView is { } restore && CurrentDrive() is { } machine)
+            {
+                var fit = FitRaw(machine.Machine, 0);
+                var width = fit.Width * restore.Size;
+                var height = width / ViewAspect;
+                var centre = new Point(machine.Machine.X + machine.Machine.Width * restore.U, machine.Machine.Y + machine.Machine.Height * restore.V);
+                _camera = _target = Clamp(new Rect(centre.X - width / 2, centre.Y - height / 2, width, height));
+                _userMoved = true;
+            }
+            _restoreView = null;
             _container = ComputeContainer();
             _dimWorld = _container.Bounds;
             _dimAlpha = _container == _root ? 0 : DimLevel;
@@ -990,8 +1067,48 @@ public sealed class DiskUsageTreemap : FrameworkElement, IDisposable
         var missing = _missingName;
         var root = _root.Item;
         var fade = _sourceFadeAt;
-        SetSource(root, _children, path, missing, _item);
+        // NEW (round 55): out over the drives, remember where in the picture the camera is (as a share of
+        // the whole machine, which is laid out again at the new shape) to come back to it.
+        if (InDriveView && CurrentDrive() is { } machine && machine.Machine.Width > 0 && machine.Machine.Height > 0)
+        {
+            var centre = Center(_camera);
+            _restoreView = ((centre.X - machine.Machine.X) / machine.Machine.Width, (centre.Y - machine.Machine.Y) / machine.Machine.Height,
+                _camera.Width / Math.Max(1e-12, FitRaw(machine.Machine, 0).Width));
+        }
+        SetSource(root, _children, path, missing, _item, keepDrive: true);   // CHANGED (round 55): the same drive
         _sourceFadeAt = fade; // a resize is not a new source; don't flash
+    }
+
+    private (double U, double V, double Size)? _restoreView;   // NEW (round 55)
+
+    // NEW (round 58): the stop at the drives when zooming out. Returns the view to hold, or null to zoom on.
+    private const int DetentPushes = 3;   // wheel notches past the stop
+    private int _detentPushes;            // wheel movement (in notch units of 120) past it so far
+    private double _detentAt;
+
+    private Rect? ZoomOutDetent(DriveView drives, Rect basis, Rect next, int delta)
+    {
+        if (delta >= 0) return null;
+        // CHANGED (round 59): only when looking at the drives - zooming out of the memory (or anywhere else on
+        // the board) must not jump up to them.
+        if (!drives.Row.Contains(Center(basis))) return null;
+        var stop = Clamp(FitRaw(drives.Row, 0));
+        if (stop.Width >= FitRaw(drives.Machine, 0).Width * .98) return null;   // nothing beyond the drives to hold back
+        if (basis.Width < stop.Width * .99)
+        {
+            // Crossing the stop from inside: land exactly on it, the whole row framed.
+            if (next.Width <= stop.Width) return null;
+            _detentPushes = 0;
+            _detentAt = Now;
+            return stop;
+        }
+        if (basis.Width > stop.Width * 1.02) return null;   // already past it, out over the computer
+        // At the stop: count pushes out, by how far the wheel turned (a touchpad sends many small ones); a
+        // pause resets them.
+        if (Now - _detentAt > 1) _detentPushes = 0;
+        _detentAt = Now;
+        _detentPushes += Math.Min(120, -delta);
+        return _detentPushes < DetentPushes * 120 ? stop : null;
     }
 
     // Squarified layout of one level, in the given world rectangle. Thread-safe and pure.
@@ -1523,17 +1640,265 @@ public sealed class DiskUsageTreemap : FrameworkElement, IDisposable
     // below - so nothing is laid out again and zooming back in lands exactly where it was.
     private (long Total, long Free)? _driveSpace;
     private DriveView? _driveView;
-    private sealed record DriveView(Node Root, long Total, long Free, Rect World, DriveRegion[] Regions);
-    private readonly record struct DriveRegion(Node Label, Rect[] Parts, uint Color);
+    // CHANGED (round 47): Machine is the frame around this drive and the other drives beside it (the same
+    // as World when there are none); Others says which drive each of their regions belongs to.
+    private sealed record DriveView(Node Root, long Total, long Free, Rect World, DriveRegion[] Regions, Rect Machine, OtherDrive[] Others)
+    {
+        // NEW (round 48): drawn after the regions, in order - other drives' folders and files, the cables
+        // and the computer's details - and which drive (and which item on it) each region stands for.
+        public Solid[] Solids { get; init; } = [];
+        public Dictionary<int, (int Drive, string? Path)> Owners { get; init; } = [];   // by item id, which is the same across rebuilds
+        public DriveBox[] Drives { get; init; } = [];            // NEW (round 49): every drive's box and files, this one as -1
+        // NEW (round 51): each drive's body, drawn under its files; and its cover - the lid or label it has
+        // as a device - which the overlay draws over it and fades in as the camera pulls out, one per slot
+        // of Drives. A cover's node is what hovering or clicking the covered drive finds.
+        public Solid[] Underlay { get; init; } = [];
+        public CoverShape[] Covers { get; init; } = [];
+        public CoverText?[] CoverTexts { get; init; } = [];
+        public Rect[] CoverBounds { get; init; } = [];
+        public Node?[] CoverNodes { get; init; } = [];
+        public Rect Row { get; init; } = Rect.Empty;   // NEW (round 58): the drives alone, the first stop zooming out
+        // NEW (round 59): what is in memory - the area its contents fill, the memory sticks drawn over it (by
+        // the overlay, fading as the camera closes in, the way a drive's cover does), and where each of its
+        // blocks is, for a click to zoom to.
+        public Rect MemoryArea { get; init; } = Rect.Empty;
+        public LidPart[] Lids { get; init; } = [];            // CHANGED (round 62): the sticks, and the processor's lid
+        public Rect CpuArea { get; init; } = Rect.Empty;       // NEW (round 62): what the processor's lid covers
+        public Dictionary<int, Rect> ZoomTiles { get; init; } = [];
+        public Dictionary<int, Node> Nodes { get; init; } = [];  // NEW (round 49): region labels by id, reused by the next build
+    }
+
+    // NEW (round 48): a plain block the drive view draws. Tiles get a gap like the map's blocks and vanish
+    // below a pixel; wires keep a visible thickness at any zoom.
+    private enum SolidKind : byte { Tile, Wire, Plain }
+    // NEW (round 49): one drive in the machine view: which (-1 this one, else an index into Others), its
+    // whole box, and the part its files fill - what the camera zooms into to open it.
+    private readonly record struct DriveBox(int Index, Rect Box, Rect Files);
+    // NEW (round 51): the parts of a drive's cover, in world units; Slot is the drive's place in Drives.
+    private enum CoverForm : byte { Box, Rounded, Ellipse, Ring }
+    private readonly record struct CoverShape(CoverForm Form, Rect World, uint Color, int Slot, double Corner = 0, double Stroke = 0);
+    // NEW (round 59): one memory stick (or empty slot) over the memory's contents, and what hovering it finds.
+    // CHANGED (round 62): any lid over a part's insides - the memory's sticks, the processor's heatspreader.
+    // Area is what it covers (it fades as that nearly fills the view); Backing fills the area behind it.
+    private readonly record struct LidPart(Rect World, Rect Area, uint Color, uint Backing, Node Node, string Label);
+
+    // What a drive's label says, and where on it.
+    private sealed record CoverText(Rect Sticker, string Brand, string Model, string Capacity, string Kind, uint Accent);
+    private readonly record struct Solid(Rect World, uint Color, SolidKind Kind);
+    // CHANGED (round 58): Open - captioned with a name tag in its corner, the way the map tags an open folder,
+    // for a region with others on top of it (the motherboard, the memory).
+    // CHANGED (round 61): Parent - the region it sits in, whose name tag its own caption keeps clear of.
+    private readonly record struct DriveRegion(Node Label, Rect[] Parts, uint Color, bool Fill = true, bool Captioned = true, int Slot = -1, bool Open = false, Node? Parent = null);   // CHANGED (round 48): Fill, Captioned; (round 51) Slot
     private static readonly uint FreeSpaceColor = Pack(Parse("#35413B"));   // quiet: room, not content
     private static readonly uint OtherSpaceColor = GroupColor;               // the grey of "smaller items"
     private const int FreeSpaceId = -900_001, OtherSpaceId = -900_002;
-    private static bool IsDriveRegion(Node node) => node.Item.Id is FreeSpaceId or OtherSpaceId;
+    // CHANGED (round 48): every region out past the files - this drive's free and unindexed space, the
+    // computer, and the other drives and the items on them - has an id in this range. Which drive a region
+    // belongs to is kept in the drive view's Owners.
+    private const int ComputerId = -900_003, DriveRegionLastId = -3_000_000;
+    private static bool IsDriveRegion(Node node) => node.Item.Id <= FreeSpaceId && node.Item.Id > DriveRegionLastId;
+
+    /// <summary>NEW (round 47): another drive that can be opened, with its size, for zooming out past this one.
+    /// CHANGED (round 48): with a picture of its folders and files when it is indexed.</summary>
+    internal readonly record struct OtherDrive(string Root, string Label, long Total, long Free, bool Indexed, DrivePreview? Preview = null,
+        DriveHardware Hardware = default);   // CHANGED (round 51): what the drive is, to draw it as that
+
+    // NEW (round 51): what the open drive is.
+    private DriveHardware _thisHardware;
+
+    // NEW (round 54): the computer's own parts, drawn around the drives when zoomed all the way out.
+    private PcParts _pcParts = PcParts.Unknown;
+
+    internal void SetPcParts(PcParts parts)
+    {
+        if (ReferenceEquals(_pcParts, parts)) return;
+        _pcParts = parts;
+        _driveView = null;
+        _target = Clamp(_target);
+        _camera = Clamp(_camera);
+        _detailRevision++;
+        RequestFrame();
+    }
+
+    // NEW (round 59): what is in memory, read in the background while the memory is on screen (MemoryMap).
+    // CHANGED (round 60): live - read every second, but only while you are looking into the memory: its
+    // contents on screen (the sticks faded away), the window not minimized, the camera still. Anywhere else
+    // nothing is read and nothing redrawn.
+    // CHANGED (round 62): the processor the same way (CpuMap), each on its own.
+    private MemorySnapshot? _memory;
+    private CpuSnapshot? _cpu;   // NEW (round 62)
+    private readonly MemoryBook _memoryBook = new();
+    private const int MemoryIdFirst = -2_000_000, MemoryIdLast = -2_990_000;
+    private readonly DispatcherTimer _memoryTimer = new(DispatcherPriority.Background) { Interval = TimeSpan.FromSeconds(1) };
+    private readonly LiveReading<MemorySnapshot> _memoryLive = new(MemoryMap.Read);
+    private readonly LiveReading<CpuSnapshot> _cpuLive = new(CpuMap.Read);
+
+    // NEW (round 62): one live reading's state: whether it is being read, when it last was, and one read while
+    // the camera was moving (or you looked away), shown once it stops.
+    private sealed class LiveReading<T>(Func<T> read) where T : class
+    {
+        public readonly Func<T> Read = read;
+        public bool Reading, Failed;
+        public double ReadAt = double.NegativeInfinity;
+        public T? Waiting;
+    }
+
+    // NEW (round 60): what stays the same between readings of the memory, so the live view holds still: each
+    // block's id (the same program or file keeps its node and label), each program's colour, and each
+    // layout's arrangement (StableTreemap).
+    private sealed class MemoryBook
+    {
+        private readonly Dictionary<string, int> _ids = [];
+        private readonly Dictionary<string, int> _hues = [];
+        private readonly Dictionary<string, StableTreemap> _layouts = [];
+        private int _next = MemoryIdFirst;
+
+        public int Id(string key)
+        {
+            if (!_ids.TryGetValue(key, out var id)) _ids[key] = id = _next--;
+            return id;
+        }
+
+        // Programs take the palette's colours in the order they are first seen (largest first), and keep them.
+        public uint Hue(string key)
+        {
+            if (!_hues.TryGetValue(key, out var hue)) _hues[key] = hue = _hues.Count;
+            return BranchColors[hue % BranchColors.Length];
+        }
+
+        public List<StableTile> Arrange(string plan, IReadOnlyList<(string Key, long Bytes)> items, Rect area)
+        {
+            if (!_layouts.TryGetValue(plan, out var layout)) _layouts[plan] = layout = new StableTreemap();
+            return layout.Arrange(items, area.X, area.Y, area.Width, area.Height);
+        }
+
+        // Before each build: forget programs that ended, and start the ids over before they run out.
+        public void Prune(MemorySnapshot snapshot)
+        {
+            var running = snapshot.Programs.Select(program => "f|p|" + program.Key).ToHashSet(StringComparer.Ordinal);
+            foreach (var plan in _layouts.Keys.Where(plan => plan.StartsWith("f|", StringComparison.Ordinal) && !running.Contains(plan)).ToArray())
+                _layouts.Remove(plan);
+            if (_next < MemoryIdLast + 200_000 || _ids.Count > 150_000) { _ids.Clear(); _next = MemoryIdFirst; }
+            if (_hues.Count > 4096) _hues.Clear();
+        }
+    }
+
+    internal void SetMemory(MemorySnapshot snapshot)
+    {
+        // Nothing to redraw when nothing has moved by as much as a pixel's worth.
+        if (_memory is { } shown && Unchanged(shown, snapshot)) return;
+        _memoryBook.Prune(snapshot);
+        _memory = snapshot;
+        _hoverText = null;   // the card under the pointer shows the new numbers
+        _driveView = null;
+        _target = Clamp(_target);
+        _camera = Clamp(_camera);
+        _detailRevision++;
+        RequestFrame();
+
+        static bool Unchanged(MemorySnapshot a, MemorySnapshot b)
+        {
+            var step = Math.Max(1L << 20, a.Total / 4000);
+            if (Math.Abs(a.Available - b.Available) > step || a.Programs.Length != b.Programs.Length) return false;
+            var before = a.Programs.ToDictionary(program => program.Key, StringComparer.OrdinalIgnoreCase);
+            foreach (var program in b.Programs)
+                if (!before.TryGetValue(program.Key, out var old) || Math.Abs(old.Bytes - program.Bytes) > step || old.Files.Length != program.Files.Length) return false;
+            return true;
+        }
+    }
+
+    // NEW (round 62): what the processor is doing. Every reading changes it, so every one is drawn.
+    internal void SetCpu(CpuSnapshot snapshot)
+    {
+        _cpu = snapshot;
+        _hoverText = null;
+        _driveView = null;
+        _target = Clamp(_target);
+        _camera = Clamp(_camera);
+        _detailRevision++;
+        RequestFrame();
+    }
+
+    // NEW (round 60): whether you are looking into a part now - its insides on screen, big enough to read,
+    // not hidden under its lid, in a window that is not minimized.
+    // CHANGED (round 62): for any part (the memory, the processor).
+    private bool LookingInto(Rect area)
+    {
+        if (_disposed || area.IsEmpty || !IsVisible || Window.GetWindow(this) is { WindowState: WindowState.Minimized }) return false;
+        if (!InDriveView) return false;
+        var screen = WorldToDisplay(area);
+        return screen.IntersectsWith(_view) && screen.Width >= 48 && LidAlpha(area) < .9;
+    }
+
+    private void PollLive()
+    {
+        if (_disposed || CurrentDrive() is not { } drive) return;
+        Poll(_memoryLive, drive.MemoryArea, SetMemory);
+        Poll(_cpuLive, drive.CpuArea, SetCpu);
+    }
+
+    // Reads a part once a second while you are looking into it - and not while the camera is moving, so a
+    // new picture never lands mid-zoom; one read meanwhile waits for the camera to stop.
+    private void Poll<T>(LiveReading<T> live, Rect area, Action<T> apply) where T : class
+    {
+        if (live.Reading || !LookingInto(area)) return;
+        if (IsAnimating || _dragging || SecondsSinceInteraction < .4) return;
+        if (live.Waiting is { } waiting) { live.Waiting = null; apply(waiting); return; }
+        if (Now - live.ReadAt < (live.Failed ? 5 : .9)) return;
+        live.Reading = true;
+        Task.Run(live.Read).ContinueWith(task => Dispatcher.InvokeAsync(() =>
+        {
+            _ = task.Exception;
+            live.Reading = false;
+            live.ReadAt = Now;
+            live.Failed = task.Status != TaskStatus.RanToCompletion;
+            if (_disposed || live.Failed) return;
+            if (!LookingInto(area) || IsAnimating || _dragging || SecondsSinceInteraction < .4) live.Waiting = task.Result;
+            else apply(task.Result);
+        }));
+    }
+
+    internal void SetThisHardware(DriveHardware hardware)
+    {
+        if (_thisHardware == hardware) return;
+        _thisHardware = hardware;
+        _driveView = null;
+        _target = Clamp(_target);
+        _camera = Clamp(_camera);
+        _detailRevision++;
+        RequestFrame();
+    }
+
+    /// <summary>NEW (round 48): the width-to-height ratio of the map's world, which drive previews are laid out at.</summary>
+    internal double WorldAspect => _root?.Bounds.Width is > 0 and var width ? width : 1.6;
+    private OtherDrive[] _otherDrives = [];
+
+    /// <summary>NEW (round 47): raised when a click out at the machine picks another drive.</summary>
+    internal event Action<string, string?>? DriveRequested;   // CHANGED (round 48): the drive, and a folder on it to open
+
+    /// <summary>NEW (round 47): the other drives to show beside this one when zoomed all the way out.</summary>
+    internal void SetOtherDrives(IReadOnlyList<OtherDrive> drives)
+    {
+        // CHANGED (round 48): free space on the other drives moves by a few megabytes all the time; that
+        // alone is not worth rebuilding the machine view (and every node on it) for.
+        if (drives.Count == _otherDrives.Length && drives.Select((drive, i) => (drive, old: _otherDrives[i])).All(pair =>
+                pair.drive with { Free = 0 } == pair.old with { Free = 0 } && Math.Abs(pair.drive.Free - pair.old.Free) < 256L << 20))
+            return;
+        _otherDrives = [.. drives];
+        _driveView = null;
+        _target = Clamp(_target);
+        _camera = Clamp(_camera);
+        _detailRevision++;
+        RequestFrame();
+    }
 
     /// <summary>NEW (round 44): the size and free space of the drive the current source is the root of.</summary>
     internal void SetDriveSpace((long Total, long Free)? space)
     {
         if (_driveSpace == space) return;
+        // NEW (round 49): free space moves by a few megabytes all the time; rebuilding the drive view for
+        // that made everything out there flicker.
+        if (_driveSpace is { } known && space is { } next && known.Total == next.Total && Math.Abs(known.Free - next.Free) < 256L << 20) return;
         _driveSpace = space is { Total: > 0 } ? space : null;
         _driveView = null;
         _target = Clamp(_target);
@@ -1546,25 +1911,979 @@ public sealed class DiskUsageTreemap : FrameworkElement, IDisposable
     {
         if (_root is null || _driveSpace is not { } space) return null;
         if (_driveView is { } view && ReferenceEquals(view.Root, _root) && view.Total == space.Total && view.Free == space.Free) return view;
-        return _driveView = BuildDriveView(_root, space.Total, space.Free);
+        return _driveView = BuildDriveView(_root, space.Total, space.Free, _otherDrives, _driveView, _thisHardware, _pcParts, _memory, _cpu, _memoryBook);   // CHANGED (round 59): memory; (round 60) its book; (round 62) the processor
     }
 
-    private static DriveView? BuildDriveView(Node root, long total, long free)
+    private static DriveView? BuildDriveView(Node root, long total, long free, OtherDrive[] others, DriveView? previous, DriveHardware hardware, PcParts parts,
+        MemorySnapshot? memorySnapshot, CpuSnapshot? cpuSnapshot, MemoryBook memoryBook)   // CHANGED (round 59): what is in memory; (round 60) what stays put in it
     {
         var used = root.Item.Bytes;
         if (used <= 0) return null;
         free = Math.Clamp(free, 0, total);
         var other = Math.Max(0, total - free - used);
         var whole = (double)used + other + free;
-        var k = Math.Sqrt(whole / used);
-        if (k < 1.001) return null;   // the files are the drive: nothing to zoom out to
+        var k = Math.Max(1, Math.Sqrt(whole / used));
+        if (k < 1.001 && others.Length == 0) return null;   // the files are the drive, and there is nowhere else to go
         var r = root.Bounds;
+        var world = new Rect(r.X, r.Y, r.Width * k, r.Height * k);
+        var regions = new List<DriveRegion>();
+        var solids = new List<Solid>();
+        var owners = new Dictionary<int, (int Drive, string? Path)>();
+        var slots = new int[others.Length + 1];
+        // CHANGED (round 48): the split around the files is shared with the other drives' previews.
+        var (otherParts, freeParts) = Surround(r, k, r.Width * r.Height * other / used);
+        if (free > 0) regions.Add(Region(FreeSpaceId, "Free space", free, freeParts, FreeSpaceColor, whole));
+        if (other > 0) regions.Add(Region(OtherSpaceId, "Used, not indexed", other, otherParts, OtherSpaceColor, whole));
+
+        // NEW (round 47): the other drives, at the same scale - a drive twice the size has twice the area.
+        // CHANGED (round 49): the whole machine is laid out the same way whichever drive is open - every
+        // drive in one row in drive-letter order, standing on one line, with every size (gaps, name plates,
+        // cables, the computer) taken from the largest drive rather than the one open. Opening another
+        // drive then changes nothing on screen but which drive the files are real in; the picture is only
+        // re-placed around it. An indexed drive shows its folders and files the way this one does (files in
+        // the top-left corner, then what the index does not cover, then free space); one not indexed yet is
+        // its used space beside its free space. A drive far smaller than the largest keeps a minimum size so
+        // it can still be found and clicked.
+        var drives = new List<DriveBox> { new(-1, world, r) };
+        foreach (var index in Enumerable.Range(0, regions.Count)) regions[index] = regions[index] with { Slot = 0 };   // this drive's space
+        var underlay = new List<Solid>();
+        var covers = new List<CoverShape>();
+        var coverTexts = new List<CoverText?> { null };
+        var coverBounds = new List<Rect> { Rect.Empty };
+        var coverNodes = new List<Node?> { null };
+        var coverIds = new HashSet<int>();
+
+        // CHANGED (round 56): the drives back in a row, easy to see, each cabled down to the computer - which
+        // is now its motherboard, drawn open: its maker and model, the processor under its cooler, the memory
+        // in its slots and the graphics card, all read from the machine (PcHardware). Network drives sit on
+        // their servers after the local drives, the servers cabled to the board's network port. Sizes come
+        // from the largest drive, so the picture is the same whichever drive is open.
+        // A drive whose hardware has not been read yet (the first build) is drawn as a plain drive.
+        static DriveHardware Known(DriveHardware device, string at) => device.Model is null ? new DriveHardware(DriveKind.Unknown, at) : device;
+        hardware = Known(hardware, root.Item.Name);
+        var entries = others.Select((drive, index) => (Index: index, drive.Root, Hardware: Known(drive.Hardware, drive.Root), drive.Total))
+            .Append((Index: -1, Root: root.Item.Name, Hardware: hardware, Total: total))
+            .OrderBy(entry => entry.Hardware.Kind == DriveKind.Network ? 1 : 0)
+            .ThenBy(entry => entry.Hardware.Kind == DriveKind.Network ? entry.Hardware.Server ?? entry.Root : "", StringComparer.OrdinalIgnoreCase)
+            .ThenBy(entry => entry.Root, StringComparer.OrdinalIgnoreCase).ToList();
+        var perRootByte = world.Width / Math.Sqrt(Math.Max(1d, whole));   // world width per sqrt(byte)
+        var unit = Math.Max(world.Width, others.Length == 0 ? 0 : others.Max(drive => Math.Sqrt(Math.Max(1d, drive.Total))) * perRootByte);
+        var gap = unit * .08;
+        var plate = unit * .025;
+        var wire = unit * .003;
+        var plug = new Size(unit * .025, unit * .01);
+        var count = entries.Count;
+        var boxes = new Rect[count];
+        var frames = new Thickness[count];
+        // NEW (round 52): where each drive's cable plugs in - filled in by Device().
+        var portsOf = new List<(double X, double Y, uint Wire)>[count];
+        var here = entries.FindIndex(entry => entry.Index == -1);
+        DriveKind KindOf(int i) => entries[i].Hardware.Kind;
+        boxes[here] = world;
+        frames[here] = Frame(hardware.Kind, world.Height, false);
+        for (var i = here + 1; i < count; i++)
+        {
+            var (width, height) = Measure(entries[i].Total);
+            frames[i] = Frame(KindOf(i), height, false);
+            var x = boxes[i - 1].Right + frames[i - 1].Right + Spacing(i - 1, i) + frames[i].Left;
+            boxes[i] = new Rect(x, world.Bottom - height, width, height);
+        }
+        for (var i = here - 1; i >= 0; i--)
+        {
+            var (width, height) = Measure(entries[i].Total);
+            frames[i] = Frame(KindOf(i), height, false);
+            var x = boxes[i + 1].Left - frames[i + 1].Left - Spacing(i, i + 1) - frames[i].Right - width;
+            boxes[i] = new Rect(x, world.Bottom - height, width, height);
+        }
+        var machine = world;
+
+        // ---- the drives
+        var slotOf = new int[count];
+        var row = Rect.Empty;
+        for (var i = 0; i < count; i++)
+        {
+            var box = boxes[i];
+            var outline = new Rect(box.X - frames[i].Left, box.Y - frames[i].Top, box.Width + frames[i].Left + frames[i].Right, box.Height + frames[i].Top + frames[i].Bottom);
+            machine.Union(outline);
+            var entry = entries[i];
+            string name;
+            long driveTotal, driveFree;
+            if (entry.Index < 0)
+            {
+                slotOf[i] = 0;
+                name = root.Item.Name.TrimEnd('\\') is { Length: > 0 } letter ? $"{letter}\\ · this drive" : "This drive";
+                driveTotal = total;
+                driveFree = free;
+            }
+            else
+            {
+                var drive = others[entry.Index];
+                var first = regions.Count;
+                var files = AddDrive(drive, entry.Index, box);
+                drives.Add(new DriveBox(entry.Index, box, files));
+                slotOf[i] = drives.Count - 1;
+                for (var j = first; j < regions.Count; j++) regions[j] = regions[j] with { Slot = slotOf[i] };
+                coverTexts.Add(null); coverBounds.Add(Rect.Empty); coverNodes.Add(null);
+                name = string.IsNullOrWhiteSpace(drive.Label) ? drive.Root : $"{drive.Root}  {drive.Label}";
+                driveTotal = drive.Total;
+                driveFree = drive.Free;
+            }
+            var plateBar = new Rect(outline.X, outline.Y - plate * 1.3, outline.Width, plate);
+            machine.Union(plateBar);
+            row.Union(outline);
+            row.Union(plateBar);
+            var plateRegion = Region(entry.Index < 0 ? -1_000_000 : FixedId(entry.Index, 0), name, driveTotal, [plateBar], NamePlate, driveTotal);
+            if (entry.Index >= 0) Own(plateRegion, entry.Index, null);
+            else regions.Add(plateRegion);
+            Device(i, slotOf[i], entry.Index, entry.Hardware, box, frames[i], driveTotal, driveFree);
+        }
+
+        // ---- the motherboard under the local drives, a server under each group of network drives
+        var groups = new List<(string Key, int First, int Last)>();
+        for (var i = 0; i < count; i++)
+            if (groups.Count > 0 && groups[^1].Key == Group(i)) groups[^1] = groups[^1] with { Last = i };
+            else groups.Add((Group(i), i, i));
+        var rowBottom = Enumerable.Range(0, count).Max(i => boxes[i].Bottom + frames[i].Bottom);
+        var tallest = boxes.Max(box => box.Height);
+        var drop = Math.Max(tallest * .3, unit * .3);
+        var hubTop = rowBottom + drop;
+        Rect? motherboard = null;
+        var servers = new List<Rect>();
+        double[] sataPorts = [];
+        foreach (var (key, first, last) in groups)
+        {
+            var left = boxes[first].Left - frames[first].Left;
+            var right = boxes[last].Right + frames[last].Right;
+            if (key == "local")
+            {
+                var boardWidth = Math.Clamp((right - left) * .6, unit * 1.8, unit * 3.2);
+                var board = new Rect((left + right) / 2 - boardWidth / 2, hubTop, boardWidth, boardWidth * .62);
+                motherboard = board;
+                // The drives' cables land in SATA ports along the board's top edge, right of the memory (whose
+                // eight slots at most reach .7 of the board's width).
+                sataPorts = Cables(first, last, board, Math.Min(plug.Width, board.Width * .25 / (last - first + 1) * .7), rowBottom, drop, .72, .97);
+                machine.Union(board);
+            }
+            else
+            {
+                var hubWidth = Math.Clamp((right - left) * .45, unit * .3, unit * .7);
+                var hub = new Rect((left + right) / 2 - hubWidth / 2, hubTop, hubWidth, hubWidth * .5);
+                Cables(first, last, hub, Math.Min(plug.Width, hub.Width * .76 / (last - first + 1) * .8), rowBottom, drop, .12, .88);
+                Server(hub, entries[first].Hardware.Server ?? key[4..], last - first + 1, Enumerable.Range(first, last - first + 1).Sum(i => entries[i].Total));
+                servers.Add(hub);
+                machine.Union(hub);
+            }
+        }
+        // The open drive is a share and nothing local is shown: the board still stands left of the servers.
+        var host = motherboard ?? new Rect(servers.Min(hub => hub.Left) - unit * 2.2 - gap * 3, hubTop, unit * 2.2, unit * 2.2 * .62);
+        machine.Union(host);
+        // Network cables from the board's underside to each server's: nested lanes, so they never cross.
+        var ordered = servers.OrderBy(hub => Math.Abs(Centre(hub) - Centre(host))).ToArray();
+        for (var nth = 0; nth < ordered.Length; nth++)
+        {
+            var server = ordered[nth];
+            var toRight = Centre(server) > Centre(host);
+            var from = toRight ? host.Right - host.Width * (.1 + .05 * nth) : host.Left + host.Width * (.1 + .05 * nth);
+            var to = toRight ? server.Left + server.Width * .15 : server.Right - server.Width * .15;
+            var lane = Math.Max(host.Bottom, server.Bottom) + drop * (.2 + .18 * nth);
+            var ethernet = wire * 1.8;
+            underlay.Add(new Solid(new Rect(from - ethernet / 2, host.Bottom - ethernet, ethernet, lane - host.Bottom + ethernet * 1.5), Ethernet, SolidKind.Wire));
+            underlay.Add(new Solid(new Rect(Math.Min(from, to) - ethernet / 2, lane - ethernet / 2, Math.Abs(to - from) + ethernet, ethernet), Ethernet, SolidKind.Wire));
+            underlay.Add(new Solid(new Rect(to - ethernet / 2, server.Bottom, ethernet, lane - server.Bottom + ethernet / 2), Ethernet, SolidKind.Wire));
+            underlay.Add(new Solid(new Rect(to - plug.Width / 2, server.Bottom, plug.Width, plug.Height * 1.4), CableEnd, SolidKind.Plain));
+            machine.Union(new Rect(Math.Min(from, to), lane, Math.Abs(to - from), wire));
+        }
+
+        // ---- the board and its parts.
+        // CHANGED (round 58): drawn as the map draws everything else - flat tiles with the map's gaps, named
+        // the way its blocks are named - instead of the overlay's shaded picture of a board (round 56). The
+        // board is a block with the parts on it, tagged in its corner like an open folder; the processor,
+        // memory and graphics card take the map's own colours; the rest of the board is the grey of the
+        // map's "smaller items".
+        var capacity = total + others.Sum(drive => drive.Total);
+        var localDrives = entries.Count(entry => entry.Hardware.Kind != DriveKind.Network);
+        var memoryArea = Rect.Empty;                    // NEW (round 59)
+        var lids = new List<LidPart>();
+        var cpuArea = Rect.Empty;                       // NEW (round 62)
+        var zoomTiles = new Dictionary<int, Rect>();
+        Board(host, sataPorts, capacity, localDrives);
+        machine.Inflate(gap, gap);
+        return new DriveView(root, total, free, world, [.. regions], machine, others)
+        {
+            Solids = [.. solids], Owners = owners, Drives = [.. drives],
+            Nodes = regions.Select(region => region.Label).Concat(coverNodes.OfType<Node>()).Concat(lids.Select(lid => lid.Node)).ToDictionary(node => node.Item.Id),
+            Underlay = [.. underlay], Covers = [.. covers], CoverTexts = [.. coverTexts], CoverBounds = [.. coverBounds], CoverNodes = [.. coverNodes],
+            Row = Rect.Inflate(row, gap, gap),
+            MemoryArea = memoryArea, Lids = [.. lids], CpuArea = cpuArea, ZoomTiles = zoomTiles,   // NEW (round 59)
+        };
+
+        // NEW (round 58): the board's parts as regions, placed as shares of the board. The board's top strip is
+        // left clear for its name tag; the memory's likewise for its own.
+        void Board(Rect b, double[] ports, long capacity, int localDrives)
+        {
+            double W = b.Width, H = b.Height;
+            Rect At(double x, double y, double w, double h) => new(b.X + W * x, b.Y + H * y, W * w, H * h);
+            var boardName = string.Join(' ', new[] { Maker(parts.BoardMaker), parts.Board }.Where(part => part.Length > 0)) is { Length: > 0 } named ? named : "Motherboard";
+            var boardRegion = Region(ComputerId, boardName, capacity, [b], BoardTile, capacity,
+                $"Motherboard · {localDrives} drive{(localDrives == 1 ? "" : "s")} · {DiskUsageSnapshot.FormatBytes(capacity)} in all", "Motherboard") with { Open = true };
+            regions.Insert(0, boardRegion);
+            var onBoard = boardRegion.Label;   // NEW (round 61): what the parts' captions keep clear of
+
+            void Part(string name, Rect where, uint color, string detail, bool captioned = true)
+                => regions.Add(Region(NextId(), name, 0, [where], color, 1, detail) with { Captioned = captioned, Parent = onBoard });
+
+            // Where the drives' cables land: a row of ports along the top edge.
+            foreach (var x in ports) Part("SATA port", new Rect(x - W * .014, b.Y, W * .028, H * .055), PortTile, "Where a drive's cable connects", false);
+
+            Part("Back panel", At(.02, .12, .08, .52), GroupColor, "USB, network and audio ports");
+            Part("Power delivery", At(.12, .19, .035, .32), GroupColor, "Voltage regulators for the processor", false);
+            Part("Power delivery", At(.175, .12, .2, .05), GroupColor, "Voltage regulators for the processor", false);
+            // CHANGED (round 62): the processor under its lid (the heatspreader), which fades as the camera
+            // closes in to show the die and what is running on it.
+            var cpu = At(.175, .19, .2, .32);
+            var processor = Region(NextId(), parts.Processor, 0, [cpu], CpuTile, 1, $"Processor · {parts.Threads} threads", $"{parts.Threads} threads") with { Open = true, Parent = onBoard };
+            regions.Add(processor);
+            var die = new Rect(cpu.X + cpu.Width * .04, cpu.Y + cpu.Height * .17, cpu.Width * .92, cpu.Height * .79);
+            cpuArea = die;
+            zoomTiles[processor.Label.Item.Id] = die;
+            var heatspreader = Region(NextId(), parts.Processor, 0, [die], LidTile, 1, $"Processor · {parts.Threads} threads · Zoom in to see the die").Label;
+            lids.Add(new LidPart(die, die, LidTile, LidTile, heatspreader, ""));
+            zoomTiles[heatspreader.Item.Id] = die;
+            if (cpuSnapshot is { } cpuNow) CpuContents(die, cpuNow, processor.Label);
+            else
+            {
+                var waiting = Region(memoryBook.Id("c|reading"), "Reading the processor…", 0, [die], DieTile, 1,
+                    "Its cores, how busy each one is, and what is running appear here in a moment") with { Parent = processor.Label };
+                regions.Add(waiting);
+                zoomTiles[waiting.Label.Item.Id] = die;
+            }
+            Part("M.2", At(.12, .56, .255, .06), GroupColor, "M.2 slot");
+            Part("Chipset", At(.76, .66, .13, .21), GroupColor, "Chipset");
+            Part("Power", At(.93, .14, .045, .34), GroupColor, "24-pin power connector", false);
+
+            // Memory: a block holding its slots, a module in each filled one - the second of each pair first,
+            // the way boards are filled.
+            // CHANGED (round 59): the slots are now the memory's cover. Under them is what the memory holds -
+            // the programs running and the files each has loaded - and the sticks fade away as the camera
+            // closes in, the way a drive's cover does.
+            var slots = Math.Clamp(parts.MemorySlots, 2, 8);
+            var modules = parts.Modules;
+            var moduleSize = modules.Length > 0 ? modules.Max(module => module.Bytes) : 0;
+            var speed = modules.Length > 0 ? modules.Max(module => module.Speed) : 0;
+            var memory = At(.42, .12, .28, .46);
+            var container = Region(NextId(), "Memory", parts.MemoryBytes, [memory], MemoryTile, Math.Max(1, parts.MemoryBytes),
+                string.Join(" · ", new[]
+                {
+                    parts.MemoryBytes > 0 ? Gigabytes(parts.MemoryBytes) : "",
+                    modules.Length > 0 ? $"{modules.Length} × {Gigabytes(moduleSize)}" : "",
+                    speed > 0 ? $"{speed} MT/s" : "",
+                }.Where(part => part.Length > 0)) is { Length: > 0 } about ? about : "Memory",
+                parts.MemoryBytes > 0 ? Gigabytes(parts.MemoryBytes) : "") with { Open = true, Parent = onBoard };
+            regions.Add(container);
+            var area = new Rect(memory.X + memory.Width * .03, b.Y + H * .21, memory.Width * .94, memory.Bottom - b.Y - H * .235);
+            memoryArea = area;
+            zoomTiles[container.Label.Item.Id] = area;
+            var filled = Enumerable.Range(0, slots).OrderBy(k => (k % 2 == 1 ? 0 : 1, k)).Take(Math.Min(modules.Length, slots)).Order().ToArray();
+            var step = area.Width / slots;
+            for (var k = 0; k < slots; k++)
+            {
+                var stick = new Rect(area.X + step * k + step * .12, area.Y, step * .76, area.Height);
+                var nth = Array.IndexOf(filled, k);
+                var label = nth < 0 ? "" : Gigabytes(modules[nth].Bytes);
+                var node = nth < 0
+                    ? Region(NextId(), "Empty slot", 0, [stick], PortTile, 1, "No memory in this slot").Label
+                    : Region(NextId(), label, modules[nth].Bytes, [stick], StickTile, 1, string.Join(" · ", new[]
+                    {
+                        modules[nth].Maker, modules[nth].Speed > 0 ? $"{modules[nth].Speed} MT/s" : "", modules[nth].Slot, "Zoom in to see what it holds",
+                    }.Where(part => part.Length > 0))).Label;
+                lids.Add(new LidPart(stick, area, nth < 0 ? PortTile : StickTile, MemoryTile, node, label));
+                zoomTiles[node.Item.Id] = area;
+            }
+            if (memorySnapshot is { } snapshot) MemoryContents(area, snapshot, parts.MemoryBytes > 0 ? parts.MemoryBytes : snapshot.Total, container.Label);
+            else
+            {
+                var reading = Region(memoryBook.Id("m|reading"), "Reading what is in memory…", 0, [area], Shade(MemoryTile, 1.3), 1,
+                    "The programs running, and the files each has loaded, appear here in a moment") with { Parent = container.Label };
+                regions.Add(reading);
+                zoomTiles[reading.Label.Item.Id] = area;
+            }
+
+            if (parts.Graphics.Length > 0)
+                Part(parts.Graphics, At(.1, .68, .6, .24), GpuTile, parts.GraphicsMemory > 0 ? $"Graphics · {Gigabytes(parts.GraphicsMemory)}" : "Graphics");
+        }
+
+        // NEW (round 62): the processor with its lid off - the die, laid out as the chip is built, above what
+        // is running on it. The die holds its core complexes (one per L3 cache: a Ryzen's CCXs; an Intel has
+        // one), each its cores over its L3; an Intel's efficiency cores sit in their fours around the L2 they
+        // share. Each core holds its threads and its own caches. Cores and threads are lit by how busy they
+        // are, from cool to warm. It is drawn as the chip is organised, not to scale.
+        void CpuContents(Rect area, CpuSnapshot snapshot, Node within)
+        {
+            var topology = snapshot.Topology;
+            var gap = Math.Min(area.Width, area.Height) * .02;
+            var dieRect = new Rect(area.X, area.Y, area.Width, area.Height * .6 - gap / 2);
+            var runRect = new Rect(area.X, area.Y + area.Height * .6 + gap / 2, area.Width, area.Height * .4 - gap / 2);
+            double Load(IEnumerable<int> threads) => threads.Select(thread => snapshot.Load.GetValueOrDefault(thread)).DefaultIfEmpty(0).Average();
+            double Clock(IEnumerable<int> threads) => threads.Select(thread => snapshot.Mhz.GetValueOrDefault(thread)).DefaultIfEmpty(0).Max();
+            static string Busy(double load) => $"{load * 100:0}%";
+            static string Ghz(double mhz) => mhz > 0 ? $" · {mhz / 1000:0.00} GHz" : "";
+
+            var l3s = topology.Caches.Where(cache => cache.Level == 3 && cache.Threads.Length > 0).OrderBy(cache => cache.Threads.Min()).ToArray();
+            // Each core in one complex only, even should two L3 entries claim it.
+            var placed = new HashSet<CpuCore>();
+            var clusters = new List<(CpuCache? Cache, CpuCore[] Cores)>();
+            foreach (var cache in l3s)
+            {
+                var under = topology.Cores.Where(core => !placed.Contains(core) && core.Threads.All(cache.Threads.Contains)).ToArray();
+                if (under.Length == 0) continue;
+                placed.UnionWith(under);
+                clusters.Add((cache, under));
+            }
+            var loose = topology.Cores.Where(core => !placed.Contains(core)).ToArray();
+            if (loose.Length > 0) clusters.Add((null, loose));
+
+            var dieRegion = Region(memoryBook.Id("c|die"), "Die", 0, [dieRect], DieTile, 1,
+                $"{topology.Cores.Length} cores · {topology.Threads.Length} threads" + (topology.BaseMhz > 0 ? $" · {topology.BaseMhz / 1000d:0.0#} GHz base" : "") +
+                $" · {Busy(snapshot.Total)} busy", Busy(snapshot.Total), live: true) with { Open = true, Parent = within };
+            regions.Add(dieRegion);
+            zoomTiles[dieRegion.Label.Item.Id] = dieRect;
+            var dieInside = Rect.Inflate(dieRect, -gap, -gap);
+            var (columns, rows) = Grid(clusters.Count, dieInside);
+            for (var i = 0; i < clusters.Count; i++)
+                Cluster(Cell(dieInside, i, columns, rows, gap), clusters[i].Cache, clusters[i].Cores, i, clusters.Count, dieRegion.Label);
+            Running(runRect, within);
+
+            void Cluster(Rect cell, CpuCache? l3, CpuCore[] cores, int number, int count, Node parent)
+            {
+                var body = cell;
+                var inside = parent;
+                if (count > 1)
+                {
+                    var threads = cores.SelectMany(core => core.Threads).ToArray();
+                    var complex = Region(memoryBook.Id($"c|ccx|{number}"), $"Core complex {number + 1}", 0, [cell], ClusterTile, 1,
+                        $"{cores.Length} cores" + (l3 is null ? "" : $" sharing {CacheSize(l3.Bytes)} of L3 cache") + $" · {Busy(Load(threads))} busy",
+                        Busy(Load(threads)), live: true) with { Open = true, Parent = parent };
+                    regions.Add(complex);
+                    zoomTiles[complex.Label.Item.Id] = cell;
+                    inside = complex.Label;
+                    body = Rect.Inflate(cell, -gap * .6, -gap * .6);
+                }
+                var coresRect = body;
+                if (l3 is not null)
+                {
+                    coresRect = new Rect(body.X, body.Y, body.Width, body.Height * .76);
+                    var l3Rect = new Rect(body.X, body.Y + body.Height * .78, body.Width, body.Height * .22);
+                    var cache = Region(memoryBook.Id($"c|l3|{number}"), "L3 cache", l3.Bytes, [l3Rect], CacheTile, 1,
+                        $"{CacheSize(l3.Bytes)} · shared by {cores.Length} core{(cores.Length == 1 ? "" : "s")}", live: true) with { Parent = inside };
+                    regions.Add(cache);
+                    zoomTiles[cache.Label.Item.Id] = l3Rect;
+                }
+                // Performance cores stand alone; efficiency cores come in the groups that share an L2.
+                var units = new List<(CpuCore[] Cores, CpuCache? L2)>();
+                var grouped = new HashSet<CpuCore>();
+                foreach (var core in cores.OrderBy(core => core.Threads.Min()))
+                {
+                    if (grouped.Contains(core)) continue;
+                    var l2 = topology.Caches.FirstOrDefault(cache => cache.Level == 2 && core.Threads.All(cache.Threads.Contains));
+                    var sharing = l2 is null ? [core] : cores.Where(other => other.Threads.All(l2.Threads.Contains)).ToArray();
+                    if (sharing.Length > 1) { units.Add((sharing, l2)); grouped.UnionWith(sharing); }
+                    else units.Add(([core], null));
+                }
+                var (unitColumns, unitRows) = Grid(units.Count, coresRect);
+                var unitGap = gap * .5;
+                for (var u = 0; u < units.Count; u++)
+                {
+                    var unitCell = Cell(coresRect, u, unitColumns, unitRows, unitGap);
+                    if (units[u].Cores.Length == 1) Core(unitCell, units[u].Cores[0], inside);
+                    else Module(unitCell, units[u].Cores, units[u].L2!, inside);
+                }
+            }
+
+            void Module(Rect cell, CpuCore[] cores, CpuCache l2, Node parent)
+            {
+                var threads = cores.SelectMany(core => core.Threads).ToArray();
+                var efficient = topology.Hybrid && cores[0].Efficiency != topology.FastClass;
+                var module = Region(memoryBook.Id($"c|module|{cores[0].Number}"), efficient ? "Efficiency cores" : cores.Length == 2 ? "Core pair" : "Core group", 0, [cell], ClusterTile, 1,
+                    $"{cores.Length} {(efficient ? "efficiency " : "")}cores sharing {CacheSize(l2.Bytes)} of L2 cache · {Busy(Load(threads))} busy", Busy(Load(threads)), live: true)
+                    with { Open = true, Parent = parent };
+                regions.Add(module);
+                zoomTiles[module.Label.Item.Id] = cell;
+                var inner = Rect.Inflate(cell, -gap * .4, -gap * .4);
+                var coresRect = new Rect(inner.X, inner.Y, inner.Width, inner.Height * .74);
+                var l2Rect = new Rect(inner.X, inner.Y + inner.Height * .77, inner.Width, inner.Height * .23);
+                var cache = Region(memoryBook.Id($"c|l2|{cores[0].Number}"), "L2 cache", l2.Bytes, [l2Rect], CacheTile, 1,
+                    $"{CacheSize(l2.Bytes)} · shared by these {cores.Length} cores", live: true) with { Parent = module.Label };
+                regions.Add(cache);
+                zoomTiles[cache.Label.Item.Id] = l2Rect;
+                var (columns, rows) = Grid(cores.Length, coresRect);
+                for (var c = 0; c < cores.Length; c++) Core(Cell(coresRect, c, columns, rows, gap * .3), cores[c], module.Label);
+            }
+
+            void Core(Rect cell, CpuCore core, Node parent)
+            {
+                var load = Load(core.Threads);
+                var clock = Clock(core.Threads);
+                var kind = !topology.Hybrid ? "Core" : core.Efficiency == topology.FastClass ? "Performance core" : "Efficiency core";
+                var region = Region(memoryBook.Id($"c|core|{core.Number}"), $"Core {core.Number}", 0, [cell], Heat(load), 1,
+                    $"{kind} · {Busy(load)} busy{Ghz(clock)} · {core.Threads.Length} thread{(core.Threads.Length == 1 ? "" : "s")}", Busy(load), live: true)
+                    with { Open = true, Parent = parent };
+                regions.Add(region);
+                zoomTiles[region.Label.Item.Id] = cell;
+                var inner = Rect.Inflate(cell, -Math.Min(cell.Width, cell.Height) * .05, -Math.Min(cell.Width, cell.Height) * .05);
+                if (inner.Width <= 0 || inner.Height <= 0) return;
+                // Its threads side by side above its own caches (the L2, and the L1 for data and for instructions).
+                var own = topology.Caches.Where(cache => cache.Level <= 2 && cache.Threads.Length > 0 && cache.Threads.All(core.Threads.Contains))
+                    .OrderByDescending(cache => cache.Level).ThenByDescending(cache => cache.Kind).ToArray();
+                var threadsRect = own.Length == 0 ? inner : new Rect(inner.X, inner.Y, inner.Width, inner.Height * .62);
+                var step = threadsRect.Width / core.Threads.Length;
+                for (var t = 0; t < core.Threads.Length; t++)
+                {
+                    var thread = core.Threads[t];
+                    var threadLoad = snapshot.Load.GetValueOrDefault(thread);
+                    var rect = new Rect(threadsRect.X + step * t, threadsRect.Y, step, threadsRect.Height);
+                    var tile = Region(memoryBook.Id($"c|thread|{thread}"), $"Thread {thread}", 0, [rect], Heat(threadLoad), 1,
+                        $"Logical processor {thread} · {Busy(threadLoad)} busy{Ghz(snapshot.Mhz.GetValueOrDefault(thread))}", live: true) with { Parent = region.Label };
+                    regions.Add(tile);
+                    zoomTiles[tile.Label.Item.Id] = rect;
+                }
+                if (own.Length == 0) return;
+                var cachesRect = new Rect(inner.X, inner.Y + inner.Height * .65, inner.Width, inner.Height * .35);
+                var weights = own.Select(cache => cache.Level == 2 ? 2d : 1d).ToArray();
+                var along = cachesRect.X;
+                for (var c = 0; c < own.Length; c++)
+                {
+                    var cache = own[c];
+                    var width = cachesRect.Width * weights[c] / weights.Sum();
+                    var rect = new Rect(along, cachesRect.Y, width, cachesRect.Height);
+                    along += width;
+                    var name = cache.Level == 2 ? "L2" : cache.Kind == 2 ? "L1 data" : cache.Kind == 1 ? "L1 instructions" : $"L{cache.Level}";
+                    var tile = Region(memoryBook.Id($"c|cache|{core.Number}|{cache.Level}|{cache.Kind}"), name, cache.Bytes, [rect], CacheTile, 1,
+                        $"{name} cache · {CacheSize(cache.Bytes)} · this core's own", live: true) with { Parent = region.Label };
+                    regions.Add(tile);
+                    zoomTiles[tile.Label.Item.Id] = rect;
+                }
+            }
+
+            // What is running: every program sized by its share of the time the processor was busy.
+            void Running(Rect rect, Node parent)
+            {
+                var programs = snapshot.Programs;
+                var run = Region(memoryBook.Id("c|running"), "What's running", 0, [rect], RunTile, 1,
+                    $"{Busy(snapshot.Total)} of the processor in use · {programs.Length} program{(programs.Length == 1 ? "" : "s")}",
+                    $"{Busy(snapshot.Total)} busy", live: true) with { Open = true, Parent = parent };
+                regions.Add(run);
+                zoomTiles[run.Label.Item.Id] = rect;
+                var inner = Rect.Inflate(rect, -gap * .5, -gap * .5);
+                if (inner.Width <= 0 || inner.Height <= 0) return;
+                var shown = programs.Where(program => program.Share >= .0005).ToDictionary(program => "c|p|" + program.Key, StringComparer.Ordinal);
+                var rest = programs.Where(program => program.Share < .0005).Sum(program => program.Share);
+                var items = shown.Select(pair => (pair.Key, (long)(pair.Value.Share * 1e7))).ToList();
+                if (rest > 0) items.Add(("c|others", (long)(rest * 1e7)));
+                if (items.Count == 0) items.Add(("c|idle", 1));
+                foreach (var tile in memoryBook.Arrange("cpu", items, inner))
+                {
+                    var at = new Rect(tile.X, tile.Y, tile.Width, tile.Height);
+                    DriveRegion block;
+                    if (shown.TryGetValue(tile.Key, out var program))
+                        block = Region(memoryBook.Id(tile.Key), program.Name, 0, [at], memoryBook.Hue(program.Key), 1,
+                            $"{program.Share * 100:0.#}% of the processor · {program.Processes} process{(program.Processes == 1 ? "" : "es")}" +
+                            (program.Path is { } path ? $" · {path}" : ""), live: true) with { Parent = run.Label };
+                    else if (tile.Key == "c|others")
+                        block = Region(memoryBook.Id(tile.Key), "Everything else", 0, [at], GroupColor, 1,
+                            $"{rest * 100:0.##}% of the processor · programs using a sliver each", live: true) with { Parent = run.Label };
+                    else
+                        block = Region(memoryBook.Id(tile.Key), "Idle", 0, [at], FreeSpaceColor, 1, "Nothing is using the processor right now", live: true) with { Parent = run.Label };
+                    regions.Add(block);
+                    zoomTiles[block.Label.Item.Id] = at;
+                }
+            }
+        }
+
+        // A grid for n equal cells that keeps them near square in a rectangle.
+        static (int Columns, int Rows) Grid(int count, Rect rect)
+        {
+            if (count <= 1) return (1, 1);
+            var columns = Math.Clamp((int)Math.Round(Math.Sqrt(count * rect.Width / Math.Max(1e-12, rect.Height))), 1, count);
+            return (columns, (count + columns - 1) / columns);
+        }
+
+        static Rect Cell(Rect rect, int index, int columns, int rows, double gap)
+        {
+            var width = (rect.Width - gap * (columns - 1)) / columns;
+            var height = (rect.Height - gap * (rows - 1)) / rows;
+            return new Rect(rect.X + index % columns * (width + gap), rect.Y + index / columns * (height + gap), Math.Max(0, width), Math.Max(0, height));
+        }
+
+        static string CacheSize(long bytes) => bytes >= 1L << 20 ? $"{bytes / (double)(1L << 20):0.#} MB" : $"{Math.Max(1, bytes >> 10)} KB";
+
+        // Cool when idle, warm when busy.
+        static uint Heat(double load) => Mix(HeatIdle, HeatBusy, Math.Pow(Math.Clamp(load, 0, 1), .75));
+
+        // NEW (round 59): what the memory holds, laid out in its area like a drive's top folder: every
+        // program (all its processes together), sized by the memory it takes; then Windows' own share (what
+        // is in use but not counted to any program), what is available, and what the hardware keeps. Each
+        // program Windows let us look inside holds its files and its working data, the way a folder holds
+        // its files.
+        void MemoryContents(Rect area, MemorySnapshot snapshot, long installed, Node within)
+        {
+            var programs = snapshot.Programs;
+            var inUse = Math.Max(0, snapshot.Total - snapshot.Available);
+            var counted = programs.Sum(program => program.Bytes);
+            var blocks = new List<(string Key, string Name, long Bytes, uint Color, string Detail, MemoryProgram? Program)>();
+            for (var i = 0; i < programs.Length; i++)
+            {
+                var program = programs[i];
+                var processes = program.Processes == 1 ? "1 process" : $"{program.Processes} processes";
+                blocks.Add(("p|" + program.Key, program.Name, program.Bytes, memoryBook.Hue(program.Key),   // CHANGED (round 60): its own colour, kept
+                    string.Join(" · ", new[]
+                    {
+                        MemorySize(program.Bytes), processes, program.Opened ? program.Path ?? "" : "Windows doesn't let other programs look inside",
+                    }.Where(part => part.Length > 0)), program));
+            }
+            if (inUse - counted > 0)
+                blocks.Add(("m|windows", "Windows", inUse - counted, GroupColor,
+                    $"{MemorySize(inUse - counted)} · Windows itself, its drivers, and memory not counted to any one program", null));
+            if (snapshot.Available > 0)
+                blocks.Add(("m|available", "Available", snapshot.Available, FreeSpaceColor,
+                    $"{MemorySize(snapshot.Available)} · Free, or holding recently used files that Windows hands back the moment it needs the room", null));
+            if (installed - snapshot.Total > 16L << 20)
+                blocks.Add(("m|reserved", "Reserved by hardware", installed - snapshot.Total, PortTile,
+                    $"{MemorySize(installed - snapshot.Total)} · Set aside for the firmware and devices", null));
+            var whole = Math.Max(1, installed);
+            // CHANGED (round 60): laid out by a StableTreemap, so from one second to the next every block only
+            // grows or shrinks where it is.
+            var byKey = blocks.ToDictionary(block => block.Key, StringComparer.Ordinal);
+            foreach (var tile in memoryBook.Arrange("top", [.. blocks.Select(block => (block.Key, block.Bytes))], area))
+            {
+                var block = byKey[tile.Key];
+                var rect = new Rect(tile.X, tile.Y, tile.Width, tile.Height);
+                var open = block.Program is { Opened: true, Files.Length: > 0 };
+                var region = Region(memoryBook.Id(block.Key), block.Name, block.Bytes, [rect], block.Color, whole, block.Detail, MemorySize(block.Bytes), live: true) with { Open = open, Parent = within };
+                regions.Add(region);
+                zoomTiles[region.Label.Item.Id] = rect;
+                if (open) MemoryFiles(block.Key, block.Program!, rect, block.Color, region.Label);
+            }
+        }
+
+        // A program's files and working data, inside its block. The smallest are left out (their share of
+        // the room stays, in the program's colour), the way the drive previews leave out what is too small.
+        void MemoryFiles(string key, MemoryProgram program, Rect rect, uint hue, Node within)
+        {
+            const int Shown = 150;
+            var inset = Math.Min(rect.Width, rect.Height) * .03;
+            var inner = Rect.Inflate(rect, -inset, -inset);
+            if (inner.Width <= 0 || inner.Height <= 0) return;
+            var shown = program.Files.Take(Shown).ToDictionary(file => $"f|{key}|{file.Path ?? file.Name}", StringComparer.Ordinal);
+            var rest = program.Files.Skip(Shown).Sum(file => file.Bytes);
+            var items = shown.Select(pair => (pair.Key, pair.Value.Bytes)).ToList();
+            items.Add(("\0rest", rest));
+            foreach (var tile in memoryBook.Arrange("f|" + key, items, inner))   // CHANGED (round 60): stable, like the programs
+            {
+                if (!shown.TryGetValue(tile.Key, out var file)) continue;   // the rest: too small to see
+                var at = new Rect(tile.X, tile.Y, tile.Width, tile.Height);
+                var color = file.Kind is MemoryFileKind.Data or MemoryFileKind.Closed ? Shade(hue, .68) : Shade(hue, .9 * (.84 + .22 * SpreadOf(file.Name)));
+                var region = Region(memoryBook.Id(tile.Key), file.Name, file.Bytes, [at], color, Math.Max(1, program.Bytes), FileDetail(file), live: true) with { Parent = within };
+                regions.Add(region);
+                zoomTiles[region.Label.Item.Id] = at;
+            }
+        }
+
+        static string FileDetail(MemoryFile file) => file.Kind switch
+        {
+            MemoryFileKind.Data => $"{MemorySize(file.Bytes)} · The program's own working data: what it has open, made or downloaded",
+            MemoryFileKind.Closed => $"{MemorySize(file.Bytes)} · Processes of this program that Windows doesn't let other programs look inside",
+            MemoryFileKind.Shared => $"{MemorySize(file.Bytes)} · Memory shared with other programs",
+            MemoryFileKind.Program => $"{MemorySize(file.Bytes)} in memory · Program · {file.Path}",
+            MemoryFileKind.Library => $"{MemorySize(file.Bytes)} in memory · Library · {file.Path ?? "no file name"}",
+            _ => $"{MemorySize(file.Bytes)} in memory · File · {file.Path}",
+        };
+
+        // Memory in the units Task Manager uses (1 GB = 1024 MB).
+        static string MemorySize(long bytes) => bytes >= 1L << 30 ? $"{bytes / (double)(1L << 30):0.#} GB"
+            : bytes >= 1L << 20 ? $"{bytes / (double)(1L << 20):0} MB" : $"{Math.Max(1, bytes >> 10)} KB";
+
+        static double SpreadOf(string name)
+        {
+            var hash = 2166136261u;
+            foreach (var character in name) hash = (hash ^ character) * 16777619u;
+            return ((hash >> 8) & 1023) / 1023d;
+        }
+
+        // CHANGED (round 58): memory is sold and labelled in binary sizes - 64 GB of RAM is 64 × 2^30 bytes,
+        // which the decimal drive-label rounding showed as "69 GB". Whole gigabytes, as on the box.
+        static string Gigabytes(long bytes) => bytes >= 1L << 30 ? $"{Math.Round(bytes / (double)(1L << 30)):0} GB" : DiskUsageSnapshot.FormatBytes(bytes);
+
+        // The maker's name as it is known, without "Technology Co., Ltd." and the like.
+        static string Maker(string maker)
+        {
+            var name = maker;
+            foreach (var tail in new[] { " Technology Co., Ltd.", " Technology Co.,Ltd.", " Co., Ltd.", " Co.,Ltd.", " Corporation", " Computer Inc.", " Inc.", " INC.", " International", " Technologies" })
+                if (name.EndsWith(tail, StringComparison.OrdinalIgnoreCase)) name = name[..^tail.Length];
+            return name.Equals("Gigabyte", StringComparison.OrdinalIgnoreCase) ? "GIGABYTE" : name.Trim();
+        }
+
+        (double Width, double Height) Measure(long bytes)
+        {
+            // CHANGED (round 54): exact - no minimum size - so a drive is the same size whichever drive is open.
+            var width = Math.Sqrt(Math.Max(1d, bytes)) * perRootByte;
+            return (width, width * world.Height / world.Width);
+        }
+
+        string Group(int i) => entries[i].Hardware.Kind == DriveKind.Network ? "net:" + (entries[i].Hardware.Server ?? entries[i].Root) : "local";
+
+        double Spacing(int left, int right) => Group(left) == Group(right) ? gap : gap * 3;
+
+        // How far a device's body reaches past its files on each side: connectors, gold fingers, handles.
+        static Thickness Frame(DriveKind kind, double h, bool left)
+        {
+            var frame = kind switch
+            {
+                // CHANGED (round 53): connectors are on the drive's short end, as on a real drive; a tray's
+                // handle is on the other end.
+                DriveKind.Hdd => new Thickness(h * .07, h * .07, h * .16, h * .07),
+                DriveKind.Nvme => new Thickness(h * .18, h * .07, h * .09, h * .07),
+                DriveKind.Usb => new Thickness(h * .09, h * .09, h * .15, h * .09),
+                DriveKind.Network => new Thickness(h * .17, h * .07, h * .12, h * .07),
+                _ => new Thickness(h * .06, h * .06, h * .13, h * .06),
+            };
+            return left ? new Thickness(frame.Right, frame.Top, frame.Left, frame.Bottom) : frame;
+        }
+
+        // A cable from each drive in a group down to a port on top of its hub (the board, or a server); lanes as
+        // before, so no two cross. Returns where the ports are, for the board to draw its connectors there.
+        double[] Cables(int first, int last, Rect hub, double groupPlug, double rowBottom, double drop, double portsFrom, double portsTo)
+        {
+            var n = last - first + 1;
+            var ports = Enumerable.Range(0, n).Select(i => hub.X + hub.Width * (portsFrom + (portsTo - portsFrom) * (i + .5) / n)).ToArray();
+            var starts = Enumerable.Range(0, n).Select<int, (double X, double Y, uint Wire)>(i => portsOf[first + i] is { Count: > 0 } found ? found[0]
+                : (Centre(boxes[first + i]), boxes[first + i].Bottom + frames[first + i].Bottom, Cable)).ToArray();
+            var laneTop = rowBottom + drop * .25;
+            var laneBottom = hub.Top - drop * .2;
+            var rightward = Enumerable.Range(0, n).Where(i => starts[i].X <= ports[i]).ToArray();
+            var leftward = Enumerable.Range(0, n).Where(i => starts[i].X > ports[i]).Reverse().ToArray();
+            var lane = new double[n];
+            foreach (var side in new[] { rightward, leftward })
+                for (var m = 0; m < side.Length; m++)
+                    lane[side[m]] = laneBottom - (laneBottom - laneTop) * m / Math.Max(1, side.Length);
+            for (var i = 0; i < n; i++)
+            {
+                var (from, top, color) = starts[i];
+                var to = ports[i];
+                solids.Add(new Solid(new Rect(from - wire / 2, top - wire / 2, wire, Math.Max(0, lane[i] - top) + wire), color, SolidKind.Wire));
+                solids.Add(new Solid(new Rect(Math.Min(from, to) - wire / 2, lane[i] - wire / 2, Math.Abs(to - from) + wire, wire), color, SolidKind.Wire));
+                solids.Add(new Solid(new Rect(to - wire / 2, lane[i] - wire / 2, wire, hub.Top - lane[i] + wire / 2), color, SolidKind.Wire));
+                solids.Add(new Solid(new Rect(to - groupPlug / 2, hub.Top - plug.Height, groupPlug, plug.Height * 1.6), CableEnd, SolidKind.Plain));
+            }
+            return ports;
+        }
+
+        // A server (or NAS) with a row of drive bays, each with its activity light.
+        void Server(Rect hub, string server, int shares, long capacity)
+        {
+            regions.Add(Region(NextId(), server, capacity, [hub], ComputerCase, capacity,
+                $"Server · {shares} share{(shares == 1 ? "" : "s")} · {DiskUsageSnapshot.FormatBytes(capacity)}"));
+            const int bays = 4;
+            for (var b = 0; b < bays; b++)
+            {
+                var bay = new Rect(hub.X + hub.Width * .06, hub.Y + hub.Height * (.3 + b * .16), hub.Width * .88, hub.Height * .12);
+                solids.Add(new Solid(bay, ComputerPanel, SolidKind.Plain));
+                var led = bay.Height * .35;
+                solids.Add(new Solid(new Rect(bay.Right - led * 2.2, bay.Y + bay.Height / 2 - led / 2, led, led), b < shares ? PowerLight : CableEnd, SolidKind.Plain));
+            }
+        }
+
+        // One drive as the device it is: its body under the files (always), and its cover over them.
+        void Device(int i, int slot, int index, DriveHardware device, Rect box, Thickness frame, long capacity, long driveFree, bool facesLeft = false)
+        {
+            var h = box.Height;
+            var body = new Rect(box.X - frame.Left, box.Y - frame.Top, box.Width + frame.Left + frame.Right, box.Height + frame.Top + frame.Bottom);
+            var kind = device.Kind;
+            switch (kind)
+            {
+                case DriveKind.Nvme:
+                    underlay.Add(new Solid(body, Pcb, SolidKind.Plain));
+                    // Gold contacts along the connector edge, with the key notch.
+                    const int fingers = 22;
+                    for (var f = 0; f < fingers; f++)
+                    {
+                        if (f is 5) continue;   // the M key
+                        var y = body.Y + body.Height * (.06 + .88 * f / fingers);
+                        underlay.Add(new Solid(new Rect(body.X, y, frame.Left * .55, body.Height * .88 / fingers * .62), Gold, SolidKind.Tile));
+                    }
+                    // NEW (round 52): the M.2 slot the contacts sit in, which is where its connection comes from.
+                    var slot2 = new Rect(body.X - frame.Left * .1, body.Y + body.Height * .03, frame.Left * .55, body.Height * .94);
+                    solids.Add(new Solid(slot2, M2Slot, SolidKind.Plain));
+                    portsOf[i] = [(slot2.X + slot2.Width / 2, slot2.Bottom, Cable)];   // CHANGED (round 56): cabled from its slot again
+                    underlay.Add(new Solid(new Rect(body.Right - frame.Right * .55, body.Y + body.Height * .4, frame.Right * .35, body.Height * .2), Screw, SolidKind.Tile));
+                    // A few parts on the board around the label.
+                    underlay.Add(new Solid(new Rect(body.Right - frame.Right * .75, body.Y + body.Height * .44, frame.Right * .5, body.Height * .12), Parts, SolidKind.Tile));
+                    underlay.Add(new Solid(new Rect(box.X - frame.Left * .35, body.Y + body.Height * .2, frame.Left * .2, body.Height * .08), Parts, SolidKind.Tile));
+                    underlay.Add(new Solid(new Rect(box.X - frame.Left * .35, body.Y + body.Height * .7, frame.Left * .2, body.Height * .08), Parts, SolidKind.Tile));
+                    break;
+                case DriveKind.Usb:
+                    underlay.Add(new Solid(body, UsbBody, SolidKind.Plain));
+                    // CHANGED (round 53): the port is in the enclosure's end, with the cable's plug in it.
+                    var usbPort = new Rect(box.Right + frame.Right * .2, box.Y + box.Height / 2 - h * .08, frame.Right * .5, h * .16);
+                    underlay.Add(new Solid(usbPort, CableEnd, SolidKind.Plain));
+                    portsOf[i] = [EndPlug(usbPort, body)];
+                    underlay.Add(new Solid(new Rect(box.Right + frame.Right * .35, box.Bottom - h * .12, h * .03, h * .03), UsbLight, SolidKind.Tile));
+                    break;
+                default:
+                    // 3.5" and 2.5" cases, and a server's drive tray: a metal body with the SATA data and power
+                    // connectors on its end. CHANGED (round 53): on the short end, not along the side.
+                    var hdd = kind is DriveKind.Hdd or DriveKind.Network;
+                    underlay.Add(new Solid(body, hdd ? HddBody : SsdBody, SolidKind.Plain));
+                    underlay.Add(new Solid(Rect.Inflate(box, h * .015, h * .015), hdd ? HddInner : SsdBody, SolidKind.Plain));
+                    var end = facesLeft   // where the connectors are
+                        ? new Rect(box.X - h * .025 - frame.Left * .5, box.Y, frame.Left * .5, box.Height)
+                        : new Rect(box.Right + h * .025, box.Y, frame.Right * .5, box.Height);
+                    if (kind == DriveKind.Network)
+                    {
+                        // A server tray: the handle at the front end, the backplane connector at the back.
+                        var handle = new Rect(body.X + frame.Left * .15, box.Y + box.Height * .08, frame.Left * .55, box.Height * .84);
+                        underlay.Add(new Solid(handle, TrayHandle, SolidKind.Plain));
+                        underlay.Add(new Solid(new Rect(handle.X + handle.Width * .3, handle.Y + handle.Width * .4, handle.Width * .4, handle.Width * .4), PowerLight, SolidKind.Tile));
+                        var backplane = new Rect(end.X, box.Y + box.Height * .3, end.Width, box.Height * .4);
+                        underlay.Add(new Solid(backplane, CableEnd, SolidKind.Plain));
+                        underlay.Add(new Solid(Rect.Inflate(backplane, -end.Width * .25, -backplane.Height * .1), Gold, SolidKind.Tile));
+                        portsOf[i] = [EndPlug(backplane, body)];
+                    }
+                    else
+                    {
+                        // The 7-pin data connector and the longer 15-pin power connector, side by side on the end.
+                        var data = new Rect(end.X, box.Y + box.Height * .16, end.Width, box.Height * .2);
+                        var power = new Rect(end.X, box.Y + box.Height * .44, end.Width, box.Height * .36);
+                        foreach (var connector in new[] { data, power })
+                        {
+                            underlay.Add(new Solid(connector, CableEnd, SolidKind.Plain));
+                            underlay.Add(new Solid(Rect.Inflate(connector, -end.Width * .25, -connector.Height * .1), Gold, SolidKind.Tile));
+                        }
+                        portsOf[i] = [EndPlug(data, body, facesLeft)];
+                    }
+                    var margin = Math.Min(frame.Left, frame.Right);
+                    for (var c = 0; c < 4; c++)   // mounting screws in the corners of the body
+                    {
+                        var sx = c % 2 == 0 ? body.X + margin * .5 : body.Right - margin * .5;
+                        var sy = c < 2 ? body.Y + frame.Top * .5 : body.Bottom - frame.Bottom * .5;
+                        var screw = Math.Min(frame.Left, frame.Top) * .22;
+                        underlay.Add(new Solid(new Rect(sx - screw, sy - screw, screw * 2, screw * 2), Screw, SolidKind.Tile));
+                    }
+                    break;
+            }
+
+            // The cover: what the drive looks like closed. Drawn by the overlay over everything, faded in as
+            // the drive gets small on screen.
+            var accent = BrandColor(device.Brand);
+            var lid = Rect.Inflate(box, h * .04, h * .04);
+            Rect sticker;
+            switch (kind)
+            {
+                case DriveKind.Hdd or DriveKind.Network:
+                    covers.Add(new CoverShape(CoverForm.Rounded, lid, HddLid, slot, .04));
+                    var radius = Math.Min(lid.Height * .42, lid.Width * .27);
+                    var hubCentre = new Point(lid.X + lid.Height * .06 + radius, lid.Y + lid.Height / 2);
+                    covers.Add(new CoverShape(CoverForm.Ring, Around(hubCentre, radius), HddRing, slot, Stroke: radius * .05));
+                    covers.Add(new CoverShape(CoverForm.Ellipse, Around(hubCentre, radius * .2), HddRing, slot));
+                    covers.Add(new CoverShape(CoverForm.Ellipse, Around(hubCentre, radius * .07), Screw, slot));
+                    var pivot = new Point(lid.Right - lid.Height * .2, lid.Bottom - lid.Height * .2);
+                    covers.Add(new CoverShape(CoverForm.Ellipse, Around(pivot, lid.Height * .09), HddRing, slot));
+                    foreach (var corner in new[] { lid.TopLeft, lid.TopRight, lid.BottomLeft, lid.BottomRight })
+                    {
+                        var inset = new Point(corner.X + (corner.X < lid.X + 1e-9 ? 1 : -1) * lid.Height * .06, corner.Y + (corner.Y < lid.Y + 1e-9 ? 1 : -1) * lid.Height * .06);
+                        covers.Add(new CoverShape(CoverForm.Ellipse, Around(inset, lid.Height * .022), Screw, slot));
+                    }
+                    var left = hubCentre.X + radius + lid.Height * .06;
+                    sticker = new Rect(left, lid.Y + lid.Height * .1, Math.Max(lid.Height * .2, lid.Right - left - lid.Height * .08), lid.Height * .52);
+                    covers.Add(new CoverShape(CoverForm.Rounded, sticker, Label, slot, .04));
+                    break;
+                case DriveKind.Nvme:
+                    sticker = Rect.Inflate(box, h * .01, h * .01);
+                    covers.Add(new CoverShape(CoverForm.Box, sticker, NvmeLabel, slot));
+                    break;
+                case DriveKind.Usb:
+                    sticker = lid;
+                    covers.Add(new CoverShape(CoverForm.Rounded, lid, UsbFace, slot, .08));
+                    break;
+                default:
+                    sticker = lid;
+                    covers.Add(new CoverShape(CoverForm.Rounded, lid, SsdFace, slot, .03));
+                    foreach (var corner in new[] { lid.TopLeft, lid.TopRight, lid.BottomLeft, lid.BottomRight })
+                    {
+                        var inset = new Point(corner.X + (corner.X < lid.X + 1e-9 ? 1 : -1) * lid.Height * .05, corner.Y + (corner.Y < lid.Y + 1e-9 ? 1 : -1) * lid.Height * .05);
+                        covers.Add(new CoverShape(CoverForm.Ellipse, Around(inset, lid.Height * .018), Screw, slot));
+                    }
+                    break;
+            }
+            // The brand's colour as a band across the top of the label (down the side of an M.2 stick).
+            var band = kind == DriveKind.Nvme
+                ? new Rect(sticker.X, sticker.Y, sticker.Height * .06, sticker.Height)
+                : new Rect(sticker.X, sticker.Y, sticker.Width, sticker.Height * (kind is DriveKind.Hdd or DriveKind.Network ? .08 : .05));
+            covers.Add(new CoverShape(CoverForm.Box, band, accent, slot));
+            // A barcode in the corner of the label, different for every model.
+            var code = new Rect(sticker.Right - sticker.Width * .3 - sticker.Height * .04, sticker.Bottom - sticker.Height * .2, sticker.Width * .3, sticker.Height * .14);
+            covers.Add(new CoverShape(CoverForm.Box, code, BarcodeBack, slot));
+            var seed = (uint)device.Model.GetHashCode();
+            for (var x = code.X + code.Width * .06; x < code.Right - code.Width * .06;)
+            {
+                seed = seed * 1664525 + 1013904223;
+                var bar = code.Width * (.012 + (seed >> 28) * .004);
+                if ((seed & 0x100) != 0) covers.Add(new CoverShape(CoverForm.Box, new Rect(x, code.Y + code.Height * .12, bar, code.Height * .76), BarcodeBar, slot));
+                x += bar + code.Width * .012;
+            }
+            coverTexts[slot] = new CoverText(sticker, device.Brand.Length > 0 ? device.Brand : device.KindName,
+                device.Model, Marketing(capacity), device.KindName, accent);
+            var bounds = kind is DriveKind.Hdd or DriveKind.Network or DriveKind.Usb or DriveKind.SataSsd or DriveKind.Unknown ? lid : sticker;
+            coverBounds[slot] = bounds;
+            var detail = $"{Marketing(capacity)} {device.KindName} · {DiskUsageSnapshot.FormatBytes(Math.Max(0, driveFree))} free";
+            var id = FixedId(index, 1);
+            var node = Reuse(id, device.Model, capacity, bounds, detail)
+                ?? new Node(new DiskUsageItem(id, device.Model, capacity, 0, false), bounds, null, null, capacity, 0) { Detail = detail };
+            coverNodes[slot] = node;
+            coverIds.Add(id);
+            if (index >= 0) owners[id] = (index, null);
+        }
+
+        static Rect Around(Point centre, double radius) => new(centre.X - radius, centre.Y - radius, radius * 2, radius * 2);
+
+        // NEW (round 53): a cable's plug pushed into a connector on the drive's end, standing a little out
+        // past the body, and the start of the cable: a short run out of the plug, from where it turns down
+        // in the gap beside the drive.
+        (double X, double Y, uint Wire) EndPlug(Rect connector, Rect body, bool left = false)
+        {
+            // CHANGED (round 54): either end - a drive in the cage faces the board, connectors first.
+            var inner = left ? connector.Right - connector.Width * .4 : connector.X + connector.Width * .4;
+            var outer = left ? body.X - gap * .15 : body.Right + gap * .15;
+            var plugBody = new Rect(Math.Min(inner, outer), connector.Y - connector.Height * .08, Math.Abs(outer - inner), connector.Height * 1.16);
+            solids.Add(new Solid(plugBody, PlugBody, SolidKind.Plain));
+            var y = plugBody.Y + plugBody.Height / 2;
+            var x = left ? plugBody.X - gap * .12 : plugBody.Right + gap * .12;
+            solids.Add(new Solid(new Rect(Math.Min(x, outer), y - wire / 2, Math.Abs(outer - x), wire), Cable, SolidKind.Wire));
+            return (x, y, Cable);
+        }
+
+        // Capacity the way a drive's label says it: decimal, rounded.
+        static string Marketing(long bytes) => bytes >= 1_000_000_000_000 ? $"{bytes / 1e12:0.#} TB"
+            : bytes >= 1_000_000_000 ? $"{Math.Round(bytes / 1e9):0} GB" : DiskUsageSnapshot.FormatBytes(bytes);
+
+        // Returns the rectangle the drive's files fill (the whole box when it has no preview).
+        Rect AddDrive(OtherDrive drive, int index, Rect box)
+        {
+            var driveFree = Math.Clamp(drive.Free, 0, drive.Total);
+            var name = string.IsNullOrWhiteSpace(drive.Label) ? drive.Root : $"{drive.Root}  {drive.Label}";
+            if (drive.Preview is { Bytes: > 0 } preview)
+            {
+                // Laid out like this drive: its indexed files in the corner, scaled so areas stay exact.
+                var indexed = Math.Min(preview.Bytes, drive.Total);
+                var driveK = Math.Max(1, Math.Sqrt(drive.Total / (double)Math.Max(1, indexed)));
+                var files = new Rect(box.X, box.Y, box.Width / driveK, box.Height / driveK);
+                var unindexed = Math.Max(0, drive.Total - driveFree - indexed);
+                var (driveOther, driveFreeParts) = Surround(files, driveK, files.Width * files.Height * unindexed / Math.Max(1d, indexed));
+                // The files' background carries the drive's card and click; the items are drawn over it.
+                Own(Region(NextId(index), name, indexed, [files], DriveSurface, drive.Total) with { Captioned = false }, index, null);   // named on its plate
+                if (unindexed > 0) Own(Region(NextId(index), $"Used, not indexed on {drive.Root}", unindexed, driveOther, OtherSpaceColor, drive.Total), index, null);
+                if (driveFree > 0) Own(Region(NextId(index), $"Free on {drive.Root}", driveFree, driveFreeParts, FreeSpaceColor, drive.Total), index, null);
+                foreach (var tile in preview.Tiles)
+                    solids.Add(new Solid(new Rect(files.X + tile.X * files.Width, files.Y + tile.Y * files.Height, tile.W * files.Width, tile.H * files.Height), tile.Color, SolidKind.Tile));
+                // The items directly on the drive: named, with a card, and a click that opens them there.
+                foreach (var label in preview.Labels)
+                {
+                    var rect = new Rect(files.X + label.X * files.Width, files.Y + label.Y * files.Height, label.W * files.Width, label.H * files.Height);
+                    var id = NextId(index);
+                    var region = new DriveRegion(Reuse(id, label.Name, label.Bytes, rect) ??
+                        new Node(new DiskUsageItem(id, label.Name, label.Bytes, 0, label.IsFolder), rect, null, null, drive.Total, 0),
+                        [rect], label.Color, Fill: false);   // the tiles are its fill
+                    regions.Add(region);
+                    owners[id] = (index, label.IsFolder ? System.IO.Path.Combine(drive.Root, label.Name) : drive.Root);
+                }
+                return files;
+            }
+            var usedShare = drive.Total <= 0 ? 0 : (drive.Total - driveFree) / (double)drive.Total;
+            var hue = Pack(Parse(DiskUsagePalette.BranchColor(index)));
+            var muted = (uint)((hue >> 16 & 255) * 7 / 10) << 16 | (uint)((hue >> 8 & 255) * 7 / 10) << 8 | (hue & 255) * 7 / 10;
+            var usedBox = new Rect(box.X, box.Y, box.Width * usedShare, box.Height);
+            var freeBox = new Rect(usedBox.Right, box.Y, box.Width - usedBox.Width, box.Height);
+            Own(Region(NextId(index), $"{drive.Root} used", drive.Total - driveFree, [usedBox], muted, drive.Total), index, null);
+            Own(Region(NextId(index), $"Free on {drive.Root}", driveFree, [freeBox], FreeSpaceColor, drive.Total), index, null);
+            return box;
+        }
+
+        void Own(DriveRegion region, int index, string? path)
+        {
+            regions.Add(region);
+            owners[region.Label.Item.Id] = (index, path);
+        }
+
+        // CHANGED (round 49): each drive numbers its own regions in its own block, so a preview arriving for
+        // one drive does not renumber the next - ids are what clicks and kept labels go by.
+        // CHANGED (round 51): the first two numbers of each block are kept for the drive's name plate and its
+        // cover, so those two keep their ids whatever else the drive gains (a preview arriving).
+        int NextId(int drive = -1) => -1_000_001 - (drive + 1) * 4096 - 2 - slots[drive + 1]++;
+        int FixedId(int drive, int place) => -1_000_001 - (drive + 1) * 4096 - place;
+
+        // CHANGED (round 49): a label that has not changed keeps its node from the last build, so a rebuild
+        // (a preview arriving, a little free space coming and going) does not make its name flicker.
+        // CHANGED (round 57): "unchanged" allows for the drift a live refresh brings - a few megabytes of free
+        // space, a hair of layout - which otherwise gave the label a new node, and its text a new layout that
+        // faded in: the flash. A real change (a new name, a size off by more than a fraction of a percent)
+        // still gets a new node.
+        Node? Reuse(int id, string name, long bytes, Rect bounds, string? detail = null)
+            => previous is not null && previous.Nodes.TryGetValue(id, out var old) && old.Item.Name == name &&
+               Math.Abs(old.Item.Bytes - bytes) <= Math.Max(64L << 20, Math.Abs(bytes) / 500) &&
+               Near(old.Bounds, bounds) && (old.Detail == detail || SizeOnly(old.Detail, detail)) ? old : null;
+
+        static bool Near(Rect a, Rect b) => Math.Abs(a.X - b.X) + Math.Abs(a.Y - b.Y) + Math.Abs(a.Width - b.Width) + Math.Abs(a.Height - b.Height)
+            <= Math.Max(Math.Max(a.Width, a.Height), 1e-12) * .01;
+
+        // Two detail lines that differ only in their numbers (a free-space figure moving a little).
+        static bool SizeOnly(string? a, string? b)
+        {
+            if (a is null || b is null) return false;
+            static string Words(string text) => string.Concat(text.Where(c => !char.IsDigit(c) && c != '.' && c != ','));
+            return Words(a) == Words(b);
+        }
+
+        // CHANGED (round 60): live - a block of the live memory view keeps the node it had, whatever its size
+        // and place now, with its words brought up to date, so its label never has to be made again.
+        DriveRegion Region(int id, string name, long bytes, List<Rect> parts, uint color, double of, string? detail = null, string? tag = null, bool live = false)
+        {
+            // Largest piece first: that is where its label goes.
+            var ordered = parts.Where(part => part.Width > 0 && part.Height > 0).OrderByDescending(part => part.Width * part.Height).ToArray();
+            var bounds = ordered.Length > 0 ? ordered[0] : world;
+            if (live && previous is not null && previous.Nodes.TryGetValue(id, out var kept) && kept.Item.Name == name)
+            {
+                if (kept.Detail != detail) kept.Detail = detail;
+                kept.Tag = tag;
+                return new DriveRegion(kept, ordered, color);
+            }
+            var label = Reuse(id, name, bytes, bounds, detail) ?? new Node(new DiskUsageItem(id, name, bytes, 0, false), bounds, null, null, (long)of, 0) { Detail = detail, Tag = tag };
+            return new DriveRegion(label, ordered, color);
+        }
+
+        static double Centre(Rect rect) => rect.X + rect.Width / 2;
+    }
+
+    // NEW (round 51): the colour of a maker's labels, muted for the dark theme.
+    private static uint BrandColor(string brand) => brand switch
+    {
+        "Samsung" => Pack(Parse("#2E5AA6")),
+        "WD" => Pack(Parse("#2F6DAE")),
+        "Seagate" => Pack(Parse("#4F8A3C")),
+        "Crucial" => Pack(Parse("#2A7FB8")),
+        "Kingston" or "Toshiba" or "SanDisk" => Pack(Parse("#A63E3B")),
+        "Intel" or "Micron" => Pack(Parse("#2F74C0")),
+        "SK hynix" => Pack(Parse("#C0543C")),
+        "HGST" => Pack(Parse("#3E6E9E")),
+        _ => Pack(Parse("#6B6660")),
+    };
+
+    // The space around a drive's files, which sit in the top-left corner of a rectangle k times their size:
+    // used space the index does not cover starts under the files and continues up the right-hand strip
+    // from the bottom; free space is the rest, one L-shaped region. Areas are exactly proportional to bytes.
+    private static (List<Rect> Other, List<Rect> Free) Surround(Rect r, double k, double otherArea)
+    {
         var world = new Rect(r.X, r.Y, r.Width * k, r.Height * k);
         var right = new Rect(r.Right, r.Y, r.Width * (k - 1), r.Height * k);
         var below = new Rect(r.X, r.Bottom, r.Width, r.Height * (k - 1));
-        // Other used space starts under the files; whatever does not fit there continues up the right-hand
-        // strip from the bottom. Free space is the rest. Areas are exactly proportional to bytes.
-        var otherArea = r.Width * r.Height * other / used;
         var belowArea = below.Width * below.Height;
         var otherParts = new List<Rect>();
         var freeParts = new List<Rect>();
@@ -1580,26 +2899,315 @@ public sealed class DiskUsageTreemap : FrameworkElement, IDisposable
         else
         {
             otherParts.Add(below);
-            var height = Math.Min(right.Height, (otherArea - belowArea) / right.Width);
+            var height = right.Width <= 0 ? 0 : Math.Min(right.Height, (otherArea - belowArea) / right.Width);
             otherParts.Add(new Rect(right.X, right.Bottom - height, right.Width, height));
             if (right.Height - height > 0) freeParts.Add(new Rect(right.X, right.Y, right.Width, right.Height - height));
         }
-        var regions = new List<DriveRegion>();
-        if (free > 0) regions.Add(Region(FreeSpaceId, "Free space", free, freeParts, FreeSpaceColor));
-        if (other > 0) regions.Add(Region(OtherSpaceId, "Used, not indexed", other, otherParts, OtherSpaceColor));
-        return new DriveView(root, total, free, world, [.. regions]);
+        return (otherParts, freeParts);
+    }
 
-        DriveRegion Region(int id, string name, long bytes, List<Rect> parts, uint color)
+    // NEW (round 48): colours of the machine drawing.
+    private static readonly uint Cable = Pack(Parse("#5A564F"));
+    private static readonly uint CableEnd = Pack(Parse("#3A3733"));
+    private static readonly uint ComputerCase = Pack(Parse("#34322E"));
+    private static readonly uint ComputerPanel = Pack(Parse("#262422"));
+    private static readonly uint PowerLight = Pack(Parse("#4F9E73"));
+    private static readonly uint DriveSurface = Pack(Parse("#1F1E1C"));
+    private static readonly uint NamePlate = Pack(Parse("#2B2926"));
+    // NEW (round 51): devices.
+    private static readonly uint Ethernet = Pack(Parse("#3E6FA8"));
+    // NEW (round 52): plugs and the M.2 slot.
+    private static readonly uint PlugBody = Pack(Parse("#1B1C1E"));
+    private static readonly uint M2Slot = Pack(Parse("#141415"));
+    // NEW (round 54): the computer.
+    private static readonly uint PcCase = Pack(Parse("#2A2B2E"));
+    private static readonly uint PcInside = Pack(Parse("#1C1D1F"));
+    private static readonly uint Motherboard = Pack(Parse("#1A241E"));
+    // NEW (round 58): the board as map blocks - the parts that matter in the map's own colours.
+    private static readonly uint BoardTile = Pack(Parse("#243029"));
+    private static readonly uint PortTile = Pack(Parse("#1C1B19"));
+    private static readonly uint CpuTile = Pack(Parse(DiskUsagePalette.Branches[0]));
+    private static readonly uint GpuTile = Pack(Parse(DiskUsagePalette.Branches[2]));
+    private static readonly uint StickTile = Pack(Parse(DiskUsagePalette.Branches[3]));
+    private static readonly uint MemoryTile = Shade(Pack(Parse(DiskUsagePalette.Branches[3])), .42);
+    // NEW (round 62): the processor with its lid off.
+    private static readonly uint LidTile = Pack(Parse("#6E7680"));       // the heatspreader
+    private static readonly uint DieTile = Pack(Parse("#1F252B"));
+    private static readonly uint ClusterTile = Pack(Parse("#27303A"));
+    private static readonly uint CacheTile = Pack(Parse("#4B5864"));
+    private static readonly uint RunTile = Pack(Parse("#22272C"));
+    private static readonly uint HeatIdle = Pack(Parse("#2E4256"));
+    private static readonly uint HeatBusy = Pack(Parse("#D9823B"));
+    private static readonly uint IoShield = Pack(Parse("#3A3C40"));
+    private static readonly uint PortHole = Pack(Parse("#141516"));
+    private static readonly uint Heatsink = Pack(Parse("#4A4D52"));
+    private static readonly uint Socket = Pack(Parse("#2E3033"));
+    private static readonly uint Cooler = Pack(Parse("#3B3E43"));
+    private static readonly uint FanBlade = Pack(Parse("#26282B"));
+    private static readonly uint RamSlot = Pack(Parse("#111213"));
+    private static readonly uint RamStick = Pack(Parse("#30343A"));
+    private static readonly uint RamLight = Pack(Parse("#6B5FA8"));
+    private static readonly uint GraphicsCard = Pack(Parse("#27292D"));
+    private static readonly uint PowerSupply = Pack(Parse("#2C2E32"));
+    private static readonly uint Cage = Pack(Parse("#232427"));
+    private static readonly uint Pcb = Pack(Parse("#1C3326"));
+    private static readonly uint Gold = Pack(Parse("#B8973F"));
+    private static readonly uint Parts = Pack(Parse("#2B2B2D"));
+    private static readonly uint HddBody = Pack(Parse("#55585D"));
+    private static readonly uint HddInner = Pack(Parse("#4A4D52"));
+    private static readonly uint SsdBody = Pack(Parse("#2C2E32"));
+    private static readonly uint UsbBody = Pack(Parse("#2A2D31"));
+    private static readonly uint UsbLight = Pack(Parse("#3E7BD6"));
+    private static readonly uint TrayHandle = Pack(Parse("#2B2D30"));
+    private static readonly uint Screw = Pack(Parse("#3C3E42"));
+    private static readonly uint HddLid = Pack(Parse("#8B8E93"));
+    private static readonly uint HddRing = Pack(Parse("#999CA1"));
+    private static readonly uint Label = Pack(Parse("#1F2429"));
+    private static readonly uint NvmeLabel = Pack(Parse("#151618"));
+    private static readonly uint SsdFace = Pack(Parse("#24272B"));
+    private static readonly uint UsbFace = Pack(Parse("#303338"));
+    private static readonly uint BarcodeBack = Pack(Parse("#D6D3CC"));
+    private static readonly uint BarcodeBar = Pack(Parse("#1A1A1A"));
+
+    // ---------------------------------------------------------------- NEW (round 51): drive covers
+    //
+    // A drive's cover is drawn by the overlay, over the scene and every label in it, so it hides what is
+    // under it without anything underneath having to know. It fades with the camera, every frame: fully
+    // there once the camera is well out past the drive, gone by the time the drive nearly fills the view -
+    // so zooming out closes the drives and zooming into one opens it up before it opens for real.
+    private double CoverAlpha(DriveView drive, int slot)
+    {
+        if (slot >= drive.Drives.Length || drive.CoverBounds.Length <= slot || drive.CoverBounds[slot].IsEmpty) return 0;
+        var fit = FitRaw(drive.Drives[slot].Box, 0).Width;
+        var machineFit = FitRaw(drive.Machine, 0).Width;
+        var high = Math.Min(fit * 2, machineFit * .98);
+        var low = Math.Min(fit * 1.1, high / 1.1);
+        return SmoothStep((_camera.Width - low) / Math.Max(1e-12, high - low));
+    }
+
+    // World to where the scene on screen puts it (the scene can trail the camera by a frame).
+    private Rect WorldToDisplay(Rect world)
+    {
+        if (_cache is not { } cache) return ToScreen(world);
+        var scaleX = cache.Viewport.Width / cache.Camera.Width;
+        var scaleY = cache.Viewport.Height / cache.Camera.Height;
+        return BatchFor(cache).Transform(new Rect((world.X - cache.Camera.X) * scaleX, (world.Y - cache.Camera.Y) * scaleY, world.Width * scaleX, world.Height * scaleY));
+    }
+
+    private Node? CoverAt(Point point)
+    {
+        if (_root is null || CurrentDrive() is not { } drive || drive.CoverNodes.Length == 0 || !InDriveView) return null;
+        for (var slot = 0; slot < drive.CoverNodes.Length; slot++)
+            if (drive.CoverNodes[slot] is { } node && CoverAlpha(drive, slot) > .25 && WorldToDisplay(drive.CoverBounds[slot]).Contains(point))
+                return node;
+        // NEW (round 59): a memory stick (CHANGED round 62: or any lid) while it covers what is under it.
+        foreach (var lid in drive.Lids)
+            if (LidAlpha(lid.Area) > .25 && WorldToDisplay(lid.World).Contains(point)) return lid.Node;
+        return null;
+    }
+
+    // Label text is laid out once at a fixed size and drawn scaled, so zooming (which changes the size
+    // every frame) does not lay text out again every frame.
+    private const double CoverEm = 24;
+    private readonly Dictionary<(string Text, bool Bold, int Width), FormattedText> _coverText = [];
+
+    private void CoverLine(DrawingContext dc, string text, double size, bool bold, double width, Point at, out double height)
+    {
+        var scale = size / CoverEm;
+        // Widths in label units, capped: past that every line fits anyway, and the key stops changing.
+        var key = (text, bold, (int)Math.Round(Math.Min(width / scale, 1200) / 16) * 16);
+        if (!_coverText.TryGetValue(key, out var line))
         {
-            // Largest piece first: that is where its label goes.
-            var ordered = parts.Where(part => part.Width > 0 && part.Height > 0).OrderByDescending(part => part.Width * part.Height).ToArray();
-            var label = new Node(new DiskUsageItem(id, name, bytes, 0, false), ordered.Length > 0 ? ordered[0] : world, null, null, (long)whole, 0);
-            return new DriveRegion(label, ordered, color);
+            if (_coverText.Count > 256) _coverText.Clear();
+            line = Make(text, CoverEm, bold);
+            line.SetForegroundBrush(Ink);
+            line.MaxTextWidth = Math.Max(1, key.Item3);
+            _coverText[key] = line;
+        }
+        height = line.Height * scale;
+        dc.PushTransform(new MatrixTransform(scale, 0, 0, scale, at.X, at.Y));
+        dc.DrawText(line, new Point(0, 0));
+        dc.Pop();
+    }
+
+    private void DrawCovers(DrawingContext dc)
+    {
+        if (CurrentDrive() is not { } drive || !InDriveView) return;   // CHANGED (round 59): the memory's too
+        DrawLids(dc, drive);
+        var view = Rect.Inflate(_view, 4, 4);
+        for (var slot = 0; slot < drive.CoverBounds.Length; slot++)
+        {
+            var alpha = CoverAlpha(drive, slot);
+            if (alpha <= .01) continue;
+            var bounds = WorldToDisplay(drive.CoverBounds[slot]);
+            if (!bounds.IntersectsWith(view)) continue;
+            dc.PushOpacity(alpha);
+            foreach (var shape in drive.Covers)
+            {
+                if (shape.Slot != slot) continue;
+                var screen = WorldToDisplay(shape.World);
+                if (screen.Width < .6 && screen.Height < .6) continue;
+                var brush = BrushFor(Unpack(shape.Color), 1);
+                switch (shape.Form)
+                {
+                    case CoverForm.Box: dc.DrawRectangle(brush, null, screen); break;
+                    case CoverForm.Rounded:
+                        var corner = shape.Corner * Math.Min(screen.Width, screen.Height);
+                        dc.DrawRoundedRectangle(brush, null, screen, corner, corner);
+                        break;
+                    case CoverForm.Ellipse:
+                        dc.DrawEllipse(brush, null, new Point(screen.X + screen.Width / 2, screen.Y + screen.Height / 2), screen.Width / 2, screen.Height / 2);
+                        break;
+                    case CoverForm.Ring:
+                        var stroke = shape.Stroke * screen.Width / Math.Max(1e-12, shape.World.Width);
+                        if (stroke < .5) break;
+                        dc.DrawEllipse(null, new Pen(brush, stroke), new Point(screen.X + screen.Width / 2, screen.Y + screen.Height / 2),
+                            screen.Width / 2 - stroke / 2, screen.Height / 2 - stroke / 2);
+                        break;
+                }
+            }
+            if (drive.CoverTexts[slot] is { } text) DrawCoverText(dc, text);
+            dc.Pop();
         }
     }
 
+    // NEW (round 59): the memory sticks, over what the memory holds. Opaque with the whole board in view,
+    // gone once the memory's contents nearly fill it.
+    // CHANGED (round 62): any lid - the processor's too - each fading by the area it covers.
+    private double LidAlpha(Rect area)
+    {
+        if (area.IsEmpty) return 0;
+        var fit = FitRaw(area, 0).Width;
+        return SmoothStep((_camera.Width - fit * 1.3) / (fit * 1.1));
+    }
+
+    private void DrawLids(DrawingContext dc, DriveView drive)
+    {
+        var view = Rect.Inflate(_view, 4, 4);
+        var covering = Rect.Empty;
+        var skip = true;
+        var pushed = false;
+        foreach (var lid in drive.Lids)   // in runs, one run per area
+        {
+            if (lid.Area != covering)
+            {
+                if (pushed) dc.Pop();
+                pushed = false;
+                covering = lid.Area;
+                var alpha = LidAlpha(covering);
+                var area = WorldToDisplay(covering);
+                skip = alpha <= .01 || !area.IntersectsWith(view) || area.Width < 2;
+                if (skip) continue;
+                dc.PushOpacity(alpha);
+                pushed = true;
+                // The part's own colour behind the lid, so what is under it does not show through its gaps.
+                dc.DrawRectangle(BrushFor(Unpack(lid.Backing), 1), null, area);
+            }
+            if (skip) continue;
+            var screen = WorldToDisplay(lid.World);
+            var tile = Deflate(screen, Math.Clamp(Math.Min(screen.Width, screen.Height) * .01, .75, 6));   // the map's gap
+            if (tile.Width <= 0 || tile.Height <= 0) continue;
+            dc.DrawRectangle(BrushFor(Unpack(lid.Color), 1), null, tile);
+            var size = Math.Min(tile.Width * .3, 16);
+            if (lid.Label.Length > 0 && size >= 8) CoverLine(dc, lid.Label, size, true, tile.Width - size, new Point(tile.X + size * .5, tile.Y + size * .5), out _);
+        }
+        if (pushed) dc.Pop();
+    }
+
+    // The label's writing: the maker (or the kind of drive) large, the model under it, and the capacity big
+    // in the lower corner, the way drives are labelled - sized to the label and left out when too small.
+    private void DrawCoverText(DrawingContext dc, CoverText text)
+    {
+        var sticker = WorldToDisplay(text.Sticker);
+        var pad = sticker.Height * .1;
+        var room = sticker.Width - pad * 2;
+        var title = Math.Clamp(sticker.Height * .15, 0, 34);
+        if (title < 8 || room < 30) return;
+        var y = sticker.Y + pad + sticker.Height * .05;
+        CoverLine(dc, text.Brand, title, true, room, new Point(sticker.X + pad, y), out var brandHeight);
+        y += brandHeight;
+        var small = Math.Max(8, title * .5);
+        if (y + small * 1.4 < sticker.Bottom - pad)
+        {
+            CoverLine(dc, text.Model, small, false, room, new Point(sticker.X + pad, y), out var modelHeight);
+            y += modelHeight;
+        }
+        // Line heights are about 1.33 em; the capacity and kind sit on the bottom of the label.
+        var big = Math.Clamp(sticker.Height * .22, 9, 64);
+        var bottom = sticker.Bottom - pad;
+        var kindTop = bottom - small * 1.33;
+        var capacityTop = kindTop - big * 1.33;
+        if (capacityTop > y + 2)
+        {
+            CoverLine(dc, text.Capacity, big, true, room * .62, new Point(sticker.X + pad, capacityTop), out _);
+            CoverLine(dc, text.Kind, small, false, room * .62, new Point(sticker.X + pad, kindTop), out _);
+        }
+    }
+
+    // NEW (round 47): the other drive a region belongs to, or null.
+    // CHANGED (round 48): by the drive view's Owners, which also knows the item a label stands for.
+    private OtherDrive? OtherDriveOf(Node? node)
+        => node is not null && CurrentDrive() is { } drive && drive.Owners.TryGetValue(node.Item.Id, out var owner) && owner.Drive < drive.Others.Length
+            ? drive.Others[owner.Drive] : null;
+
+    private string? OtherDrivePath(Node node)
+        => CurrentDrive() is { } drive && drive.Owners.TryGetValue(node.Item.Id, out var owner) ? owner.Path : null;
+
+    private uint RegionColor(Node node)
+    {
+        if (CurrentDrive() is { } drive)
+            foreach (var region in drive.Regions)
+                if (region.Label.Item.Id == node.Item.Id) return region.Color;
+        if (CurrentDrive() is { } machine)   // NEW (round 51): a cover's swatch is its maker's colour
+        {
+            for (var slot = 0; slot < machine.CoverNodes.Length; slot++)
+                if (machine.CoverNodes[slot]?.Item.Id == node.Item.Id && machine.CoverTexts[slot] is { } text) return text.Accent;
+            foreach (var stick in machine.Lids)   // NEW (round 59)
+                if (stick.Node.Item.Id == node.Item.Id) return stick.Color;
+        }
+        return OtherSpaceColor;
+    }
+
     // True while the camera is out past the whole folder map, showing the drive around it.
-    private bool InDriveView => _root is not null && CurrentDrive() is not null && _camera.Width > FitRaw(_root.Bounds, 0).Width * 1.02;
+    // CHANGED (round 49): or anywhere over another drive, however far in.
+    // CHANGED (round 57): anywhere the camera is not inside the folder map.
+    private bool InDriveView => _root is not null && CurrentDrive() is not null && !InMap(_camera, FitRaw(_root.Bounds, 0));
+
+    // NEW (round 49): the drive the camera is heading for. Zooming in with the pointer over a drive makes it
+    // the anchor, and the frame the camera is kept in then narrows toward that drive rather than toward the
+    // open one - so zooming into another drive goes into it. Once its files fill the view it opens.
+    // Kept by root, not by position in the list, so a drive plugged in meanwhile cannot redirect it.
+    private string? _anchor;
+    private (string Root, string? Path, Rect Target)? _openingDrive;   // flying into a drive; it opens when the camera lands there
+
+    private DriveBox AnchorBox(DriveView drive)
+    {
+        if (_anchor is not null)
+            foreach (var box in drive.Drives)
+                if (box.Index >= 0 && string.Equals(drive.Others[box.Index].Root, _anchor, StringComparison.OrdinalIgnoreCase)) return box;
+        return new DriveBox(-1, drive.World, _root!.Bounds);
+    }
+
+    private static string? RootOf(DriveView drive, DriveBox box) => box.Index >= 0 ? drive.Others[box.Index].Root : null;
+
+    // The drive whose box holds a world point, if any.
+    private static DriveBox? DriveAt(DriveView drive, Point point)
+    {
+        foreach (var box in drive.Drives) if (box.Box.Contains(point)) return box;
+        return null;
+    }
+
+    // Starts the flight into another drive's files; DriveRequested follows when it lands.
+    private void OpenDrive(DriveView drive, DriveBox box, string? path)
+    {
+        if (box.Index < 0 || box.Index >= drive.Others.Length || _openingDrive is not null) return;
+        _anchor = drive.Others[box.Index].Root;
+        _userMoved = true;
+        _message = null;
+        var target = Clamp(FitRaw(box.Files, 0));
+        _openingDrive = (_anchor, path, target);
+        FlyTo(target, opening: true);
+    }
 
     private static Rect Lerp(Rect from, Rect to, double t) => new(from.X + (to.X - from.X) * t, from.Y + (to.Y - from.Y) * t,
         from.Width + (to.Width - from.Width) * t, from.Height + (to.Height - from.Height) * t);
@@ -1609,23 +3217,35 @@ public sealed class DiskUsageTreemap : FrameworkElement, IDisposable
         if (_root is null) return camera;
         var world = _root.Bounds;
         var full = FitRaw(world, 0);
+        var narrowest = full.Width * 1e-9;
         var widest = full.Width;
-        // NEW (round 44): past the whole folder map the frame grows toward the drive's. The bounds grow from
-        // the files' rectangle to the drive's in step with the zoom, so the camera slides out of its corner
-        // continuously rather than jumping, and inside the folder map nothing changes at all.
-        if (CurrentDrive() is { } drive)
+        // CHANGED (round 57): zoomed out past the files, the camera is free. It can go anywhere over the
+        // picture of the machine, as close as it likes (to read the board, or look at a drive), and nothing
+        // pulls it toward a drive - round 49's anchor did, which is what felt locked. It is kept to the
+        // folder map only once it is inside it: at most as wide as the files and (nearly) all within them.
+        if (CurrentDrive() is { } drive && !InMap(camera, full))
         {
-            var driveFull = FitRaw(drive.World, 0);
-            widest = driveFull.Width;
-            if (camera.Width > full.Width && driveFull.Width > full.Width)
-                world = Lerp(world, drive.World, Clamp01((camera.Width - full.Width) / (driveFull.Width - full.Width)));
+            world = drive.Machine;
+            widest = Math.Max(full.Width, FitRaw(drive.Machine, 0).Width);
+            narrowest = full.Width * 1e-5;   // CHANGED (round 59): deep enough for a small file in the memory
         }
-        var width = Math.Clamp(camera.Width, full.Width * 1e-9, widest);
+        var width = Math.Clamp(camera.Width, narrowest, widest);
         var height = width / ViewAspect;
         var center = Center(camera);
         var x = width >= world.Width ? world.X + world.Width / 2 : Math.Clamp(center.X, world.Left + width / 2, world.Right - width / 2);
         var y = height >= world.Height ? world.Y + world.Height / 2 : Math.Clamp(center.Y, world.Top + height / 2, world.Bottom - height / 2);
         return new Rect(x - width / 2, y - height / 2, width, height);
+    }
+
+    // NEW (round 57): whether a view is inside this drive's folder map (where the map's own rules apply):
+    // no wider than the files, and all but a sliver of it over them, so moving into the map never makes the
+    // camera jump more than that sliver.
+    private bool InMap(Rect camera, Rect full)
+    {
+        if (_root is null) return true;
+        if (camera.Width > full.Width * 1.001) return false;
+        var files = Rect.Inflate(_root.Bounds, camera.Width * .12, camera.Height * .12);
+        return files.Contains(camera);
     }
 
     private Rect ToScreen(Rect world)
@@ -1660,9 +3280,11 @@ public sealed class DiskUsageTreemap : FrameworkElement, IDisposable
         => Math.Abs(Math.Log(b.Width / a.Width)) < 2e-4 &&
            Math.Abs(a.X - b.X) < b.Width * 2e-4 && Math.Abs(a.Y - b.Y) < b.Height * 2e-4;
 
-    private void FlyTo(Rect target)
+    private void FlyTo(Rect target, bool opening = false)
     {
         _focusPoint = null;
+        // NEW (round 49): any other flight is within the open drive, and calls off opening another.
+        if (!opening) { _anchor = null; _openingDrive = null; }
         target = Clamp(target);
         var from = _camera;
         _target = target;
@@ -2046,6 +3668,13 @@ public sealed class DiskUsageTreemap : FrameworkElement, IDisposable
         }
         _lastFrame = now;
         var busy = StepFrame(dt);
+        // NEW (round 49): the flight into another drive has landed - open it.
+        // Only where it was heading: a flight cut short (a resize, a rebuilt tree) calls it off instead.
+        if (_openingDrive is { } opening && _flight is null)
+        {
+            _openingDrive = null;
+            if (Near(_camera, opening.Target)) DriveRequested?.Invoke(opening.Root, opening.Path);
+        }
         var moving = _flight is not null || _dragging || !Near(_camera, _target);
         // Prepare all layers together, after pending input, at full pixel resolution.
         if ((busy || moving || _sceneDirty || _needsFrame || !Near(_sceneCamera, _camera)) && !RenderScene()) return;
@@ -2335,9 +3964,10 @@ public sealed class DiskUsageTreemap : FrameworkElement, IDisposable
         }, DispatcherPriority.Render), TaskScheduler.Default);
     }
 
-    private TileBatch BatchFor(SceneCache cache, double opacity = 1)
+    private TileBatch BatchFor(SceneCache cache, double opacity = 1, bool presented = false)
         => TileBatch.ForCamera(cache.Geometry, cache.Camera, cache.Viewport,
-            cache.Detached ? cache.Camera : _camera, new Size(Math.Max(1, ActualWidth), Math.Max(1, ActualHeight)), opacity);
+            cache.Detached ? cache.Camera : presented ? _sceneCamera : _camera,
+            new Size(Math.Max(1, ActualWidth), Math.Max(1, ActualHeight)), opacity);
 
 
     // NEW (round 40): one geometry build, self-contained so it can run off the UI thread.
@@ -2373,6 +4003,8 @@ public sealed class DiskUsageTreemap : FrameworkElement, IDisposable
         public required int Revision;
         public required HashSet<Node> OpenPath;
         public required DriveRegion[]? Drive;   // NEW (round 44): the drive around the files, or null
+        public required Solid[]? Solids;        // NEW (round 48): other drives' blocks, cables, the computer
+        public required Solid[]? Underlay;      // NEW (round 51): drive bodies and network cables, under everything
 
         // Outputs.
         public required TileCommand[] Commands;
@@ -2397,8 +4029,10 @@ public sealed class DiskUsageTreemap : FrameworkElement, IDisposable
             var coverage = Rect.Inflate(new Rect(Viewport), Viewport.Width * .35, Viewport.Height * .35);
             View = coverage;
             ViewLoose = Rect.Inflate(coverage, 2, 2);
+            if (Underlay is { Length: > 0 } underlay) DrawSolids(underlay);                  // NEW (round 51)
             if (Drive is { } drive) foreach (var region in drive) DrawDriveRegion(region);   // NEW (round 44)
-            if (Root is { Item.Bytes: > 0 }) DrawNode(Root, ToScreen(Root.Bounds), 1, 1, 1, Rect.Empty, Budget, BasePacked, BasePacked, 0, true);
+            if (Solids is { Length: > 0 } solids) DrawSolids(solids);                      // NEW (round 48)
+            if (Root is { Item.Bytes: > 0 }) DrawNode(Root, ToScreen(Root.Bounds), 1, 1, 1, Rect.Empty, Budget, BasePacked, BasePacked, default, true);
             // CHANGED (round 41): the geometry takes the working buffer itself rather than a copy of it.
             var cache = new SceneCache(Camera, Viewport, coverage, new TileGeometry(Commands, CommandCount),
                 Drawn, Deferred.ToArray(), Deferred.ToDictionary(c => (c.Node, c.IsOpen)), ColorLevel, Revision)
@@ -2414,6 +4048,13 @@ public sealed class DiskUsageTreemap : FrameworkElement, IDisposable
         // NEW (round 44): one region of the drive view - free or other used space. Solid, inset by a gap so it
         // reads as separate from the files, labelled in its largest piece. It only ever shows once the
         // camera is out past the folder map; inside it, it is off screen and costs nothing.
+        // NEW (round 61): for each tagged region drawn so far, the strip at the top of what is on screen of it
+        // that its tag (and its parents' tags above that) take up. A region inside it puts its own tag or label
+        // below the strip - so zoomed into a program in the memory, the board's, the memory's and the program's
+        // tags stack down the corner like a path, and the labels inside start under them.
+        private readonly Dictionary<Node, Rect> _bands = [];
+        private const double TagHeight = 23;   // a name tag's height: a 12-point line and its padding
+
         private void DrawDriveRegion(DriveRegion region)
         {
             for (var i = 0; i < region.Parts.Length; i++)
@@ -2422,17 +4063,54 @@ public sealed class DiskUsageTreemap : FrameworkElement, IDisposable
                 if (!screen.IntersectsWith(ViewLoose)) continue;
                 var tile = Deflate(screen, Math.Clamp(Math.Min(screen.Width, screen.Height) * .01, .75, 6));
                 if (tile.Width <= 0 || tile.Height <= 0) continue;
-                EmitSolid(tile, region.Color, region.Color);
+                if (region.Fill) EmitSolid(tile, region.Color, region.Color);   // CHANGED (round 48): a label over tiles has none
                 // NEW (round 45): recorded for hit testing, so hovering a region shows what it is.
                 var hit = Rect.Intersect(tile, ViewLoose);
                 if (!hit.IsEmpty) Drawn.Add((region.Label, hit));
-                if (i != 0) continue;
+                if (i != 0 || !region.Captioned) continue;
                 var visible = Rect.Intersect(tile, View);
-                if (visible.IsEmpty || visible.Width <= 1 || visible.Height <= 1) continue;
+                // CHANGED (round 59): no caption for a block too small to hold one (labels need about 44 by
+                // 20 pixels, name tags more) - the memory has thousands of them.
+                if (visible.IsEmpty || visible.Width < 30 || visible.Height < 14) continue;
                 region.Label.LastDrawn = Stamp;   // keeps its label text from being handed back every frame
-                var caption = new Caption(region.Label, visible, Rect.Empty, 1);
+                var zone = region.Parent is { } parent && _bands.TryGetValue(parent, out var band) ? band : Rect.Empty;   // NEW (round 61)
+                if (region.Open)
+                {
+                    // Where its tag goes (as LayoutPill will put it), and so where what is inside it must start.
+                    var top = !zone.IsEmpty && visible.X + 5 < zone.Right && visible.Y + 5 < zone.Bottom + 3 ? zone.Bottom + 3 : visible.Y + 5;
+                    var shows = Math.Min(visible.Width, visible.Height) >= 36 && top + TagHeight <= visible.Bottom - 5;
+                    var bottom = shows ? top + TagHeight : zone.IsEmpty ? double.NaN : zone.Bottom;
+                    _bands[region.Label] = double.IsNaN(bottom) || bottom <= visible.Y ? Rect.Empty : new Rect(visible.X, visible.Y, visible.Width, bottom - visible.Y);
+                }
+                var caption = new Caption(region.Label, visible, zone, 1, region.Open, region.Open ? Unpack(region.Color) : default);   // CHANGED (round 58); (round 61) zone
                 Deferred.Add(caption);
                 if (ColorLevelB is not null) DeferredB.Add(caption);
+            }
+        }
+
+        // NEW (round 48): the plain blocks of the machine view, in order. Other drives' tiles already carry
+        // their gaps and drop out below a pixel; cables keep at least a pixel and a half so they read as
+        // wires from far out; everything else is drawn as it is.
+        private void DrawSolids(Solid[] solids)
+        {
+            foreach (var solid in solids)
+            {
+                var screen = ToScreen(solid.World);
+                if (!screen.IntersectsWith(ViewLoose)) continue;
+                switch (solid.Kind)
+                {
+                    case SolidKind.Tile when screen.Width < .8 || screen.Height < .8:
+                        continue;
+                    case SolidKind.Wire when screen.Width < screen.Height:
+                        var across = Math.Max(1.5, screen.Width);
+                        screen = new Rect(screen.X + screen.Width / 2 - across / 2, screen.Y, across, screen.Height);
+                        break;
+                    case SolidKind.Wire:
+                        var thick = Math.Max(1.5, screen.Height);
+                        screen = new Rect(screen.X, screen.Y + screen.Height / 2 - thick / 2, screen.Width, thick);
+                        break;
+                }
+                EmitSolid(screen, solid.Color, solid.Color);
             }
         }
 
@@ -2451,8 +4129,15 @@ public sealed class DiskUsageTreemap : FrameworkElement, IDisposable
         // CHANGED (round 43): every block carries two colours - under the colour level (A) and under a
         // second level (B): the folder the zoom is heading into, or the level a jump came from. The GPU
         // mixes them every frame, around the colour wheel, so one scene serves a whole colour change.
+        // CHANGED (round 63): screen is where the node's own layout rectangle lands - exactly, from its world
+        // bounds - and inset is how far in from that each side of its block is drawn (the gutter to its
+        // neighbours, and on a side it shares with its folder, that folder's frame as well). Blocks used to
+        // be placed inside their folder's inset rectangle, whose frame and gutters are sized in pixels; as the
+        // zoom changed, those pixels did not scale with the folder, so everything inside it slid a little -
+        // more the deeper it sat - and snapped back each time the scene was rebuilt. Now every block sits
+        // where the layout puts it at any zoom; only the width of the gaps around it changes.
         private int DrawNode(Node node, Rect screen, double alpha, double labelWeight, double labelWeightB, Rect zone, int budget,
-            uint backdrop, uint backdropB, double gutter, bool onPath)
+            uint backdrop, uint backdropB, Thickness inset, bool onPath)
         {
             if (!screen.IntersectsWith(ViewLoose)) return 0;
             var min = Math.Min(screen.Width, screen.Height);
@@ -2466,7 +4151,14 @@ public sealed class DiskUsageTreemap : FrameworkElement, IDisposable
             // integer threshold. Sibling budgets are independent of expansion state.
             // CHANGED (round 34): whether a node is on the open path is carried down the recursion. It was
             // two hash-set lookups per node, and only a handful of nodes can ever be on the path.
-            var detail = isRoot || Everything || onPath ? 1 : DetailAmount(budget, node.Children.Length);
+            // CHANGED (round 64): "render everything" no longer opens every folder whatever its budget. It spent the
+            // frame's blocks depth-first, so the first large folders (top-left in the layout) took all 750,000
+            // and every folder after them - the bottom-right of the view - was left as a bare surface: the open
+            // folder's own shade, or black at the top level. Zooming in made it worse, because more blocks
+            // passed the fifth-of-a-pixel threshold. Now a folder opens only if its share of the budget (its
+            // share of the screen) can pay for its contents, as in the normal mode - dense corners stay solid
+            // blocks until you zoom toward them, and nothing is ever cut off.
+            var detail = isRoot || onPath ? 1 : DetailAmount(budget, node.Children.Length);
             Tiles++;
             // CHANGED (round 25): the gutter is handed down by the folder, so every block inside it insets
             // by the same amount and every gap between them is the same width. Deriving it from each
@@ -2479,13 +4171,15 @@ public sealed class DiskUsageTreemap : FrameworkElement, IDisposable
             // its width to gaps, which is why small tiles read as hard and chopped-up. At an eighth the gap
             // falls below a pixel as blocks get small, and a sub-pixel line antialiases into a hairline -
             // which is the softness, rather than a hard edge scaled down.
-            var tile = isRoot ? screen : Deflate(screen, Math.Min(gutter, min * .12));
-            var drawn = Rect.Intersect(tile, ViewLoose);
+            // CHANGED (round 63): drawn in from its own layout rectangle, by its inset.
+            var tile = isRoot ? screen : Inset(screen, inset, min * .12, out inset);
+            var drawn = tile.IsEmpty ? Rect.Empty : Rect.Intersect(tile, ViewLoose);
             if (drawn.IsEmpty || drawn.Width <= 0 || drawn.Height <= 0)
             {
                 EmitSolid(screen, backdrop, backdropB);   // belt and braces: never leave a region unpainted
                 return 0;
             }
+            if (isRoot) inset = default;
             var visible = Rect.Intersect(tile, View);
             var hasVisible = !visible.IsEmpty && visible.Width > 1 && visible.Height > 1;
             Drawn.Add((node, drawn));
@@ -2510,6 +4204,7 @@ public sealed class DiskUsageTreemap : FrameworkElement, IDisposable
                 if (entry >= 0 && flat.IsContainer(entry))
                 {
                     open = onPath ? 1 : SmoothStep((min - ExpandLow) / (ExpandHigh - ExpandLow));
+                    if (open > 0 && !onPath) open *= DetailAmount(budget, FlatChildCount(flat, entry));   // CHANGED (round 64): within its budget
                     if (open > 0) flatEntry = entry;
                 }
             }
@@ -2547,8 +4242,9 @@ public sealed class DiskUsageTreemap : FrameworkElement, IDisposable
                 // no rectangles of its own. This replaced four border strips plus a fill per block with one
                 // rectangle per block - five times fewer - which is what pays for the extra detail below,
                 // and makes an unpainted region impossible: the surface is always underneath.
-                var inner = Deflate(tile, Math.Clamp(min * .005, .5, 2));
-                if (inner.Width <= 0 || inner.Height <= 0) inner = tile;
+                // CHANGED (round 63): the frame is how far in its children are drawn from its edges - not a
+                // smaller rectangle they are squeezed into.
+                var frame = Math.Clamp(min * .005, .5, 2);
                 EmitSolid(tile, Shade(fill, FrameShade), Shade(fillB, FrameShade));
                 // Folder tags stay readable even when their geometry spans the view.
                 var showPill = !isRoot && labelWeight > 0 && hasVisible && !onPath;
@@ -2560,10 +4256,10 @@ public sealed class DiskUsageTreemap : FrameworkElement, IDisposable
                 if (flatEntry >= 0)
                 {
                     // NEW (round 39): the same gutter and the same recursion rules, read from the arrays.
-                    var flatGutter = Math.Clamp(Math.Min(inner.Width, inner.Height) * .0025, .35, .9);
+                    var flatGutter = Math.Clamp(Math.Min(tile.Width, tile.Height) * .0025, .35, .9);
                     var tint = TintBelow(node, ColorLevel!);
-                    var spent = DrawFlatChildren(Flat!, flatEntry, inner, childAlpha, fill, fillB, flatGutter,
-                        tint, ColorLevelB is null ? tint : TintBelow(node, ColorLevelB), node.Depth + 1);
+                    var spent = DrawFlatChildren(Flat!, flatEntry, screen, inset, frame, childAlpha, fill, fillB, flatGutter,
+                        tint, ColorLevelB is null ? tint : TintBelow(node, ColorLevelB), node.Depth + 1, budget - 1);   // CHANGED (round 64): budget
                     if (showPill) Deferred.Add(new Caption(node, visible, zone, alpha * labelWeight * open, true, Unpack(color)));
                     if (showPillB) DeferredB.Add(new Caption(node, visible, zone, alpha * labelWeightB * open, true, Unpack(colorB)));
                     return 1 + spent;
@@ -2571,16 +4267,21 @@ public sealed class DiskUsageTreemap : FrameworkElement, IDisposable
                 var children = node.Children;
                 // Pooled: with fractal depth many folders are open in every frame.
                 var screens = ArrayPool<Rect>.Shared.Rent(children.Length);
+                var insets = ArrayPool<Thickness>.Shared.Rent(children.Length);   // NEW (round 63)
                 var areas = ArrayPool<double>.Shared.Rent(children.Length);
                 var visited = ArrayPool<int>.Shared.Rent(children.Length);
                 var visitedCount = 0;
                 var areaLeft = 0d;
                 // This traversal runs only when constructing a new cached detail layer.
-                var sx = inner.Width / node.Bounds.Width;
-                var sy = inner.Height / node.Bounds.Height;
+                // CHANGED (round 63): from the folder's own layout rectangle, so a child lands exactly where the
+                // layout puts it whatever the zoom.
+                var sx = screen.Width / node.Bounds.Width;
+                var sy = screen.Height / node.Bounds.Height;
                 double ox = node.Bounds.X, oy = node.Bounds.Y;
                 // One gutter for every block in this folder, so all its gaps match.
-                var childGutter = Math.Clamp(Math.Min(inner.Width, inner.Height) * .0025, .35, .9);
+                var childGutter = Math.Clamp(Math.Min(tile.Width, tile.Height) * .0025, .35, .9);
+                // A side a child shares with the folder is drawn in by the folder's own inset and its frame.
+                var tolerance = Math.Max(node.Bounds.Width, node.Bounds.Height) * 1e-9;
                 for (var i = 0; i < children.Length; i++)
                 {
                     var child = children[i];
@@ -2588,13 +4289,18 @@ public sealed class DiskUsageTreemap : FrameworkElement, IDisposable
                     // than from a position plus a separately scaled width. Two touching blocks then land on
                     // exactly the same pixel instead of a fraction apart, which is the other half of the
                     // misalignment: gaps that looked a pixel wider on one side than the other.
-                    var left = inner.X + (child.Bounds.X - ox) * sx;
-                    var right = inner.X + (child.Bounds.Right - ox) * sx;
-                    var top = inner.Y + (child.Bounds.Y - oy) * sy;
-                    var bottom = inner.Y + (child.Bounds.Bottom - oy) * sy;
+                    var left = screen.X + (child.Bounds.X - ox) * sx;
+                    var right = screen.X + (child.Bounds.Right - ox) * sx;
+                    var top = screen.Y + (child.Bounds.Y - oy) * sy;
+                    var bottom = screen.Y + (child.Bounds.Bottom - oy) * sy;
                     var rect = new Rect(left, top, Math.Max(0, right - left), Math.Max(0, bottom - top));
                     if (!rect.IntersectsWith(ViewLoose)) continue;
                     var shown = Rect.Intersect(rect, ViewLoose);
+                    insets[visitedCount] = new Thickness(
+                        child.Bounds.X - node.Bounds.X <= tolerance ? inset.Left + frame + childGutter : childGutter,
+                        child.Bounds.Y - node.Bounds.Y <= tolerance ? inset.Top + frame + childGutter : childGutter,
+                        node.Bounds.Right - child.Bounds.Right <= tolerance ? inset.Right + frame + childGutter : childGutter,
+                        node.Bounds.Bottom - child.Bounds.Bottom <= tolerance ? inset.Bottom + frame + childGutter : childGutter);
                     screens[visitedCount] = rect;
                     areas[visitedCount] = shown.Width * shown.Height;
                     visited[visitedCount++] = i;
@@ -2611,11 +4317,12 @@ public sealed class DiskUsageTreemap : FrameworkElement, IDisposable
                     if (areas[k] <= 0) continue;   // the folder's surface already covers it
                     var share = 1 + (areaLeft <= 0 ? 0 : (int)(extra * areas[k] / areaLeft));
                     var child = children[visited[k]];
-                    var spent = DrawNode(child, screens[k], childAlpha, childLabels, childLabelsB, childZone, share, fill, fillB, childGutter,
+                    var spent = DrawNode(child, screens[k], childAlpha, childLabels, childLabelsB, childZone, share, fill, fillB, insets[k],
                         onPath && OpenPath.Contains(child));   // only ever true for one child of an open-path node
                     used += spent;
                 }
                 ArrayPool<Rect>.Shared.Return(screens);
+                ArrayPool<Thickness>.Shared.Return(insets);
                 ArrayPool<double>.Shared.Return(areas);
                 ArrayPool<int>.Shared.Return(visited);
                 if (showPill) Deferred.Add(new Caption(node, visible, zone, alpha * labelWeight * open, true, Unpack(color)));
@@ -2639,33 +4346,78 @@ public sealed class DiskUsageTreemap : FrameworkElement, IDisposable
         // Children of one flat entry inside its parent's content rectangle. Mirrors the child loop in
         // DrawNode: edges mapped individually so neighbours meet on one pixel, anything with no area on
         // screen skipped because the parent's surface already covers it.
-        private int DrawFlatChildren(FlatTreemapLayout flat, int parent, Rect inner, double alpha, uint backdrop, uint backdropB,
-            double gutter, FlatTint tint, FlatTint tintB, int depth)
+        // CHANGED (round 63): outer is the parent's own layout rectangle, own its drawn inset, frame its frame -
+        // children are placed from the rectangle and drawn in from their edges, as in DrawNode.
+        // CHANGED (round 64): budget - the blocks these children may use between them. Each gets one, and the rest
+        // is shared by how much of the screen it covers, exactly as DrawNode shares a Node's budget - so the
+        // first child can no longer spend what the ones after it needed. The shares are fixed before any child
+        // is drawn, so a sibling opening further never takes detail away from its neighbours mid-zoom.
+        private int DrawFlatChildren(FlatTreemapLayout flat, int parent, Rect outer, Thickness own, double frame, double alpha, uint backdrop, uint backdropB,
+            double gutter, FlatTint tint, FlatTint tintB, int depth, int budget)
         {
             var used = 0;
             var end = flat.End(parent);
+            // NEW (round 64): first pass - how many children are on screen, and how much of it they cover.
+            var count = 0;
+            var areaTotal = 0d;
+            for (var child = parent + 1; child < end; child = flat.End(child))
+            {
+                var area = FlatShownArea(flat, child, outer);
+                if (area <= 0) continue;
+                count++;
+                areaTotal += area;
+            }
+            var extra = Math.Max(0, budget - count);
             var index = 0;
             for (var child = parent + 1; child < end; child = flat.End(child), index++)
             {
                 flat.Edges(child, out var l, out var t, out var r, out var b);
-                var left = inner.X + l * inner.Width;
-                var right = inner.X + r * inner.Width;
-                var top = inner.Y + t * inner.Height;
-                var bottom = inner.Y + b * inner.Height;
+                var left = outer.X + l * outer.Width;
+                var right = outer.X + r * outer.Width;
+                var top = outer.Y + t * outer.Height;
+                var bottom = outer.Y + b * outer.Height;
                 var rect = new Rect(left, top, Math.Max(0, right - left), Math.Max(0, bottom - top));
                 if (!rect.IntersectsWith(ViewLoose)) continue;
                 var shown = Rect.Intersect(rect, ViewLoose);
                 if (shown.Width * shown.Height <= 0) continue;
-                used += DrawFlat(flat, child, rect, alpha, backdrop, backdropB, gutter,
-                    ChildTint(tint, flat, child, index), ChildTint(tintB, flat, child, index), depth);
+                var share = 1 + (areaTotal <= 0 ? 0 : (int)(extra * (shown.Width * shown.Height) / areaTotal));   // NEW (round 64)
+                const double Edge = 1e-9;
+                var edge = frame + gutter;   // the folder's frame, and the gutter every block has
+                var inset = new Thickness(l <= Edge ? own.Left + edge : gutter, t <= Edge ? own.Top + edge : gutter,
+                    r >= 1 - Edge ? own.Right + edge : gutter, b >= 1 - Edge ? own.Bottom + edge : gutter);
+                used += DrawFlat(flat, child, rect, alpha, backdrop, backdropB, inset,
+                    ChildTint(tint, flat, child, index), ChildTint(tintB, flat, child, index), depth, share);   // CHANGED (round 64): share
             }
             return used;
+        }
+
+        // NEW (round 64): how much of the screen a flat entry covers inside its parent's rectangle - the same
+        // mapping DrawFlatChildren draws it with, so the shares add up to what is drawn.
+        private double FlatShownArea(FlatTreemapLayout flat, int entry, Rect outer)
+        {
+            flat.Edges(entry, out var l, out var t, out var r, out var b);
+            var left = outer.X + l * outer.Width;
+            var top = outer.Y + t * outer.Height;
+            var rect = new Rect(left, top, Math.Max(0, outer.X + r * outer.Width - left), Math.Max(0, outer.Y + b * outer.Height - top));
+            if (!rect.IntersectsWith(ViewLoose)) return 0;
+            var shown = Rect.Intersect(rect, ViewLoose);
+            return shown.Width * shown.Height;
+        }
+
+        // NEW (round 64): a flat entry's direct children - at most a few hundred, since the layout groups long tails.
+        private static int FlatChildCount(FlatTreemapLayout flat, int entry)
+        {
+            var count = 0;
+            var end = flat.End(entry);
+            for (var child = entry + 1; child < end; child = flat.End(child)) count++;
+            return count;
         }
         // DrawNode for an entry with no Node: no labels (only a level's direct children are labelled, and
         // those are always Nodes), no hit-testing record, no load request - just the geometry.
         // CHANGED (round 43): both colours, as DrawNode.
-        private int DrawFlat(FlatTreemapLayout flat, int entry, Rect screen, double alpha, uint backdrop, uint backdropB, double gutter,
-            FlatTint tint, FlatTint tintB, int depth)
+        // CHANGED (round 64): budget - the blocks this entry and everything inside it may use.
+        private int DrawFlat(FlatTreemapLayout flat, int entry, Rect screen, double alpha, uint backdrop, uint backdropB, Thickness inset,
+            FlatTint tint, FlatTint tintB, int depth, int budget)
         {
             var min = Math.Min(screen.Width, screen.Height);
             if (Tiles >= Budget || min < MinimumTile)
@@ -2674,8 +4426,8 @@ public sealed class DiskUsageTreemap : FrameworkElement, IDisposable
                 return 0;
             }
             Tiles++;
-            var tile = Deflate(screen, Math.Min(gutter, min * .12));
-            var drawn = Rect.Intersect(tile, ViewLoose);
+            var tile = Inset(screen, inset, min * .12, out inset);   // CHANGED (round 63)
+            var drawn = tile.IsEmpty ? Rect.Empty : Rect.Intersect(tile, ViewLoose);
             if (drawn.IsEmpty || drawn.Width <= 0 || drawn.Height <= 0)
             {
                 EmitSolid(screen, backdrop, backdropB);
@@ -2684,7 +4436,9 @@ public sealed class DiskUsageTreemap : FrameworkElement, IDisposable
             var spread = flat.Spread(entry);
             var color = FlatColor(tint, spread);
             var colorB = FlatColor(tintB, spread);
+            // CHANGED (round 64): opens only as far as its budget pays for its children, as a Node does.
             var open = flat.IsContainer(entry) ? SmoothStep((min - ExpandLow) / (ExpandHigh - ExpandLow)) : 0;
+            if (open > 0) open *= DetailAmount(budget, FlatChildCount(flat, entry));   // counted only when it could open
             var shallow = ColorLevel is null || depth - ColorLevel.Depth <= 1;
             var shallowB = ColorLevelB is null ? shallow : depth - ColorLevelB.Depth <= 1;
             var fill = Mix(backdrop, open > 0 ? Mix(color, Shade(color, shallow ? .55 : .72), open) : color, alpha);
@@ -2694,19 +4448,19 @@ public sealed class DiskUsageTreemap : FrameworkElement, IDisposable
                 EmitSolid(tile, fill, fillB);
                 return 1;
             }
-            var inner = Deflate(tile, Math.Clamp(min * .005, .5, 2));
-            if (inner.Width <= 0 || inner.Height <= 0) inner = tile;
+            var frame = Math.Clamp(min * .005, .5, 2);
             // A folder whose contents fit in less than a pixel is one block: its children could only ever
             // be a spray of sub-pixel rectangles averaging to the same colour, and with a million-file
             // drive in view those would be most of the geometry.
-            if (inner.Width * inner.Height < 1)
+            if ((tile.Width - frame * 2) * (tile.Height - frame * 2) < 1)
             {
                 EmitSolid(tile, fill, fillB);
                 return 1;
             }
             EmitSolid(tile, Shade(fill, FrameShade), Shade(fillB, FrameShade));
-            var childGutter = Math.Clamp(Math.Min(inner.Width, inner.Height) * .0025, .35, .9);
-            return 1 + DrawFlatChildren(flat, entry, inner, alpha * open, fill, fillB, childGutter, tint, tintB, depth + 1);
+            var childGutter = Math.Clamp(Math.Min(tile.Width, tile.Height) * .0025, .35, .9);
+            return 1 + DrawFlatChildren(flat, entry, screen, inset, frame, alpha * open, fill, fillB, childGutter, tint, tintB, depth + 1,
+                budget - 1);   // CHANGED (round 64): budget
         }
         // Finds a Node's entry by walking down from the root; each folder resolves all of its children at
         // once and caches them, so this is paid once per folder per layout. Ids are checked on the way,
@@ -2841,6 +4595,8 @@ public sealed class DiskUsageTreemap : FrameworkElement, IDisposable
             Revision = _detailRevision,
             OpenPath = openPath,
             Drive = CurrentDrive()?.Regions,   // NEW (round 44)
+            Solids = CurrentDrive()?.Solids,   // NEW (round 48)
+            Underlay = CurrentDrive()?.Underlay,   // NEW (round 51)
             // CHANGED (round 41): a buffer from the pool, sized from the last scene so it rarely grows.
             // It becomes the scene's geometry and returns to the pool when that scene leaves the screen.
             Commands = TakeCommandBuffer(Math.Max(16384, _lastCommandCount + _lastCommandCount / 4)),
@@ -3059,12 +4815,14 @@ public sealed class DiskUsageTreemap : FrameworkElement, IDisposable
         if (alpha <= .01) return;
         var visible = Rect.Intersect(mapping.Transform(caption.Visible), _view);
         if (visible.IsEmpty) return;
+        // CHANGED (round 61): with the tags above it to keep clear of (the drive view's; the map's have none).
+        var zone = caption.Zone.IsEmpty ? Rect.Empty : mapping.Transform(caption.Zone);
         if (caption.IsOpen)
         {
-            var pill = LayoutPill(caption.Node, visible, Rect.Empty, color, alpha);
+            var pill = LayoutPill(caption.Node, visible, zone, color, alpha);
             if (pill is { } tag) DrawPill(dc, tag);
         }
-        else DrawLabel(dc, caption.Node, visible, Rect.Empty, alpha);
+        else DrawLabel(dc, caption.Node, visible, zone, alpha);
     }
 
     private void PrepareFallbackCommands()
@@ -3187,6 +4945,16 @@ public sealed class DiskUsageTreemap : FrameworkElement, IDisposable
     internal static double DetailAmount(int budget, int children)
         => SmoothStep((budget - children - 1d) / Math.Max(8, children * .5));
 
+
+    // NEW (round 63): a rectangle drawn in from each side by its own amount, each capped (so a tiny block
+    // keeps most of itself); applied says what was actually taken. Empty when nothing is left.
+    private static Rect Inset(Rect rect, Thickness by, double cap, out Thickness applied)
+    {
+        applied = new Thickness(Math.Min(by.Left, cap), Math.Min(by.Top, cap), Math.Min(by.Right, cap), Math.Min(by.Bottom, cap));
+        var width = rect.Width - applied.Left - applied.Right;
+        var height = rect.Height - applied.Top - applied.Bottom;
+        return width > 0 && height > 0 ? new Rect(rect.X + applied.Left, rect.Y + applied.Top, width, height) : Rect.Empty;
+    }
 
     private static Rect Deflate(Rect rect, double by)
         => new(rect.X + by, rect.Y + by, Math.Max(0, rect.Width - by * 2), Math.Max(0, rect.Height - by * 2));
@@ -3483,7 +5251,7 @@ public sealed class DiskUsageTreemap : FrameworkElement, IDisposable
         alpha *= Clamp01((Math.Min(visible.Width, visible.Height) - 36) / 20);
         if (alpha <= .02) return null;
         var name = Text(node, ref node.PillName, node.Item.Name, 12, true);
-        var size = Text(node, ref node.PillSize, node.SizeText, 11, false);
+        var size = Text(node, ref node.PillSize, node.Tag ?? node.SizeText, 11, false);   // CHANGED (round 58): Tag
         if (name is null || size is null) return null;
         const double padX = 7, padY = 3, spacing = 7;
         var sizeWidth = size.WidthIncludingTrailingWhitespace;
@@ -3584,6 +5352,8 @@ public sealed class DiskUsageTreemap : FrameworkElement, IDisposable
             _highlightNode = _highlight is int id && _focusNode is not null ? FindChild(_focusNode, id) : null;
             _highlightResolved = true;
         }
+        // CHANGED (round 58): the motherboard is no longer drawn here; it is part of the map itself (BuildDriveView).
+        DrawCovers(dc);   // NEW (round 51): drive covers, over the scene and its labels
         if (_highlightNode is { } selected) Outline(dc, selected, AccentEdge);
         _hover = _mouseInside && !_dragging ? NodeAt(_mouse) : null;
         var target = _hover is null ? null : ClickTarget(_hover);
@@ -3667,7 +5437,9 @@ public sealed class DiskUsageTreemap : FrameworkElement, IDisposable
             var name = Make(node.Item.Name, 13, true);
             name.SetForegroundBrush(Ink);
             name.MaxTextWidth = maxText;
-            var description = Make(IsDriveRegion(node) ? $"{node.SizeText} · {node.ShareText} of the drive"   // NEW (round 45)
+            var description = Make(node.Detail is { } own ? own   // CHANGED (round 51): covers, the computer, servers
+                : IsDriveRegion(node) ? $"{node.SizeText} · {node.ShareText} of " +   // NEW (round 45)
+                    (OtherDriveOf(node) is { } otherDrive ? $"{otherDrive.Root} ({DiskUsageSnapshot.FormatBytes(otherDrive.Total)})" : "the drive")   // CHANGED (round 47)
                 : $"{DiskUsagePalette.CategoryName(node.Item)} · {node.SizeText}" +
                 (folder is null ? "" : $" · {node.ShareText} of {folder.Item.Name.TrimEnd('\\')}"), 11.5, false);
             description.SetForegroundBrush(InkMuted);
@@ -3693,7 +5465,7 @@ public sealed class DiskUsageTreemap : FrameworkElement, IDisposable
         var line = y + pad + title.Height + 3;
         // CHANGED (round 40): computed, not read through the node's colour cache - that cache is the
         // geometry walk's, and the walk may be writing it on another thread right now.
-        var swatchColor = IsDriveRegion(node) ? (node.Item.Id == FreeSpaceId ? FreeSpaceColor : OtherSpaceColor)   // NEW (round 45)
+        var swatchColor = IsDriveRegion(node) ? RegionColor(node)   // CHANGED (round 47)
             : _colorLevel is { } swatchLevel ? ComputeColor(node, swatchLevel) : _basePacked;
         dc.DrawEllipse(BrushFor(Unpack(swatchColor), 1), null, new Point(x + pad + swatch / 2, line + detail.Height / 2), swatch / 2, swatch / 2);
         dc.DrawText(detail, new Point(x + pad + swatch + 7, line));
@@ -3704,6 +5476,14 @@ public sealed class DiskUsageTreemap : FrameworkElement, IDisposable
     {
         // NEW (round 45): what the two drive regions are.
         if (target.Item.Id == FreeSpaceId) return "Space on the drive not used by anything · click for the files";
+        // NEW (round 47): another drive.
+        if (OtherDriveOf(target) is { } drive)
+            return !drive.Indexed ? $"{drive.Root} is not indexed yet · click to open it when it is"
+                : OtherDrivePath(target) is { } path && !string.Equals(path, drive.Root, StringComparison.OrdinalIgnoreCase) ? $"Click to open {path}"
+                : $"Click to open {drive.Root}";
+        if (target.Item.Id == ComputerId) return "This computer and the drives connected to it · click for the files";   // NEW (round 48)
+        if (CurrentDrive()?.ZoomTiles.ContainsKey(target.Item.Id) == true) return "Click to zoom in";   // NEW (round 59)
+        if (target.Detail is not null) return "Click for the files";   // NEW (round 51): this drive's cover, a server
         if (target.Item.Id == OtherSpaceId)
             return "Used on the drive but not in the index: file system metadata, restore points, the recycle bin, " +
                    "and folders Clearspace could not read · click for the files";
@@ -3721,11 +5501,14 @@ public sealed class DiskUsageTreemap : FrameworkElement, IDisposable
     private int _textBudget;
     private FormattedText? Text(Node node, ref CachedText cache, string text, double em, bool bold)
     {
-        if (cache.Text is not null && cache.Em == em) return cache.Text;
-        if (_textBudget <= 0) { _needsFrame = true; return null; }
+        var current = cache.Text is not null && cache.Em == em;
+        if (current && (cache.Source is null || ReferenceEquals(cache.Source, text) || cache.Source == text)) return cache.Text;
+        // CHANGED (round 60): out of budget this frame, changed words keep showing the old ones until the
+        // new ones are made, rather than the label blinking out.
+        if (_textBudget <= 0) { _needsFrame = true; return current ? cache.Text : null; }
         _textBudget--;
         var formatted = Make(text, em, bold);
-        cache = new CachedText(formatted, em, formatted.WidthIncludingTrailingWhitespace);
+        cache = new CachedText(formatted, em, formatted.WidthIncludingTrailingWhitespace, Source: text);
         // Registered once per node, so the sweep can find everything that is holding text.
         if (!node.HasText) { node.HasText = true; _texted.Add(node); }
         return cache.Text;
@@ -3805,7 +5588,8 @@ public sealed class DiskUsageTreemap : FrameworkElement, IDisposable
     // frame is deferred, without keeping a transformed copy of every tile up to date each frame.
     private Node? NodeAt(Point point)
     {
-        if (_cache is not { } cache || BatchFor(cache) is not { Scale: > 0 } mapping) return null;
+        if (CoverAt(point) is { } cover) return cover;   // NEW (round 51): a closed drive is one thing to point at
+        if (_cache is not { } cache || BatchFor(cache, presented: true) is not { Scale: > 0 } mapping) return null;
         var local = new Point((point.X - mapping.X) / mapping.Scale, (point.Y - mapping.Y) / mapping.Scale);
         var tiles = cache.Tiles;
         for (var i = tiles.Count - 1; i >= 0; i--)
@@ -3876,7 +5660,7 @@ public sealed class DiskUsageTreemap : FrameworkElement, IDisposable
         if (_pressed && e.LeftButton == MouseButtonState.Pressed)
         {
             var delta = _mouse - _press;
-            if (!_dragging && delta.Length > 4) { _dragging = true; _flight = null; }
+            if (!_dragging && delta.Length > 4) { _dragging = true; _flight = null; _openingDrive = null; }   // CHANGED (round 49)
             if (_dragging)
             {
                 _lastInteraction = Now;

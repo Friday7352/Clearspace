@@ -21,6 +21,29 @@ public partial class MainWindow : Window
 {
     private readonly MainViewModel _viewModel = new();
     private DiskUsageView? _diskUsageView;
+    private IndexingView? _indexingView;
+
+    private void OnIndexing(object? sender, RoutedEventArgs e)
+    {
+        if (_indexingView is not null) return;
+        _indexingView = new IndexingView();
+        _indexingView.CloseRequested += (_, _) => CloseIndexing();
+        _indexingView.WindowsIndexingRequested += (_, _) => _viewModel.OpenIndexingOptions();
+        IndexingHost.Content = _indexingView;
+        ExplorerShell.Visibility = DiskUsageHost.Visibility = Visibility.Collapsed;
+        IndexingHost.Visibility = Visibility.Visible;
+        _indexingView.Focus();
+    }
+
+    private void CloseIndexing()
+    {
+        _indexingView?.Dispose();
+        _indexingView = null;
+        IndexingHost.Content = null;
+        IndexingHost.Visibility = Visibility.Collapsed;
+        if (_diskUsageView is not null) DiskUsageHost.Visibility = Visibility.Visible;
+        else ExplorerShell.Visibility = Visibility.Visible;
+    }
 
     private void OnDiskUsage(object sender, RoutedEventArgs e)
     {
@@ -35,6 +58,7 @@ public partial class MainWindow : Window
         if (string.IsNullOrWhiteSpace(path) || path.StartsWith("clearspace://", StringComparison.OrdinalIgnoreCase))
             path = null;
         _diskUsageView = new DiskUsageView(path);
+        _diskUsageView.IndexingRequested += (_, _) => OnIndexing(this, new RoutedEventArgs());
         _diskUsageView.FileOperationCompleted += (_, _) => _ = _viewModel.RefreshAsync();
         _diskUsageView.CloseRequested += (_, _) =>
         {
@@ -81,7 +105,7 @@ public partial class MainWindow : Window
         _viewModel.Context.BeginRename = BeginRename;
 
         Loaded += OnLoaded;
-        Closed += (_, _) => { _diskUsageView?.Dispose(); _viewModel.Dispose(); };
+        Closed += (_, _) => { _indexingView?.Dispose(); _diskUsageView?.Dispose(); _viewModel.Dispose(); };
         PreviewKeyDown += OnPreviewKeyDown;
         PreviewMouseDown += OnWindowMouseDown;
         PreviewMouseMove += OnSidebarMouseMove;
@@ -342,6 +366,11 @@ public partial class MainWindow : Window
 
     private void OnPreviewKeyDown(object sender, KeyEventArgs e)
     {
+        if (_indexingView is not null)
+        {
+            if (e.Key == Key.Escape) { CloseIndexing(); e.Handled = true; }
+            return;
+        }
         // CHANGED: while the disk view is open, F3 toggles its performance readout even if
         // keyboard focus is still somewhere outside it.
         if (_diskUsageView is not null)
@@ -448,6 +477,11 @@ public partial class MainWindow : Window
 
     private void OnWindowMouseDown(object sender, MouseButtonEventArgs e)
     {
+        if (_indexingView is not null)
+        {
+            if (e.ChangedButton == MouseButton.XButton1) { CloseIndexing(); e.Handled = true; }
+            return;
+        }
         if (_diskUsageView is not null) return;
         if (e.ChangedButton is not (MouseButton.XButton1 or MouseButton.XButton2))
             return;

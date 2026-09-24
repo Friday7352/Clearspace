@@ -1,5 +1,11 @@
 # CS 499: Algorithms and data structures — disk usage visualizer
 
+**September 23 completion:** the planned traversal-depth and per-drive health
+enhancements are now implemented. See [Artifact Two completion and evidence](CS499-Artifact-Two-Completion.md)
+for the final scope, current tests, measured results, and submission materials.
+The numbered rounds below retain the development history; the completion report
+and current source take precedence over earlier implementation descriptions.
+
 ## Implemented enhancement
 
 Clearspace now has an embedded disk usage view accessible from the toolbar or the
@@ -44,8 +50,8 @@ fills the view around the pointer; the list follows after the zoom settles for
 opened folder returns to its parent. Dragging pans. Hovering shows a card with
 the item's type, size, share of its folder and what a click will do.
 
-Blocks are colored by file type (shared with list icons and a legend), so a
-tile keeps its color at every zoom level and in every folder. Open folders show
+Blocks use branch colors shared with the list, with zoom-dependent color transitions.
+Their geometry stays fixed as the camera moves. Open folders show
 a small name tag that fades out once the folder fills the view. Labels are laid
 out in the visible part of a tile and fade in as space appears.
 
@@ -67,7 +73,7 @@ created item at that path. The ledger is not persisted across application exits.
 
 ## Data structure and aggregation
 
-The existing immutable `VolumeIndex` stores file metadata and parent indexes in
+The live `VolumeIndex` stores file metadata and parent indexes in
 compact arrays. `DiskUsageSnapshot` retains a single published volume and adds
 five arrays: subtree bytes, subtree file counts, first child, next sibling, and
 an exclusion flag. The additional payload is approximately 25 bytes per index entry, plus
@@ -417,6 +423,106 @@ publishing the listing. The former 640 ms timeout no longer forces a list rebind
 during a long gesture. Returning to the currently listed folder cancels any
 older deferred listing.
 
+### Other drives (round 47)
+
+Past the drive's own rectangle the camera frame grows a second time, from the
+drive to a "machine" rectangle that also holds every other local drive in the
+drive list. Each drive keeps the current drive's bytes-per-area scale, so its
+side is `sqrt(capacity / this drive's capacity)` times this drive's side (with a
+small minimum so a USB stick stays clickable), and drives are shelf-packed
+largest first in columns to the right. Each is two regions, used and free, split
+in proportion. `Clamp` lerps the world bounds files -> drive -> machine in step
+with the zoom, so the frame never jumps and nothing inside the folder map moves.
+A click on another drive raises `DriveRequested`, which loads it exactly as the
+drive picker does. Capacities are read with `DriveInfo` off the UI thread and only
+for fixed and removable drives, since a sleeping network share can take seconds
+to answer.
+
+Round 48 puts the drives in one bottom-aligned row and draws the computer under
+it, with an orthogonal cable from each drive to a port. Ports keep the drives'
+left-to-right order; cables running right take lanes from the bottom up starting
+with the leftmost drive, and the mirror image for cables running left, which
+guarantees no two cables cross. Indexed drives show a preview of their contents:
+the same squarified layout, expanded largest-folder-first to a 6,000-tile budget,
+stored in unit coordinates (a few hundred kilobytes per drive) and placed in the
+drive's top-left corner at the same bytes-per-area scale, with unindexed and free
+space around it as for the current drive. Previews are built one drive at a time
+on a below-normal-priority thread, from the cached snapshot when one is held and
+otherwise from a transient snapshot that is dropped straight after, and are
+rebuilt only when that drive's index is replaced.
+
+Round 49 makes the machine layout independent of which drive is open: drives are
+placed in drive-letter order outward from the open one, and every size (gaps,
+plates, cables, computer) derives from the largest drive, so opening another
+drive only re-anchors the same picture. The camera clamp gained an *anchor*: the
+drive under the pointer when zooming in (taken only while the view is still
+wider than that drive's files, so a notch at the edge of a bigger drive cannot
+swing the camera out to it). The files -> drive -> machine lerp runs for the
+anchor, so zooming in heads into that drive; when its files fill the view the
+camera settles there and the drive opens, and its real map replaces the preview
+at exactly that view. A click flies to the same view first and opens on landing;
+any wheel, drag or other flight cancels a pending open. Region ids are numbered
+in a fixed block per drive and unchanged labels keep their nodes between rebuilds,
+and free-space changes under 256 MB no longer rebuild the view, which removes the
+flicker when fully zoomed out.
+
+### Drives as devices (round 51)
+
+`DriveHardwareProbe` asks each volume what it sits on with
+`IOCTL_STORAGE_QUERY_PROPERTY` on a query-only handle (no administrator rights
+needed): `StorageDeviceProperty` for the bus type (NVMe, USB, SATA...) and the
+model string, and `StorageDeviceSeekPenaltyProperty` to tell platters from flash.
+Network drives are named from Windows' connection table (`WNetGetConnection`),
+never by contacting the server. Each drive gets a body (drawn in the scene under
+its files, with connectors, contacts or a tray handle in its frame) and a cover
+(drawn by the overlay above the scene and every label). The cover's opacity is a
+smoothstep of the camera width between 1.1x and 2x the width that fits the drive,
+so it is fully closed at the whole-machine view and fully open before the camera
+reaches the drive's files, where the drive opens. Because the overlay is above the
+label layer, a closed cover hides the drive's contents and their names without
+the scene having to know. Cover text is laid out once at a fixed size and drawn
+scaled, so zooming does not re-lay text each frame. Network drives are grouped by
+server; each group is cabled to its server and each server to the computer with
+nested lanes, so no cables cross.
+
+### Experimental views (round 46)
+
+Two optional views share the map's area behind an *Experimental views* setting.
+The treemap is set to `Hidden` rather than `Collapsed` while they show, so it keeps
+its size, scene and camera and needs no re-layout when switched back.
+
+**3D blocks** reuses `SquarifiedTreemap.Layout` and extrudes it. Folders are
+expanded largest-first from a priority queue until a 15,000-block budget is
+spent (at most 160 children per folder, the rest merged into one block, five
+levels deep), so the budget goes where the eye goes. Heights are the folder slab
+(stacked mode), `sqrt(bytes / max)`, `log(1 + files) / log(1 + max)`, or
+`sqrt(share)` of the block's dominant file type. All blocks form a single
+`MeshGeometry3D` whose texture coordinates index a one-pixel-high palette
+texture (nearest-neighbour, absolute brush viewport), so thousands of colours
+are still one draw call. Layout and mesh are built and frozen on the thread
+pool. Picking casts a ray from the camera (the inverse of the label projection)
+against every block's axis-aligned box with the slab method, which is far
+cheaper than WPF's per-triangle hit test on one large mesh. A refreshed
+snapshot with the same folder, mode and totals is not rebuilt, and ids from an
+older snapshot are resolved by path before navigating.
+
+**Disk layout** reads cluster runs with `FSCTL_GET_RETRIEVAL_POINTERS` on
+handles opened for attributes only (cloud placeholders and reparse points are
+skipped) for the 20,000 largest files on the drive plus the 4,000 largest in
+the folder being viewed. The volume's clusters are grouped into at most 2^18
+buckets; a run claims the buckets it covers completely and only unclaimed
+buckets at its ends. With administrator rights the allocation bitmap
+(`FSCTL_GET_VOLUME_BITMAP`, read a megabyte at a time and popcounted into
+per-bucket occupancy) separates free space from used space that was not read;
+`IOCTL_STORAGE_QUERY_PROPERTY` (seek penalty) identifies SSDs, where positions
+are logical. The platter maps buckets onto concentric tracks in proportion to
+their circumference, as zoned recording packs more sectors into outer tracks;
+the grid gives each cell the majority colour of its buckets, and the hover card
+uses the same representative bucket so it describes what the cell shows. One
+background worker at a time does all disk and snapshot work and redraws after
+every 1,500 files; the UI thread only copies pixels, spins the bitmap and draws
+the head arm, which swings to the track under the pointer.
+
 ## Snapshot semantics and limitations
 
 - These are **indexed logical file lengths**, not physical allocation, free
@@ -424,7 +530,8 @@ older deferred listing.
   sparse, compressed, and cloud-placeholder files can differ from disk usage.
 - Hidden and system entries already in the index are included in totals.
 - The existing index builder skips inaccessible folders and directory reparse
-  targets and has a depth limit. The visualizer cannot recover missing entries
+  targets other than supported cloud placeholders. Neither indexing nor fallback
+  search has an arbitrary depth limit now. The visualizer cannot recover missing entries
   or claim complete coverage. The UI states those exclusions.
 - The displayed timestamp is when the index build started. Search overlay
   events are intentionally not merged with older subtree sizes. Refresh captures
@@ -434,9 +541,9 @@ older deferred listing.
   confirmed action; after partial deletion, surviving file lengths still come
   from the saved index.
 
-Removing the index-builder depth limit, tracking exact scan coverage, and adding
-an explicit on-demand rescan are separate improvements. The database migration
-also remains separate from this artifact.
+The depth-limit removal and per-drive watcher recovery are implemented. Exact
+per-directory scan coverage and an explicit user-triggered rescan remain future
+work. Database migration remains separate from this artifact.
 
 ## Verification and portfolio evidence
 
@@ -452,11 +559,11 @@ cancellation, snapshot reload, drive changes, and superseded results. Layout
 tests check total area, proportionality, bounds, non-overlap, equal-weight
 squares, large weights, and empty or invalid inputs.
 
-The continuous-map Release suite last ran on September 22, 2026 with **131
-tests**; 129 passed and the two dense-frame performance cases failed on
-machine-dependent thresholds (see the geometry-cache results below).
-**The suite has not been rerun since those thresholds were corrected; rerun it
-and record the final counts here.**
+The September 23, 2026 completion run passed **150/150 tests**, with no failures
+or skipped tests. Evidence: `output/test-results/artifact-two-completion/completion-final.trx`.
+This includes the new native traversal, per-drive recovery, flat layout, stable
+layout and cache replacement regressions. Earlier performance reports below
+are historical samples, not measurements of the final version.
 
 Performance/lifecycle coverage includes slow and superseded loads,
 closing during a load, dense camera frames at 1280 × 800 and 4748 × 1220,
