@@ -1,18 +1,14 @@
-// Clearspace | Tags and tag assignments.
-
+// Clearspace | Transactional tag operations backed by indexed SQLite tables.
 using System.IO;
-using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Windows.Media;
+using Microsoft.Data.Sqlite;
 
 namespace Clearspace.Services;
 
-
-// CS499: Tags use a single JSON file, linear lookups, and manual orphan cleanup.
 public sealed record TagDefinition(string Id, string Name, string Color)
 {
     private Brush? _brush;
-
     [JsonIgnore]
     public Brush Brush => _brush ??= CreateBrush(Color);
 
@@ -27,299 +23,222 @@ public sealed record TagDefinition(string Id, string Name, string Color)
                 return brush;
             }
         }
-        catch (Exception)
-        {
-        }
-
+        catch (Exception) { }
         return Brushes.Gray;
     }
 }
 
-// CS499: TagData maps to tags.json; Enhancement 3 replaces it with indexed tables.
-internal sealed class TagData
+public sealed class TagStore : IDisposable
 {
-    public List<TagDefinition> Definitions { get; set; } = [];
-
-    public Dictionary<string, List<string>> Assignments { get; set; } = new(StringComparer.OrdinalIgnoreCase);
-}
-
-public sealed class TagStore
-{
-    private readonly Func<string?> _read;
-    private readonly Action<string> _write;
+    private readonly TagDatabase _database;
     private readonly Func<string, bool> _pathExists;
 
-    public TagStore(string filePath)
-        : this(() => File.Exists(filePath) ? File.ReadAllText(filePath) : null,
-            json =>
-            {
-                System.IO.Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(filePath))!);
-                File.WriteAllText(filePath, json);
-            }, path => File.Exists(path) || System.IO.Directory.Exists(path))
+    public TagStore(string databasePath, string? legacyJsonPath = null)
+        : this(databasePath, legacyJsonPath, path => File.Exists(path) || Directory.Exists(path)) { }
+
+    internal TagStore(string databasePath, string? legacyJsonPath, Func<string, bool> pathExists)
     {
+        _database = new TagDatabase(databasePath, legacyJsonPath);
+        _pathExists = pathExists;
     }
 
-    internal TagStore(Func<string?> read, Action<string> write, Func<string, bool>? pathExists = null)
-    {
-        _read = read;
-        _write = write;
-        _pathExists = pathExists ?? (_ => true);
-    }
-
-    private static readonly JsonSerializerOptions Options = new()
-    {
-        WriteIndented = true,
-        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
-    };
-
-    private TagData? _data;
+    internal static readonly TagDefinition[] Defaults =
+    [
+        new("important", "Important", "#D3A15F"), new("work", "Work", "#5B8DD9"),
+        new("personal", "Personal", "#7FB77E"), new("project", "Project", "#B07FD9"),
+        new("todo", "To do", "#D9705B"), new("reference", "Reference", "#5BB0C4"),
+        new("archive", "Archive", "#8A8580")
+    ];
+    private static readonly string[] Palette =
+        ["#D3A15F", "#5B8DD9", "#7FB77E", "#B07FD9", "#D9705B", "#5BB0C4", "#C4A85B", "#C45B93"];
 
     public event EventHandler? Changed;
-
-    private TagData Current => _data ??= Load();
-    private static List<TagDefinition> CreateDefaults() =>
-    [
-        new("important", "Important", "#D3A15F"),
-        new("work",      "Work",      "#5B8DD9"),
-        new("personal",  "Personal",  "#7FB77E"),
-        new("project",   "Project",   "#B07FD9"),
-        new("todo",      "To do",     "#D9705B"),
-        new("reference", "Reference", "#5BB0C4"),
-        new("archive",   "Archive",   "#8A8580")
-    ];
-    // CS499: This reads the entire JSON document; Enhancement 3 would query a database.
-    private TagData Load()
-    {
-        try
-        {
-            var json = _read();
-            if (json is not null)
-            {
-                var loaded = JsonSerializer.Deserialize<TagData>(json, Options);
-
-                if (loaded is not null)
-                {
-                    loaded.Definitions ??= [];
-                    loaded.Assignments = new Dictionary<string, List<string>>(
-                        loaded.Assignments ?? [], StringComparer.OrdinalIgnoreCase);
-                    return loaded;
-                }
-            }
-        }
-        catch (Exception)
-        {
-        }
-
-        return new TagData { Definitions = CreateDefaults() };
-    }
-    // CS499: Every update rewrites the file; a database write could be transactional.
-    private void Save()
-    {
-        try
-        {
-            _write(JsonSerializer.Serialize(Current, Options));
-            LastSaveError = null;
-        }
-        catch (Exception exception)
-        {
-            System.Diagnostics.Trace.WriteLine($"Clearspace: could not save tags. {exception}");
-            LastSaveError = exception.Message;
-        }
-
-        Changed?.Invoke(this, EventArgs.Empty);
-    }
-
     public string? LastSaveError { get; private set; }
 
+    private T Run<T>(bool write, Func<TagSql, T> action)
+    {
+        (T Value, bool Changed) result;
+        try
+        {
+            result = _database.Run(write, action);
+            if (write) LastSaveError = null;
+        }
+        catch (Exception exception) when (exception is SqliteException or IOException or InvalidDataException or
+            UnauthorizedAccessException or System.Text.Json.JsonException or InvalidOperationException or ArgumentException)
+        {
+            LastSaveError = exception.Message;
+            throw new InvalidOperationException(
+                "Clearspace could not read or save tags. No changes from this operation were saved. " +
+                "The original tags.json, if present, has been kept. " + exception.Message, exception);
+        }
+        // Notify only after a successful commit, outside the database connection lock.
+        if (write && result.Changed) Changed?.Invoke(this, EventArgs.Empty);
+        return result.Value;
+    }
 
-    public IReadOnlyList<TagDefinition> All => Current.Definitions;
+    private void Write(Action<TagSql> action) => Run(true, sql => { action(sql); return 0; });
+    private static TagDefinition ReadTag(SqliteDataReader reader) => new(reader.GetString(0), reader.GetString(1), reader.GetString(2));
+    private static TagDefinition? Find(TagSql sql, string id) =>
+        sql.Query("SELECT Id, Name, Color FROM Tags WHERE Id = $p0", ReadTag, id).FirstOrDefault();
+    private static TagDefinition? Resolve(TagSql sql, string value) => Find(sql, value) ??
+        sql.Query("SELECT Id, Name, Color FROM Tags WHERE Name = $p0 ORDER BY rowid LIMIT 1", ReadTag, value).FirstOrDefault();
+    private static bool HasTag(TagSql sql, string path, string id) =>
+        sql.Number("SELECT COUNT(*) FROM PathTags WHERE Path = $p0 AND TagId = $p1", path, id) > 0;
+    private static void RemoveUnusedPaths(TagSql sql) => sql.Execute(
+        "DELETE FROM Paths WHERE NOT EXISTS (SELECT 1 FROM PathTags WHERE PathTags.Path = Paths.Path)");
+    private static void RemoveUnusedPath(TagSql sql, string path) => sql.Execute(
+        "DELETE FROM Paths WHERE Path = $p0 AND NOT EXISTS (SELECT 1 FROM PathTags WHERE PathTags.Path = Paths.Path)", path);
 
-    public TagDefinition? Find(string id)
-        => Current.Definitions.FirstOrDefault(tag => tag.Id.Equals(id, StringComparison.OrdinalIgnoreCase));
+    public IReadOnlyList<TagDefinition> All => Run(false, sql => sql.Query("SELECT Id, Name, Color FROM Tags ORDER BY rowid", ReadTag));
+    public TagDefinition? Find(string id) => Run(false, sql => Find(sql, id));
+    public TagDefinition? Resolve(string idOrName) => Run(false, sql => Resolve(sql, idOrName));
 
-    public TagDefinition? Resolve(string idOrName)
-        => Find(idOrName) ?? Current.Definitions.FirstOrDefault(
-            tag => tag.Name.Equals(idOrName, StringComparison.OrdinalIgnoreCase));
+    private static TagDefinition Create(TagSql sql, string name)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+        name = name.Trim();
+        if (Resolve(sql, name) is { } existing) return existing;
+        var stem = new string(name.Where(char.IsLetterOrDigit).ToArray()).ToLowerInvariant();
+        if (stem.Length == 0) stem = "tag";
+        var id = stem;
+        for (var suffix = 2; Find(sql, id) is not null; suffix++) id = $"{stem}{suffix}";
+        var tag = new TagDefinition(id, name, Palette[sql.Number("SELECT COUNT(*) FROM Tags") % Palette.Length]);
+        sql.Execute("INSERT INTO Tags(Id, Name, Color) VALUES($p0, $p1, $p2)", tag.Id, tag.Name, tag.Color);
+        return tag;
+    }
 
     public TagDefinition Create(string name)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
-        var trimmed = name.Trim();
-        var existing = Resolve(trimmed);
-        if (existing is not null)
-            return existing;
+        return Run(true, sql => Create(sql, name));
+    }
 
-        var id = MakeId(trimmed);
-        var tag = new TagDefinition(id, trimmed, NextColor());
-
-        Current.Definitions.Add(tag);
-        Save();
-        return tag;
+    public TagDefinition CreateForPaths(string name, IReadOnlyList<string> paths)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+        ValidatePaths(paths);
+        return Run(true, sql =>
+        {
+            var tag = Create(sql, name);
+            foreach (var path in paths.Distinct(StringComparer.OrdinalIgnoreCase)) Assign(sql, path, tag.Id);
+            return tag;
+        });
     }
 
     public void Rename(string id, string name)
     {
-        var index = Current.Definitions.FindIndex(tag => tag.Id.Equals(id, StringComparison.OrdinalIgnoreCase));
-        if (index < 0)
-            return;
-
-        Current.Definitions[index] = Current.Definitions[index] with { Name = name.Trim() };
-        Save();
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+        Write(sql => sql.Execute("UPDATE Tags SET Name = $p0 WHERE Id = $p1 AND Name COLLATE BINARY <> $p0", name.Trim(), id));
     }
 
-    public void Delete(string id)
+    public void Delete(string id) => Write(sql =>
     {
-        if (Current.Definitions.RemoveAll(tag => tag.Id.Equals(id, StringComparison.OrdinalIgnoreCase)) == 0)
-            return;
-        // CS499: A database foreign key would remove these orphaned IDs automatically.
-        foreach (var path in Current.Assignments.Keys.ToList())
-        {
-            var ids = Current.Assignments[path];
-            if (ids.RemoveAll(value => value.Equals(id, StringComparison.OrdinalIgnoreCase)) > 0 && ids.Count == 0)
-                Current.Assignments.Remove(path);
-        }
+        sql.Execute("DELETE FROM Tags WHERE Id = $p0", id);
+        RemoveUnusedPaths(sql);
+    });
 
-        Save();
-    }
+    public IReadOnlyList<string> TagIdsFor(string path) => Run(false, sql =>
+        sql.Query("SELECT TagId FROM PathTags WHERE Path = $p0 ORDER BY rowid", r => r.GetString(0), path));
+    public IReadOnlyList<TagDefinition> TagsFor(string path) => Run(false, sql => sql.Query("""
+        SELECT t.Id, t.Name, t.Color FROM PathTags p JOIN Tags t ON t.Id = p.TagId
+        WHERE p.Path = $p0 ORDER BY p.rowid
+        """, ReadTag, path));
+    public bool HasTag(string path, string tagId) => Run(false, sql => HasTag(sql, path, tagId));
 
-    private string MakeId(string name)
+    private static void Assign(TagSql sql, string path, string id)
     {
-        var stem = new string(name.Where(char.IsLetterOrDigit).ToArray()).ToLowerInvariant();
-        if (string.IsNullOrEmpty(stem))
-            stem = "tag";
-
-        var candidate = stem;
-        var suffix = 2;
-        while (Find(candidate) is not null)
-            candidate = $"{stem}{suffix++}";
-
-        return candidate;
+        if (Find(sql, id) is null) return;
+        sql.Execute("INSERT INTO Paths(Path) VALUES($p0) ON CONFLICT DO NOTHING", path);
+        sql.Execute("INSERT INTO PathTags(Path, TagId) VALUES($p0, $p1) ON CONFLICT DO NOTHING", path, id);
     }
-
-    private static readonly string[] Palette =
-    [
-        "#D3A15F", "#5B8DD9", "#7FB77E", "#B07FD9",
-        "#D9705B", "#5BB0C4", "#C4A85B", "#C45B93"
-    ];
-
-    private string NextColor() => Palette[Current.Definitions.Count % Palette.Length];
-
-
-    public IReadOnlyList<string> TagIdsFor(string path)
-        => Current.Assignments.TryGetValue(path, out var ids) ? ids : [];
-
-    public IReadOnlyList<TagDefinition> TagsFor(string path)
-    {
-        var ids = TagIdsFor(path);
-        if (ids.Count == 0)
-            return [];
-
-        return ids.Select(Find).Where(tag => tag is not null).Cast<TagDefinition>().ToArray();
-    }
-
-    public bool HasTag(string path, string tagId)
-        => TagIdsFor(path).Any(id => id.Equals(tagId, StringComparison.OrdinalIgnoreCase));
 
     public void Assign(string path, string tagId)
     {
-        if (Find(tagId) is null || HasTag(path, tagId))
-            return;
-
-        if (!Current.Assignments.TryGetValue(path, out var ids))
-            Current.Assignments[path] = ids = [];
-
-        ids.Add(tagId);
-        Save();
+        ArgumentException.ThrowIfNullOrWhiteSpace(path);
+        Write(sql => Assign(sql, path, tagId));
     }
 
     public void MovePath(string oldPath, string newPath)
     {
-        if (string.Equals(oldPath, newPath, StringComparison.OrdinalIgnoreCase))
-            return;
-
-        if (!Current.Assignments.TryGetValue(oldPath, out var ids) || ids.Count == 0)
-            return;
-
-        Current.Assignments.Remove(oldPath);
-        var destinationIds = Current.Assignments.TryGetValue(newPath, out var existing) ? existing : [];
-        Current.Assignments[newPath] = destinationIds.Concat(ids).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
-        Save();
+        ArgumentException.ThrowIfNullOrWhiteSpace(newPath);
+        if (string.Equals(oldPath, newPath, StringComparison.OrdinalIgnoreCase)) return;
+        Write(sql =>
+        {
+            if (sql.Number("SELECT COUNT(*) FROM Paths WHERE Path = $p0", oldPath) == 0) return;
+            sql.Execute("INSERT INTO Paths(Path) VALUES($p0) ON CONFLICT DO NOTHING", newPath);
+            sql.Execute("""
+                INSERT INTO PathTags(Path, TagId) SELECT $p0, TagId FROM PathTags WHERE Path = $p1
+                ON CONFLICT DO NOTHING
+                """, newPath, oldPath);
+            sql.Execute("DELETE FROM Paths WHERE Path = $p0", oldPath);
+        });
     }
 
-    public void Unassign(string path, string tagId)
+    public void Unassign(string path, string tagId) => Write(sql =>
     {
-        if (!Current.Assignments.TryGetValue(path, out var ids))
-            return;
-
-        if (ids.RemoveAll(id => id.Equals(tagId, StringComparison.OrdinalIgnoreCase)) == 0)
-            return;
-
-        if (ids.Count == 0)
-            Current.Assignments.Remove(path);
-
-        Save();
-    }
+        sql.Execute("DELETE FROM PathTags WHERE Path = $p0 AND TagId = $p1", path, tagId);
+        RemoveUnusedPath(sql, path);
+    });
 
     public void ToggleForAll(IReadOnlyList<string> paths, string tagId)
     {
-        if (paths.Count == 0 || Find(tagId) is null)
-            return;
-
-        var everyoneHasIt = paths.All(path => HasTag(path, tagId));
-
-        foreach (var path in paths)
+        ValidatePaths(paths);
+        if (paths.Count == 0) return;
+        Write(sql =>
         {
-            if (everyoneHasIt)
+            if (Find(sql, tagId) is null) return;
+            var remove = paths.All(path => HasTag(sql, path, tagId));
+            foreach (var path in paths.Distinct(StringComparer.OrdinalIgnoreCase))
             {
-                if (Current.Assignments.TryGetValue(path, out var ids))
+                if (remove)
                 {
-                    ids.RemoveAll(id => id.Equals(tagId, StringComparison.OrdinalIgnoreCase));
-                    if (ids.Count == 0)
-                        Current.Assignments.Remove(path);
+                    sql.Execute("DELETE FROM PathTags WHERE Path = $p0 AND TagId = $p1", path, tagId);
+                    RemoveUnusedPath(sql, path);
                 }
+                else Assign(sql, path, tagId);
             }
-            else if (!HasTag(path, tagId))
-            {
-                if (!Current.Assignments.TryGetValue(path, out var ids))
-                    Current.Assignments[path] = ids = [];
-
-                ids.Add(tagId);
-            }
-        }
-
-        Save();
+        });
     }
 
     public void ClearTags(IReadOnlyList<string> paths)
     {
-        var changed = false;
-
-        foreach (var path in paths)
-            changed |= Current.Assignments.Remove(path);
-
-        if (changed)
-            Save();
+        ValidatePaths(paths);
+        Write(sql =>
+        {
+            foreach (var path in paths) sql.Execute("DELETE FROM Paths WHERE Path = $p0", path);
+        });
     }
 
-    public IEnumerable<KeyValuePair<string, List<string>>> Assignments => Current.Assignments;
-    // CS499: This scans every assignment; Enhancement 3 would use an indexed query.
-    public IEnumerable<string> PathsWithTag(string tagId)
-        => Current.Assignments
-            .Where(pair => pair.Value.Any(id => id.Equals(tagId, StringComparison.OrdinalIgnoreCase)))
-            .Select(pair => pair.Key);
+    private static void ValidatePaths(IReadOnlyList<string> paths)
+    {
+        foreach (var path in paths) ArgumentException.ThrowIfNullOrWhiteSpace(path);
+    }
+
+    public IEnumerable<KeyValuePair<string, List<string>>> Assignments => Run(false, sql =>
+        sql.Query("SELECT Path, TagId FROM PathTags ORDER BY rowid", r => (Path: r.GetString(0), Id: r.GetString(1)))
+            .GroupBy(pair => pair.Path, StringComparer.OrdinalIgnoreCase)
+            .Select(group => new KeyValuePair<string, List<string>>(group.Key, group.Select(pair => pair.Id).ToList())).ToArray());
+
+    public IEnumerable<string> PathsWithTag(string tagId) => Run(false, sql =>
+        sql.Query("SELECT Path FROM PathTags WHERE TagId = $p0", r => r.GetString(0), tagId));
+
+    internal Dictionary<string, HashSet<string>> SnapshotPathsForTags(IEnumerable<string> tagIds) => Run(false, sql =>
+        tagIds.Distinct(StringComparer.OrdinalIgnoreCase).ToDictionary(id => id,
+            id => sql.Query("SELECT Path FROM PathTags WHERE TagId = $p0", r => r.GetString(0), id)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase), StringComparer.OrdinalIgnoreCase));
 
     public int PruneMissing()
     {
-        var gone = Current.Assignments.Keys
-            .Where(path => !_pathExists(path))
-            .ToList();
-
-        foreach (var path in gone)
-            Current.Assignments.Remove(path);
-
-        if (gone.Count > 0)
-            Save();
-
-        return gone.Count;
+        // Filesystem checks do not hold the SQLite write lock. Offline drives can look like missing files.
+        var paths = Run(false, sql => sql.Query("SELECT Path FROM Paths", r => r.GetString(0)));
+        var missing = paths.Where(path => !_pathExists(path)).ToArray();
+        return Run(true, sql =>
+        {
+            var count = 0;
+            foreach (var path in missing) count += sql.Execute("DELETE FROM Paths WHERE Path = $p0", path);
+            return count;
+        });
     }
+
+    public void Dispose() => _database.Dispose();
 }

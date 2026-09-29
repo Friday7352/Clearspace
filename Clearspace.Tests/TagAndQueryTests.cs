@@ -8,7 +8,10 @@ namespace Clearspace.Tests;
 [TestClass]
 public sealed class TagAndQueryTests
 {
-    private static TagStore Tags() => new(() => null, _ => { });
+    private readonly TagTestScope _scope = new();
+    private TagStore Tags() => _scope.Open();
+    [TestCleanup]
+    public void Cleanup() => _scope.Dispose();
 
     [TestMethod]
     public void TagAssignmentIsCaseInsensitiveAndDoesNotDuplicate()
@@ -55,34 +58,35 @@ public sealed class TagAndQueryTests
     }
 
     [TestMethod]
-    public void JsonRoundTripPreservesAnIntentionallyEmptyTagList()
+    public void DatabaseRoundTripPreservesAnIntentionallyEmptyTagList()
     {
-        string? json = null;
-        var tags = new TagStore(() => json, text => json = text);
+        var tags = Tags();
         foreach (var tag in tags.All.ToArray()) tags.Delete(tag.Id);
-        Assert.IsNotNull(json);
-        var loaded = new TagStore(() => json, _ => { });
+        tags.Dispose();
+        var loaded = Tags();
         Assert.AreEqual(0, loaded.All.Count);
     }
 
     [TestMethod]
-    public void JsonRoundTripRetainsCaseInsensitiveAssignments()
+    public void DatabaseRoundTripRetainsCaseInsensitiveAssignments()
     {
-        string? json = null;
-        var tags = new TagStore(() => json, text => json = text);
+        var tags = Tags();
         tags.Assign(@"C:\File.txt", "work");
-        var loaded = new TagStore(() => json, _ => { });
+        tags.Dispose();
+        var loaded = Tags();
         Assert.IsTrue(loaded.HasTag(@"c:\FILE.txt", "WORK"));
     }
 
     [TestMethod]
     public void SaveFailureIsReportedAndClearedAfterRecovery()
     {
-        var fail = true;
-        var tags = new TagStore(() => null, _ => { if (fail) throw new IOException("Disk unavailable"); });
-        tags.Assign("one", "work");
+        var tags = Tags();
+        _ = tags.All;
+        _scope.Execute("CREATE TRIGGER FailWrite BEFORE INSERT ON PathTags BEGIN SELECT RAISE(ABORT, 'Disk unavailable'); END");
+        Assert.ThrowsException<InvalidOperationException>(() => tags.Assign("one", "work"));
         StringAssert.Contains(tags.LastSaveError!, "Disk unavailable");
-        fail = false;
+        Assert.IsFalse(tags.HasTag("one", "work"));
+        _scope.Execute("DROP TRIGGER FailWrite");
         tags.Assign("two", "work");
         Assert.IsNull(tags.LastSaveError);
     }
@@ -90,7 +94,7 @@ public sealed class TagAndQueryTests
     [TestMethod]
     public void MissingPathsArePrunedUsingIsolatedExistenceCheck()
     {
-        var tags = new TagStore(() => null, _ => { }, path => path == "exists");
+        var tags = _scope.Open(path => path == "exists");
         tags.Assign("exists", "work"); tags.Assign("gone", "work");
         Assert.AreEqual(1, tags.PruneMissing());
         Assert.IsTrue(tags.HasTag("exists", "work"));
@@ -107,12 +111,13 @@ public sealed class TagAndQueryTests
     }
 
     [TestMethod]
-    public void MalformedJsonFallsBackToDefaultsWithoutOverwritingInput()
+    public void MalformedJsonReportsErrorWithoutOverwritingInput()
     {
-        var writes = 0;
-        var tags = new TagStore(() => "{not json", _ => writes++);
-        Assert.IsNotNull(tags.Find("work"));
-        Assert.AreEqual(0, writes);
+        File.WriteAllText(_scope.LegacyPath, "{not json");
+        var tags = Tags();
+        Assert.ThrowsException<InvalidOperationException>(() => tags.Find("work"));
+        Assert.AreEqual("{not json", File.ReadAllText(_scope.LegacyPath));
+        Assert.AreEqual(0L, _scope.Number("PRAGMA user_version"));
     }
 
     [TestMethod]

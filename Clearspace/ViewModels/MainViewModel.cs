@@ -256,7 +256,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         if (paths.Length == 0)
             return;
 
-        TagService.ToggleForAll(paths, option.Tag.Id);
+        if (!TryUpdateTags(() => TagService.ToggleForAll(paths, option.Tag.Id))) return;
         RefreshVisibleTags();
 
         var count = paths.Length == 1 ? "1 item" : $"{paths.Length:N0} items";
@@ -270,20 +270,15 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         if (string.IsNullOrWhiteSpace(name))
             return;
 
-        var tag = TagService.Create(name);
         var paths = Context.SelectedItems.Select(item => item.FullPath).ToArray();
-
-        if (paths.Length > 0)
-        {
-            foreach (var path in paths)
-                TagService.Assign(path, tag.Id);
-        }
+        TagDefinition? tag = null;
+        if (!TryUpdateTags(() => tag = TagService.CreateForPaths(name, paths))) return;
 
         RefreshVisibleTags();
         RefreshTagOptions();
         StatusText = paths.Length == 0
-            ? $"Created the {tag.Name} tag."
-            : $"Tagged {paths.Length:N0} item{(paths.Length == 1 ? string.Empty : "s")} as {tag.Name}.";
+            ? $"Created the {tag!.Name} tag."
+            : $"Tagged {paths.Length:N0} item{(paths.Length == 1 ? string.Empty : "s")} as {tag!.Name}.";
     }
 
     public void ClearTagsOnSelection()
@@ -292,7 +287,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         if (paths.Length == 0)
             return;
 
-        TagService.ClearTags(paths);
+        if (!TryUpdateTags(() => TagService.ClearTags(paths))) return;
         RefreshVisibleTags();
         RefreshTagOptions();
         StatusText = $"Cleared tags on {paths.Length:N0} item{(paths.Length == 1 ? string.Empty : "s")}.";
@@ -300,7 +295,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
 
     public void DeleteTag(TagDefinition tag)
     {
-        TagService.Delete(tag.Id);
+        if (!TryUpdateTags(() => TagService.Delete(tag.Id))) return;
         RefreshVisibleTags();
         RefreshTagOptions();
 
@@ -308,6 +303,19 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             ApplySearchFilter(updateStatus: true);
 
         StatusText = $"Deleted the {tag.Name} tag.";
+    }
+
+    private bool TryUpdateTags(Action update)
+    {
+        try { update(); return true; }
+        catch (InvalidOperationException exception)
+        {
+            // Restore a toggled checkbox from committed data after a failed write.
+            try { RefreshTagOptions(); }
+            catch (InvalidOperationException) { TagOptions.Clear(); }
+            StatusText = exception.Message;
+            return false;
+        }
     }
 
     public void SearchByTag(TagDefinition tag)
@@ -1274,7 +1282,11 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         TagService.Changed -= OnTagsChanged;
     }
 
-    private void OnTagsChanged(object? sender, EventArgs e) => RefreshTagOptions();
+    private void OnTagsChanged(object? sender, EventArgs e)
+    {
+        RefreshTagOptions();
+        if (HasSearch) ApplySearchFilter(updateStatus: false);
+    }
 
     public void SetSidebarLocation(string name, string path) => SidebarState.SetSidebarLocation(name, path);
     public void ResetSidebarLocation(string name) => SidebarState.ResetSidebarLocation(name);

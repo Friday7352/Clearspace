@@ -39,11 +39,20 @@ public partial class App : Application
             args.SetObserved();
             Report(args.Exception, "Unobserved task error");
         };
+
+        try { _ = Services.TagService.All; }
+        catch (Exception exception)
+        {
+            MessageBox.Show(exception.Message + "\n\nTag storage: " + Services.TagService.DatabasePath,
+                "Clearspace could not open tags", MessageBoxButton.OK, MessageBoxImage.Warning);
+            Shutdown(1);
+        }
     }
 
     protected override void OnExit(ExitEventArgs e)
     {
         Services.FileIndexService.Stop();
+        Services.TagService.Store.Dispose();
 
         base.OnExit(e);
     }

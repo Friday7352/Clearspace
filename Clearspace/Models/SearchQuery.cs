@@ -23,6 +23,8 @@ public sealed class SearchQuery
         IReadOnlyList<DirectoryViewProfile> Profiles);
 
     private readonly TagStore? _tagStore;
+    // Capture only the requested tags once per search; per-file matching stays in memory.
+    private Dictionary<string, HashSet<string>> _tagPaths = new(StringComparer.OrdinalIgnoreCase);
     private TagStore Tags => _tagStore ?? TagService.Store;
     private SearchQuery(TagStore? tagStore = null) => _tagStore = tagStore;
 
@@ -118,6 +120,7 @@ public sealed class SearchQuery
 
         return new SearchQuery(tagStore)
         {
+            _tagPaths = tagStore.SnapshotPathsForTags(tags.Concat(terms.SelectMany(term => term.TagIds))),
             TermFilters = terms,
             TagIds = tags,
             Profiles = profiles,
@@ -207,7 +210,7 @@ public sealed class SearchQuery
 
         for (var i = 0; i < TagIds.Count; i++)
         {
-            if (!Tags.HasTag(item.FullPath, TagIds[i]))
+            if (!HasTag(item.FullPath, TagIds[i]))
                 return false;
         }
 
@@ -224,7 +227,7 @@ public sealed class SearchQuery
 
         for (var i = 0; i < term.TagIds.Count; i++)
         {
-            if (Tags.HasTag(item.FullPath, term.TagIds[i]))
+            if (HasTag(item.FullPath, term.TagIds[i]))
                 return true;
         }
 
@@ -241,6 +244,8 @@ public sealed class SearchQuery
         _ => true
     };
 
+    private bool HasTag(string path, string id) => _tagPaths.TryGetValue(id, out var paths) && paths.Contains(path);
+
     private static bool HasProfile(FileSystemItem item, IReadOnlyList<DirectoryViewProfile> wanted)
     {
         if (!item.IsFolder)
@@ -255,6 +260,13 @@ public sealed class SearchQuery
 
     public IEnumerable<string> IndexCandidates()
     {
+        if (TagIds.Count > 0)
+        {
+            var tagged = new HashSet<string>(_tagPaths[TagIds[0]], StringComparer.OrdinalIgnoreCase);
+            foreach (var id in TagIds.Skip(1)) tagged.IntersectWith(_tagPaths[id]);
+            return tagged;
+        }
+
         var candidates = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         foreach (var assignment in Tags.Assignments)
@@ -262,9 +274,6 @@ public sealed class SearchQuery
 
         foreach (var typed in SettingsService.GetAllFolderViewProfiles())
             candidates.Add(typed.Key);
-
-        foreach (var id in TagIds)
-            candidates.IntersectWith(Tags.PathsWithTag(id));
 
         return candidates;
     }

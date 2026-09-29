@@ -8,17 +8,33 @@ namespace Clearspace.Tests;
 [TestClass]
 public sealed class SearchCoordinatorTests
 {
+    private readonly List<TagStore> _tags = [];
+    [TestCleanup]
+    public void Cleanup() { foreach (var tags in _tags) tags.Dispose(); }
     private static SearchRequest Request(bool windows = true, bool contents = false)
         => new("ext:txt", @"C:\source", false, false, windows, contents);
 
-    private static SearchCoordinator Create(FakeSources sources, List<SearchUpdate> updates)
+    private SearchCoordinator Create(FakeSources sources, List<SearchUpdate> updates)
     {
-        var tags = new TagStore(() => null, _ => { });
+        var tags = new TagStore(":memory:");
+        _tags.Add(tags);
         return new(sources, updates.Add, text => SearchQuery.Parse(text, tags));
     }
 
     internal static FileSystemItem Item(string path, FileAttributes attributes = FileAttributes.Normal)
         => new() { Name = Path.GetFileName(path), FullPath = path, Attributes = attributes };
+
+    [TestMethod]
+    public async Task TagDatabaseReadFailureReportsSearchFailure()
+    {
+        var updates = new List<SearchUpdate>();
+        using var coordinator = new SearchCoordinator(new FakeSources(), updates.Add,
+            _ => throw new InvalidOperationException("Tag database unavailable"));
+        await coordinator.SearchAsync(Request(), [], true, TimeSpan.Zero);
+        Assert.AreEqual(1, updates.Count);
+        Assert.IsFalse(updates[0].IsSearching);
+        StringAssert.Contains(updates[0].Status!, "Search could not finish");
+    }
 
     [TestMethod]
     public async Task MergesAllSourcesWithoutCaseInsensitiveDuplicates()

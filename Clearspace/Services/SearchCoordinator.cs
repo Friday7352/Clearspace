@@ -48,7 +48,6 @@ internal sealed class SearchCoordinator(ISearchSources sources, Action<SearchUpd
         using var cancellation = new CancellationTokenSource();
         _active = cancellation;
         var token = cancellation.Token;
-        var query = (parse ?? SearchQuery.Parse)(request.Text);
         var found = new List<FileSystemItem>();
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var capped = false;
@@ -74,6 +73,7 @@ internal sealed class SearchCoordinator(ISearchSources sources, Action<SearchUpd
 
         try
         {
+            var query = (parse ?? SearchQuery.Parse)(request.Text);
             if (query.IsEmpty)
             {
                 if (Current()) publish(new(directoryItems,

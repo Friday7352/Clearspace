@@ -8,7 +8,10 @@ public static class TagService
     public static string TagFilePath { get; } = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Clearspace", "tags.json");
 
-    internal static TagStore Store { get; } = new(TagFilePath);
+    public static string DatabasePath { get; } = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Clearspace", "tags.db");
+
+    internal static TagStore Store { get; } = new(DatabasePath, TagFilePath);
 
     public static event EventHandler? Changed
     {
@@ -22,6 +25,7 @@ public static class TagService
     public static TagDefinition? Find(string id) => Store.Find(id);
     public static TagDefinition? Resolve(string idOrName) => Store.Resolve(idOrName);
     public static TagDefinition Create(string name) => Store.Create(name);
+    public static TagDefinition CreateForPaths(string name, IReadOnlyList<string> paths) => Store.CreateForPaths(name, paths);
     public static void Rename(string id, string name) => Store.Rename(id, name);
     public static void Delete(string id) => Store.Delete(id);
     public static IReadOnlyList<string> TagIdsFor(string path) => Store.TagIdsFor(path);

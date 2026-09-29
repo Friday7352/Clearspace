@@ -30,6 +30,12 @@ Tags are lightweight labels you can create and apply to one or many selected fil
 - Pin frequently used locations to Favorites in the sidebar.
 - Organize pinned locations into your own collapsible, reorderable categories.
 
+Tags are saved in `%APPDATA%\Clearspace\tags.db` using SQLite. On the first run,
+existing `tags.json` data is imported automatically and the original file is kept.
+Bulk changes save together, and failed writes leave the previous assignments intact.
+See [Artifact 3 database notes](docs/CS499-Artifact-Three-Databases.md) for migration,
+backup, and recovery details.
+
 ### Photo viewer and editing
 
 The Photos folder type has an in-app image viewer. Open an image from its tile to browse the folder, zoom, and pan without leaving Clearspace. You can also rotate an image or crop a selected region directly in the viewer, saving in place when the format supports it or saving a copy when needed.
