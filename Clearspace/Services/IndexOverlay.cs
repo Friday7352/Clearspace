@@ -125,6 +125,13 @@ internal sealed class IndexOverlay
         }
     }
 
+    // NEW (search relevance): paths added since the last full scan. The index search evaluates them
+    // with the whole query (tags, folders, types), so it no longer uses CollectMatches' filename filter.
+    public string[] AddedPaths()
+    {
+        lock (_gate) return [.. _volumes.Values.Where(changes => !changes.Overflowed).SelectMany(changes => changes.Added)];
+    }
+
     public void CollectMatches(IReadOnlyList<string> foldedTerms, bool showHidden, int limit, List<FileSystemItem> results)
     {
         string[] candidates;

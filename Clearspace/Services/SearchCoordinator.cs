@@ -53,6 +53,7 @@ internal sealed class SearchCoordinator(ISearchSources sources, Action<SearchUpd
         var capped = false;
         var sourceFailed = false;
         var timer = Stopwatch.StartNew();
+        var query = SearchQuery.Empty;
 
         bool Current() => !token.IsCancellationRequested && version == _version && !_disposed;
         void Publish(string? status, bool searching)
@@ -66,14 +67,24 @@ internal sealed class SearchCoordinator(ISearchSources sources, Action<SearchUpd
                 if (!request.ShowHidden && (item.Attributes & (System.IO.FileAttributes.Hidden | System.IO.FileAttributes.System)) != 0)
                     continue;
                 if (!seen.Add(item.FullPath)) continue;
-                if (found.Count >= MaxResults) { capped = true; continue; }
                 found.Add(item);
+                // CHANGED (search relevance): keep the best results, not the first to arrive. Trimming at
+                // twice the limit keeps memory bounded without re-ranking on every item.
+                if (found.Count >= 2 * MaxResults) RankAndTrim();
             }
+        }
+        void RankAndTrim()
+        {
+            SearchRanker.Rank(found, query, request.CurrentPath);
+            if (found.Count <= MaxResults) return;
+            found.RemoveRange(MaxResults, found.Count - MaxResults);
+            capped = true; // dropped items stay in `seen`, so a later source cannot re-add them
         }
 
         try
         {
-            var query = (parse ?? SearchQuery.Parse)(request.Text);
+            // CHANGED: the query knows where the search started, for ranking.
+            query = (parse ?? SearchQuery.Parse)(request.Text).At(request.CurrentPath);
             if (query.IsEmpty)
             {
                 if (Current()) publish(new(directoryItems,
@@ -81,16 +92,23 @@ internal sealed class SearchCoordinator(ISearchSources sources, Action<SearchUpd
                 return;
             }
             Add(directoryItems.Where(query.Matches));
-            if (request.Everywhere && query.HasIndexFilter)
-                Add(sources.KnownItems(query));
+            RankAndTrim();
             Publish(updateStatus ? DescribeLocal(query, request.Everywhere, found.Count) : null, false);
 
             await Task.Delay(debounce ?? TimeSpan.FromMilliseconds(sources.IsIndexLive ? 35 : 350), token);
+
+            // CHANGED (search fix): tagged items are read from disk (and get icons) on a worker, after the
+            // debounce, instead of on the UI thread for every keystroke.
+            if (request.Everywhere && query.HasIndexFilter)
+            {
+                Add(await Task.Run(() => sources.KnownItems(query), token));
+                token.ThrowIfCancellationRequested();
+            }
             var roots = sources.ResolveRoots(request);
             if (roots.Count == 0) return;
-            // The private index requires a filename term. Volume coverage alone
-            // cannot answer filter-only queries such as ext:txt or is:folder.
-            var crawlRoots = roots.Where(root => query.Terms.Count == 0 || !sources.Covers(root)).ToArray();
+            // CHANGED: the private index now answers filter-only queries (ext:txt, is:folder, tag:work)
+            // as well, so a covered root is never crawled.
+            var crawlRoots = roots.Where(root => !sources.Covers(root)).ToArray();
             var covered = crawlRoots.Length == 0;
             var indexFailed = false;
             var scope = request.Everywhere ? "across all drives" : "in this folder and subfolders";
@@ -101,7 +119,8 @@ internal sealed class SearchCoordinator(ISearchSources sources, Action<SearchUpd
                 var indexed = await sources.IndexAsync(query, roots, request.ShowHidden, MaxResults, token);
                 token.ThrowIfCancellationRequested();
                 Add(indexed);
-                SearchRanker.Rank(found, query.Terms, request.CurrentPath);
+                await Task.Run(RankAndTrim, token); // CHANGED (search fix): up to 10,000 items, off the UI thread
+                token.ThrowIfCancellationRequested();
                 Publish($"Searching {scope}… {found.Count:N0} found", !covered);
                 var missing = await sources.FinishIndexAsync(indexed, token);
                 token.ThrowIfCancellationRequested();
@@ -131,7 +150,7 @@ internal sealed class SearchCoordinator(ISearchSources sources, Action<SearchUpd
             }
 
             // Coverage can be lost while asynchronous index work is in flight.
-            crawlRoots = roots.Where(root => indexFailed || query.Terms.Count == 0 || !sources.Covers(root)).ToArray();
+            crawlRoots = roots.Where(root => indexFailed || !sources.Covers(root)).ToArray();
             covered = crawlRoots.Length == 0;
             if (!covered)
             {
@@ -169,9 +188,10 @@ internal sealed class SearchCoordinator(ISearchSources sources, Action<SearchUpd
             }
 
             token.ThrowIfCancellationRequested();
-            SearchRanker.Rank(found, query.Terms, request.CurrentPath);
+            await Task.Run(RankAndTrim, token); // CHANGED (search fix): off the UI thread
+            token.ThrowIfCancellationRequested();
             var status = capped
-                ? $"First {found.Count:N0} matches {scope} · narrow the search to see fewer"
+                ? $"Best {found.Count:N0} matches {scope} · narrow the search to see fewer"
                 : $"{found.Count:N0} match{(found.Count == 1 ? "" : "es")} {scope} · {timer.ElapsedMilliseconds} ms{(covered ? " · from index" : "")}";
             if (sourceFailed) status += " · a search source was unavailable; results may be incomplete";
             Publish(status, false);

@@ -55,13 +55,60 @@ public sealed class TagStore : IDisposable
     public event EventHandler? Changed;
     public string? LastSaveError { get; private set; }
 
+    // NEW (search fix): reads are served from an in-memory snapshot of all tags and assignments.
+    // Before, every read was its own SQLite transaction under the store's lock: showing search results
+    // ran one query per result (up to 10,000), and each keystroke's query parsing had to wait for its
+    // turn on the same lock, which made typing stutter. The snapshot is rebuilt after this store's own
+    // writes, and when PRAGMA data_version shows that another connection changed the database - so
+    // separate stores and processes still see each other's changes, as before.
+    private sealed record Snapshot(
+        long Version,
+        TagDefinition[] Tags,
+        Dictionary<string, TagDefinition> ById,
+        Dictionary<string, List<string>> ByPath,
+        Dictionary<string, HashSet<string>> ByTag);
+
+    private volatile Snapshot? _snapshot;
+    private static readonly HashSet<string> NoPaths = new(StringComparer.OrdinalIgnoreCase);
+
+    private Snapshot Current()
+    {
+        var version = Run(false, sql => sql.Number("PRAGMA data_version"));
+        var snapshot = _snapshot;
+        if (snapshot is not null && snapshot.Version == version) return snapshot;
+
+        snapshot = Run(false, sql =>
+        {
+            var tags = sql.Query("SELECT Id, Name, Color FROM Tags ORDER BY rowid", ReadTag).ToArray();
+            var byId = new Dictionary<string, TagDefinition>(StringComparer.OrdinalIgnoreCase);
+            foreach (var tag in tags) byId.TryAdd(tag.Id, tag);
+            var byPath = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+            var byTag = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
+            foreach (var (path, id) in sql.Query("SELECT Path, TagId FROM PathTags ORDER BY rowid", r => (r.GetString(0), r.GetString(1))))
+            {
+                if (!byPath.TryGetValue(path, out var ids)) byPath[path] = ids = [];
+                ids.Add(id);
+                if (!byTag.TryGetValue(id, out var paths)) byTag[id] = paths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                paths.Add(path);
+            }
+            return new Snapshot(sql.Number("PRAGMA data_version"), tags, byId, byPath, byTag);
+        });
+
+        _snapshot = snapshot;
+        return snapshot;
+    }
+
     private T Run<T>(bool write, Func<TagSql, T> action)
     {
         (T Value, bool Changed) result;
         try
         {
             result = _database.Run(write, action);
-            if (write) LastSaveError = null;
+            if (write)
+            {
+                LastSaveError = null;
+                _snapshot = null; // NEW: our own commits do not change data_version for this connection
+            }
         }
         catch (Exception exception) when (exception is SqliteException or IOException or InvalidDataException or
             UnauthorizedAccessException or System.Text.Json.JsonException or InvalidOperationException or ArgumentException)
@@ -89,9 +136,15 @@ public sealed class TagStore : IDisposable
     private static void RemoveUnusedPath(TagSql sql, string path) => sql.Execute(
         "DELETE FROM Paths WHERE Path = $p0 AND NOT EXISTS (SELECT 1 FROM PathTags WHERE PathTags.Path = Paths.Path)", path);
 
-    public IReadOnlyList<TagDefinition> All => Run(false, sql => sql.Query("SELECT Id, Name, Color FROM Tags ORDER BY rowid", ReadTag));
-    public TagDefinition? Find(string id) => Run(false, sql => Find(sql, id));
-    public TagDefinition? Resolve(string idOrName) => Run(false, sql => Resolve(sql, idOrName));
+    // CHANGED (search fix): reads come from the snapshot.
+    public IReadOnlyList<TagDefinition> All => Current().Tags;
+    public TagDefinition? Find(string id) => Current().ById.GetValueOrDefault(id);
+    public TagDefinition? Resolve(string idOrName)
+    {
+        var snapshot = Current();
+        return snapshot.ById.GetValueOrDefault(idOrName)
+            ?? Array.Find(snapshot.Tags, tag => tag.Name.Equals(idOrName, StringComparison.OrdinalIgnoreCase));
+    }
 
     private static TagDefinition Create(TagSql sql, string name)
     {
@@ -137,13 +190,21 @@ public sealed class TagStore : IDisposable
         RemoveUnusedPaths(sql);
     });
 
-    public IReadOnlyList<string> TagIdsFor(string path) => Run(false, sql =>
-        sql.Query("SELECT TagId FROM PathTags WHERE Path = $p0 ORDER BY rowid", r => r.GetString(0), path));
-    public IReadOnlyList<TagDefinition> TagsFor(string path) => Run(false, sql => sql.Query("""
-        SELECT t.Id, t.Name, t.Color FROM PathTags p JOIN Tags t ON t.Id = p.TagId
-        WHERE p.Path = $p0 ORDER BY p.rowid
-        """, ReadTag, path));
-    public bool HasTag(string path, string tagId) => Run(false, sql => HasTag(sql, path, tagId));
+    public IReadOnlyList<string> TagIdsFor(string path)
+        => Current().ByPath.TryGetValue(path, out var ids) ? ids.ToArray() : [];
+
+    public IReadOnlyList<TagDefinition> TagsFor(string path)
+    {
+        var snapshot = Current();
+        if (!snapshot.ByPath.TryGetValue(path, out var ids)) return [];
+        var tags = new List<TagDefinition>(ids.Count);
+        foreach (var id in ids)
+            if (snapshot.ById.TryGetValue(id, out var tag)) tags.Add(tag);
+        return tags;
+    }
+
+    public bool HasTag(string path, string tagId)
+        => Current().ByTag.TryGetValue(tagId, out var paths) && paths.Contains(path);
 
     private static void Assign(TagSql sql, string path, string id)
     {
@@ -214,18 +275,19 @@ public sealed class TagStore : IDisposable
         foreach (var path in paths) ArgumentException.ThrowIfNullOrWhiteSpace(path);
     }
 
-    public IEnumerable<KeyValuePair<string, List<string>>> Assignments => Run(false, sql =>
-        sql.Query("SELECT Path, TagId FROM PathTags ORDER BY rowid", r => (Path: r.GetString(0), Id: r.GetString(1)))
-            .GroupBy(pair => pair.Path, StringComparer.OrdinalIgnoreCase)
-            .Select(group => new KeyValuePair<string, List<string>>(group.Key, group.Select(pair => pair.Id).ToList())).ToArray());
+    public IEnumerable<KeyValuePair<string, List<string>>> Assignments
+        => Current().ByPath.Select(pair => new KeyValuePair<string, List<string>>(pair.Key, [.. pair.Value])).ToArray();
 
-    public IEnumerable<string> PathsWithTag(string tagId) => Run(false, sql =>
-        sql.Query("SELECT Path FROM PathTags WHERE TagId = $p0", r => r.GetString(0), tagId));
+    public IEnumerable<string> PathsWithTag(string tagId)
+        => Current().ByTag.TryGetValue(tagId, out var paths) ? paths.ToArray() : [];
 
-    internal Dictionary<string, HashSet<string>> SnapshotPathsForTags(IEnumerable<string> tagIds) => Run(false, sql =>
-        tagIds.Distinct(StringComparer.OrdinalIgnoreCase).ToDictionary(id => id,
-            id => sql.Query("SELECT Path FROM PathTags WHERE TagId = $p0", r => r.GetString(0), id)
-                .ToHashSet(StringComparer.OrdinalIgnoreCase), StringComparer.OrdinalIgnoreCase));
+    // CHANGED (search fix): the snapshot's sets are shared, not copied; callers only read them.
+    internal Dictionary<string, HashSet<string>> SnapshotPathsForTags(IEnumerable<string> tagIds)
+    {
+        var snapshot = Current();
+        return tagIds.Distinct(StringComparer.OrdinalIgnoreCase).ToDictionary(id => id,
+            id => snapshot.ByTag.TryGetValue(id, out var paths) ? paths : NoPaths, StringComparer.OrdinalIgnoreCase);
+    }
 
     public int PruneMissing()
     {

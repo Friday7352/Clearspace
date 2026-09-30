@@ -68,20 +68,38 @@ public sealed class SearchCoordinatorTests
         Assert.AreEqual(0, sources.CrawlCalls);
     }
 
+    // CHANGED (search relevance): the private index evaluates filters itself, so filter-only queries
+    // on covered roots come from the index instead of a crawl.
     [DataTestMethod]
     [DataRow("ext:txt", FileAttributes.Normal)]
     [DataRow("is:folder", FileAttributes.Directory)]
-    public async Task CoveredIndexStillCrawlsForFilterOnlyQueries(string text, FileAttributes attributes)
+    public async Task CoveredIndexAnswersFilterOnlyQueries(string text, FileAttributes attributes)
     {
         var nested = Item(@"C:\source\subfolder\nested.txt", attributes);
-        var sources = new FakeSources { Covered = true, Crawled = [nested] };
+        var sources = new FakeSources { Covered = true, Indexed = [nested] };
         var updates = new List<SearchUpdate>();
         using var coordinator = Create(sources, updates);
         await coordinator.SearchAsync(Request(windows: false) with { Text = text }, [], true, TimeSpan.Zero);
-        Assert.AreEqual(1, sources.CrawlCalls);
+        Assert.AreEqual(0, sources.CrawlCalls);
         Assert.AreSame(nested, updates[^1].Items.Single());
-        Assert.IsFalse(updates[^1].Status!.Contains("from index"));
+        StringAssert.Contains(updates[^1].Status!, "from index");
         Assert.IsFalse(updates[^1].IsSearching);
+    }
+
+    // NEW (search relevance): a strong match that arrives after the limit is full still makes the cut.
+    [TestMethod]
+    public async Task BestResultArrivingLastSurvivesTheLimit()
+    {
+        var sources = new FakeSources
+        {
+            Indexed = Enumerable.Range(0, SearchCoordinator.MaxResults).Select(i => Item($@"C:\reports\old-report-{i}.txt")).ToArray(),
+            Crawled = [Item(@"C:\report.txt")]
+        };
+        var updates = new List<SearchUpdate>();
+        using var coordinator = Create(sources, updates);
+        await coordinator.SearchAsync(Request(windows: false) with { Text = "report" }, [], true, TimeSpan.Zero);
+        Assert.AreEqual(SearchCoordinator.MaxResults, updates[^1].Items.Count);
+        Assert.AreEqual("report.txt", updates[^1].Items[0].Name);
     }
 
     [TestMethod]
@@ -220,7 +238,7 @@ public sealed class SearchCoordinatorTests
         using var coordinator = Create(sources, updates);
         await coordinator.SearchAsync(Request(), [], true, TimeSpan.Zero);
         Assert.AreEqual(SearchCoordinator.MaxResults, updates[^1].Items.Count);
-        StringAssert.Contains(updates[^1].Status!, "First");
+        StringAssert.Contains(updates[^1].Status!, "Best");
     }
 
     [TestMethod]

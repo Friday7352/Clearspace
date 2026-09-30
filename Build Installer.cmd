@@ -21,7 +21,15 @@ if not exist "%ISCC%" (
 )
 
 echo Publishing self-contained Clearspace...
-dotnet publish ".\Clearspace\Clearspace.csproj" -c Release -r win-x64 -p:SelfContained=true -p:PublishSingleFile=true -p:PublishReadyToRun=true -p:EnableCompressionInSingleFile=false -p:IncludeNativeLibrariesForSelfExtract=true -o "%APP%"
+REM FIXED: the self-contained build uses its own intermediate and output folders. Sharing obj\Release with
+REM "Build Clearspace.cmd" let a later framework-dependent build reuse this build's precompiled (ReadyToRun)
+REM code, which was compiled together with the bundled .NET - the result failed fast on startup.
+dotnet publish ".\Clearspace\Clearspace.csproj" -c Release -r win-x64 -p:SelfContained=true -p:PublishSingleFile=true -p:PublishReadyToRun=true -p:EnableCompressionInSingleFile=false -p:IncludeNativeLibrariesForSelfExtract=true -p:IntermediateOutputPath=obj\Installer\ -p:OutputPath=bin\Installer\ -o "%APP%"
+if errorlevel 1 goto :failed
+
+REM NEW (journal catch-up): the optional index helper, self-contained so it runs without a separate .NET install.
+echo Publishing the index helper...
+dotnet publish ".\Clearspace.IndexHelper\Clearspace.IndexHelper.csproj" -c Release -r win-x64 -p:SelfContained=true -p:PublishSingleFile=true -p:EnableCompressionInSingleFile=true -p:IntermediateOutputPath=obj\Installer\ -p:OutputPath=bin\Installer\ -o "%APP%"
 if errorlevel 1 goto :failed
 
 echo Building visible installer and updater...

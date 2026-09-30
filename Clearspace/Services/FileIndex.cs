@@ -221,6 +221,61 @@ internal sealed class VolumeIndex
         return current;
     }
 
+    // NEW (search fix): FindLocked without WriteGate, for searches. A save holds WriteGate for seconds
+    // on a large drive while it writes the file, and searches must not wait for that. Returns -1 when
+    // the path is not indexed and -2 when child links have not been built yet (the caller then locks).
+    // Safe alongside Add/Link: every array is read once and every index is bounds-checked, so the worst
+    // case is missing an entry that was added during the lookup.
+    internal int FindConcurrent(string path)
+    {
+        var first = Volatile.Read(ref _firstChild);
+        var next = Volatile.Read(ref _nextSibling);
+
+        if (first is null || next is null)
+            return -2;
+
+        var count = Count;
+        var entries = _entries;
+        var names = _names;
+        var root = Root.TrimEnd('\\', '/');
+        var target = path.TrimEnd('\\', '/');
+
+        if (target.Equals(root, StringComparison.OrdinalIgnoreCase)) return count > 0 ? 0 : -1;
+        if (!target.StartsWith(root + "\\", StringComparison.OrdinalIgnoreCase)) return -1;
+
+        var current = 0;
+
+        foreach (var part in target[(root.Length + 1)..].Split('\\'))
+        {
+            if (current >= first.Length)
+                return -1;
+
+            var match = -1;
+            var steps = 0;
+
+            for (var child = first[current];
+                 child >= 0 && child < count && child < next.Length && child < entries.Length && steps++ < count;
+                 child = next[child])
+            {
+                ref readonly var entry = ref entries[child];
+
+                if ((entry.Attributes & RemovedFlag) != 0 || entry.NameOffset + entry.NameLength > names.Length)
+                    continue;
+
+                if (names.AsSpan(entry.NameOffset, entry.NameLength).Equals(part, StringComparison.OrdinalIgnoreCase))
+                {
+                    match = child;
+                    break;
+                }
+            }
+
+            if (match < 0) return -1;
+            current = match;
+        }
+
+        return current;
+    }
+
     // Adds (or refreshes) one entry at `path`. Returns its index, or -1 if its folder isn't indexed.
     internal int Upsert(string path, long size, long modifiedTicks, long createdTicks, FileAttributes attributes)
     {
@@ -320,7 +375,9 @@ internal sealed class VolumeIndex
     public ref readonly IndexEntry Entry(int index) => ref _entries[index];
 
 
-    private const int MaxChain = 256;
+    // FIXED (review): folder chains of any depth. Up to 256 levels still use the stack; deeper ones used
+    // to be cut off, producing a truncated path.
+    private const int StackChain = 256;
 
     [ThreadStatic]
     private static char[]? _pathBuffer;
@@ -330,12 +387,20 @@ internal sealed class VolumeIndex
         if (index < 0 || index >= _count)
             return string.Empty;
 
-        Span<int> chain = stackalloc int[MaxChain];
+        Span<int> chain = stackalloc int[StackChain];
         var depth = 0;
         var current = index;
 
-        while (current >= 0 && depth < MaxChain)
+        while (current >= 0 && depth <= _count)
         {
+            if (depth == chain.Length)
+            {
+                // FIXED (review): deeper than the stack buffer - continue on the heap.
+                var larger = new int[chain.Length * 2];
+                chain.CopyTo(larger);
+                chain = larger;
+            }
+
             chain[depth++] = current;
             current = _entries[current].ParentIndex;
         }

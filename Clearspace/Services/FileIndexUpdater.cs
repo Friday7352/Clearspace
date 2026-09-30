@@ -35,6 +35,25 @@ internal sealed class FileIndexUpdater : IDisposable
     public event Action<IReadOnlyList<string>>? Applied;
     public event Action<string>? Failed;
 
+    // NEW (checkpoint fix): how many changes were queued and how many have been applied, so a journal
+    // position is only saved once every change from before it has actually reached the index.
+    private long _enqueued, _applied;
+    public long Enqueued => Interlocked.Read(ref _enqueued);
+    public long AppliedCount => Interlocked.Read(ref _applied);
+
+    // Waits (briefly) until everything queued up to `mark` has been applied. False on timeout.
+    public bool WaitForApplied(long mark, TimeSpan timeout)
+    {
+        var until = DateTime.UtcNow + timeout;
+        while (AppliedCount < mark)
+        {
+            if (DateTime.UtcNow >= until || _stop.IsCancellationRequested) return false;
+            _signal.Set(); // do not wait out a quiet period
+            Thread.Sleep(20);
+        }
+        return true;
+    }
+
     public void OnCreated(string path) => Enqueue(ChangeKind.Created, path);
     public void OnDeleted(string path) => Enqueue(ChangeKind.Deleted, path);
     public void OnChanged(string path) => Enqueue(ChangeKind.Changed, path);
@@ -86,6 +105,7 @@ internal sealed class FileIndexUpdater : IDisposable
             foreach (var (root, changes) in _recording)
                 if (path.StartsWith(root, StringComparison.OrdinalIgnoreCase)) changes.Add((kind, path));
             _queue.Enqueue((kind, path));
+            Interlocked.Increment(ref _enqueued); // NEW
         }
         _signal.Set();
     }
@@ -104,7 +124,8 @@ internal sealed class FileIndexUpdater : IDisposable
                 var batch = new List<(ChangeKind, string)>();
                 while (_queue.TryDequeue(out var change)) batch.Add(change);
                 if (batch.Count == 0) continue;
-                ApplyBatch(batch, token);
+                try { ApplyBatch(batch, token); }
+                finally { Interlocked.Add(ref _applied, batch.Count); } // NEW: counted once handled, even if one change failed
             }
         }
         catch (OperationCanceledException) { }

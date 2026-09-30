@@ -1,3 +1,8 @@
+<!-- Clearspace | Indexing page.
+     CHANGED (indexing page overhaul): leads with what is happening now and why, shows how each drive is
+     kept current (change journal, live watcher, full scans) with its last catch-up / full scan / live
+     changes, lets you turn on fast catch-up (the index helper), and keeps a log of recent activity.
+     The indexed-entry browser, skipped folders and index file details are kept further down. -->
 <UserControl x:Class="Clearspace.IndexingView"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -26,92 +31,221 @@
                 </ControlTemplate>
             </Setter.Value></Setter>
         </Style>
+        <Style x:Key="PlainRow" TargetType="ListBoxItem" BasedOn="{StaticResource IndexRow}">
+            <Setter Property="Padding" Value="10,7"/>
+            <Setter Property="Margin" Value="0"/>
+            <Setter Property="Focusable" Value="False"/>
+        </Style>
+        <Style x:Key="StatLabel" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{StaticResource InkMuted}"/>
+            <Setter Property="FontSize" Value="11"/>
+        </Style>
+        <Style x:Key="StatValue" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="26"/>
+            <Setter Property="Margin" Value="0,8,0,4"/>
+        </Style>
+        <Style x:Key="FactLabel" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{StaticResource InkMuted}"/>
+            <Setter Property="Margin" Value="0,0,16,10"/>
+        </Style>
+        <Style x:Key="FactValue" TargetType="TextBlock">
+            <Setter Property="TextWrapping" Value="Wrap"/>
+            <Setter Property="Margin" Value="0,0,0,10"/>
+        </Style>
     </UserControl.Resources>
     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
         <StackPanel Margin="28,24" MaxWidth="1240">
-            <DockPanel Margin="0,0,0,22">
+
+            <!-- Header -->
+            <DockPanel Margin="0,0,0,20">
                 <Button DockPanel.Dock="Left" Content="Back" Click="OnBack" Style="{StaticResource ViewerTextButton}" Margin="0,0,18,0"/>
                 <Button DockPanel.Dock="Right" Content="Refresh status" Click="OnRefresh" Style="{StaticResource ViewerTextButton}" ToolTip="Refresh these details; does not rebuild the index"/>
                 <StackPanel>
                     <TextBlock Text="Indexing" FontSize="26" FontWeight="SemiBold"/>
-                    <TextBlock Text="What Clearspace knows about your files" Foreground="{StaticResource InkMuted}" Margin="0,5,0,0"/>
+                    <TextBlock Text="How Clearspace keeps its file index current, and what it is doing right now" Foreground="{StaticResource InkMuted}" Margin="0,5,0,0"/>
                 </StackPanel>
             </DockPanel>
+
+            <!-- NEW: what is happening now -->
+            <Border Style="{StaticResource IndexCard}" Margin="0,0,0,14">
+                <DockPanel>
+                    <Border DockPanel.Dock="Left" Width="44" Height="44" CornerRadius="22" Background="{StaticResource AccentSoft}" Margin="0,0,16,0" VerticalAlignment="Top">
+                        <TextBlock x:Name="StatusGlyph" Text="&#xE73E;" FontFamily="{StaticResource IconFont}" FontSize="18" Foreground="{StaticResource Accent}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                    <StackPanel>
+                        <TextBlock x:Name="ActivityTitle" Text="Checking indexing…" FontSize="18" FontWeight="SemiBold" TextWrapping="Wrap"/>
+                        <TextBlock x:Name="ActivityDetail" Foreground="{StaticResource InkMuted}" Margin="0,6,0,0" TextWrapping="Wrap"/>
+                        <TextBlock x:Name="CurrentFolder" Foreground="{StaticResource InkMuted}" Margin="0,8,0,0" TextTrimming="CharacterEllipsis" Visibility="Collapsed"/>
+                        <ProgressBar x:Name="ScanProgress" Height="3" Margin="0,12,0,0" IsIndeterminate="True" Visibility="Collapsed" Foreground="{StaticResource Accent}" Background="{StaticResource Line}"/>
+                    </StackPanel>
+                </DockPanel>
+            </Border>
+
+            <!-- Totals -->
             <Grid Margin="0,0,0,14">
-                <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="12"/><ColumnDefinition/><ColumnDefinition Width="12"/><ColumnDefinition/></Grid.ColumnDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition/><ColumnDefinition Width="12"/><ColumnDefinition/><ColumnDefinition Width="12"/><ColumnDefinition/><ColumnDefinition Width="12"/><ColumnDefinition/>
+                </Grid.ColumnDefinitions>
                 <Border Style="{StaticResource IndexCard}">
-                    <StackPanel><TextBlock Text="INDEXED ENTRIES" Foreground="{StaticResource InkMuted}" FontSize="11"/>
-                        <TextBlock x:Name="EntryCount" Text="—" FontSize="28" Margin="0,8,0,5"/>
-                        <TextBlock Text="File and folder records" Foreground="{StaticResource InkMuted}" FontSize="12"/>
+                    <StackPanel><TextBlock Text="INDEXED ENTRIES" Style="{StaticResource StatLabel}"/>
+                        <TextBlock x:Name="EntryCount" Text="—" Style="{StaticResource StatValue}"/>
+                        <TextBlock Text="Files and folders across all drives" Style="{StaticResource StatLabel}" TextWrapping="Wrap"/>
                     </StackPanel>
                 </Border>
                 <Border Grid.Column="2" Style="{StaticResource IndexCard}">
-                    <StackPanel><TextBlock Text="SAVED ON DISK" Foreground="{StaticResource InkMuted}" FontSize="11"/>
-                        <TextBlock x:Name="DiskSpace" Text="—" FontSize="28" Margin="0,8,0,5" Foreground="{StaticResource Accent}"/>
-                        <TextBlock x:Name="SavedWhen" Text="Checking saved index…" Foreground="{StaticResource InkMuted}" FontSize="12" TextTrimming="CharacterEllipsis"/>
+                    <StackPanel><TextBlock Text="LIVE CHANGES" Style="{StaticResource StatLabel}"/>
+                        <TextBlock x:Name="LiveCount" Text="—" Style="{StaticResource StatValue}" Foreground="{StaticResource Accent}"/>
+                        <TextBlock Text="Applied this session without rescanning" Style="{StaticResource StatLabel}" TextWrapping="Wrap"/>
                     </StackPanel>
                 </Border>
                 <Border Grid.Column="4" Style="{StaticResource IndexCard}">
-                    <StackPanel><TextBlock Text="INDEX MEMORY" Foreground="{StaticResource InkMuted}" FontSize="11"/>
-                        <TextBlock x:Name="MemorySpace" Text="—" FontSize="28" Margin="0,8,0,5"/>
-                        <TextBlock Text="Estimated RAM, including a running scan" Foreground="{StaticResource InkMuted}" FontSize="12" TextWrapping="Wrap"/>
+                    <StackPanel><TextBlock Text="SAVED ON DISK" Style="{StaticResource StatLabel}"/>
+                        <TextBlock x:Name="DiskSpace" Text="—" Style="{StaticResource StatValue}"/>
+                        <TextBlock x:Name="SavedWhen" Text="Checking saved index…" Style="{StaticResource StatLabel}" TextTrimming="CharacterEllipsis"/>
+                    </StackPanel>
+                </Border>
+                <Border Grid.Column="6" Style="{StaticResource IndexCard}">
+                    <StackPanel><TextBlock Text="INDEX MEMORY" Style="{StaticResource StatLabel}"/>
+                        <TextBlock x:Name="MemorySpace" Text="—" Style="{StaticResource StatValue}"/>
+                        <TextBlock Text="Estimated RAM, including a running scan" Style="{StaticResource StatLabel}" TextWrapping="Wrap"/>
                     </StackPanel>
                 </Border>
             </Grid>
+
+            <!-- NEW: fast catch-up (change journal / index helper) -->
             <Border Style="{StaticResource IndexCard}" Margin="0,0,0,20">
-                <StackPanel>
-                    <StackPanel>
-                        <TextBlock x:Name="ActivityTitle" Text="Checking indexing…" FontSize="16" FontWeight="SemiBold"/>
-                        <TextBlock x:Name="ActivityDetail" Foreground="{StaticResource InkMuted}" Margin="0,8,0,0" TextWrapping="Wrap"/>
+                <DockPanel>
+                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Top" Margin="16,0,0,0">
+                        <Button x:Name="JournalOnButton" Content="Turn on" Click="OnJournalOn" Style="{StaticResource ViewerTextButton}"
+                                ToolTip="Installs the Clearspace Index Helper service. Windows asks for administrator permission once."/>
+                        <Button x:Name="JournalOffButton" Content="Turn off" Click="OnJournalOff" Style="{StaticResource ViewerTextButton}" Margin="8,0,0,0"
+                                ToolTip="Removes the Clearspace Index Helper service. Windows asks for administrator permission once."/>
                     </StackPanel>
-                    <TextBlock x:Name="CurrentFolder" Foreground="{StaticResource InkMuted}" Margin="0,8,0,0" TextTrimming="CharacterEllipsis"/>
-                    <ProgressBar x:Name="ScanProgress" Height="3" Margin="0,14,0,0" IsIndeterminate="True" Visibility="Collapsed" Foreground="{StaticResource Accent}" Background="{StaticResource Line}"/>
-                </StackPanel>
+                    <StackPanel>
+                        <TextBlock Text="Fast catch-up" FontSize="16" FontWeight="SemiBold"/>
+                        <TextBlock x:Name="JournalStatus" Text="Checking…" Foreground="{StaticResource Accent}" Margin="0,6,0,0" TextWrapping="Wrap"/>
+                        <TextBlock x:Name="JournalFeedback" Foreground="{StaticResource Ink}" Margin="0,6,0,0" TextWrapping="Wrap" Visibility="Collapsed"/>
+                        <TextBlock x:Name="JournalExplain" Foreground="{StaticResource InkMuted}" Margin="0,6,0,0" TextWrapping="Wrap"
+                                   Text="Windows records every change on an NTFS drive in its change journal. With fast catch-up on, Clearspace reads only what changed since it last looked, after a restart or when live watching misses something, instead of rescanning the whole drive. A small service does the reading because Windows requires administrator rights for it; it sees file names and folders, never file contents."/>
+                    </StackPanel>
+                </DockPanel>
             </Border>
-            <TextBlock Text="Indexed locations" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,12"/>
-            <Grid>
-                <Grid.ColumnDefinitions><ColumnDefinition Width="225"/><ColumnDefinition Width="16"/><ColumnDefinition/></Grid.ColumnDefinitions>
+
+            <!-- Drives -->
+            <TextBlock Text="Drives" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,12"/>
+            <Grid Margin="0,0,0,20">
+                <Grid.ColumnDefinitions><ColumnDefinition Width="250"/><ColumnDefinition Width="16"/><ColumnDefinition/></Grid.ColumnDefinitions>
                 <Border Style="{StaticResource IndexCard}" Padding="8">
-                    <ListBox x:Name="DriveList" Height="412" Background="Transparent" BorderThickness="0" ItemContainerStyle="{StaticResource IndexRow}"
+                    <ListBox x:Name="DriveList" MinHeight="300" MaxHeight="460" Background="Transparent" BorderThickness="0" ItemContainerStyle="{StaticResource IndexRow}"
                              SelectionChanged="OnDriveSelected" ScrollViewer.HorizontalScrollBarVisibility="Disabled" AutomationProperties.Name="Index status by drive">
                         <ListBox.ItemTemplate><DataTemplate>
                             <StackPanel>
-                                <DockPanel><TextBlock Text="{Binding Root}" FontSize="17" FontWeight="SemiBold"/><TextBlock Text="{Binding State}" HorizontalAlignment="Right" Foreground="{StaticResource Accent}" FontSize="11" VerticalAlignment="Center"/></DockPanel>
-                                <TextBlock Text="{Binding CountText}" Foreground="{StaticResource InkMuted}" FontSize="12" Margin="0,6,0,0"/>
-                                <ProgressBar Value="{Binding ProgressPercent, Mode=OneWay}" Maximum="100" Height="5" Margin="0,9,0,5" Foreground="{StaticResource Accent}" Background="{StaticResource Line}" ToolTip="{Binding ProgressDetail}" AutomationProperties.Name="Drive indexing progress">
+                                <DockPanel>
+                                    <TextBlock Text="{Binding Root}" FontSize="17" FontWeight="SemiBold"/>
+                                    <TextBlock Text="{Binding State}" HorizontalAlignment="Right" Foreground="{StaticResource Accent}" FontSize="11" VerticalAlignment="Center"/>
+                                </DockPanel>
+                                <TextBlock Text="{Binding CountText}" Foreground="{StaticResource InkMuted}" FontSize="12" Margin="0,5,0,0"/>
+                                <TextBlock Text="{Binding Method}" Foreground="{StaticResource InkFaint}" FontSize="11" Margin="0,3,0,0"/>
+                                <ProgressBar Value="{Binding ProgressPercent, Mode=OneWay}" Maximum="100" Height="5" Margin="0,8,0,4" Foreground="{StaticResource Accent}" Background="{StaticResource Line}" ToolTip="{Binding ProgressDetail}" AutomationProperties.Name="Drive indexing progress">
                                     <ProgressBar.Style><Style TargetType="ProgressBar"><Setter Property="Visibility" Value="Collapsed"/><Style.Triggers><DataTrigger Binding="{Binding ShowProgress}" Value="True"><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers></Style></ProgressBar.Style>
                                 </ProgressBar>
-                                <TextBlock Text="{Binding ProgressText}" Foreground="{StaticResource InkMuted}" FontSize="11" TextWrapping="Wrap"/>
+                                <TextBlock Text="{Binding ProgressText}" Foreground="{StaticResource InkMuted}" FontSize="11" TextWrapping="Wrap" Margin="0,3,0,0"/>
                             </StackPanel>
                         </DataTemplate></ListBox.ItemTemplate>
                     </ListBox>
                 </Border>
                 <Border Grid.Column="2" Style="{StaticResource IndexCard}">
+                    <StackPanel>
+                        <DockPanel>
+                            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Top">
+                                <Button x:Name="CatchUpButton" Content="Catch up now" Click="OnCatchUp" Style="{StaticResource ViewerTextButton}"
+                                        ToolTip="Check this drive for changes now: reads the change journal when fast catch-up is on, otherwise rescans"/>
+                                <Button x:Name="ScanNowButton" Content="Full rescan" Click="OnScanNow" Style="{StaticResource ViewerTextButton}" Margin="8,0,0,0"
+                                        ToolTip="Read every folder on this drive again in the background; the current entries stay searchable"/>
+                            </StackPanel>
+                            <TextBlock x:Name="DriveTitle" Text="Choose a drive" FontSize="17" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                        </DockPanel>
+                        <TextBlock x:Name="DriveDetail" Text="Its status appears here." Foreground="{StaticResource InkMuted}" Margin="0,6,0,0" TextWrapping="Wrap"/>
+                        <ProgressBar x:Name="DriveProgress" Maximum="100" Height="5" Margin="0,12,0,6" Foreground="{StaticResource Accent}" Background="{StaticResource Line}" AutomationProperties.Name="Selected drive indexing progress"/>
+                        <TextBlock x:Name="DriveProgressText" Foreground="{StaticResource Accent}" FontSize="12"/>
+                        <TextBlock x:Name="DriveProgressDetail" Foreground="{StaticResource InkMuted}" FontSize="11" Margin="0,4,0,0" TextWrapping="Wrap"/>
+
+                        <Rectangle Height="1" Fill="{StaticResource Line}" Margin="0,16,0,16"/>
+
+                        <!-- NEW: the facts that explain this drive's state -->
+                        <Grid>
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition/></Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+                            <TextBlock Text="Kept current by" Style="{StaticResource FactLabel}"/>
+                            <StackPanel Grid.Column="1" Margin="0,0,0,10">
+                                <TextBlock x:Name="MethodText" FontWeight="SemiBold" TextWrapping="Wrap"/>
+                                <TextBlock x:Name="MethodDetailText" Foreground="{StaticResource InkMuted}" FontSize="12" TextWrapping="Wrap" Margin="0,3,0,0"/>
+                            </StackPanel>
+                            <TextBlock Grid.Row="1" Text="Next update" Style="{StaticResource FactLabel}"/>
+                            <TextBlock Grid.Row="1" Grid.Column="1" x:Name="NextText" Style="{StaticResource FactValue}"/>
+                            <TextBlock Grid.Row="2" Text="Last catch-up" Style="{StaticResource FactLabel}"/>
+                            <TextBlock Grid.Row="2" Grid.Column="1" x:Name="CatchUpText" Style="{StaticResource FactValue}"/>
+                            <TextBlock Grid.Row="3" Text="Last full scan" Style="{StaticResource FactLabel}"/>
+                            <TextBlock Grid.Row="3" Grid.Column="1" x:Name="FullScanText" Style="{StaticResource FactValue}"/>
+                            <TextBlock Grid.Row="4" Text="Live changes" Style="{StaticResource FactLabel}"/>
+                            <TextBlock Grid.Row="4" Grid.Column="1" x:Name="LiveText" Style="{StaticResource FactValue}"/>
+                            <TextBlock Grid.Row="5" Text="Index" Style="{StaticResource FactLabel}"/>
+                            <StackPanel Grid.Row="5" Grid.Column="1">
+                                <TextBlock x:Name="EntriesText" TextWrapping="Wrap"/>
+                                <TextBlock x:Name="ScanWhen" Foreground="{StaticResource InkMuted}" FontSize="12" Margin="0,3,0,0"/>
+                            </StackPanel>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+            <!-- NEW: recent activity -->
+            <Border Style="{StaticResource IndexCard}" Margin="0,0,0,20">
+                <StackPanel>
+                    <DockPanel>
+                        <TextBlock DockPanel.Dock="Right" x:Name="EventCount" Foreground="{StaticResource InkFaint}" FontSize="11" VerticalAlignment="Center"/>
+                        <TextBlock Text="Recent activity" FontSize="16" FontWeight="SemiBold"/>
+                    </DockPanel>
+                    <TextBlock x:Name="NoEvents" Text="Nothing has happened yet this session." Foreground="{StaticResource InkMuted}" Margin="0,10,0,0"/>
+                    <ListBox x:Name="EventList" MaxHeight="300" Margin="0,8,0,0" Background="Transparent" BorderThickness="0" ItemContainerStyle="{StaticResource PlainRow}"
+                             ScrollViewer.HorizontalScrollBarVisibility="Disabled" VirtualizingPanel.IsVirtualizing="True" AutomationProperties.Name="Recent indexing activity">
+                        <ListBox.ItemTemplate><DataTemplate>
+                            <Grid>
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="24"/><ColumnDefinition Width="92"/><ColumnDefinition Width="56"/><ColumnDefinition/></Grid.ColumnDefinitions>
+                                <TextBlock Text="{Binding Glyph}" FontFamily="{StaticResource IconFont}" Foreground="{StaticResource Accent}" VerticalAlignment="Top" Margin="0,2,0,0"/>
+                                <TextBlock Grid.Column="1" Text="{Binding TimeText}" Foreground="{StaticResource InkMuted}" FontSize="12"/>
+                                <TextBlock Grid.Column="2" Text="{Binding RootText}" Foreground="{StaticResource InkMuted}" FontSize="12"/>
+                                <TextBlock Grid.Column="3" Text="{Binding Message}" TextWrapping="Wrap"/>
+                            </Grid>
+                        </DataTemplate></ListBox.ItemTemplate>
+                    </ListBox>
+                </StackPanel>
+            </Border>
+
+            <!-- Indexed entries (kept from the previous page) -->
+            <Expander x:Name="BrowseExpander" Header="Browse the index for this drive" Foreground="{StaticResource Ink}" Margin="0,0,0,14">
+                <Border Style="{StaticResource IndexCard}" Margin="0,12,0,0">
                     <Grid>
-                        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-                        <StackPanel><TextBlock x:Name="DriveTitle" Text="Choose a drive" FontSize="17" FontWeight="SemiBold"/>
-                            <TextBlock x:Name="DriveDetail" Text="Its indexed files and folders will appear here." Foreground="{StaticResource InkMuted}" Margin="0,6,0,0" TextWrapping="Wrap"/>
-                            <ProgressBar x:Name="DriveProgress" Maximum="100" Height="5" Margin="0,12,0,6" Foreground="{StaticResource Accent}" Background="{StaticResource Line}" AutomationProperties.Name="Selected drive indexing progress"/>
-                            <TextBlock x:Name="DriveProgressText" Foreground="{StaticResource Accent}" FontSize="12"/>
-                            <TextBlock x:Name="DriveProgressDetail" Foreground="{StaticResource InkMuted}" FontSize="11" Margin="0,4,0,0" TextWrapping="Wrap"/>
-                            <Button x:Name="ScanNowButton" Content="Scan now" Click="OnScanNow" Style="{StaticResource ViewerTextButton}" HorizontalAlignment="Left" Margin="0,10,0,0" ToolTip="Request a full scan of this drive in the background; keeps existing entries available"/>
-                        </StackPanel>
-                        <DockPanel Grid.Row="1" Margin="0,14,0,10">
+                        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                        <DockPanel Margin="0,0,0,10">
                             <Button x:Name="UpButton" Content="Up" Click="OnUp" Style="{StaticResource ViewerTextButton}" Margin="0,0,8,0" IsEnabled="False"/>
                             <Button DockPanel.Dock="Right" Content="Reload list" Click="OnReloadFolder" Style="{StaticResource ViewerTextButton}"/>
                             <TextBlock x:Name="FolderPath" Text="Indexed entries" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
                         </DockPanel>
-                        <Grid Grid.Row="2" Margin="0,0,0,8">
-                        <TextBox x:Name="Filter" TextChanged="OnFilterChanged" Height="30" Padding="8,4"
-                                 Background="{StaticResource Base}" Foreground="{StaticResource Ink}" BorderBrush="{StaticResource Line}"
-                                 ToolTip="Filter names in this indexed folder" AutomationProperties.Name="Filter indexed names"/>
-                        <TextBlock Text="Filter names in this folder" IsHitTestVisible="False" Margin="9,0" VerticalAlignment="Center" Foreground="{StaticResource InkFaint}">
-                            <TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed"/>
-                                <Style.Triggers><DataTrigger Binding="{Binding Text, ElementName=Filter}" Value=""><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers>
-                            </Style></TextBlock.Style>
-                        </TextBlock>
+                        <Grid Grid.Row="1" Margin="0,0,0,8">
+                            <TextBox x:Name="Filter" TextChanged="OnFilterChanged" Height="30" Padding="8,4"
+                                     Background="{StaticResource Base}" Foreground="{StaticResource Ink}" BorderBrush="{StaticResource Line}"
+                                     ToolTip="Filter names in this indexed folder" AutomationProperties.Name="Filter indexed names"/>
+                            <TextBlock Text="Filter names in this folder" IsHitTestVisible="False" Margin="9,0" VerticalAlignment="Center" Foreground="{StaticResource InkFaint}">
+                                <TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed"/>
+                                    <Style.Triggers><DataTrigger Binding="{Binding Text, ElementName=Filter}" Value=""><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers>
+                                </Style></TextBlock.Style>
+                            </TextBlock>
                         </Grid>
-                        <ListBox Grid.Row="3" x:Name="EntryList" Height="232" Background="Transparent" BorderThickness="0" ItemContainerStyle="{StaticResource IndexRow}"
+                        <ListBox Grid.Row="2" x:Name="EntryList" Height="280" Background="Transparent" BorderThickness="0" ItemContainerStyle="{StaticResource IndexRow}"
                                  ScrollViewer.HorizontalScrollBarVisibility="Disabled" VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling"
                                  MouseDoubleClick="OnOpenEntry" KeyDown="OnEntryKeyDown" SelectionChanged="OnEntrySelected" AutomationProperties.Name="Entries in the saved index">
                             <ListBox.ItemTemplate><DataTemplate>
@@ -122,28 +256,29 @@
                                 </Grid>
                             </DataTemplate></ListBox.ItemTemplate>
                         </ListBox>
-                        <DockPanel Grid.Row="4" Margin="0,8,0,0">
+                        <DockPanel Grid.Row="3" Margin="0,8,0,0">
                             <Button DockPanel.Dock="Right" x:Name="NextPage" Content="Next" Click="OnNextPage" Style="{StaticResource ViewerTextButton}" IsEnabled="False"/>
                             <Button DockPanel.Dock="Right" x:Name="PreviousPage" Content="Previous" Click="OnPreviousPage" Style="{StaticResource ViewerTextButton}" IsEnabled="False"/>
                             <TextBlock x:Name="ListStatus" Foreground="{StaticResource InkMuted}" FontSize="11" TextWrapping="Wrap" VerticalAlignment="Center"/>
                         </DockPanel>
                     </Grid>
                 </Border>
-            </Grid>
-            <Expander Header="Scan coverage and skipped folders" Foreground="{StaticResource Ink}" Margin="0,14,0,18">
+            </Expander>
+
+            <Expander Header="Scan coverage and skipped folders" Foreground="{StaticResource Ink}" Margin="0,0,0,14">
                 <StackPanel Margin="0,12,0,0">
                     <TextBlock x:Name="CoverageText" Foreground="{StaticResource InkMuted}" TextWrapping="Wrap"/>
-                    <TextBlock x:Name="ScanWhen" Foreground="{StaticResource InkMuted}" Margin="0,5,0,8"/>
-                    <ListBox x:Name="SkippedList" MaxHeight="180" Background="{StaticResource Surface}" BorderThickness="0" ItemContainerStyle="{StaticResource IndexRow}" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                    <ListBox x:Name="SkippedList" MaxHeight="180" Margin="0,8,0,0" Background="{StaticResource Surface}" BorderThickness="0" ItemContainerStyle="{StaticResource IndexRow}" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
                         <ListBox.ItemTemplate><DataTemplate><StackPanel>
                             <TextBlock Text="{Binding Path}" TextTrimming="CharacterEllipsis" ToolTip="{Binding Path}"/>
                             <TextBlock Text="{Binding Reason}" Foreground="{StaticResource InkMuted}" FontSize="11" TextWrapping="Wrap" Margin="0,4,0,0"/>
                         </StackPanel></DataTemplate></ListBox.ItemTemplate>
                     </ListBox>
-                    <TextBlock Text="Shows up to 200 skipped locations from the latest scan this session. A listed folder can have contents that could not be read." Foreground="{StaticResource InkFaint}" FontSize="11" TextWrapping="Wrap" Margin="0,8,0,0"/>
+                    <TextBlock Text="Shows up to 200 skipped locations from the latest full scan this session. A listed folder can have contents that could not be read." Foreground="{StaticResource InkFaint}" FontSize="11" TextWrapping="Wrap" Margin="0,8,0,0"/>
                 </StackPanel>
             </Expander>
-            <Border Style="{StaticResource IndexCard}">
+
+            <Border Style="{StaticResource IndexCard}" Margin="0,6,0,0">
                 <StackPanel>
                     <DockPanel>
                         <Button DockPanel.Dock="Right" Content="Open containing folder" Click="OnOpenStorage" Style="{StaticResource ViewerTextButton}"/>
@@ -154,17 +289,20 @@
                     <TextBlock x:Name="StorageMessage" Foreground="{StaticResource InkMuted}" FontSize="11" Margin="0,8,0,0" TextWrapping="Wrap"/>
                 </StackPanel>
             </Border>
+
             <Expander Header="What gets indexed?" Foreground="{StaticResource Ink}" Margin="0,20,0,0">
                 <StackPanel Margin="0,12,0,0">
                     <TextBlock Text="Clearspace records names, folder relationships, file sizes, dates and attributes. It includes hidden and system entries on available fixed drives. It does not copy your files or read their contents." TextWrapping="Wrap" Foreground="{StaticResource InkMuted}"/>
                     <TextBlock x:Name="NetworkScope" TextWrapping="Wrap" Foreground="{StaticResource InkMuted}" Margin="0,8,0,0"/>
                     <TextBlock Text="Unreadable folders and folder links are skipped. Supported cloud folders are included; their recorded sizes may differ from the space used on disk. There is no fixed folder-depth limit." TextWrapping="Wrap" Foreground="{StaticResource InkMuted}" Margin="0,8,0,0"/>
+                    <TextBlock Text="Each drive is read in full once. After that, live changes are applied as they happen, and fast catch-up (when on) reads only what changed while Clearspace was closed." TextWrapping="Wrap" Foreground="{StaticResource InkMuted}" Margin="0,8,0,0"/>
                     <DockPanel Margin="0,12,0,0">
                         <Button DockPanel.Dock="Right" Content="Windows indexing options" Click="OnWindowsIndexing" Style="{StaticResource ViewerTextButton}"/>
                         <TextBlock Text="Searching inside documents uses the separate Windows Search index." Foreground="{StaticResource InkMuted}" TextWrapping="Wrap" VerticalAlignment="Center"/>
                     </DockPanel>
                 </StackPanel>
             </Expander>
+
             <TextBlock x:Name="Feedback" Foreground="{StaticResource Accent}" TextWrapping="Wrap" Margin="0,12,0,0"/>
         </StackPanel>
     </ScrollViewer>

@@ -2,6 +2,7 @@
 
 using System.Diagnostics;
 using System.IO;
+using Clearspace.Journal;
 using Clearspace.Models;
 
 namespace Clearspace.Services;
@@ -20,6 +21,7 @@ public static class FileIndexService
     {
         Overlay.LostChanges += root =>
         {
+            // CHANGED (journal catch-up): the request is answered from the change journal when possible.
             RequestRescan(root);
             Report($"{root} index needs updating · other drives remain available");
         };
@@ -27,6 +29,69 @@ public static class FileIndexService
 
     private static FileIndexWatcher? _watcher;
     private static bool _watching;
+
+    // NEW (journal catch-up): per drive, where its change journal stood. Checkpoint = the saved index
+    // reflects every change before it. Pending = a later position that becomes the checkpoint at the
+    // next save if the drive stayed fully watched in between (so events still queued at the moment it
+    // was read have long been applied by then). See JournalCheckpoints.
+    private sealed class JournalCursor
+    {
+        public uint Serial;
+        public ulong JournalId;
+        public long Checkpoint;
+        public long Pending;
+        public DateTime PendingUtc; // NEW (checkpoint fix): when Pending was read
+    }
+
+    // NEW (checkpoint fix): a Pending position is only promoted once it is this old - long enough for
+    // every change made before it to have been delivered by the watcher - and once the updater has applied
+    // everything queued up to now. Closing Clearspace sooner simply keeps the previous checkpoint.
+    private static readonly TimeSpan PendingSettle = TimeSpan.FromSeconds(10);
+
+    private static string[] PromotableRoots(VolumeIndex[] volumes)
+    {
+        var now = DateTime.UtcNow;
+        var candidates = new List<string>();
+
+        foreach (var volume in volumes)
+        {
+            if (!IsRootLive(volume.Root)) continue;
+            lock (Cursors)
+                if (Cursors.TryGetValue(volume.Root, out var cursor) && cursor.Pending > cursor.Checkpoint && now - cursor.PendingUtc >= PendingSettle)
+                    candidates.Add(volume.Root);
+        }
+
+        if (candidates.Count == 0 || _updater is not { } updater)
+            return [];
+
+        // Everything delivered so far (which includes every change older than PendingSettle) must be applied
+        // before the index is written; the save that follows then contains it.
+        if (!updater.WaitForApplied(updater.Enqueued, TimeSpan.FromSeconds(2)))
+            return [];
+
+        return [.. candidates.Where(IsRootLive)];
+    }
+
+    private static readonly Dictionary<string, JournalCursor> Cursors = new(StringComparer.OrdinalIgnoreCase);
+    // NEW: drives the person asked to rescan in full ("Scan now"); a journal catch-up does not replace that.
+    private static readonly HashSet<string> ForcedScans = new(StringComparer.OrdinalIgnoreCase);
+
+    internal static bool HasJournalPosition(string root)
+    {
+        lock (Cursors) return Cursors.TryGetValue(root, out var cursor) && cursor.Checkpoint >= 0;
+    }
+
+    // NEW: "Catch up now" on the Indexing page. Uses the journal when it can, otherwise a full scan.
+    internal static void CatchUpNow(string root)
+    {
+        IndexActivity.Pending(root, "Catch-up requested from the Indexing page");
+        lock (RescanRequests)
+        {
+            LastRescan.Remove(root);
+            RescanRequests.Add(root);
+        }
+        Wake.Set();
+    }
 
     // NEW (live index): applies watcher events to the published volumes as they happen.
     private static FileIndexUpdater? _updater;
@@ -66,7 +131,9 @@ public static class FileIndexService
             if (string.Equals(_buildingRoot, root, StringComparison.OrdinalIgnoreCase)) return;
             LastRescan.Remove(root);
             RescanRequests.Add(root);
+            ForcedScans.Add(root); // NEW: a full scan, even when the journal could catch up
         }
+        IndexActivity.Pending(root, "Full scan requested from the Indexing page");
         Wake.Set();
     }
 
@@ -285,16 +352,20 @@ public static class FileIndexService
         {
         }
 
+        // NEW (journal catch-up): which drives were fully watched, and which positions are safe to keep,
+        // before the watcher and updater go away (the updater drops anything still queued).
+        var volumes = _volumes;
+        var watched = volumes.Where(volume => IsRootLive(volume.Root)).Select(volume => volume.Root).ToArray();
+        var promotable = PromotableRoots(volumes);
+
         _watching = false;
         _watcher?.Dispose();
         _watcher = null;
         _updater?.Dispose(); // NEW
         _updater = null;
 
-        var volumes = _volumes;
-
-        if (volumes.Length > 0)
-            FileIndexStore.Save(volumes);
+        if (volumes.Length > 0 && FileIndexStore.Save(volumes))
+            SaveJournalPositions(volumes, watched, promotable, queryNext: false);
     }
 
     private static void Run(CancellationToken token)
@@ -312,6 +383,7 @@ public static class FileIndexService
             _updater.Applied += paths =>
             {
                 try { LiveChanged?.Invoke(paths); } catch (Exception) { }
+                IndexActivity.LiveApplied(paths); // NEW: counts live changes per drive for the Indexing page
                 Raise();
             };
             _watcher = new FileIndexWatcher(Overlay, _updater);
@@ -319,13 +391,22 @@ public static class FileIndexService
             if (loaded.Count > 0)
             {
                 Publish([.. loaded]);
+                LoadJournalPositions(loaded); // NEW (journal catch-up)
                 // Changes while the app was closed were not observed. Serve other healthy
                 // volumes normally while each saved volume catches up in the background.
-                foreach (var volume in loaded) Overlay.MarkOverflowed(volume.Root);
+                foreach (var volume in loaded)
+                {
+                    IndexActivity.Pending(volume.Root, "Checking for changes made while Clearspace was closed");
+                    Overlay.MarkOverflowed(volume.Root);
+                }
                 // CHANGED (round 50): a network drive is watched only once it answers (OnNetworkDrivesChanged);
                 // watching one that is out of reach would wait on the network and mark the index as behind.
                 StartWatching(loaded.Select(volume => volume.Root).Where(root => !IsNetwork(root)));
                 Report($"Index ready · {Count:N0} items");
+
+                // NEW (journal catch-up): read only what changed while Clearspace was closed, straight away.
+                // Drives that cannot be caught up keep their rescan request for after the startup delay.
+                CatchUpPending(token);
             }
 
             _maintenance = "Starting background scans after a brief startup delay";
@@ -341,10 +422,9 @@ public static class FileIndexService
 
                 if (!token.IsCancellationRequested)
                 {
-                    _maintenance = "Saving the index to disk";
-                    FileIndexStore.Save(_volumes);
-                    _maintenance = null;
+                    SaveIndex(); // CHANGED: also records change-journal positions
                     Report(Count > 0 ? $"Index ready · {Count:N0} items" : string.Empty);
+                    VerifyFileTables(token); // NEW
                 }
 
                 // NEW: stay resident for rescan requests and periodic saves of live changes.
@@ -352,6 +432,10 @@ public static class FileIndexService
                 {
                     WaitHandle.WaitAny([token.WaitHandle, Wake], NextWorkerWait());
                     if (token.IsCancellationRequested) break;
+
+                    // NEW (journal catch-up): answer missed-change requests from the journal first. This is
+                    // not subject to the 20-minute rescan spacing; it reads only what changed.
+                    CatchUpPending(token);
 
                     string[] rescans;
                     lock (RescanRequests)
@@ -377,11 +461,9 @@ public static class FileIndexService
                     }
 
                     if (Array.Exists(_volumes, volume => volume.IsDirty))
-                    {
-                        _maintenance = "Saving the index to disk";
-                        FileIndexStore.Save(_volumes);
-                        _maintenance = null;
-                    }
+                        SaveIndex(); // CHANGED: also records change-journal positions
+
+                    VerifyFileTables(token); // NEW: one-time file-table checks, when idle
                 }
             }
             finally
@@ -409,8 +491,346 @@ public static class FileIndexService
     // NEW: ask the background thread to rescan a drive (e.g. after the watcher lost events).
     internal static void RequestRescan(string root)
     {
+        // NEW: a specific reason recorded earlier (startup, manual request) is kept.
+        IndexActivity.Pending(root, "Some changes were missed (the live change watcher overflowed or stopped)", keepExisting: true);
         lock (RescanRequests) RescanRequests.Add(root);
         Wake.Set();
+    }
+
+    // ------------------------------------------------------------------ NEW: journal catch-up
+
+    private static void LoadJournalPositions(IEnumerable<VolumeIndex> loaded)
+    {
+        var saved = JournalCheckpoints.Load();
+
+        lock (Cursors)
+        {
+            foreach (var volume in loaded)
+            {
+                if (!saved.TryGetValue(volume.Root, out var checkpoint))
+                    continue;
+
+                // A different serial number means a different (reformatted or swapped) drive.
+                if (checkpoint.Serial != volume.SerialNumber)
+                {
+                    IndexActivity.JournalNote(volume.Root, "The saved journal position belongs to a different drive; one full scan will replace it.");
+                    continue;
+                }
+
+                Cursors[volume.Root] = new JournalCursor
+                {
+                    Serial = checkpoint.Serial,
+                    JournalId = checkpoint.JournalId,
+                    Checkpoint = checkpoint.Usn,
+                    Pending = checkpoint.Usn
+                };
+            }
+        }
+    }
+
+    // Tries a journal catch-up for every drive waiting for an update, except explicit full scans.
+    private static void CatchUpPending(CancellationToken token)
+    {
+        string[] pending;
+        lock (RescanRequests) pending = [.. RescanRequests.Where(root => !ForcedScans.Contains(root))];
+        if (pending.Length == 0) return;
+
+        var access = IndexJournal.Access();
+
+        if (access is not (JournalAccess.Direct or JournalAccess.Helper))
+        {
+            foreach (var root in pending)
+                IndexActivity.JournalNote(root, IndexJournal.Describe(access));
+            return;
+        }
+
+        foreach (var root in pending)
+        {
+            token.ThrowIfCancellationRequested();
+            TryCatchUp(root, access, token);
+        }
+
+        _maintenance = null;
+    }
+
+    private static bool TryCatchUp(string root, JournalAccess access, CancellationToken token)
+    {
+        var volume = Array.Find(_volumes, candidate => candidate.Root.Equals(root, StringComparison.OrdinalIgnoreCase));
+
+        if (volume is null || IsNetwork(root) || string.Equals(_buildingRoot, root, StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        JournalCursor? cursor;
+        lock (Cursors) Cursors.TryGetValue(root, out cursor);
+
+        if (cursor is null || cursor.Checkpoint < 0 || cursor.Serial != volume.SerialNumber)
+        {
+            IndexActivity.JournalNote(root, "No saved journal position yet. One full scan (or a few minutes of watching) records it; later updates read only the changes.");
+            return false;
+        }
+
+        // Watch first, then read: anything that changes during the catch-up is caught by the watcher.
+        StartWatching([root]);
+        if (_watcher?.IsWatching(root) != true) return false;
+
+        var generation = Overlay.Generation(root);
+        var started = Stopwatch.StartNew();
+        _maintenance = $"Catching up {root} from the change journal";
+        Report($"Catching up {root}…");
+
+        var response = IndexJournal.CatchUp(root, cursor.JournalId, cursor.Checkpoint, token);
+
+        if (response.Status != JournalProtocol.Ok)
+        {
+            var reason = response.Message ?? $"The change journal could not be used ({response.Status}).";
+
+            // These mean the saved position can never be used again; the full scan records a new one.
+            if (response.Status is JournalProtocol.Reset or JournalProtocol.HistoryLost or JournalProtocol.TooMany or JournalProtocol.Unsupported)
+            {
+                lock (Cursors) Cursors.Remove(root);
+                reason += " A full scan will run instead.";
+            }
+
+            IndexActivity.CatchUpFailed(root, reason);
+            return false;
+        }
+
+        try
+        {
+            var changes = response.Paths.Select(path => (FileIndexUpdater.ChangeKind.Created, path)).ToList();
+            FileIndexUpdater.Replay(volume, changes, token); // re-reads each path; missing ones are removed
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception exception)
+        {
+            IndexActivity.CatchUpFailed(root, $"Applying journal changes failed: {exception.Message}. A full scan will run instead.");
+            return false;
+        }
+
+        if (!Overlay.TryRecover(root, generation))
+        {
+            IndexActivity.CatchUpFailed(root, "More changes were missed while catching up; trying again.");
+            return false;
+        }
+
+        lock (RescanRequests) RescanRequests.Remove(root);
+        lock (Cursors)
+        {
+            cursor.JournalId = response.JournalId;
+            cursor.Checkpoint = response.NextUsn;
+            cursor.Pending = response.NextUsn;
+        }
+
+        IndexActivity.CatchUpFinished(root, access == JournalAccess.Direct ? "read directly" : "via the helper service",
+            response.Records, response.Paths.Count, response.Unresolved, started.Elapsed);
+        Report($"Index ready · {Count:N0} items");
+        return true;
+    }
+
+    // The journal's current position for a drive about to be scanned in full, or null.
+    private static (ulong JournalId, long Usn)? JournalStart(string root, CancellationToken token)
+    {
+        if (IsNetwork(root) || IndexJournal.Access() is not (JournalAccess.Direct or JournalAccess.Helper))
+            return null;
+
+        var response = IndexJournal.Query(root, token);
+        return response.Status == JournalProtocol.Ok ? (response.JournalId, response.NextUsn) : null;
+    }
+
+    private static void SaveIndex()
+    {
+        _maintenance = "Saving the index to disk";
+        var volumes = _volumes;
+        var watched = volumes.Where(volume => IsRootLive(volume.Root)).Select(volume => volume.Root).ToArray();
+        var promotable = PromotableRoots(volumes); // FIXED: decided before writing, so the file contains those changes
+        var started = Stopwatch.StartNew();
+
+        if (FileIndexStore.Save(volumes))
+        {
+            SaveJournalPositions(volumes, watched, promotable, queryNext: true);
+            IndexActivity.Record(null, IndexEventKind.Save, $"Saved the index in {DriveActivity.Seconds(started.Elapsed)}");
+        }
+        else
+            IndexActivity.Record(null, IndexEventKind.Problem, "The index could not be saved; it will be retried.");
+
+        _maintenance = null;
+    }
+
+    // Called only after index.db was written. Promotes Pending to Checkpoint for drives that stayed
+    // fully watched, then (unless exiting) reads each journal's current position as the next Pending.
+    // A fully watched drive without a position (the helper was just installed) is adopted here: it gets
+    // a Pending position now and a usable Checkpoint at the following save - no full scan needed.
+    private static void SaveJournalPositions(VolumeIndex[] volumes, IReadOnlyCollection<string> watched,
+        IReadOnlyCollection<string> promotable, bool queryNext)
+    {
+        var checkpoints = new List<JournalCheckpoint>();
+        var canQuery = queryNext && IndexJournal.Access() is JournalAccess.Direct or JournalAccess.Helper;
+
+        foreach (var volume in volumes)
+        {
+            var root = volume.Root;
+            var isWatched = watched.Contains(root, StringComparer.OrdinalIgnoreCase);
+            JournalCursor? cursor;
+            lock (Cursors) Cursors.TryGetValue(root, out cursor);
+
+            if (cursor is null && (!isWatched || !canQuery || IsNetwork(root) || !UsnJournal.IsDriveRoot(root)))
+                continue;
+
+            // FIXED: only positions whose earlier changes are known to be applied and saved (PromotableRoots).
+            if (cursor is not null && promotable.Contains(root, StringComparer.OrdinalIgnoreCase))
+                lock (Cursors) cursor.Checkpoint = Math.Max(cursor.Checkpoint, cursor.Pending);
+
+            if (isWatched && canQuery)
+            {
+                var response = IndexJournal.Query(root, CancellationToken.None);
+
+                lock (Cursors)
+                {
+                    if (response.Status != JournalProtocol.Ok)
+                    {
+                        // Keep what we have; a drive without a position simply is not adopted yet.
+                    }
+                    else if (cursor is null)
+                    {
+                        cursor = new JournalCursor { Serial = volume.SerialNumber, JournalId = response.JournalId, Checkpoint = -1, Pending = response.NextUsn, PendingUtc = DateTime.UtcNow };
+                        Cursors[root] = cursor;
+                        IndexActivity.JournalNote(root, "Journal position recorded; from the next save on, this drive is caught up instead of rescanned.");
+                    }
+                    else if (response.JournalId == cursor.JournalId)
+                    {
+                        // Keep an older, not yet promoted position rather than moving the goalposts every save.
+                        if (cursor.Pending <= cursor.Checkpoint)
+                        {
+                            cursor.Pending = response.NextUsn;
+                            cursor.PendingUtc = DateTime.UtcNow;
+                        }
+                    }
+                    else
+                    {
+                        Cursors.Remove(root); // the journal was recreated: its old positions mean nothing
+                        continue;
+                    }
+                }
+            }
+
+            if (cursor is { Checkpoint: >= 0 })
+                checkpoints.Add(new JournalCheckpoint(root, cursor.Serial, cursor.JournalId, cursor.Checkpoint, DateTime.UtcNow));
+        }
+
+        JournalCheckpoints.Save(checkpoints);
+    }
+
+    // ------------------------------------------------------------------ NEW: file-table scan
+
+    private static readonly Dictionary<string, (uint Serial, long Budget, FileTableIndex.Summary Summary)> Verifications =
+        new(StringComparer.OrdinalIgnoreCase);
+
+    private static VolumeIndex? TryFileTableScan(string root, uint serial, long budget, CancellationToken token,
+        out FileTableIndex.Summary? summary)
+    {
+        summary = null;
+
+        if (!UsnJournal.IsDriveRoot(root) || FileTableTrust.IsDisabled(root, serial) ||
+            IndexJournal.Access() is not (JournalAccess.Direct or JournalAccess.Helper))
+            return null;
+
+        _maintenance = $"Reading the file table of {root}";
+        Report($"Reading the file table of {root}…");
+        var started = Stopwatch.StartNew();
+
+        try
+        {
+            var (header, table) = IndexJournal.ScanVolume(root, token);
+
+            if (table is null)
+            {
+                IndexActivity.Record(root, header.Status == JournalProtocol.Unsupported ? IndexEventKind.Info : IndexEventKind.Problem,
+                    $"File-table scan not used ({header.Message ?? header.Status}). Walking folders instead.");
+                return null;
+            }
+
+            if (FileTableIndex.EstimatedBytes(table.Count, table.NameChars) > budget)
+            {
+                IndexActivity.Record(root, IndexEventKind.Problem, $"{table.Count:N0} entries exceed the index memory budget.");
+                return null;
+            }
+
+            var index = FileTableIndex.ToVolumeIndex(table, root, serial);
+            summary = FileTableIndex.Summarize(index);
+            IndexActivity.Record(root, IndexEventKind.FullScan,
+                $"Read the file table · {index.Count:N0} entries from {header.Records:N0} records in {DriveActivity.Seconds(started.Elapsed)}" +
+                (header.DeniedFolders > 0 ? $" · {header.DeniedFolders:N0} folders this account cannot open were listed but not entered" : ""));
+            return index;
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception exception)
+        {
+            IndexActivity.Record(root, IndexEventKind.Problem, $"File-table scan failed ({exception.Message}). Walking folders instead.");
+            return null;
+        }
+        finally
+        {
+            _maintenance = null;
+        }
+    }
+
+    // One-time check per drive: a normal folder walk must agree with the file-table scan (allowing for
+    // files that changed in between). If it does not, that drive goes back to folder walks for good.
+    private static void VerifyFileTables(CancellationToken token)
+    {
+        while (!token.IsCancellationRequested)
+        {
+            string root;
+            (uint Serial, long Budget, FileTableIndex.Summary Summary) job;
+
+            lock (Verifications)
+            {
+                if (Verifications.Count == 0) return;
+                (root, job) = Verifications.First();
+                Verifications.Remove(root);
+            }
+
+            lock (RescanRequests)
+                if (RescanRequests.Count > 0) { lock (Verifications) Verifications.TryAdd(root, job); return; } // real work first
+
+            _maintenance = $"One-time check: comparing {root}'s file-table scan with a folder walk";
+            IndexActivity.Record(root, IndexEventKind.Info,
+                "One-time check started: comparing the file-table scan with a normal folder walk. Searches already use the new index.");
+            VolumeIndex? walked;
+
+            try
+            {
+                walked = FileIndexBuilder.Build(root, job.Serial, job.Budget, null, token);
+            }
+            catch (OperationCanceledException) { throw; }
+            catch (Exception exception)
+            {
+                IndexActivity.Record(root, IndexEventKind.Problem, $"The one-time check could not finish ({exception.Message}); it runs again after the next scan.");
+                continue;
+            }
+            finally
+            {
+                _maintenance = null;
+            }
+
+            if (walked is null)
+                continue;
+
+            var fromWalk = FileTableIndex.Summarize(walked);
+
+            if (FileTableIndex.Agree(job.Summary, fromWalk, out var detail))
+            {
+                FileTableTrust.Set(new FileTableState(root, job.Serial, Verified: true, Disabled: false, detail, DateTime.UtcNow));
+                IndexActivity.Record(root, IndexEventKind.Info, $"File-table scan verified · {detail}");
+            }
+            else
+            {
+                FileTableTrust.Set(new FileTableState(root, job.Serial, Verified: false, Disabled: true, detail, DateTime.UtcNow));
+                IndexActivity.Record(root, IndexEventKind.Problem,
+                    $"The file-table scan disagreed with a folder walk, so {root} goes back to folder walks · {detail}");
+                ScanNow(root); // rebuild from a walk
+            }
+        }
     }
 
     // CHANGED: `forced` limits the pass to drives that must be rescanned; otherwise only drives
@@ -433,7 +853,8 @@ public static class FileIndexService
             if (forced is not null && !force)
                 continue;
 
-            if (!force && existing is not null && DateTime.UtcNow - existing.BuiltUtc < RebuildAfter)
+            // CHANGED (journal catch-up): a drive kept current by its change journal needs no daily rebuild.
+            if (!force && existing is not null && (DateTime.UtcNow - existing.BuiltUtc < RebuildAfter || HasJournalPosition(root)))
                 continue;
 
             lock (RescanRequests) LastRescan[root] = DateTime.UtcNow;
@@ -461,6 +882,12 @@ public static class FileIndexService
             StartWatching([root]);
             _updater?.BeginRecording(root); // NEW
 
+            // NEW (journal catch-up): the journal position before reading the drive. Changes made during
+            // the scan are replayed from the recording; later ones are read from here next time.
+            var journalStart = JournalStart(root, token);
+            IndexActivity.FullScanStarted(root, IndexActivity.For(root).PendingReason
+                ?? (existing is null ? "First index of this drive" : force ? "Requested" : "Daily refresh (no change journal)"));
+
             VolumeIndex? built;
             // NEW (round 50): each drive can be abandoned on its own (a network drive turned off mid-read)
             // without stopping the whole index.
@@ -468,9 +895,15 @@ public static class FileIndexService
             _driveBuild = driveBuild;
             _buildingRoot = root;
 
+            FileTableIndex.Summary? tableSummary = null;
+
             try
             {
-                built = FileIndexBuilder.Build(
+                // NEW (instant first index): read the drive's file table through the index helper; it takes
+                // seconds instead of minutes. Anything unexpected falls back to the folder walk below.
+                built = network ? null : TryFileTableScan(root, serial, budget, driveBuild.Token, out tableSummary);
+
+                built ??= FileIndexBuilder.Build(
                     root,
                     serial,
                     budget,
@@ -488,6 +921,7 @@ public static class FileIndexService
                 _buildingRoot = null;
                 _watcher?.Unwatch(root);
                 DropNetworkVolumes();
+                IndexActivity.FullScanEnded(root, 0, completed: false, "network indexing was turned off"); // NEW
                 continue;
             }
             catch (OperationCanceledException)
@@ -505,6 +939,7 @@ public static class FileIndexService
                 Overlay.MarkOverflowed(root);
                 Trace.WriteLine($"Clearspace: could not index {root}. {exception.Message}");
                 ScanProblems[root] = exception.Message;
+                IndexActivity.FullScanEnded(root, 0, completed: false, exception.Message); // NEW
                 continue;
             }
             finally { _scanningVolume = null; }
@@ -518,6 +953,7 @@ public static class FileIndexService
                 _updater?.EndRecording(root);
                 _watcher?.Unwatch(root);
                 DropNetworkVolumes();
+                IndexActivity.FullScanEnded(root, 0, completed: false, "network indexing was turned off"); // NEW
                 continue;
             }
             if (built is null)
@@ -530,6 +966,7 @@ public static class FileIndexService
 
                 SkippedRoots = [.. skipped];
                 Report($"{root} is too large to index · still searched by crawling");
+                IndexActivity.FullScanEnded(root, 0, completed: false, "too large for the index memory budget"); // NEW
                 continue;
             }
 
@@ -549,15 +986,38 @@ public static class FileIndexService
                 Overlay.MarkOverflowed(root);
                 Trace.WriteLine($"Clearspace: could not replay changes for {root}. {exception.Message}");
                 ScanProblems[root] = exception.Message;
+                IndexActivity.FullScanEnded(root, 0, completed: false, exception.Message); // NEW
                 continue;
             }
             if (_watcher?.IsWatching(root) == true && Overlay.TryRecover(root, recoveryGeneration))
             {
                 recovered.Add(root);
-                lock (RescanRequests) RescanRequests.Remove(root);
+                lock (RescanRequests)
+                {
+                    RescanRequests.Remove(root);
+                    ForcedScans.Remove(root); // NEW
+                }
+
+                // NEW (journal catch-up): from now on this drive can be caught up instead of rescanned.
+                lock (Cursors)
+                {
+                    if (journalStart is { } position)
+                        Cursors[root] = new JournalCursor { Serial = serial, JournalId = position.JournalId, Checkpoint = position.Usn, Pending = position.Usn };
+                    else
+                        Cursors.Remove(root);
+                }
+                IndexActivity.FullScanEnded(root, built.Count - built.RemovedCount, completed: true);
+
+                // NEW: the first file-table scan of each drive is compared once with a folder walk, later,
+                // when the worker has nothing else to do (other drives are indexed first).
+                if (tableSummary is { } fromTable && !FileTableTrust.IsVerified(root, serial))
+                    lock (Verifications) Verifications[root] = (serial, budget, fromTable);
             }
             else
+            {
+                IndexActivity.FullScanEnded(root, built.Count - built.RemovedCount, completed: true);
                 RequestRescan(root);
+            }
             skipped.RemoveAll(path => path.Equals(root, StringComparison.OrdinalIgnoreCase));
             ScanProblems.TryRemove(root, out _);
             SkippedRoots = [.. skipped];
@@ -625,6 +1085,11 @@ public static class FileIndexService
         }
     }
 
+    // CHANGED (search relevance): each live volume is scanned with the whole query and keeps its best
+    // `limit` entries by score (IndexSearch); the best across all volumes are then materialised. This
+    // replaces "first limit x 4 filenames containing every word", which ranked only whatever the scan
+    // happened to reach first. Filter-only queries (ext:pdf, tag:work, is:folder) are answered here
+    // too, so a covered drive no longer falls back to crawling for them.
     public static IReadOnlyList<FileSystemItem> Search(
         SearchQuery query,
         IReadOnlyList<string> roots,
@@ -634,75 +1099,76 @@ public static class FileIndexService
     {
         var volumes = _volumes;
 
-        if (volumes.Length == 0 || limit <= 0)
+        if (volumes.Length == 0 || limit <= 0 || query.IsEmpty)
             return [];
 
-        var terms = query.Terms;
-
-        if (terms.Count == 0)
-            return [];
-
-        var folded = new string[terms.Count];
-
-        for (var i = 0; i < terms.Count; i++)
-            folded[i] = VolumeIndex.Fold(terms[i]);
-
-        var scanLimit = Math.Min(limit * 4, 200_000);
-        var results = new List<FileSystemItem>();
-
-        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var ranked = new List<(int Score, VolumeIndex Volume, int Index)>();
 
         foreach (var volume in volumes)
         {
-            if (token.IsCancellationRequested || results.Count >= limit)
-                break;
+            if (token.IsCancellationRequested)
+                return [];
 
-            if (!IsRootLive(volume.Root)) continue;
+            // CHANGED (search fix): a drive whose index is being refreshed (watcher overflow, rescan) is
+            // still searched from its previous snapshot so its results appear immediately. It is not
+            // "covered", so the coordinator also crawls it for anything newer, and FinishIndexAsync drops
+            // snapshot hits that no longer exist. Disconnected network drives are skipped: their hits
+            // cannot be verified.
+            if (!IsRootLive(volume.Root) && IsNetwork(volume.Root)) continue;
 
-            var hits = volume.Search(folded, showHidden, false, false, scanLimit, token);
+            var plan = IndexSearch.Prepare(volume, query, roots);
 
-            foreach (var hit in hits)
-            {
-                if (results.Count >= limit)
-                    break;
+            if (plan is null)
+                continue;
 
-                var path = volume.GetPath(hit);
-
-                if (path.Length == 0)
-                    continue;
-
-                if (!IsUnderAnyRoot(path, roots))
-                    continue;
-
-                if (Overlay.IsRemoved(path))
-                    continue;
-
-                if (!seen.Add(path))
-                    continue;
-
-                var item = Materialise(volume, hit, path);
-
-                if (item is null || !query.Matches(item))
-                    continue;
-
-                results.Add(item);
-            }
+            foreach (var (score, index) in IndexSearch.Search(volume, query, plan, showHidden, limit, token))
+                ranked.Add((score, volume, index));
         }
 
-        if (results.Count < limit && !token.IsCancellationRequested)
-        {
-            var recent = new List<FileSystemItem>();
-            Overlay.CollectMatches(folded, showHidden, limit - results.Count, recent);
+        ranked.Sort((left, right) => right.Score.CompareTo(left.Score));
 
-            foreach (var item in recent)
+        var results = new List<FileSystemItem>(Math.Min(limit, ranked.Count));
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var (_, volume, index) in ranked)
+        {
+            if (results.Count >= limit || token.IsCancellationRequested)
+                break;
+
+            var path = volume.GetPath(index);
+
+            if (path.Length == 0 || Overlay.IsRemoved(path) || !seen.Add(path))
+                continue;
+
+            var item = Materialise(volume, index, path);
+
+            if (item is not null)
+                results.Add(item);
+        }
+
+        // Entries created since the last full scan. The coordinator ranks everything together.
+        if (!token.IsCancellationRequested)
+        {
+            var added = 0;
+
+            foreach (var path in Overlay.AddedPaths())
             {
-                if (!IsUnderAnyRoot(item.FullPath, roots))
+                if (added >= limit || token.IsCancellationRequested)
+                    break;
+
+                if (seen.Contains(path) || !IsUnderAnyRoot(path, roots) || !query.MightMatchPath(path))
                     continue;
 
-                if (!seen.Add(item.FullPath) || !query.Matches(item))
+                var item = FileSystemItem.FromLocation(path);
+
+                if (item is null || (!showHidden && (item.IsHidden || (item.Attributes & FileAttributes.System) != 0)))
+                    continue;
+
+                if (!query.Matches(item) || !seen.Add(path))
                     continue;
 
                 results.Add(item);
+                added++;
             }
         }
 

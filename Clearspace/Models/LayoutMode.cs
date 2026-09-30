@@ -49,6 +49,12 @@ public static class MediaTypes
         ".pdf", ".ai", ".eps", ".blend", ".3mf"
     };
 
+    // NEW (search relevance): the search index tests extensions straight from name spans, so it needs
+    // the sets themselves (span lookups) rather than the string-only helpers below. Read-only by convention.
+    internal static HashSet<string> ImageExtensions => Image;
+    internal static HashSet<string> VideoExtensions => Video;
+    internal static HashSet<string> AudioExtensions => Audio;
+
     public static bool IsImage(string extension) => Image.Contains(extension);
 
     public static bool IsVideo(string extension) => Video.Contains(extension);

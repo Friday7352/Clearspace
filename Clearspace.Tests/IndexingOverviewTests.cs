@@ -13,12 +13,12 @@ public sealed class IndexingOverviewTests
         var retry = DateTime.UtcNow.AddMinutes(10);
         var reason = IndexingOverview.ExplainWait(retry, null, null);
         StringAssert.Contains(reason, "20 minutes");
-        StringAssert.Contains(reason, "Scan now");
+        StringAssert.Contains(reason, "Full rescan"); // CHANGED: button renamed in the page overhaul
         StringAssert.Contains(IndexingOverview.ExplainWait(retry, @"D:\", null), "Waiting for D:");
         StringAssert.Contains(IndexingOverview.ExplainWait(null, null, "Saving index"), "Saving index");
         var row = new IndexedDrive(@"C:\", "Waiting to update", reason, 0, 0, null, null, null) { ScheduledUtc = retry };
         Assert.IsFalse(row.ShowProgress);
-        StringAssert.Contains(row.ProgressText, "Retry at");
+        StringAssert.Contains(row.ProgressText, "eligible at"); // CHANGED: wording
         StringAssert.Contains((row with { ScheduledUtc = null }).ProgressText, "Queued");
         var summary = new IndexingSummary([row], "", null, null, null, 0, null, "", 0, 0, false);
         Assert.AreEqual(reason, summary.ActivityDetail);
@@ -132,7 +132,7 @@ public sealed class IndexingOverviewTests
     public void SavedIndexWithoutScanDetailsDoesNotClaimFullCoverage()
     {
         var row = new IndexedDrive(@"C:\", "Saved index", "", 10, 20, DateTime.UtcNow, null, null);
-        StringAssert.Contains(row.CoverageText, "not saved");
-        StringAssert.Contains(row.ScanText, "Scan started");
+        StringAssert.Contains(row.CoverageText, "after the next full scan"); // CHANGED: wording
+        StringAssert.Contains(row.ScanText, "Index built"); // CHANGED: wording
     }
 }

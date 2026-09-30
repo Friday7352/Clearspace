@@ -26,13 +26,15 @@ internal static class FileIndexStore
     // NEW: periodic background saves and the save on exit must not write the file at once.
     private static readonly object SaveGate = new();
 
-    public static void Save(IReadOnlyList<VolumeIndex> volumes)
+    // CHANGED (journal catch-up): reports success, so change-journal positions are only recorded
+    // alongside an index file that was actually written.
+    public static bool Save(IReadOnlyList<VolumeIndex> volumes)
     {
         lock (SaveGate)
-            SaveCore(volumes);
+            return SaveCore(volumes);
     }
 
-    private static void SaveCore(IReadOnlyList<VolumeIndex> volumes)
+    private static bool SaveCore(IReadOnlyList<VolumeIndex> volumes)
     {
         try
         {
@@ -69,10 +71,12 @@ internal static class FileIndexStore
 
             File.Move(temporary, FilePath, overwrite: true);
             foreach (var volume in volumes) volume.MarkSaved(); // NEW
+            return true;
         }
         catch (Exception exception)
         {
             Trace.WriteLine($"Clearspace: could not save the file index. {exception.Message}");
+            return false;
         }
     }
 

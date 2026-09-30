@@ -2,6 +2,74 @@
 
 Design discussion · September 29, 2026 · Proposed work after Artifact 3
 
+## Status (September 29, 2026)
+
+- **Decided:** tags stay in SQLite; file contents get a separate, rebuildable SQLite FTS5 database;
+  the filename index stays in memory with its binary snapshot, plus an append-only change log
+  instead of full rewrites. Fast NTFS enumeration and the USN change journal will come from an
+  **optional helper service** with admin rights installed by the installer. Clearspace itself keeps
+  running as a normal user, and drives the service cannot read fall back to today's scanning. This
+  replaces the August "no elevation, ever" rule.
+- **Step 1 implemented on `search-relevance` (not yet built or tested on Windows):**
+  - `SearchQuery` treats plain words as evidence. A word is satisfied by the name, an exact or
+    prefix tag, a type word, a folder type, or a folder above the item. At least one word must
+    match the item itself.
+  - Multiword tags are recognized. Quoted text is always literal.
+  - `SearchRanker` scores that evidence. `IndexSearch` scans each volume with the whole query and
+    keeps the best N by score, instead of the first N found.
+  - The index answers filter-only queries. The coordinator keeps the best results instead of the
+    first to arrive.
+  - Known-item checks are in `Clearspace.Tests/SearchRelevanceTests.cs`.
+- **Journal catch-up implemented on `search-relevance` (not yet built or tested on Windows):**
+  - `Clearspace/Journal/` reads a drive's NTFS change journal and turns its records into the
+    paths that changed. It is shared with the new `Clearspace.IndexHelper` service project.
+  - The service reads the journal as SYSTEM. It resolves paths while impersonating the caller, so
+    callers only receive paths their own account can open. It accepts one request per pipe connection.
+  - `FileIndexService` saves the journal ID and position per drive in `index.journal.json`, only
+    after a successful index save.
+  - At startup, and whenever live watching misses changes, it replays only the changed paths.
+    Paths are re-read from disk, so the replay is idempotent. It falls back to a full rescan when
+    the journal was recreated, wrapped, or is unavailable.
+  - Drives with a journal position skip the daily rebuild.
+  - The helper is turned on from the Indexing page (one UAC prompt) or as an optional installer
+    task. It is installed to Program Files, because a SYSTEM service must not run from a
+    user-writable folder.
+  - The Indexing page now shows the following:
+    - how each drive is kept current;
+    - its last catch-up and last full scan (with counts and timings);
+    - why an update is pending;
+    - live changes applied this session;
+    - a recent activity log.
+  - A drive's first index is still a full walk. The journal's fast listing has no sizes or dates,
+    and the disk-usage map needs both.
+- **Instant first index implemented on `search-relevance` (not yet built or tested on Windows):**
+  - With the helper installed, a drive's first index reads its NTFS master file table
+    (`Clearspace/Journal/FileTable.cs`) instead of walking folders. The table is read in large
+    sequential chunks and parsed directly, taking seconds instead of minutes. Each record gives the
+    names, parent, attributes, dates and the real size.
+  - Results match a walk by the calling account:
+    - metadata files are excluded;
+    - folder links are listed but not entered;
+    - cloud-sync folders are entered;
+    - hard links appear once per name;
+    - folders the caller cannot list keep their entry but not their contents. This is checked once
+      per security descriptor, as the caller.
+  - The helper sends the table over its pipe in binary. Clearspace builds the index arrays directly.
+  - The first file-table scan of each drive is compared once with a normal folder walk, in the
+    background after all drives are indexed (`index.filetable.json`). If they disagree beyond small
+    drift, that drive goes back to folder walks and the page says why.
+  - The installer now turns the helper on by default. Windows asks for permission once, during
+    setup; Clearspace itself never needs to run as administrator.
+- **Manual check for journal catch-up:**
+  1. Turn on fast catch-up on the Indexing page.
+  2. Wait for one save, so the page shows "Change journal".
+  3. Close Clearspace. Create, rename and delete a few files.
+  4. Reopen Clearspace. The activity log should show "Caught up from the change journal" within
+     seconds, with no full scan.
+  5. Search for the new names.
+- **Next:** the tag result row and match explanations (step 2), then the content index (step 3),
+  then the index change log (smaller saves).
+
 ## Product intent
 
 Find the files and folders the person most likely means using ordinary words.

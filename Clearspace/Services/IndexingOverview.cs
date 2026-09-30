@@ -1,4 +1,12 @@
+// Clearspace | Snapshot of the index for the Indexing page.
+//
+// CHANGED (indexing page overhaul): each drive now reports how it is kept current (change journal,
+// live watcher, or full scans), what happened last (catch-up / full scan, with counts and timings),
+// what is pending and why, and how many live changes were applied this session. The page also gets
+// the journal/helper status and the recent activity log. Everything is captured on a worker.
+
 using System.IO;
+using Clearspace.Journal;
 
 namespace Clearspace.Services;
 
@@ -7,24 +15,32 @@ internal sealed record IndexedDrive(string Root, string State, string Detail, lo
 {
     public DateTime? ScheduledUtc { get; init; }
     public bool CanScan { get; init; }
+    // NEW (overhaul)
+    public bool CanCatchUp { get; init; }
+    public DriveActivity Activity { get; init; } = new();
+    public string Method { get; init; } = "Full scans";
+    public string MethodDetail { get; init; } = "";
+    public bool IsNetwork { get; init; }
+
     public bool ShowProgress => IsScanning;
     public bool IsScanning => State is "Indexing" or "Updating";
     public bool IsScanComplete => !IsScanning && (State is "Up to date" or "Saved index") && Source is not null;
     public double ProgressPercent => IsScanning ? Scan?.ProgressPercent ?? 0 : IsScanComplete ? 100 : 0;
     public string ProgressText => IsScanning ? $"{ProgressPercent:0}% of discovered folders"
-        : IsScanComplete ? State == "Up to date" ? "Ready · watching for changes" : "Saved entries available" : ScheduledUtc is { } retry && retry > DateTime.UtcNow
-        ? $"Retry at {retry.ToLocalTime():t}" : State is "Waiting to update" or "Waiting to index" ? "Queued · scan has not started"
-        : State == "Not included" ? "Not indexed" : State == "Unavailable" ? "Drive unavailable" : "Scan needs attention";
+        : IsScanComplete ? State == "Up to date" ? "Up to date · watching for changes" : "Saved entries available" : ScheduledUtc is { } retry && retry > DateTime.UtcNow
+        ? $"Full rescan eligible at {retry.ToLocalTime():t}" : State is "Waiting to update" or "Waiting to index" ? "Queued"
+        : State == "Not included" ? "Not indexed" : State == "Unavailable" ? "Drive unavailable" : "Needs attention";
     public string ProgressDetail => IsScanning && Scan is { } scan
-        ? $"{scan.FoldersProcessed:N0} processed · {scan.FoldersRemaining:N0} waiting · {scan.FoldersDiscovered:N0} discovered. More folders may be found, so the percentage can decrease. Skipped locations are listed below."
-        : State == "Up to date" ? "No full scan is needed right now. Changes are tracked automatically. You can request a fresh scan below."
+        ? $"{scan.FoldersProcessed:N0} folders read · {scan.FoldersRemaining:N0} waiting · {scan.FoldersDiscovered:N0} found so far. The percentage can drop as more folders are found."
         : Detail;
     public string CountText => Source is null ? "No saved entries" : $"{Items:N0} entries";
     public string MemoryText => Source is null ? "—" : DiskUsageSnapshot.FormatBytes(MemoryBytes);
     public string ScanText => Scan?.CompletedUtc is { } completed ? $"Scan finished {completed.ToLocalTime():g}"
-        : ScanStartedUtc is { } started ? $"Scan started {started.ToLocalTime():g}" : "No scan recorded";
-    public string CoverageText => Scan is null ? "Folder-level scan details were not saved. They will appear after the next scan."
+        : ScanStartedUtc is { } started ? $"Index built {started.ToLocalTime():g}" : "No scan recorded";
+    public string CoverageText => Scan is null ? "Folder-level details are kept for scans run this session. They will appear after the next full scan."
         : $"{Scan.FoldersVisited:N0} folders visited · {Scan.SkippedFolders:N0} skipped";
+    public string NextText => Activity.PendingReason is { } reason ? reason
+        : IsScanning ? "Full scan in progress" : State == "Up to date" ? "Nothing pending" : Detail;
 }
 
 internal sealed record IndexingSummary(IReadOnlyList<IndexedDrive> Drives, string IndexPath, long? DiskBytes,
@@ -32,19 +48,37 @@ internal sealed record IndexingSummary(IReadOnlyList<IndexedDrive> Drives, strin
     int ActiveItems, long VisitedFolders, bool NetworkEnabled)
 {
     public string? WorkerActivity { get; init; }
+    // NEW (overhaul)
+    public JournalAccess Access { get; init; }
+    public IReadOnlyList<IndexEvent> Events { get; init; } = [];
+
     private IndexedDrive? Waiting => Drives.FirstOrDefault(d => d.State is "Waiting to update" or "Waiting to index" or "Needs attention");
     public long IndexedItems => Drives.Sum(drive => drive.Items);
-    public string ActivityTitle => ActiveRoot is not null ? $"Scanning {ActiveRoot}" : WorkerActivity is not null ? "Indexing status"
-        : Waiting is { } waiting ? $"{waiting.Root} needs an update" : "Index ready";
-    public string ActivityDetail => ActiveRoot is not null ? $"{ActiveItems:N0} entries found · {VisitedFolders:N0} folders visited"
-        : WorkerActivity ?? (Waiting is { } waiting ? waiting.Detail
-        : IndexedItems > 0 ? "Your saved index is available. File changes are tracked automatically; a full scan does not need to run continuously."
-        : "No indexed entries are available yet. Select a drive below to see its status.");
+    public long LiveChanges => Drives.Sum(drive => drive.Activity.LiveChanges);
+    public bool IsBusy => ActiveRoot is not null || WorkerActivity is not null;
+    public bool JournalOn => Access is JournalAccess.Direct or JournalAccess.Helper;
+    public string AccessText => IndexJournal.Describe(Access);
+
+    public string ActivityTitle => ActiveRoot is not null ? $"Full scan of {ActiveRoot}"
+        : WorkerActivity is not null ? WorkerActivity
+        : Waiting is { } waiting ? $"{waiting.Root} needs an update"
+        : IndexedItems > 0 ? "Everything is up to date" : "No index yet";
+
+    public string ActivityDetail => ActiveRoot is not null
+        ? $"{ActiveItems:N0} entries found · {VisitedFolders:N0} folders visited. Searches keep using the previous index until this finishes."
+        : Waiting is { } waiting ? waiting.Activity.PendingReason is { } reason ? $"{reason}. {waiting.Detail}" : waiting.Detail
+        : IndexedItems > 0
+            ? JournalOn
+                ? "Live changes are applied as they happen. After a restart or a missed change, only the drive's change journal is read — no full rescan."
+                : "Live changes are applied as they happen. Turn on fast catch-up below so restarts and missed changes do not need full rescans."
+            : "Drives are indexed in the background after Clearspace starts.";
+
+    public string LiveChangesText => LiveChanges == 0 ? "None yet" : $"{LiveChanges:N0}";
 }
 
 internal sealed record IndexedEntry(int Id, string Name, string Path, bool IsFolder, long Bytes)
 {
-    public string Glyph => IsFolder ? "\uE8B7" : "\uE8A5";
+    public string Glyph => IsFolder ? "" : "";
     public string SizeText => IsFolder ? "Folder" : DiskUsageSnapshot.FormatBytes(Bytes);
 }
 internal sealed record IndexedFolderPage(string Path, int Parent, IReadOnlyList<IndexedEntry> Entries, int MatchingCount);
@@ -56,6 +90,8 @@ internal static class IndexingOverview
     {
         var published = FileIndexService.CaptureVolumes();
         var scanning = FileIndexService.ScanningVolume;
+        var access = IndexJournal.CachedAccess();
+        var journalOn = access is JournalAccess.Direct or JournalAccess.Helper;
         var roots = new Dictionary<string, DriveType>(StringComparer.OrdinalIgnoreCase);
         try
         {
@@ -74,30 +110,49 @@ internal static class IndexingOverview
             var source = saved ?? (active ? scanning : null);
             var details = (active ? scanning : saved)?.ScanDetails?.Capture();
             var problem = FileIndexService.ScanProblem(root);
+            var network = kind == DriveType.Network;
             var state = active ? saved is null ? "Indexing" : "Updating"
                 : problem is not null ? "Needs attention"
-                : kind == DriveType.Network && !NetworkDrives.Enabled ? "Not included"
-                : kind == DriveType.Network && !NetworkDrives.IsReady(root) ? "Unavailable"
+                : network && !NetworkDrives.Enabled ? "Not included"
+                : network && !NetworkDrives.IsReady(root) ? "Unavailable"
                 : pending.Contains(root, StringComparer.OrdinalIgnoreCase) ? "Waiting to update"
                 : saved is not null && FileIndexService.HasLiveCoverage(root) ? "Up to date"
                 : saved is not null ? "Saved index"
                 : kind is DriveType.Fixed or DriveType.Network ? "Waiting to index" : "Not included";
             var retry = FileIndexService.RetryAt(root);
-            var detail = active ? saved is null ? "Building its first index." : "Refreshing this drive; its previous entries are still listed."
+            var activity = IndexActivity.For(root);
+            var hasPosition = FileIndexService.HasJournalPosition(root);
+            var (method, methodDetail) = network || !UsnJournal.IsDriveRoot(root)
+                ? ("Watcher + full scans", "Network drives have no change journal Clearspace can read. Live changes are applied; missed changes need a full rescan.")
+                : journalOn && hasPosition
+                    ? ("Change journal", "Live changes are applied as they happen. After a restart or a missed change, only the change journal is read.")
+                    : journalOn
+                        ? ("Journal pending", activity.JournalNote ?? "The journal position is recorded after the next save or full scan; after that, restarts read only the changes.")
+                        : ("Watcher + full scans", "Live changes are applied as they happen. Without fast catch-up, a restart or missed change means a full rescan of this drive.");
+            var detail = active ? saved is null ? "Building its first index." : "Rescanning in full; the previous entries stay searchable until it finishes."
                 : FileIndexService.WorkerProblem ?? problem ?? (state switch
                 {
-                    "Up to date" => "Watching for changes. Unreadable folders and folder links may be skipped.",
-                    "Waiting to update" => ExplainWait(retry, scanning?.Root, FileIndexService.Maintenance),
-                    "Waiting to index" => ExplainWait(null, scanning?.Root, FileIndexService.Maintenance),
+                    "Up to date" => "Watching for changes. Unreadable folders and folder links are skipped.",
+                    "Waiting to update" => ExplainWait(retry, scanning?.Root, FileIndexService.Maintenance, journalOn && hasPosition),
+                    "Waiting to index" => ExplainWait(null, scanning?.Root, FileIndexService.Maintenance, false),
                     "Unavailable" => "The network drive is not responding. Any saved entries remain available.",
-                    "Not included" => kind == DriveType.Network ? "Network indexing is off." : "Only fixed drives and opted-in network drives are indexed.",
-                    "Saved index" => "Saved entries are available; live coverage is not currently confirmed.",
+                    "Not included" => network ? "Network indexing is off." : "Only fixed drives and opted-in network drives are indexed.",
+                    "Saved index" => "Saved entries are searchable; live watching is not confirmed right now.",
                     _ => "Included in indexing when the drive is available."
                 });
+            var canScan = !active && FileIndexService.WorkerProblem is null &&
+                (kind == DriveType.Fixed || network && NetworkDrives.Enabled && NetworkDrives.IsReady(root));
             rows.Add(new(root, state, detail, source is null ? 0 : Math.Max(0, source.Count - source.RemovedCount),
                 source?.EstimatedBytes ?? 0, source?.BuiltUtc, details, source)
-            { ScheduledUtc = scanning is null ? retry : null, CanScan = !active && FileIndexService.WorkerProblem is null &&
-                (kind == DriveType.Fixed || kind == DriveType.Network && NetworkDrives.Enabled && NetworkDrives.IsReady(root)) });
+            {
+                ScheduledUtc = scanning is null ? retry : null,
+                CanScan = canScan,
+                CanCatchUp = canScan && saved is not null,
+                Activity = activity,
+                Method = method,
+                MethodDetail = methodDetail,
+                IsNetwork = network
+            });
         }
         long? disk = null;
         DateTime? savedAt = null;
@@ -113,16 +168,21 @@ internal static class IndexingOverview
         var scan = scanning?.ScanDetails?.Capture();
         return new(rows, FileIndexStore.FilePath, disk, savedAt, storageError, memory, scanning?.Root,
             scan?.CurrentFolder ?? "", scanning?.Count ?? 0, scan?.FoldersVisited ?? 0, NetworkDrives.Enabled)
-        { WorkerActivity = FileIndexService.WorkerProblem ?? FileIndexService.Maintenance };
+        {
+            WorkerActivity = FileIndexService.WorkerProblem ?? FileIndexService.Maintenance,
+            Access = access,
+            Events = IndexActivity.Events()
+        };
     }
 
-    internal static string ExplainWait(DateTime? retry, string? activeRoot, string? maintenance)
+    internal static string ExplainWait(DateTime? retry, string? activeRoot, string? maintenance, bool journal = false)
     {
-        if (activeRoot is not null) return $"Waiting for {activeRoot} to finish. Clearspace scans one drive at a time to limit disk activity. Your saved entries remain available.";
+        if (journal) return "It will be caught up from the change journal in a moment; only the changes are read.";
+        if (activeRoot is not null) return $"Waiting for {activeRoot} to finish. Clearspace scans one drive at a time to limit disk activity. Saved entries remain searchable.";
         if (retry is { } time && time > DateTime.UtcNow)
-            return $"Changes need to be checked. Automatic rescans are spaced 20 minutes apart to limit disk activity. Eligible again at {time.ToLocalTime():t}; choose Scan now to skip this wait. Your saved entries remain available.";
-        if (maintenance is not null) return $"{maintenance}. This drive will be checked afterward; saved entries remain available.";
-        return "A catch-up scan is queued to verify changes missed while Clearspace was closed or busy. The background worker will pick it up next; saved entries remain available.";
+            return $"Automatic full rescans are spaced 20 minutes apart to limit disk activity. Eligible at {time.ToLocalTime():t}; choose Full rescan to skip the wait. Saved entries remain searchable.";
+        if (maintenance is not null) return $"{maintenance}. This drive is next; saved entries remain searchable.";
+        return "A full rescan is queued to pick up changes Clearspace could not observe. Saved entries remain searchable.";
     }
 
     // Read the actual indexed parent IDs, never the filesystem. Results and UI objects are bounded.
