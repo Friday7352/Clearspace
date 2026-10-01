@@ -817,6 +817,8 @@ public static class FileIndexService
                 continue;
 
             var fromWalk = FileTableIndex.Summarize(walked);
+            walked = null;               // NEW (memory): the walk was only needed for its totals
+            MemoryRelief.Release();
 
             if (FileTableIndex.Agree(job.Summary, fromWalk, out var detail))
             {
@@ -840,6 +842,7 @@ public static class FileIndexService
     {
         var skipped = new List<string>(SkippedRoots);
         var recovered = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var published = 0; // NEW (memory)
 
         foreach (var root in EnumerateIndexableRoots())
         {
@@ -989,6 +992,8 @@ public static class FileIndexService
                 IndexActivity.FullScanEnded(root, 0, completed: false, exception.Message); // NEW
                 continue;
             }
+            published++;
+
             if (_watcher?.IsWatching(root) == true && Overlay.TryRecover(root, recoveryGeneration))
             {
                 recovered.Add(root);
@@ -1030,6 +1035,9 @@ public static class FileIndexService
                 foreach (var root in forced)
                     if (!recovered.Contains(root)) RescanRequests.Add(root);
         IsBuilding = false;
+
+        // NEW (memory): the indexes these drives replaced are garbage now; give the space back.
+        if (published > 0) MemoryRelief.Release();
     }
 
     private static void StartWatching(IEnumerable<string> roots)

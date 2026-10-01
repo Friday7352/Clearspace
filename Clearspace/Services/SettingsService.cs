@@ -14,6 +14,15 @@ public sealed class SettingsData
 
     public Dictionary<string, string> FolderViewProfiles { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 
+    // NEW (folder types): folders whose type also applies to every folder below them.
+    public HashSet<string> FolderTypeSubfolders { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+
+    // NEW (folder types): saved custom folder types ("School"), based on a built-in type.
+    public List<Clearspace.Models.CustomFolderTypeData> CustomFolderTypes { get; set; } = [];
+
+    // NEW (folder types, step 2): files pinned to a project's strip, keyed by the project folder.
+    public Dictionary<string, List<string>> ProjectPins { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+
     public bool UseWindowsIndex { get; set; } = true;
 
     // NEW (round 18): disk map performance options. GPU acceleration draws the blocks through
@@ -116,6 +125,9 @@ public static class SettingsService
                     loaded.FolderLayouts = new Dictionary<string, string>(loaded.FolderLayouts, StringComparer.OrdinalIgnoreCase);
                     loaded.FolderTileScales = new Dictionary<string, double>(loaded.FolderTileScales ?? [], StringComparer.OrdinalIgnoreCase);
                     loaded.FolderViewProfiles = new Dictionary<string, string>(loaded.FolderViewProfiles ?? [], StringComparer.OrdinalIgnoreCase);
+                    loaded.FolderTypeSubfolders = new HashSet<string>(loaded.FolderTypeSubfolders ?? [], StringComparer.OrdinalIgnoreCase); // NEW
+                    loaded.CustomFolderTypes ??= []; // NEW
+                    loaded.ProjectPins = new Dictionary<string, List<string>>(loaded.ProjectPins ?? [], StringComparer.OrdinalIgnoreCase); // NEW (step 2)
                     loaded.ProfileColumns = new Dictionary<string, List<string>>(loaded.ProfileColumns ?? [], StringComparer.OrdinalIgnoreCase);
                     loaded.FolderColumns = new Dictionary<string, List<string>>(loaded.FolderColumns ?? [], StringComparer.OrdinalIgnoreCase);
                     loaded.FolderColumnWidths = new Dictionary<string, Dictionary<string, double>>(
@@ -184,7 +196,10 @@ public static class SettingsService
     {
         if (string.IsNullOrWhiteSpace(profile) ||
             profile.Equals("Automatic", StringComparison.OrdinalIgnoreCase))
+        {
             Current.FolderViewProfiles.Remove(folder);
+            Current.FolderTypeSubfolders.Remove(folder); // NEW
+        }
         else
             Current.FolderViewProfiles[folder] = profile;
 
@@ -201,10 +216,79 @@ public static class SettingsService
                      .Distinct(StringComparer.OrdinalIgnoreCase))
         {
             if (applyAutomatic)
+            {
                 Current.FolderViewProfiles.Remove(folder);
+                Current.FolderTypeSubfolders.Remove(folder); // NEW
+            }
             else
                 Current.FolderViewProfiles[folder] = profile!;
         }
+
+        Save();
+    }
+
+    // ------------------------------------------------------------------ NEW: folder types
+
+    public static bool GetFolderTypeAppliesToSubfolders(string folder)
+        => Current.FolderTypeSubfolders.Contains(folder);
+
+    public static void SetFolderTypeAppliesToSubfolders(IEnumerable<string> folders, bool applies)
+    {
+        foreach (var folder in folders.Where(folder => !string.IsNullOrWhiteSpace(folder)))
+        {
+            if (applies) Current.FolderTypeSubfolders.Add(folder);
+            else Current.FolderTypeSubfolders.Remove(folder);
+        }
+
+        Save();
+    }
+
+    public static IReadOnlyList<Clearspace.Models.CustomFolderTypeData> GetCustomFolderTypes() => Current.CustomFolderTypes;
+
+    public static void SaveCustomFolderType(Clearspace.Models.CustomFolderTypeData type)
+    {
+        Current.CustomFolderTypes.RemoveAll(existing => existing.Id.Equals(type.Id, StringComparison.OrdinalIgnoreCase));
+        Current.CustomFolderTypes.Add(type);
+        Save();
+    }
+
+    // Removes a custom type; folders that used it go back to Automatic.
+    public static void DeleteCustomFolderType(string id)
+    {
+        Current.CustomFolderTypes.RemoveAll(existing => existing.Id.Equals(id, StringComparison.OrdinalIgnoreCase));
+
+        foreach (var folder in Current.FolderViewProfiles.Where(pair => pair.Value.Equals(id, StringComparison.OrdinalIgnoreCase))
+                     .Select(pair => pair.Key).ToArray())
+        {
+            Current.FolderViewProfiles.Remove(folder);
+            Current.FolderTypeSubfolders.Remove(folder);
+        }
+
+        Save();
+    }
+
+    // ------------------------------------------------------------------ NEW (step 2): project pins
+
+    public static IReadOnlyList<string> GetProjectPins(string project)
+        => Current.ProjectPins.TryGetValue(project, out var pins) ? [.. pins] : [];
+
+    public static bool IsProjectPin(string project, string path)
+        => Current.ProjectPins.TryGetValue(project, out var pins) &&
+           pins.Contains(path, StringComparer.OrdinalIgnoreCase);
+
+    public static void SetProjectPins(string project, IEnumerable<string> paths, bool pinned)
+    {
+        if (!Current.ProjectPins.TryGetValue(project, out var pins))
+            Current.ProjectPins[project] = pins = [];
+
+        foreach (var path in paths.Where(path => !string.IsNullOrWhiteSpace(path)))
+        {
+            pins.RemoveAll(existing => existing.Equals(path, StringComparison.OrdinalIgnoreCase));
+            if (pinned) pins.Add(path);
+        }
+
+        if (pins.Count == 0)
+            Current.ProjectPins.Remove(project);
 
         Save();
     }

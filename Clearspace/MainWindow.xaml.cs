@@ -6,6 +6,7 @@ using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
+using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
@@ -22,6 +23,8 @@ public partial class MainWindow : Window
     private readonly MainViewModel _viewModel = new();
     private DiskUsageView? _diskUsageView;
     private IndexingView? _indexingView;
+
+    // MOVED (locked folders): the lock / unlock handlers now live in MainWindow.FileLocks.cs.
 
     private void OnIndexing(object? sender, RoutedEventArgs e)
     {
@@ -103,6 +106,7 @@ public partial class MainWindow : Window
         _viewModel.Context.InvertSelection = InvertSelection;
         _viewModel.Context.FocusAddressBar = ShowAddressEditor;
         _viewModel.Context.BeginRename = BeginRename;
+        InitializeFileLocks(); // CHANGED (locked folders): wires OpenLockedFile, the folder password gate and re-locking
 
         Loaded += OnLoaded;
         Closed += (_, _) => { _indexingView?.Dispose(); _diskUsageView?.Dispose(); _viewModel.Dispose(); };
@@ -119,6 +123,16 @@ public partial class MainWindow : Window
         DependencyPropertyDescriptor
             .FromProperty(ListView.ViewProperty, typeof(ListView))
             .AddValueChanged(FileList, (_, _) => ApplyColumns());
+
+        // NEW (folder types, step 2): date groups (Screenshots) follow the list and the view model.
+        DependencyPropertyDescriptor
+            .FromProperty(ItemsControl.ItemsSourceProperty, typeof(ListView))
+            .AddValueChanged(FileList, (_, _) => ApplyGrouping());
+        _viewModel.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(MainViewModel.ListGrouping))
+                ApplyGrouping();
+        };
 
         FileList.AddHandler(Thumb.DragCompletedEvent, new DragCompletedEventHandler(OnColumnResizeCompleted), true);
         FileList.AddHandler(UIElement.PreviewMouseLeftButtonDownEvent, new MouseButtonEventHandler(OnColumnHeaderMouseDown), true);
@@ -327,6 +341,7 @@ public partial class MainWindow : Window
 
     private void OnCreateTag(object sender, RoutedEventArgs e)
     {
+        _isNamingFolderType = false; // NEW
         _editingCategoryId = null;
         CategoryPanelTitle.Text = "New tag";
         CategoryBox.Text = string.Empty;
@@ -601,6 +616,7 @@ public partial class MainWindow : Window
     private void BeginCategoryEdit(string? categoryId, string name)
     {
         _isNamingTag = false;
+        _isNamingFolderType = false; // NEW
         _editingCategoryId = categoryId;
         CategoryPanelTitle.Text = categoryId is null ? "New category" : "Rename category";
         CategoryBox.Text = name;
@@ -629,7 +645,9 @@ public partial class MainWindow : Window
             return;
         }
 
-        if (_isNamingTag)
+        if (_isNamingFolderType)
+            _viewModel.SaveViewAsFolderType(name); // NEW (folder types)
+        else if (_isNamingTag)
             _viewModel.CreateTagForSelection(name);
         else if (string.IsNullOrWhiteSpace(_editingCategoryId))
             _viewModel.CreatePinnedCategory(name);
@@ -644,6 +662,7 @@ public partial class MainWindow : Window
         CategoryPanel.Visibility = Visibility.Collapsed;
         _editingCategoryId = null;
         _isNamingTag = false;
+        _isNamingFolderType = false; // NEW
         FileList.Focus();
     }
 
@@ -842,18 +861,122 @@ public partial class MainWindow : Window
         menu.IsOpen = true;
     }
 
+    // CHANGED (folder types): menus list every type (built-in and custom) from FolderTypes.
+    private static string MenuName(FolderType type) => type.Id == FolderTypes.General.Id ? "General files" : type.Name;
+
+    private static void AddTypeItems(ItemsControl menu, string currentId, RoutedEventHandler onClick)
+    {
+        menu.Items.Clear();
+        var custom = FolderTypes.Custom;
+
+        foreach (var type in FolderTypes.BuiltIn)
+        {
+            // NEW (folder types, step 2): the step-2 types start their own group.
+            if (type.Base == DirectoryViewProfile.Screenshots) menu.Items.Add(new Separator());
+
+            menu.Items.Add(new MenuItem
+            {
+                Header = MenuName(type),
+                Tag = type.Id,
+                IsCheckable = true,
+                IsChecked = type.Id.Equals(currentId, StringComparison.OrdinalIgnoreCase),
+                ToolTip = string.IsNullOrEmpty(type.Description) ? null : type.Description // NEW (step 2)
+            });
+            ((MenuItem)menu.Items[^1]).Click += onClick;
+            if (type.Id == FolderTypes.General.Id) menu.Items.Add(new Separator());
+        }
+
+        if (custom.Count > 0)
+            menu.Items.Add(new Separator());
+
+        foreach (var type in custom)
+        {
+            var item = new MenuItem
+            {
+                Header = type.Name,
+                Tag = type.Id,
+                IsCheckable = true,
+                IsChecked = type.Id.Equals(currentId, StringComparison.OrdinalIgnoreCase),
+                ToolTip = $"Custom type based on {type.Base}"
+            };
+            item.Click += onClick;
+            menu.Items.Add(item);
+        }
+    }
+
+    private void OnFolderTypeMenuOpened(object sender, RoutedEventArgs e)
+    {
+        if (sender is not ContextMenu menu) return;
+
+        var path = _viewModel.CurrentPath;
+        var assigned = FolderTypes.AssignedTo(path);
+        AddTypeItems(menu, assigned.Id, OnFolderProfileSelected);
+
+        menu.Items.Add(new Separator());
+
+        if (_viewModel.FolderTypeInheritedFrom is { } from)
+            menu.Items.Add(new MenuItem { Header = $"{_viewModel.FolderType.Name} comes from {from}", IsEnabled = false });
+
+        var subfolders = new MenuItem
+        {
+            Header = "Apply to subfolders",
+            IsCheckable = true,
+            IsChecked = _viewModel.FolderTypeAppliesToSubfolders,
+            IsEnabled = !assigned.IsAutomatic,
+            ToolTip = "Use this folder type for every folder inside this one, unless a folder has its own type"
+        };
+        subfolders.Click += (_, _) => _viewModel.SetFolderTypeAppliesToSubfolders(subfolders.IsChecked);
+        menu.Items.Add(subfolders);
+
+        var save = new MenuItem { Header = "Save this view as a folder type…", ToolTip = "Keeps the current layout and columns under a name you choose, like School" };
+        save.Click += (_, _) => BeginNamingFolderType();
+        menu.Items.Add(save);
+
+        if (assigned.IsCustom)
+        {
+            var delete = new MenuItem { Header = $"Delete the \"{assigned.Name}\" folder type" };
+            delete.Click += (_, _) =>
+            {
+                var confirm = MessageBox.Show(
+                    $"Delete the {assigned.Name} folder type?\n\nFolders using it go back to Automatic. Files are not affected.",
+                    "Delete folder type", MessageBoxButton.OKCancel, MessageBoxImage.Question);
+                if (confirm == MessageBoxResult.OK) _viewModel.DeleteFolderType(assigned);
+            };
+            menu.Items.Add(delete);
+        }
+    }
+
+    private void OnSetFolderTypeSubmenuOpened(object sender, RoutedEventArgs e)
+    {
+        if (sender is MenuItem menu && ReferenceEquals(e.OriginalSource, menu))
+            AddTypeItems(menu, "", OnSelectedFolderProfile);
+    }
+
     private void OnFolderProfileSelected(object sender, RoutedEventArgs e)
     {
-        if (sender is MenuItem { Tag: string value } &&
-            Enum.TryParse<DirectoryViewProfile>(value, out var profile))
-            _viewModel.SetFolderProfile(profile);
+        if (sender is MenuItem { Tag: string value } && FolderTypes.Find(value) is { } type)
+            _viewModel.SetFolderType(type);
     }
 
     private void OnSelectedFolderProfile(object sender, RoutedEventArgs e)
     {
-        if (sender is MenuItem { Tag: string value } &&
-            Enum.TryParse<DirectoryViewProfile>(value, out var profile))
-            _viewModel.SetFolderProfilesForSelection(profile);
+        if (sender is MenuItem { Tag: string value } && FolderTypes.Find(value) is { } type)
+            _viewModel.SetFolderTypeForSelection(type);
+    }
+
+    // NEW (folder types): the small naming panel used for tags and categories also names folder types.
+    private bool _isNamingFolderType;
+
+    private void BeginNamingFolderType()
+    {
+        _editingCategoryId = null;
+        _isNamingTag = false;
+        _isNamingFolderType = true;
+        CategoryPanelTitle.Text = "Save this view as a folder type";
+        CategoryBox.Text = _viewModel.FolderType.IsCustom ? _viewModel.FolderType.Name : string.Empty;
+        CategoryPanel.Visibility = Visibility.Visible;
+        CategoryBox.Focus();
+        CategoryBox.SelectAll();
     }
 
     private void OnZoomIn(object sender, RoutedEventArgs e) => _viewModel.AdjustTileScale(0.15);
@@ -1022,7 +1145,10 @@ public partial class MainWindow : Window
     private void OnTileDataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
     {
         if (e.NewValue is FileSystemItem item)
+        {
             ThumbnailService.Request(item, ThumbnailSize);
+            if (item.IsVideoFile) MediaPropertyService.Request(item); // NEW (folder types, step 3): length badge
+        }
     }
 
     private void OnTileLoaded(object sender, RoutedEventArgs e)
@@ -1030,6 +1156,7 @@ public partial class MainWindow : Window
         if (sender is FrameworkElement { DataContext: FileSystemItem item })
         {
             ThumbnailService.Request(item, ThumbnailSize);
+            if (item.IsVideoFile) MediaPropertyService.Request(item); // NEW (folder types, step 3): length badge
         }
     }
 
@@ -1072,15 +1199,95 @@ public partial class MainWindow : Window
     }
 
 
+    // ------------------------------------------------------------------ NEW (folder types, step 2)
+
+    private void ApplyGrouping()
+    {
+        if (FileList.ItemsSource is null)
+            return;
+
+        var view = CollectionViewSource.GetDefaultView(FileList.ItemsSource);
+        if (view is null || !view.CanGroup)
+            return;
+
+        // CHANGED (folder types, step 3): date groups or kind groups (Desktop).
+        var want = _viewModel.ListGrouping;
+        var have = view.GroupDescriptions.Count > 0 ? (view.GroupDescriptions[0] as PropertyGroupDescription)?.PropertyName : null;
+        if (want == have)
+            return;
+
+        using (view.DeferRefresh())
+        {
+            view.GroupDescriptions.Clear();
+            if (want is not null)
+                view.GroupDescriptions.Add(new PropertyGroupDescription(want));
+        }
+    }
+
+    private void OnDimensionsCellLoaded(object sender, RoutedEventArgs e)
+    {
+        if (sender is FrameworkElement { DataContext: FileSystemItem item })
+            MediaPropertyService.RequestDimensions(item);
+    }
+
+    private void OnDimensionsCellDataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
+    {
+        if (e.NewValue is FileSystemItem item && sender is FrameworkElement { IsLoaded: true })
+            MediaPropertyService.RequestDimensions(item);
+    }
+
+    // NEW (folder types, step 3): Source column (Downloads).
+    private void OnSourceCellLoaded(object sender, RoutedEventArgs e)
+    {
+        if (sender is FrameworkElement { DataContext: FileSystemItem item })
+            MediaPropertyService.RequestSource(item);
+    }
+
+    private void OnSourceCellDataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
+    {
+        if (e.NewValue is FileSystemItem item && sender is FrameworkElement { IsLoaded: true })
+            MediaPropertyService.RequestSource(item);
+    }
+
+    private void OnPinToProject(object sender, RoutedEventArgs e) => _viewModel.PinSelectionToProject(pin: true);
+
+    private void OnUnpinFromProject(object sender, RoutedEventArgs e) => _viewModel.PinSelectionToProject(pin: false);
+
+    private void OnProjectItemClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is FrameworkElement { DataContext: ProjectStripItem item })
+            _viewModel.OpenProjectItem(item);
+    }
+
+    private void OnProjectItemOpen(object sender, RoutedEventArgs e)
+    {
+        if (sender is FrameworkElement { DataContext: ProjectStripItem item })
+            _viewModel.OpenProjectItem(item);
+    }
+
+    private void OnProjectItemShowInFolder(object sender, RoutedEventArgs e)
+    {
+        if (sender is FrameworkElement { DataContext: ProjectStripItem item })
+            _viewModel.ShowProjectItemInFolder(item);
+    }
+
+    private void OnProjectItemUnpin(object sender, RoutedEventArgs e)
+    {
+        if (sender is FrameworkElement { DataContext: ProjectStripItem item })
+            _viewModel.UnpinFromProject(item);
+    }
+
     private void OnMusicRowDataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
     {
-        if (_viewModel.IsMusicProfile && e.NewValue is FileSystemItem item)
+        // CHANGED (folder types, step 3): whenever a visible column needs file properties (Music, Videos,
+        // Documents, Research), not only in Music folders.
+        if (_viewModel.NeedsFileProperties && e.NewValue is FileSystemItem item)
             MediaPropertyService.Request(item);
     }
 
     private void OnMusicRowLoaded(object sender, RoutedEventArgs e)
     {
-        if (_viewModel.IsMusicProfile && sender is FrameworkElement { DataContext: FileSystemItem item })
+        if (_viewModel.NeedsFileProperties && sender is FrameworkElement { DataContext: FileSystemItem item })
             MediaPropertyService.Request(item);
     }
 

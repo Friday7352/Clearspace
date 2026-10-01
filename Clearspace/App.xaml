@@ -2,8 +2,9 @@
 <Application x:Class="Clearspace.App"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:controls="clr-namespace:Clearspace.Controls"
-             StartupUri="MainWindow.xaml">
+             xmlns:controls="clr-namespace:Clearspace.Controls">
+    <!-- CHANGED (Explorer integration): no StartupUri; App.OnStartup opens MainWindow itself so a command from
+         Explorer can be handed to an already-running Clearspace without flashing a second window. -->
     <Application.Resources>
         <ResourceDictionary>
 
@@ -326,6 +327,10 @@
                     </Setter.Value>
                 </Setter>
                 <Style.Triggers>
+                    <!-- NEW (folder types, step 2): build and dependency folders in Code folders. -->
+                    <DataTrigger Binding="{Binding IsGenerated}" Value="True">
+                        <Setter Property="Opacity" Value="0.5" />
+                    </DataTrigger>
                     <DataTrigger Binding="{Binding IsHidden}" Value="True">
                         <Setter Property="Opacity" Value="0.45" />
                     </DataTrigger>

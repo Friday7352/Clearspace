@@ -25,10 +25,27 @@
                         <StackPanel Orientation="Horizontal"
                                     Loaded="OnMusicRowLoaded"
                                     DataContextChanged="OnMusicRowDataContextChanged">
-                            <Image Source="{Binding Icon}"
-                                   Width="16" Height="16"
-                                   Margin="6,0,11,0"
-                                   RenderOptions.BitmapScalingMode="HighQuality" />
+                            <!-- NEW (lock icons): small lock badge over the icon of a locked file or folder. -->
+                            <Grid Margin="6,0,11,0">
+                                <Image Source="{Binding Icon}"
+                                       Width="16" Height="16"
+                                       RenderOptions.BitmapScalingMode="HighQuality" />
+                                <Border HorizontalAlignment="Right"
+                                        VerticalAlignment="Bottom"
+                                        Margin="0,0,-5,-4"
+                                        Width="11" Height="11"
+                                        CornerRadius="5.5"
+                                        Background="{StaticResource Base}"
+                                        ToolTip="{Binding LockToolTip}"
+                                        Visibility="{Binding HasLockBadge, Converter={StaticResource BoolToVisible}}">
+                                    <TextBlock Text="{Binding LockGlyph}"
+                                               FontFamily="{StaticResource IconFont}"
+                                               FontSize="8"
+                                               Foreground="{StaticResource Accent}"
+                                               HorizontalAlignment="Center"
+                                               VerticalAlignment="Center" />
+                                </Border>
+                            </Grid>
                             <TextBlock Text="{Binding Name}"
                                        FontFamily="{StaticResource SerifFont}"
                                        FontSize="13"
@@ -166,10 +183,27 @@
                 <GridViewColumn.CellTemplate>
                     <DataTemplate>
                         <StackPanel Orientation="Horizontal">
-                            <Image Source="{Binding Icon}"
-                                   Width="16" Height="16"
-                                   Margin="2,0,10,0"
-                                   RenderOptions.BitmapScalingMode="HighQuality" />
+                            <!-- NEW (lock icons): small lock badge over the icon of a locked file or folder. -->
+                            <Grid Margin="2,0,10,0">
+                                <Image Source="{Binding Icon}"
+                                       Width="16" Height="16"
+                                       RenderOptions.BitmapScalingMode="HighQuality" />
+                                <Border HorizontalAlignment="Right"
+                                        VerticalAlignment="Bottom"
+                                        Margin="0,0,-5,-4"
+                                        Width="11" Height="11"
+                                        CornerRadius="5.5"
+                                        Background="{StaticResource Base}"
+                                        ToolTip="{Binding LockToolTip}"
+                                        Visibility="{Binding HasLockBadge, Converter={StaticResource BoolToVisible}}">
+                                    <TextBlock Text="{Binding LockGlyph}"
+                                               FontFamily="{StaticResource IconFont}"
+                                               FontSize="8"
+                                               Foreground="{StaticResource Accent}"
+                                               HorizontalAlignment="Center"
+                                               VerticalAlignment="Center" />
+                                </Border>
+                            </Grid>
                             <TextBlock Text="{Binding DisplayTitle}"
                                        FontFamily="{StaticResource SerifFont}"
                                        FontSize="13"
@@ -292,6 +326,104 @@
             </GridViewColumn.CellTemplate>
         </GridViewColumn>
 
+        <!-- NEW (folder types, step 2): Git status of a file, or "Changes inside" for a folder (Code). -->
+        <GridViewColumn x:Key="Col.Git" x:Shared="False" Width="120" Header="Git">
+            <GridViewColumn.CellTemplate>
+                <DataTemplate>
+                    <TextBlock Text="{Binding GitStatusText}"
+                               Foreground="{Binding GitStatusBrush}"
+                               Margin="10,0,0,0"
+                               VerticalAlignment="Center"
+                               TextTrimming="CharacterEllipsis" />
+                </DataTemplate>
+            </GridViewColumn.CellTemplate>
+        </GridViewColumn>
+
+        <!-- NEW (folder types, step 2): pixel size of images and videos, read when the row is shown. -->
+        <GridViewColumn x:Key="Col.Dimensions" x:Shared="False" Width="120" Header="Dimensions">
+            <GridViewColumn.CellTemplate>
+                <DataTemplate>
+                    <TextBlock Text="{Binding DimensionsText}"
+                               Foreground="{StaticResource InkMuted}"
+                               Margin="0,0,14,0"
+                               HorizontalAlignment="Right"
+                               VerticalAlignment="Center"
+                               Typography.NumeralAlignment="Tabular"
+                               Loaded="OnDimensionsCellLoaded"
+                               DataContextChanged="OnDimensionsCellDataContextChanged" />
+                </DataTemplate>
+            </GridViewColumn.CellTemplate>
+        </GridViewColumn>
+
+        <!-- NEW (folder types, step 3): document authors and pages (Documents, Research). -->
+        <GridViewColumn x:Key="Col.Authors" x:Shared="False" Width="200" Header="Authors">
+            <GridViewColumn.CellTemplate>
+                <DataTemplate>
+                    <TextBlock Text="{Binding Authors}"
+                               Foreground="{StaticResource InkMuted}"
+                               Margin="10,0,0,0"
+                               VerticalAlignment="Center"
+                               TextTrimming="CharacterEllipsis"
+                               ToolTip="{Binding Authors}" />
+                </DataTemplate>
+            </GridViewColumn.CellTemplate>
+        </GridViewColumn>
+
+        <GridViewColumn x:Key="Col.Pages" x:Shared="False" Width="70" Header="Pages">
+            <GridViewColumn.CellTemplate>
+                <DataTemplate>
+                    <TextBlock Text="{Binding PageCountText}"
+                               Foreground="{StaticResource InkMuted}"
+                               Margin="0,0,14,0"
+                               HorizontalAlignment="Right"
+                               VerticalAlignment="Center"
+                               Typography.NumeralAlignment="Tabular" />
+                </DataTemplate>
+            </GridViewColumn.CellTemplate>
+        </GridViewColumn>
+
+        <!-- NEW (folder types, step 3): the site a download came from (Downloads). -->
+        <GridViewColumn x:Key="Col.Source" x:Shared="False" Width="170" Header="Source">
+            <GridViewColumn.CellTemplate>
+                <DataTemplate>
+                    <TextBlock Text="{Binding SourceText}"
+                               Foreground="{StaticResource InkMuted}"
+                               Margin="10,0,0,0"
+                               VerticalAlignment="Center"
+                               TextTrimming="CharacterEllipsis"
+                               Loaded="OnSourceCellLoaded"
+                               DataContextChanged="OnSourceCellDataContextChanged" />
+                </DataTemplate>
+            </GridViewColumn.CellTemplate>
+        </GridViewColumn>
+
+        <!-- NEW (folder types, step 2): a pinned or recent file in the project strip. -->
+        <Style x:Key="ProjectChip" TargetType="Button">
+            <Setter Property="Foreground" Value="{StaticResource Ink}" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Root"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{StaticResource Line}"
+                                BorderThickness="1"
+                                CornerRadius="8"
+                                Padding="10,6">
+                            <ContentPresenter />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Root" Property="Background" Value="{StaticResource Selected}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <DataTemplate x:Key="TileTemplate">
             <Grid Margin="6,10"
                   Loaded="OnTileLoaded"
@@ -313,6 +445,21 @@
                                Margin="4"
                                RenderOptions.BitmapScalingMode="HighQuality" />
 
+                        <!-- NEW (lock icons): lock badge in the tile's top-left corner. -->
+                        <Border HorizontalAlignment="Left"
+                                VerticalAlignment="Top"
+                                Margin="6"
+                                Padding="5,3"
+                                CornerRadius="5"
+                                Background="#B3141312"
+                                ToolTip="{Binding LockToolTip}"
+                                Visibility="{Binding HasLockBadge, Converter={StaticResource BoolToVisible}}">
+                            <TextBlock Text="{Binding LockGlyph}"
+                                       FontFamily="{StaticResource IconFont}"
+                                       FontSize="11"
+                                       Foreground="{StaticResource Accent}" />
+                        </Border>
+
                         <Border HorizontalAlignment="Left"
                                 VerticalAlignment="Bottom"
                                 Margin="6"
@@ -325,6 +472,20 @@
                                        FontFamily="{StaticResource IconFont}"
                                        FontSize="10"
                                        Foreground="{Binding CloudStatusBrush}" />
+                        </Border>
+
+                        <!-- NEW (folder types, step 3): a video's length on its tile. -->
+                        <Border HorizontalAlignment="Right"
+                                VerticalAlignment="Bottom"
+                                Margin="6"
+                                Padding="5,1"
+                                CornerRadius="5"
+                                Background="#B3141312"
+                                Visibility="{Binding HasDuration, Converter={StaticResource BoolToVisible}}">
+                            <TextBlock Text="{Binding DurationText}"
+                                       FontSize="10"
+                                       Foreground="{StaticResource Ink}"
+                                       Typography.NumeralAlignment="Tabular" />
                         </Border>
 
                         <Button Click="OnViewPhotoClick"
@@ -535,17 +696,27 @@
                         Content="&#xE9F9;" Margin="0,0,7,0"
                         Click="OnDiskUsage" ToolTip="Disk usage · explore indexed file and folder sizes"
                         AutomationProperties.Name="Disk usage" />
+                <!-- NEW (folder types, step 2): Git branch and changed-file count in Code folders. -->
+                <TextBlock Text="{Binding FolderContextText}"
+                           Margin="0,0,9,0"
+                           VerticalAlignment="Center"
+                           FontSize="11.5"
+                           Foreground="{StaticResource InkMuted}"
+                           ToolTip="Git branch and the number of changed files in this repository"
+                           Visibility="{Binding HasFolderContext, Converter={StaticResource BoolToVisible}}" />
                 <Button x:Name="FolderProfileButton"
                         Click="OnFolderProfileButtonClick"
-                        ToolTip="Choose a saved view for this folder"
+                        ToolTip="{Binding FolderTypeTooltip}"
                         AutomationProperties.Name="{Binding FolderProfileLabel}"
                         Visibility="{Binding CanSetFolderProfile, Converter={StaticResource BoolToVisible}}">
                     <Button.Style>
                         <Style TargetType="Button" BasedOn="{StaticResource IconButton}">
-                            <Setter Property="Width" Value="96" />
+                            <!-- CHANGED (folder types, step 3): fits "Auto (Screenshots)" instead of cutting it off. -->
+                            <Setter Property="Width" Value="Auto" />
+                            <Setter Property="MinWidth" Value="96" />
                         </Style>
                     </Button.Style>
-                    <StackPanel Orientation="Horizontal">
+                    <StackPanel Orientation="Horizontal" Margin="9,0">
                         <TextBlock Text="&#xE8EC;"
                                    FontFamily="{StaticResource IconFont}"
                                    FontSize="13"
@@ -558,13 +729,9 @@
                                    VerticalAlignment="Center" />
                     </StackPanel>
                     <Button.ContextMenu>
-                        <ContextMenu DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}">
-                            <MenuItem Header="Automatic" Tag="Automatic" Click="OnFolderProfileSelected" />
-                            <MenuItem Header="General files" Tag="General" Click="OnFolderProfileSelected" />
-                            <Separator />
-                            <MenuItem Header="Photos" Tag="Photos" Click="OnFolderProfileSelected" />
-                            <MenuItem Header="Music" Tag="Music" Click="OnFolderProfileSelected" />
-                        </ContextMenu>
+                        <!-- CHANGED (folder types): filled from the folder type definitions each time it opens. -->
+                        <ContextMenu DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}"
+                                     Opened="OnFolderTypeMenuOpened" />
                     </Button.ContextMenu>
                 </Button>
                 <StackPanel Orientation="Horizontal" Margin="0,0,7,0"
@@ -623,6 +790,21 @@
                               Content="&#xE7B3;"
                               IsChecked="{Binding ShowHiddenItems}"
                               ToolTip="Show hidden items" />
+                <!-- NEW (unlock vs remove lock): settings menu; file locking is its first section. -->
+                <Button x:Name="SettingsButton"
+                        Style="{StaticResource IconButton}"
+                        Content="&#xE713;"
+                        Margin="6,0,0,0"
+                        Click="OnColumnsButtonClick"
+                        ToolTip="Settings"
+                        AutomationProperties.Name="Settings">
+                    <Button.ContextMenu>
+                        <ContextMenu>
+                            <MenuItem Header="File locking" IsEnabled="False" />
+                            <MenuItem Header="Remove all locks and reset password…" Click="OnRemoveAllLocks" />
+                        </ContextMenu>
+                    </Button.ContextMenu>
+                </Button>
             </StackPanel>
         </Grid>
 
@@ -888,6 +1070,88 @@
                         </Grid>
                     </Border>
 
+                    <!-- NEW (folder types, step 2): project strip - pinned files and recent work anywhere in the project.
+                         Shares row 0 with the hub banner; the two never show together (hubs are not real folders). -->
+                    <Border Grid.Row="0"
+                            Margin="14,12,14,4"
+                            Padding="14,10,14,4"
+                            Background="{StaticResource Base}"
+                            BorderBrush="{StaticResource Line}"
+                            BorderThickness="1"
+                            CornerRadius="10"
+                            Visibility="{Binding ShowsProjectStrip, Converter={StaticResource BoolToVisible}}">
+                        <StackPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                <TextBlock Text="{Binding ProjectTitle}"
+                                           FontFamily="{StaticResource SerifFont}"
+                                           FontSize="14"
+                                           Foreground="{StaticResource Ink}" />
+                                <TextBlock Text="Pinned and recently changed"
+                                           Margin="10,2,0,0"
+                                           FontSize="11"
+                                           VerticalAlignment="Center"
+                                           Foreground="{StaticResource InkMuted}" />
+                            </StackPanel>
+                            <TextBlock Text="{Binding ProjectStripHint}"
+                                       Margin="0,0,0,6"
+                                       FontSize="11.5"
+                                       Foreground="{StaticResource InkMuted}">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Style.Triggers>
+                                            <Trigger Property="Text" Value="">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                            </Trigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                            <ItemsControl ItemsSource="{Binding ProjectStrip}" MaxHeight="96">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <WrapPanel />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Button Style="{StaticResource ProjectChip}"
+                                                Margin="0,0,6,6"
+                                                MaxWidth="260"
+                                                ToolTip="{Binding FullPath}"
+                                                Click="OnProjectItemClick">
+                                            <Button.ContextMenu>
+                                                <ContextMenu DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}">
+                                                    <MenuItem Header="Open" Click="OnProjectItemOpen" />
+                                                    <MenuItem Header="Show in folder" Click="OnProjectItemShowInFolder" />
+                                                    <MenuItem Header="Unpin from project"
+                                                              Click="OnProjectItemUnpin"
+                                                              Visibility="{Binding IsPinned, Converter={StaticResource BoolToVisible}}" />
+                                                </ContextMenu>
+                                            </Button.ContextMenu>
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Text="{Binding Glyph}"
+                                                           FontFamily="{StaticResource IconFont}"
+                                                           FontSize="11"
+                                                           Margin="0,1,8,0"
+                                                           VerticalAlignment="Top"
+                                                           Foreground="{StaticResource Accent}" />
+                                                <StackPanel>
+                                                    <TextBlock Text="{Binding Name}"
+                                                               FontSize="12"
+                                                               TextTrimming="CharacterEllipsis" />
+                                                    <TextBlock Text="{Binding Detail}"
+                                                               FontSize="10.5"
+                                                               Foreground="{StaticResource InkMuted}"
+                                                               TextTrimming="CharacterEllipsis" />
+                                                </StackPanel>
+                                            </StackPanel>
+                                        </Button>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </Border>
+
                     <ListView x:Name="FileList"
                               Grid.Row="1"
                               ItemsSource="{Binding Items}"
@@ -908,6 +1172,7 @@
                               DragLeave="OnFileListDragLeave"
                               Drop="OnFileListDrop"
                               VirtualizingPanel.IsVirtualizing="True"
+                              VirtualizingPanel.IsVirtualizingWhenGrouping="True"
                               VirtualizingPanel.VirtualizationMode="Recycling"
                               VirtualizingPanel.ScrollUnit="Pixel"
                               ScrollViewer.CanContentScroll="True"
@@ -932,6 +1197,21 @@
                             </Style>
                         </ListView.Style>
 
+                        <!-- NEW (folder types, step 2): date headers (Screenshots). Only used while the view is grouped. -->
+                        <ListView.GroupStyle>
+                            <GroupStyle>
+                                <GroupStyle.HeaderTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding Name}"
+                                                   Margin="16,12,0,4"
+                                                   FontSize="11.5"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="{StaticResource InkMuted}" />
+                                    </DataTemplate>
+                                </GroupStyle.HeaderTemplate>
+                            </GroupStyle>
+                        </ListView.GroupStyle>
+
                         <ListView.ContextMenu>
                             <ContextMenu DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}">
                                 <MenuItem Header="Open" Command="{Binding OpenCommand}" />
@@ -943,7 +1223,25 @@
                                 <MenuItem Header="Rename" Command="{Binding RenameCommand}" InputGestureText="F2" />
                                 <MenuItem Header="Delete" Command="{Binding DeleteCommand}" InputGestureText="Del" />
                                 <Separator />
+                                <!-- CHANGED (folder locking): works on a single file or folder, so the labels no longer say "file". -->
+                                <!-- CHANGED (unlock vs remove lock): Unlock = until you leave this folder; Remove lock = for good,
+                                     and works on several selected files and folders at once. -->
+                                <MenuItem Header="Lock with password…" Click="OnLockFile" IsEnabled="{Binding Context.HasSingleSelection}" />
+                                <MenuItem Header="Unlock…" Click="OnUnlockFile" IsEnabled="{Binding Context.HasSingleSelection}" />
+                                <MenuItem Header="Remove lock…" Click="OnRemoveLock" IsEnabled="{Binding Context.HasSelection}" />
+                                <!-- NEW (change password): switch locked files to your current password. -->
+                                <MenuItem Header="Change password…" Click="OnChangeLockPassword" IsEnabled="{Binding Context.HasSelection}" />
+                                <Separator />
                                 <MenuItem Header="Pin to sidebar" Click="OnPinDirectory" />
+                                <!-- NEW (folder types, step 2): Projects folders -->
+                                <MenuItem Header="Pin to project"
+                                          Click="OnPinToProject"
+                                          IsEnabled="{Binding CanPinToProject}"
+                                          Visibility="{Binding IsProjectFolder, Converter={StaticResource BoolToVisible}}" />
+                                <MenuItem Header="Unpin from project"
+                                          Click="OnUnpinFromProject"
+                                          IsEnabled="{Binding CanPinToProject}"
+                                          Visibility="{Binding IsProjectFolder, Converter={StaticResource BoolToVisible}}" />
                                 <MenuItem Header="Disk usage…" Click="OnDiskUsage" />
                                 <MenuItem Header="Always keep on this device"
                                           IsEnabled="{Binding HasCloudSelection}"
@@ -956,21 +1254,11 @@
                                 <MenuItem Header="Tags" SubmenuOpened="OnTagsSubmenuOpened">
                                     <MenuItem Header="" />
                                 </MenuItem>
+                                <!-- CHANGED (folder types): filled from the folder type definitions when opened. -->
                                 <MenuItem Header="Set folder type"
-                                          IsEnabled="{Binding HasSelectedFolders}">
-                                    <MenuItem Header="Automatic"
-                                              Tag="Automatic"
-                                              Click="OnSelectedFolderProfile" />
-                                    <MenuItem Header="General files"
-                                              Tag="General"
-                                              Click="OnSelectedFolderProfile" />
-                                    <Separator />
-                                    <MenuItem Header="Photos"
-                                              Tag="Photos"
-                                              Click="OnSelectedFolderProfile" />
-                                    <MenuItem Header="Music"
-                                              Tag="Music"
-                                              Click="OnSelectedFolderProfile" />
+                                          IsEnabled="{Binding HasSelectedFolders}"
+                                          SubmenuOpened="OnSetFolderTypeSubmenuOpened">
+                                    <MenuItem Header="" />
                                 </MenuItem>
                                 <MenuItem Header="Reset columns" Click="OnResetColumns" />
                                 <MenuItem Header="Copy path" Command="{Binding CopyPathCommand}" InputGestureText="Ctrl+Shift+C" />

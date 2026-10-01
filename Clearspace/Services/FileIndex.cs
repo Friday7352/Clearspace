@@ -68,13 +68,6 @@ internal sealed class VolumeIndex
         _names = new char[InitialPool];
     }
 
-    // NEW (round 42): an index sized up front, for a copy whose final size is known.
-    private VolumeIndex(string root, uint serialNumber, int entries, int pool) : this(root, serialNumber)
-    {
-        _entries = new IndexEntry[Math.Max(InitialEntries, entries)];
-        _names = new char[Math.Max(InitialPool, pool)];
-    }
-
     internal VolumeIndex(
         string root,
         uint serialNumber,
@@ -325,24 +318,63 @@ internal sealed class VolumeIndex
         }
     }
 
-    // Copy without removed entries (parents keep preceding children). Caller holds WriteGate.
-    internal VolumeIndex CompactedCopyLocked()
+    // CHANGED (memory): writes the index without removed entries straight to the save file, laid out
+    // exactly as a compacted copy would be (parents before children, names back to back). It used to
+    // build that copy in memory first - a second full index, over a gigabyte on a large drive, every
+    // five-minute save. Now the only extra memory is one int per entry and two small buffers.
+    // Caller holds WriteGate.
+    internal void WriteCompactedLocked(BinaryWriter writer)
     {
-        // CHANGED (round 42): sized for everything that is not removed, so the copy never grows; it
-        // used to start at 4,096 entries and resize its way up to the full index on every save.
-        var copy = new VolumeIndex(Root, SerialNumber, _count - _removedCount, _poolLength) { BuiltUtc = BuiltUtc };
+        // Pass 1: the new position of every surviving entry, and the size of the new name pool.
         var remap = new int[_count];
+        var kept = 0;
+        long pool = 0;
         for (var i = 0; i < _count; i++)
         {
             remap[i] = -1;
             ref readonly var entry = ref _entries[i];
             if ((entry.Attributes & RemovedFlag) != 0) continue;
-            var parent = entry.ParentIndex < 0 ? -1 : remap[entry.ParentIndex];
-            if (entry.ParentIndex >= 0 && parent < 0) continue;
-            remap[i] = copy.Add(parent, NameSpan(i), entry.Size, entry.ModifiedTicks, entry.CreatedTicks, entry.Attributes);
+            if (entry.ParentIndex >= 0 && remap[entry.ParentIndex] < 0) continue;
+            remap[i] = kept++;
+            pool += entry.NameLength;
         }
-        copy.Compact();
-        return copy;
+
+        writer.Write(Root);
+        writer.Write(SerialNumber);
+        writer.Write(BuiltUtc.Ticks);
+        writer.Write(kept);
+        writer.Write((int)pool);
+        writer.Flush();
+        var stream = writer.BaseStream;
+
+        // Pass 2: the entries, with parents and name offsets moved to their new positions.
+        var entries = new IndexEntry[64 * 1024];
+        var filled = 0;
+        var offset = 0;
+        for (var i = 0; i < _count; i++)
+        {
+            if (remap[i] < 0) continue;
+            var entry = _entries[i];
+            entry.ParentIndex = entry.ParentIndex < 0 ? -1 : remap[entry.ParentIndex];
+            entry.NameOffset = offset;
+            offset += entry.NameLength;
+            entries[filled++] = entry;
+            if (filled == entries.Length) { stream.Write(MemoryMarshal.AsBytes(entries.AsSpan())); filled = 0; }
+        }
+        stream.Write(MemoryMarshal.AsBytes(entries.AsSpan(0, filled)));
+
+        // Pass 3: the names of the surviving entries, in the same order.
+        var names = new char[1 << 20];
+        filled = 0;
+        for (var i = 0; i < _count; i++)
+        {
+            if (remap[i] < 0) continue;
+            var name = NameSpan(i);
+            if (filled + name.Length > names.Length) { stream.Write(MemoryMarshal.AsBytes(names.AsSpan(0, filled))); filled = 0; }
+            name.CopyTo(names.AsSpan(filled));
+            filled += name.Length;
+        }
+        stream.Write(MemoryMarshal.AsBytes(names.AsSpan(0, filled)));
     }
 
     // NEW (round 41): doubling is right while an index is small, but a compacted index for a large drive

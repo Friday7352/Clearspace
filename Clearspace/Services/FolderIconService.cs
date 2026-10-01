@@ -75,14 +75,15 @@ internal static class FolderIconService
         if (!item.IsStandardFolder)
             return FolderKind.Generic;
 
-        var saved = SettingsService.GetFolderViewProfile(item.FullPath);
-        if (saved is not null && Enum.TryParse<DirectoryViewProfile>(saved, true, out var profile))
-            return profile switch
+        // CHANGED (folder types): a folder's own type (built-in or custom) decides its icon by its family.
+        var assigned = FolderTypes.AssignedTo(item.FullPath);
+        if (!assigned.IsAutomatic)
+            return assigned.Base switch
             {
                 DirectoryViewProfile.Desktop => FolderKind.Desktop,
                 DirectoryViewProfile.Documents => FolderKind.Documents,
                 DirectoryViewProfile.Downloads => FolderKind.Downloads,
-                DirectoryViewProfile.Photos => FolderKind.Pictures,
+                DirectoryViewProfile.Photos or DirectoryViewProfile.Screenshots => FolderKind.Pictures, // CHANGED (step 3)
                 DirectoryViewProfile.Music => FolderKind.Music,
                 DirectoryViewProfile.Videos => FolderKind.Videos,
                 _ => FolderKind.Generic
@@ -95,10 +96,13 @@ internal static class FolderIconService
         if (SamePath(item.FullPath, KnownFolders.Music)) return FolderKind.Music;
         if (SamePath(item.FullPath, KnownFolders.Videos)) return FolderKind.Videos;
 
+        // CHANGED (folder types, step 3): the name-based types that have an icon of their own.
         return AutomaticFolderTypeDetector.DetectFromName(item.FullPath) switch
         {
-            DirectoryViewProfile.Photos => FolderKind.Pictures,
+            DirectoryViewProfile.Photos or DirectoryViewProfile.Screenshots => FolderKind.Pictures,
             DirectoryViewProfile.Music => FolderKind.Music,
+            DirectoryViewProfile.Videos => FolderKind.Videos,
+            DirectoryViewProfile.Downloads => FolderKind.Downloads,
             _ => FolderKind.Generic
         };
     }

@@ -224,8 +224,25 @@ internal static class SearchRanker
             ? double.NaN
             : (DateTime.Now - item.DateModified).TotalDays;
 
-        return relevance + Bonus(item.IsFolder, extension, ageDays, NoiseOfPath(item.FullPath),
+        // CHANGED (folder types, step 2): inside an Archives & Backups folder counts as soft noise.
+        var noise = NoiseOfPath(item.FullPath);
+        if (noise < SoftNoiseLevel && IsInLowRankFolder(item.FullPath, query.LowRankFolders))
+            noise = SoftNoiseLevel;
+
+        return relevance + Bonus(item.IsFolder, extension, ageDays, noise,
             IsUnder(item.FullPath, currentFolder));
+    }
+
+    // NEW (folder types, step 2): strictly inside one of the folders (the folder itself is not).
+    internal static bool IsInLowRankFolder(string path, IReadOnlyList<string> folders)
+    {
+        for (var i = 0; i < folders.Count; i++)
+        {
+            if (IsUnder(path, folders[i].TrimEnd(Path.DirectorySeparatorChar)))
+                return true;
+        }
+
+        return false;
     }
 
     private static bool IsWordStart(ReadOnlySpan<char> name, int at)

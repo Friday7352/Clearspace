@@ -213,6 +213,25 @@ public sealed class SearchRelevanceTests
         Assert.AreEqual(folder + @"\needle.txt", hits.Single().Path);
     }
 
+    // NEW (folder types, step 2): contents of an Archives & Backups folder rank below current files, and
+    // the index scan scores them exactly as item ranking does.
+    [TestMethod]
+    public void ArchiveContentsRankBelowCurrentFiles()
+    {
+        var query = SearchQuery.Parse("budget", Tags()).WithLowRankFolders([@"C:\Old Stuff"]);
+        var items = new List<FileSystemItem> { File(@"C:\Old Stuff\2019\budget.xlsx"), File(@"C:\Work\budget.xlsx") };
+        SearchRanker.Rank(items, query, null);
+        Assert.AreEqual(@"C:\Work\budget.xlsx", items[0].FullPath);
+        Assert.IsFalse(SearchRanker.IsInLowRankFolder(@"C:\Old Stuff", query.LowRankFolders),
+            "The archive folder itself is not penalized, only what is inside it.");
+
+        var volume = Volume(@"C:\Old Stuff\2019\budget.xlsx", @"C:\Work\budget.xlsx", @"C:\Old Stuff\budget.xlsx");
+        var hits = IndexHits(volume, query);
+        Assert.AreEqual(@"C:\Work\budget.xlsx", hits.OrderByDescending(hit => hit.Score).First().Path);
+        foreach (var (score, path) in hits)
+            Assert.AreEqual(SearchRanker.Score(File(path), query, null), score, path);
+    }
+
     [TestMethod]
     public void IndexScoresAgreeWithItemScores()
     {

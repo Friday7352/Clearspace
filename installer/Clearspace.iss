@@ -45,6 +45,14 @@ Name: "fastcatchup"; Description: "Instant &indexing (installs the Clearspace In
 [Files]
 Source: "..\installer-build\app\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
+[Registry]
+; NEW (Explorer integration): Clearspace registers these itself (per user) every time it starts; removing
+; Clearspace removes them again. Locked files keep working with a reinstalled Clearspace.
+Root: HKCU; Subkey: "Software\Classes\.cslock"; Flags: uninsdeletekey dontcreatekey
+Root: HKCU; Subkey: "Software\Classes\Clearspace.LockedFile"; Flags: uninsdeletekey dontcreatekey
+Root: HKCU; Subkey: "Software\Classes\*\shell\Clearspace.Lock"; Flags: uninsdeletekey dontcreatekey
+Root: HKCU; Subkey: "Software\Classes\Directory\shell\Clearspace"; Flags: uninsdeletekey dontcreatekey
+
 [Icons]
 Name: "{autoprograms}\Clearspace"; Filename: "{app}\Clearspace.exe"; WorkingDir: "{app}"; Comment: "Clearspace file explorer"
 Name: "{autodesktop}\Clearspace"; Filename: "{app}\Clearspace.exe"; WorkingDir: "{app}"; Tasks: desktopicon; Comment: "Clearspace file explorer"
@@ -52,6 +60,8 @@ Name: "{autodesktop}\Clearspace"; Filename: "{app}\Clearspace.exe"; WorkingDir: 
 [Run]
 ; NEW (journal catch-up): copies the helper to Program Files and registers the service.
 Filename: "{app}\ClearspaceIndexHelper.exe"; Parameters: "--install --quiet"; Verb: "runas"; StatusMsg: "Turning on fast catch-up..."; Tasks: fastcatchup; Flags: shellexec waituntilterminated runhidden
+; NEW (Explorer integration): set up the .cslock lock icon and right-click entries right away.
+Filename: "{app}\Clearspace.exe"; Parameters: "--register-shell"; Flags: runhidden waituntilterminated
 Filename: "{app}\Clearspace.exe"; Description: "Launch Clearspace"; WorkingDir: "{app}"; Flags: nowait postinstall skipifsilent
 
 [Code]

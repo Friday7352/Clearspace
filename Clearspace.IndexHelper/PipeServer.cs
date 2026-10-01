@@ -96,12 +96,23 @@ internal sealed class PipeServer(Action<string> log)
                 {
                     // NEW (file-table scan): JSON header line, then the table in binary.
                     timeout.CancelAfter(TimeSpan.FromMinutes(20)); // a large hard drive can take a while
-                    var (header, table) = JournalOperations.ScanVolume(request.Root, work => pipe.RunAsClient(() => work()), timeout.Token);
-                    log($"scan {request.Root}: {header.Status}, {header.Count:N0} entries from {header.Records:N0} records in {header.Seconds:0.0} s");
-                    await WriteHeaderAsync(pipe, header, timeout.Token).ConfigureAwait(false);
-                    if (table is not null) FileTableTransfer.Write(pipe, table);
-                    pipe.WaitForPipeDrain();
-                    return;
+                    FileTable? table = null;
+                    try
+                    {
+                        (var header, table) = JournalOperations.ScanVolume(request.Root, work => pipe.RunAsClient(() => work()), timeout.Token);
+                        log($"scan {request.Root}: {header.Status}, {header.Count:N0} entries from {header.Records:N0} records in {header.Seconds:0.0} s");
+                        await WriteHeaderAsync(pipe, header, timeout.Token).ConfigureAwait(false);
+                        if (table is not null) FileTableTransfer.Write(pipe, table);
+                        pipe.WaitForPipeDrain();
+                        return;
+                    }
+                    finally
+                    {
+                        // NEW (memory): a scan of a large drive needs a few gigabytes for a few seconds. Give it
+                        // back to Windows rather than letting the service sit on it until the next scan.
+                        table = null;
+                        ReleaseMemory();
+                    }
                 }
                 else
                 {
@@ -117,6 +128,12 @@ internal sealed class PipeServer(Action<string> log)
                 log($"Request abandoned: {exception.Message}");
             }
         }
+    }
+
+    private static void ReleaseMemory()
+    {
+        System.Runtime.GCSettings.LargeObjectHeapCompactionMode = System.Runtime.GCLargeObjectHeapCompactionMode.CompactOnce;
+        GC.Collect(GC.MaxGeneration, GCCollectionMode.Aggressive, blocking: true, compacting: true);
     }
 
     private static async Task WriteHeaderAsync(Stream pipe, JournalResponse response, CancellationToken token)

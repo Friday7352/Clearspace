@@ -36,6 +36,24 @@ internal sealed class FileTable
     public int DeniedFolders;   // folders listed but not entered because the caller may not list them
     public long RecordsRead;
 
+    // NEW (memory): sized once when the most it can hold is known, instead of doubling its way up
+    // (each doubling briefly held the old and new arrays, and left up to half of the last one empty).
+    public void Reserve(int entries, int nameChars)
+    {
+        if (Parent.Length < entries)
+        {
+            Array.Resize(ref Parent, entries);
+            Array.Resize(ref Attributes, entries);
+            Array.Resize(ref Size, entries);
+            Array.Resize(ref Modified, entries);
+            Array.Resize(ref Created, entries);
+            Array.Resize(ref NameLength, entries);
+        }
+
+        if (Names.Length < nameChars)
+            Array.Resize(ref Names, nameChars);
+    }
+
     public void Add(int parent, ReadOnlySpan<char> name, uint attributes, long size, long modified, long created)
     {
         if (Count == Parent.Length)
@@ -410,6 +428,7 @@ internal static class MftReader
         var blocked = denied([.. groups.Select(pair => (pair.Key, pair.Value.ToArray()))]);
 
         var table = new FileTable();
+        table.Reserve(records.Links + 1, records.NameChars + root.Length); // every link at most once, plus the root
         table.Add(-1, root, DirectoryAttribute, 0, 0, 0);
 
         var visited = new bool[capacity];

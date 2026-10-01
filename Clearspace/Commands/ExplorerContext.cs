@@ -60,6 +60,8 @@ public sealed class ExplorerContext : ObservableObject
 
     public Action<FileSystemItem?>? BeginRename { get; set; }
 
+    public Func<string, Task<bool>>? OpenLockedFile { get; set; }
+
     public Action? SelectAll { get; set; }
 
     public Action? ClearSelection { get; set; }

@@ -20,6 +20,10 @@ Design discussion · September 29, 2026 · Proposed work after Artifact 3
   - The index answers filter-only queries. The coordinator keeps the best results instead of the
     first to arrive.
   - Known-item checks are in `Clearspace.Tests/SearchRelevanceTests.cs`.
+  - Folder types (step 2): items inside a folder typed **Archives & Backups** (or a custom type
+    based on it) count as soft noise, like `bin` or `dist`. The list of those folders is captured
+    when the query is parsed (`SearchQuery.LowRankFolders`), so `IndexSearch` and `SearchRanker`
+    score them identically (`ArchiveContentsRankBelowCurrentFiles`).
 - **Journal catch-up implemented on `search-relevance` (not yet built or tested on Windows):**
   - `Clearspace/Journal/` reads a drive's NTFS change journal and turns its records into the
     paths that changed. It is shared with the new `Clearspace.IndexHelper` service project.

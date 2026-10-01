@@ -39,7 +39,8 @@ internal sealed class SearchTerm
     public IReadOnlyList<(string TagId, TagStrength Strength)> Tags { get; init; } = [];
     public HashSet<string>? TypeExtensions { get; init; }
     public string? TypeName { get; init; }
-    public IReadOnlyList<DirectoryViewProfile> Profiles { get; init; } = [];
+    // CHANGED (folder types): folder type IDs ("Photos", "custom:school"), so custom types are searchable.
+    public IReadOnlyList<string> Profiles { get; init; } = [];
 
     public bool TypeMatches(ReadOnlySpan<char> extension)
         => TypeExtensions is not null && !extension.IsEmpty &&
@@ -68,7 +69,7 @@ public sealed class SearchQuery
 
     public IReadOnlyList<string> TagIds { get; private init; } = [];
 
-    public IReadOnlyList<DirectoryViewProfile> Profiles { get; private init; } = [];
+    public IReadOnlyList<string> Profiles { get; private init; } = []; // CHANGED: folder type IDs
 
     public IReadOnlyList<string> Extensions { get; private init; } = [];
 
@@ -79,6 +80,24 @@ public sealed class SearchQuery
 
     // NEW: the folder the person is searching from. Ranking only; see At().
     internal string? CurrentFolder { get; private init; }
+
+    // NEW (folder types, step 2): folders whose type ranks their contents lower in search (Archives &
+    // Backups), captured when the query is parsed so the index scan and item ranking agree.
+    internal IReadOnlyList<string> LowRankFolders { get; private init; } = [];
+
+    // NEW (folder types, step 2): the same query with a given set of low-rank folders (tests).
+    internal SearchQuery WithLowRankFolders(IReadOnlyList<string> folders) => new(_tagStore)
+    {
+        _tagPaths = _tagPaths,
+        TermList = TermList,
+        TagIds = TagIds,
+        Profiles = Profiles,
+        Extensions = Extensions,
+        ExtensionSet = ExtensionSet,
+        Kind = Kind,
+        CurrentFolder = CurrentFolder,
+        LowRankFolders = folders
+    };
 
     public bool IsEmpty => TermList.Count == 0 && !HasStructuredFilter;
 
@@ -111,7 +130,8 @@ public sealed class SearchQuery
         Extensions = Extensions,
         ExtensionSet = ExtensionSet,
         Kind = Kind,
-        CurrentFolder = currentFolder
+        CurrentFolder = currentFolder,
+        LowRankFolders = LowRankFolders // NEW (folder types, step 2)
     };
 
     public static SearchQuery Parse(string? text)
@@ -127,7 +147,7 @@ public sealed class SearchQuery
         var terms = new List<SearchTerm>();
         var run = new List<(string Text, bool Quoted)>();
         var tags = new List<string>();
-        var profiles = new List<DirectoryViewProfile>();
+        var profiles = new List<string>();
         var extensions = new List<string>();
         var kind = SearchKind.Any;
 
@@ -159,10 +179,11 @@ public sealed class SearchQuery
                     break;
 
                 case "type" or "kindof" or "folder":
-                    if (Enum.TryParse<DirectoryViewProfile>(value, ignoreCase: true, out var profile) && Enum.IsDefined(profile))
+                    // CHANGED (folder types): any type by ID or name, custom ones included.
+                    if (FolderTypes.Find(value) is { IsAutomatic: false } folderType)
                     {
                         Flush();
-                        profiles.Add(profile);
+                        profiles.Add(folderType.Id);
                     }
                     else
                         run.Add((token, false));
@@ -208,7 +229,8 @@ public sealed class SearchQuery
             Profiles = profiles,
             Extensions = extensions,
             ExtensionSet = extensions.Count == 0 ? null : new HashSet<string>(extensions, StringComparer.OrdinalIgnoreCase),
-            Kind = kind
+            Kind = kind,
+            LowRankFolders = FolderTypes.RankLowerFolders() // NEW (folder types, step 2)
         };
     }
 
@@ -268,22 +290,21 @@ public sealed class SearchQuery
                 tags.Add((tag.Id, TagStrength.Prefix));
         }
 
-        var profiles = new List<DirectoryViewProfile>();
+        var profiles = new List<string>();
         HashSet<string>? typeExtensions = null;
         string? typeName = null;
 
         if (!quoted)
         {
-            foreach (var profile in Enum.GetValues<DirectoryViewProfile>())
+            // CHANGED (folder types): every type's name and search words, custom types included.
+            foreach (var folderType in FolderTypes.All)
             {
-                if (profile is DirectoryViewProfile.Automatic or DirectoryViewProfile.General)
+                if (folderType.IsAutomatic || folderType.Id == FolderTypes.General.Id)
                     continue;
 
-                var name = profile.ToString();
-
-                if (name.Equals(text, StringComparison.OrdinalIgnoreCase) ||
-                    (text.Length >= 3 && name.StartsWith(text, StringComparison.OrdinalIgnoreCase)))
-                    profiles.Add(profile);
+                if (FolderTypes.Words(folderType).Any(word => word.Equals(text, StringComparison.OrdinalIgnoreCase) ||
+                        (text.Length >= 3 && word.StartsWith(text, StringComparison.OrdinalIgnoreCase))))
+                    profiles.Add(folderType.Id);
             }
 
             if (SearchVocabulary.TypeWords.TryGetValue(text, out var type))
@@ -373,7 +394,7 @@ public sealed class SearchQuery
         var name = item.Name.AsSpan();
         var isFolder = item.IsFolder;
         var extension = isFolder ? ReadOnlySpan<char>.Empty : Path.GetExtension(name);
-        DirectoryViewProfile? profile = null;
+        string? profile = null;
         var profileLoaded = false;
         Span<int> strengths = count <= 64 ? stackalloc int[count] : new int[count];
         var own = 0;
@@ -405,7 +426,7 @@ public sealed class SearchQuery
                     profileLoaded = true;
                 }
 
-                if (profile is { } value && term.Profiles.Contains(value))
+                if (profile is { } value && term.Profiles.Contains(value, StringComparer.OrdinalIgnoreCase))
                     strength = Math.Max(strength, SearchRanker.FolderType);
             }
 
@@ -501,11 +522,8 @@ public sealed class SearchQuery
         return true;
     }
 
-    private static DirectoryViewProfile? FolderProfile(string path)
-    {
-        var saved = SettingsService.GetFolderViewProfile(path);
-        return saved is not null && Enum.TryParse<DirectoryViewProfile>(saved, out var profile) ? profile : null;
-    }
+    // CHANGED (folder types): the folder's own type ID, or null.
+    private static string? FolderProfile(string path) => SettingsService.GetFolderViewProfile(path);
 
     public bool MatchesStructural(FileSystemItem item)
     {
@@ -522,7 +540,7 @@ public sealed class SearchQuery
                 return false;
         }
 
-        if (Profiles.Count > 0 && !(item.IsFolder && FolderProfile(item.FullPath) is { } profile && Profiles.Contains(profile)))
+        if (Profiles.Count > 0 && !(item.IsFolder && FolderProfile(item.FullPath) is { } profile && Profiles.Contains(profile, StringComparer.OrdinalIgnoreCase)))
             return false;
 
         return true;
@@ -561,6 +579,8 @@ public sealed class SearchQuery
         return candidates;
     }
 
+    private static string TypeName(string id) => (FolderTypes.Find(id)?.Name ?? id).ToLowerInvariant();
+
     public string Describe()
     {
         var parts = new List<string>();
@@ -569,7 +589,7 @@ public sealed class SearchQuery
             parts.Add("tagged " + string.Join(" and ", TagIds.Select(id => Tags.Find(id)?.Name ?? "unknown tag")));
 
         if (Profiles.Count > 0)
-            parts.Add("typed " + string.Join(" or ", Profiles.Select(profile => profile.ToString().ToLowerInvariant())));
+            parts.Add("typed " + string.Join(" or ", Profiles.Select(TypeName)));
 
         if (Extensions.Count > 0)
             parts.Add(string.Join(" or ", Extensions));
@@ -589,7 +609,7 @@ public sealed class SearchQuery
                 alternatives.Add(term.TypeName);
 
             if (term.Profiles.Count > 0)
-                alternatives.Add("typed " + string.Join(" or ", term.Profiles.Select(profile => profile.ToString().ToLowerInvariant())));
+                alternatives.Add("typed " + string.Join(" or ", term.Profiles.Select(TypeName)));
 
             alternatives.Add($"in a folder named {term.Text}");
             parts.Add(string.Join(" or ", alternatives));

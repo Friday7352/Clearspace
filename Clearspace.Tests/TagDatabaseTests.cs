@@ -29,7 +29,7 @@ public sealed class TagDatabaseTests
         Assert.IsTrue(tags.HasTag(@"c:\école\REPORT.TXT", "étude"));
         Assert.AreEqual(1, tags.TagIdsFor(@"C:\École\report.txt").Count);
         CollectionAssert.AreEqual(original, File.ReadAllBytes(_scope.LegacyPath));
-        Assert.AreEqual(1L, _scope.Number("PRAGMA user_version"));
+        Assert.AreEqual(5L, _scope.Number("PRAGMA user_version")); // CHANGED (unlock vs remove lock): schema v5
         Assert.AreEqual(1L, _scope.Number("SELECT COUNT(*) FROM Paths"));
     }
 

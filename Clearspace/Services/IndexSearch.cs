@@ -38,8 +38,9 @@ internal static class IndexSearch
         public Dictionary<int, ulong> TermTags { get; } = new();
         public Dictionary<int, uint> ExplicitTags { get; } = new();
         public uint ExplicitTagMask { get; set; }
-        public Dictionary<int, DirectoryViewProfile> Profiles { get; } = new();
+        public Dictionary<int, string> Profiles { get; } = new(); // CHANGED (folder types): type IDs
         public List<int>? Candidates { get; set; }
+        public HashSet<int> LowRank { get; } = new(); // NEW (folder types, step 2): Archives & Backups folders
     }
 
     // Returns null when none of the search roots is on this volume.
@@ -131,13 +132,22 @@ internal static class IndexSearch
 
             foreach (var (path, saved) in typedFolders)
             {
-                if (!Enum.TryParse<DirectoryViewProfile>(saved, out var profile))
+                if (string.IsNullOrWhiteSpace(saved))
                     continue;
 
                 var index = Resolve(path);
 
                 if (index >= 0)
-                    plan.Profiles[index] = profile;
+                    plan.Profiles[index] = saved;
+            }
+
+            // NEW (folder types, step 2): contents of these folders rank lower (see SearchRanker.Score).
+            foreach (var folder in query.LowRankFolders)
+            {
+                var index = Resolve(folder);
+
+                if (index >= 0)
+                    plan.LowRank.Add(index);
             }
 
             // Explicit tag:/type: filters name their candidates; there is no need to scan the volume.
@@ -150,7 +160,7 @@ internal static class IndexSearch
             else if (query.Profiles.Count > 0)
             {
                 plan.Candidates = plan.Profiles
-                    .Where(pair => query.Profiles.Contains(pair.Value))
+                    .Where(pair => query.Profiles.Contains(pair.Value, StringComparer.OrdinalIgnoreCase))
                     .Select(pair => pair.Key).ToList();
             }
 
@@ -268,7 +278,7 @@ internal static class IndexSearch
         private readonly int _contextTerms = Math.Min(query.TermList.Count, SearchQuery.MaxContextTerms);
         private readonly SearchKind _kind = query.Kind;
         private readonly HashSet<string>? _extensions = query.ExtensionSet;
-        private readonly IReadOnlyList<DirectoryViewProfile> _profiles = query.Profiles;
+        private readonly IReadOnlyList<string> _profiles = query.Profiles;
         private readonly Plan _plan = plan;
         private readonly bool _hasTermTags = plan.TermTags.Count > 0;
         private readonly long _now = DateTime.UtcNow.ToFileTimeUtc();
@@ -307,12 +317,12 @@ internal static class IndexSearch
                 (!_plan.ExplicitTags.TryGetValue(i, out var have) || (have & _plan.ExplicitTagMask) != _plan.ExplicitTagMask))
                 return false;
 
-            DirectoryViewProfile? profile = null;
+            string? profile = null;
 
             if (isFolder && _plan.Profiles.TryGetValue(i, out var typed))
                 profile = typed;
 
-            if (_profiles.Count > 0 && !(profile is { } wanted && _profiles.Contains(wanted)))
+            if (_profiles.Count > 0 && !(profile is { } wanted && _profiles.Contains(wanted, StringComparer.OrdinalIgnoreCase)))
                 return false;
 
             // Words: evidence on the entry itself.
@@ -342,7 +352,7 @@ internal static class IndexSearch
                 if (!isFolder && term.TypeMatches(extension))
                     strength = Math.Max(strength, SearchRanker.TypeWord);
 
-                if (profile is { } value && term.Profiles.Contains(value))
+                if (profile is { } value && term.Profiles.Contains(value, StringComparer.OrdinalIgnoreCase))
                     strength = Math.Max(strength, SearchRanker.FolderType);
 
                 if (strength > 0)
@@ -445,6 +455,10 @@ internal static class IndexSearch
             info.InScope = parent.InScope || _plan.ScopeRoots.Contains(folder);
             info.UnderCurrent = parent.UnderCurrent || folder == _plan.Current;
             info.Noise = (byte)Math.Max(parent.Noise, SearchRanker.NoiseOf(name));
+
+            // NEW (folder types, step 2): below an Archives & Backups folder counts as soft noise.
+            if (_plan.LowRank.Count > 0 && _plan.LowRank.Contains(folder))
+                info.Noise = (byte)Math.Max((int)info.Noise, SearchRanker.SoftNoiseLevel); // FIXED: int overload (CS0121)
 
             // The drive root is not a meaningful folder name ("C:\" would match the word "c").
             if (entry.ParentIndex < 0)

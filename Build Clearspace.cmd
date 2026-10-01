@@ -13,7 +13,12 @@ REM FIXED: never reuse precompiled code left by an older self-contained installe
 REM dist\Clearspace.exe fail fast on startup). Cheap to redo: only Clearspace itself is precompiled here.
 if exist "obj\Release\net10.0-windows\win-x64\R2R" rmdir /s /q "obj\Release\net10.0-windows\win-x64\R2R"
 
-dotnet publish -c Release -o "%~dp0dist"
+REM FIXED: a WPF build that is interrupted (or an editor's background build) can leave a temporary
+REM Clearspace_*_wpftmp.csproj next to the real one, and "dotnet publish" with no project named then
+REM stops with MSB1011 ("more than one project file"). Remove leftovers and always name the project.
+del /q "Clearspace_*_wpftmp.csproj" >nul 2>&1
+
+dotnet publish "Clearspace.csproj" -c Release -o "%~dp0dist"
 if errorlevel 1 (
     echo.
     echo Publish failed. See the errors above.

@@ -38,7 +38,16 @@
 
   <ItemGroup>
     <Resource Include="Assets\Clearspace.ico" />
+    <!-- NEW (Explorer integration): lock icons Clearspace writes out for Explorer (.cslock files, locked folders). -->
+    <EmbeddedResource Include="Assets\LockedFile.ico" LogicalName="Clearspace.LockedFile.ico" />
+    <EmbeddedResource Include="Assets\LockedFolder.ico" LogicalName="Clearspace.LockedFolder.ico" />
     <InternalsVisibleTo Include="Clearspace.Tests" />
+  </ItemGroup>
+
+  <!-- NEW (memory): let the garbage collector compact large arrays when free space builds up between
+       them, instead of growing the process to make room. Costs a little speed during big rebuilds. -->
+  <ItemGroup>
+    <RuntimeHostConfigurationOption Include="System.GC.ConserveMemory" Value="5" />
   </ItemGroup>
 
 </Project>

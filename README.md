@@ -8,12 +8,23 @@ Clearspace is a modern Windows file manager built to be a comfortable replacemen
 
 ### Folder types that adapt to your work
 
-Any folder can be given a type such as **General**, **Documents**, **Downloads**, **Photos**, **Music**, or **Videos**. The type is saved for that location and changes the view to suit the content:
+Every folder has a type. Leave it on **Automatic** and Clearspace picks one from Windows' own folders (Desktop, Downloads, Pictures…), the folder's name, a code repository, or what the folder contains; the toolbar shows what it picked, for example **Auto (Photos)**. Or choose a type yourself: it is saved for that folder and can apply to every folder inside it. Each type does something the plain list does not:
 
-- Photos and Videos open naturally in a visual grid.
-- Music uses a music-focused list with artist, album, track, and length columns.
-- Documents, Downloads, Desktop, and General folders keep an efficient details view.
-- Typed folders receive a matching visual badge, so the sidebar and grids are easier to scan.
+- **Photos**: picture tiles, the in-app photo viewer (zoom, rotate, crop), and image sizes in details view.
+- **Screenshots**: everything Photos does, newest first, and grouped under Today, Yesterday, This week… in details view.
+- **Videos**: tiles show each video's length; details view adds length and resolution.
+- **Music**: artist, album, track and length columns, and the built-in music player.
+- **Documents**: page counts and authors, read from the files themselves.
+- **Research**: papers by their real title and authors (so `2304.12345.pdf` reads as a paper), most recent first. PDFs are read by Clearspace itself, since Windows has no PDF property reader.
+- **Downloads**: newest first, grouped by day, with the site each file came from.
+- **Desktop**: folders, shortcuts and files in their own groups.
+- **Code**: the Git branch and how many files have changed, a Git column with each file's status, and build and dependency folders such as `bin`, `obj` and `node_modules` dimmed.
+- **Projects**: a strip above the list with files you pinned to the project and the files changed most recently anywhere inside it. Right-click a file and choose **Pin to project**.
+- **Design & 3D**: large previews (3D models too, where Windows can draw them), the photo viewer, and pixel sizes.
+- **Archives & Backups**: grouped by date, and their contents rank below your current files in search.
+- **General**: a plain, fast list with no extras.
+
+Arrange a folder the way you like it and choose **Save this view as a folder type…** to keep its layout, columns, sort and tile size as your own type (for example "School"). Search understands folder types too: `screenshots receipt` or `type:school essay`.
 
 Select several folders, right-click, and set their type together when organizing a larger collection.
 
@@ -35,6 +46,42 @@ existing `tags.json` data is imported automatically and the original file is kep
 Bulk changes save together, and failed writes leave the previous assignments intact.
 See [Artifact 3 database notes](docs/CS499-Artifact-Three-Databases.md) for migration,
 backup, and recovery details.
+
+### Password protected files and folders
+
+Right-click one file or folder and choose **Lock with password** to encrypt its
+contents. The first lock creates a master password (any length); later locks use
+that password. Choose **Unlock**, or Open on a locked file, to restore it. Keep the
+password safe: it cannot be recovered. Existing copies and backups are not
+encrypted by this operation.
+
+Locking a folder encrypts every file inside it and its subfolders; names stay
+visible. Opening a locked folder asks for the password; while you're inside, its
+files are unlocked and work normally, and Clearspace locks them again when you
+leave (or on the next start after a crash). Locked items show a lock badge.
+
+Locked files are renamed `<name>.cslock` and get a lock icon in Windows Explorer
+too; double-clicking one there opens Clearspace's password prompt and then the
+file. Explorer's right-click menu gets **Lock with Clearspace** / **Unlock with
+Clearspace** on files and a **Clearspace** submenu on folders (under "Show more
+options" on Windows 11). Locked folders show a lock folder icon in Explorer.
+
+**Unlock** asks for the password and keeps a file unlocked until no Explorer or
+Clearspace window is showing its folder. From Explorer, Lock / Unlock / Remove
+lock and double-clicking a locked file show only the password dialog; only
+**Open in Clearspace** opens the main window. **Remove lock** decrypts for good and works on several selected
+files and folders at once; removing the lock from something inside a locked folder
+also stops that folder asking for a password (its other files stay locked).
+**Settings > Remove all locks and reset password** unlocks everything and lets you
+create a new password on the next lock. Locked files never depend on Clearspace's
+database: after a reinstall, a Windows reset or on another PC they still open with
+the password they were locked with, and **Change password…** switches files from
+an older password to your current one. Files that can't be locked (over 64 MB, links, cloud placeholders, files
+with additional data streams such as downloads, files in use) are skipped and
+listed. Drive roots, your user folder, and Windows/program folders are refused.
+Lock metadata and the password verifier are stored in SQLite; each encrypted
+file also contains protected recovery metadata. See [file-locking notes](docs/CS499-File-Locking.md)
+for the format, tests, and recovery limitations.
 
 ### Photo viewer and editing
 

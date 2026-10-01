@@ -18,18 +18,20 @@ public sealed class OpenItemAction(ExplorerContext context) : IAction
     public HotKey HotKey => new(Key.Enter);
     public bool IsExecutable => context.HasSelection;
 
-    public Task ExecuteAsync(object? parameter = null)
+    public async Task ExecuteAsync(object? parameter = null)
     {
         foreach (var item in context.SelectedItems)
         {
             if (item.IsFolder)
             {
                 context.Navigation.Navigate(item.FullPath);
-                return Task.CompletedTask;
+                return;
             }
 
             try
             {
+                if (context.OpenLockedFile is not null && await context.OpenLockedFile(item.FullPath))
+                    continue;
                 Process.Start(new ProcessStartInfo
                 {
                     FileName = item.FullPath,
@@ -41,7 +43,6 @@ public sealed class OpenItemAction(ExplorerContext context) : IAction
             }
         }
 
-        return Task.CompletedTask;
     }
 }
 

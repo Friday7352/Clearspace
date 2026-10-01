@@ -12,13 +12,52 @@ public partial class App : Application
     private static string? _lastErrorSignature;
     private static DateTime _lastErrorAt;
 
-    public static string? StartupPath { get; private set; }
+    // CHANGED (Explorer re-lock): LockAgent sets it when "Open in Clearspace" has to create the main window.
+    public static string? StartupPath { get; internal set; }
+
+    // NEW (Explorer re-lock): a lock / unlock / remove-lock command from Explorer that this process runs without
+    // a main window (only the password dialog shows).
+    private Services.ShellCommand? _windowlessCommand;
 
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
 
-        if (e.Args.Length > 0)
+        // NEW (Explorer integration): installer hooks.
+        if (e.Args.Length == 1 && e.Args[0] is "--register-shell" or "--unregister-shell")
+        {
+            try
+            {
+                if (e.Args[0] == "--register-shell") Services.ShellIntegration.Register(Environment.ProcessPath!);
+                else Services.ShellIntegration.Unregister();
+            }
+            catch (Exception) { }
+            Shutdown(0);
+            return;
+        }
+
+        // REMOVED (Explorer folder gate, reverted): a leftover sign-in entry may still start Clearspace with
+        // --background; do nothing (Register removes that entry the next time Clearspace opens).
+        if (e.Args.Length == 1 && e.Args[0] == "--background")
+        {
+            Shutdown(0);
+            return;
+        }
+
+        // NEW (Explorer integration): a command from Explorer goes to the Clearspace that's already running.
+        if (Services.ShellCommands.Parse(e.Args) is { } command)
+        {
+            if (Services.ShellCommands.TryForward(command))
+            {
+                Shutdown(0);
+                return;
+            }
+            // CHANGED (Explorer re-lock): only "Open in Clearspace" (on a folder) shows the main window; everything
+            // else shows just its dialog.
+            if (command.Verb == Services.ShellVerb.Open && Directory.Exists(command.Path)) StartupPath = command.Path;
+            else _windowlessCommand = command;
+        }
+        else if (e.Args.Length > 0)
         {
             var candidate = e.Args[0].Trim('"');
 
@@ -46,7 +85,21 @@ public partial class App : Application
             MessageBox.Show(exception.Message + "\n\nTag storage: " + Services.TagService.DatabasePath,
                 "Clearspace could not open tags", MessageBoxButton.OK, MessageBoxImage.Warning);
             Shutdown(1);
+            return; // CHANGED: don't open the window after a failed start
         }
+
+        // CHANGED (Explorer re-lock): Clearspace may run with no window (after a password prompt from Explorer,
+        // until what it unlocked is locked again), so LockAgent decides when it exits, not the last window.
+        ShutdownMode = ShutdownMode.OnExplicitShutdown;
+        LockAgent.Current.Start();
+        if (_windowlessCommand is { } windowless)
+        {
+            LockAgent.Current.RunLater(windowless);
+            return;
+        }
+
+        // CHANGED (Explorer integration): replaces StartupUri="MainWindow.xaml".
+        new MainWindow().Show();
     }
 
     protected override void OnExit(ExitEventArgs e)

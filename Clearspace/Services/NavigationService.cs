@@ -11,6 +11,11 @@ public sealed class NavigationService
 
     public event EventHandler<string>? Navigated;
 
+    // NEW (locked folders): asked before moving to a different location; returning false cancels the
+    // move (e.g. the password prompt for a locked folder was cancelled). Refreshing the current location
+    // is never gated.
+    public Func<string, bool>? CanEnter { get; set; }
+
     public string? CurrentPath => _index >= 0 && _index < _history.Count ? _history[_index] : null;
 
     public bool CanGoBack => _index > 0;
@@ -31,6 +36,8 @@ public sealed class NavigationService
             return;
         }
 
+        if (CanEnter is not null && !CanEnter(path)) return; // NEW (locked folders)
+
         if (_index < _history.Count - 1)
             _history.RemoveRange(_index + 1, _history.Count - _index - 1);
 
@@ -43,6 +50,7 @@ public sealed class NavigationService
     public void GoBack()
     {
         if (!CanGoBack) return;
+        if (CanEnter is not null && !CanEnter(_history[_index - 1])) return; // NEW (locked folders)
         _index--;
         Navigated?.Invoke(this, _history[_index]);
     }
@@ -50,6 +58,7 @@ public sealed class NavigationService
     public void GoForward()
     {
         if (!CanGoForward) return;
+        if (CanEnter is not null && !CanEnter(_history[_index + 1])) return; // NEW (locked folders)
         _index++;
         Navigated?.Invoke(this, _history[_index]);
     }

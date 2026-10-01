@@ -1,4 +1,4 @@
-# Artifact 3 — SQLite tag storage
+# Artifact 3 — SQLite tags and file locking
 
 ## Scope and baseline
 
@@ -7,10 +7,14 @@ file/folder tag assignments. The starting commit is
 `d810ca8304ae7294a80d7fc49777e4995e48435a` on `ArtifactTwo`.
 Implementation branch: `codex/artifact-three-sqlite`.
 
-The older portfolio outline also mentioned file-lock metadata. Inspection found no
-file-lock feature in this baseline. On September 29, 2026, Payton confirmed the scope
-as existing tags and assignments. The file-search index and disk usage data retain
-their existing binary storage. SQLite is used through `Microsoft.Data.Sqlite` 10.0.12.
+The September 29 implementation covered tags and assignments. After checking the
+original Module One plan, Payton requested the planned file-lock feature on October
+1. The current enhancement also provides password-based encryption and SQLite lock
+metadata. See [file-locking notes](CS499-File-Locking.md) for the schema version 2
+upgrade, encryption design, recovery behavior, tests, and initial size/type limits.
+The file-search index and disk usage data retain their separate storage. SQLite is
+used through `Microsoft.Data.Sqlite` 10.0.12. The sections below describe the tag
+portion; the new notes document the added file-lock portion.
 
 ## Problem and resulting behavior
 
@@ -53,8 +57,9 @@ The application opens `%APPDATA%\Clearspace\tags.db`. The legacy source remains
 
 1. Open the database and inspect `PRAGMA user_version` inside a transaction.
 2. For a new database, create the schema and import definitions and assignments.
-3. Set schema version 1 and commit all schema and data changes together.
-4. Reopen version 1 directly on later runs, without reimporting the old JSON.
+3. Install the lock tables and set schema version 2, committing schema and import together.
+4. Upgrade existing version 1 databases transactionally, without reimporting JSON;
+   reopen version 2 directly on later runs.
 
 The original JSON is never edited or deleted. A missing JSON file initializes the
 seven default tags. An intentionally empty legacy tag list remains empty. Repeated
@@ -90,11 +95,11 @@ Selection actions show the failure in the status area and reload tag checkboxes
 from committed data. Search catches database-read failures and reports incomplete
 results. Connections are disposed at application exit and after tests.
 
-Each parsed search captures the paths for its requested tags using indexed queries
-in one read transaction. Matching each file then uses in-memory sets. Explicit tag
-queries intersect these sets for candidate paths. Changing tags in the current
-window restarts an active search with a fresh snapshot. This avoids introducing a
-database round trip for every entry in a drive scan.
+The current TagStore serves tag definitions and assignments from a cached snapshot,
+refreshing after its own writes or a change detected with SQLite data_version.
+Parsed searches capture the relevant assignments for matching in memory. Changing
+tags in the current window restarts an active search with a fresh snapshot. This
+avoids querying the database separately for every entry in a drive scan.
 
 ## Verification
 
@@ -110,7 +115,9 @@ user's tag files. Coverage includes:
 - Matching after closing the database, and graceful search failure when parsing cannot read tags.
 - A 10,000-assignment fixture whose query plan uses the reverse covering index.
 
-Final Release suite: **180 passed, 0 failed, 0 skipped** on September 29, 2026.
+Historical tag-only Release suite: **180 passed, 0 failed, 0 skipped** on September 29, 2026.
+Current full Release suite with file locking: **251 passed, 0 failed, 0 skipped** on
+October 1, 2026, recorded in `output/test-results/milestone-four/milestone-four.trx`.
 Release publishing also completed successfully.
 Test report: `output/test-results/artifact-three/artifact-three.trx`.
 Run command:

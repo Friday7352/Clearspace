@@ -44,6 +44,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             UpdateStatus();
             OnPropertyChanged(nameof(HasSelectedFolders));
             OnPropertyChanged(nameof(HasCloudSelection));
+            OnPropertyChanged(nameof(CanPinToProject)); // NEW (folder types, step 2)
             RefreshTagOptions();
         };
 
@@ -109,15 +110,14 @@ public sealed class MainViewModel : ObservableObject, IDisposable
 
     private void LoadColumns()
     {
-        var profile = FolderProfile == DirectoryViewProfile.Automatic
-            ? AutomaticFolderTypeDetector.DetectFromName(CurrentPath) ?? DirectoryViewProfile.General
-            : FolderProfile;
+        // CHANGED (folder types): the type in effect here (own, inherited, or detected) supplies the defaults.
+        var type = string.IsNullOrWhiteSpace(CurrentPath) ? FolderTypes.General : FolderTypes.Resolved(CurrentPath);
 
         var saved = string.IsNullOrWhiteSpace(CurrentPath)
             ? null
             : SettingsService.GetFolderColumns(CurrentPath);
 
-        _visibleColumns = ColumnCatalog.Sanitise(saved ?? ColumnCatalog.DefaultsFor(profile, IsCloudFolder));
+        _visibleColumns = ColumnCatalog.Sanitise(saved ?? FolderTypes.DefaultColumns(type, IsCloudFolder));
 
         ColumnOptions.Clear();
 
@@ -214,6 +214,8 @@ public sealed class MainViewModel : ObservableObject, IDisposable
                 return;
 
             OnPropertyChanged(nameof(HasSearch));
+            OnPropertyChanged(nameof(ListGrouping));   // NEW (folder types, step 2)
+            OnPropertyChanged(nameof(ShowsProjectStrip)); // NEW (folder types, step 2)
             ApplySearchFilter(updateStatus: true);
         }
     }
@@ -324,6 +326,19 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         SearchText = $"tag:{tag.Id}";
     }
 
+    // NEW (lock icons): re-reads the lock badge of every listed row after a lock operation.
+    internal void RefreshLockBadges()
+    {
+        foreach (var item in _directoryItems)
+            item.RefreshLock();
+
+        if (!ReferenceEquals(Items, _directoryItems))
+        {
+            foreach (var item in Items)
+                item.RefreshLock();
+        }
+    }
+
     private void RefreshVisibleTags()
     {
         foreach (var item in _directoryItems)
@@ -369,6 +384,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             {
                 OnPropertyChanged(nameof(IsGrid));
                 OnPropertyChanged(nameof(IsDetails));
+                OnPropertyChanged(nameof(ListGrouping)); // NEW (folder types, step 2)
             }
         }
     }
@@ -377,46 +393,69 @@ public sealed class MainViewModel : ObservableObject, IDisposable
 
     public bool IsDetails => Layout == LayoutMode.Details;
 
-    private DirectoryViewProfile _folderProfile = DirectoryViewProfile.Automatic;
-    public DirectoryViewProfile FolderProfile
+    // CHANGED (folder types): the folder's type is a FolderType definition (built-in or custom), possibly
+    // inherited from a parent folder whose type applies to subfolders. FolderProfile is its built-in family.
+    private FolderType _folderType = FolderTypes.Automatic;
+    private string? _folderTypeInheritedFrom;
+
+    public FolderType FolderType => _folderType;
+    public DirectoryViewProfile FolderProfile => _folderType.Base;
+    public string? FolderTypeInheritedFrom => _folderTypeInheritedFrom;
+
+    public bool FolderTypeAppliesToSubfolders
+        => CanSetFolderProfile && _folderTypeInheritedFrom is null && !_folderType.IsAutomatic &&
+           SettingsService.GetFolderTypeAppliesToSubfolders(CurrentPath);
+
+    // NEW (folder types, step 2): the type whose behaviors apply here - the effective type, or for
+    // Automatic, the type detected from the folder's name and contents (Screenshots, Code, ...).
+    private FolderType _resolvedType = FolderTypes.General;
+    public FolderType ResolvedFolderType => _resolvedType;
+
+    private void ApplyFolderType(FolderType type, string? inheritedFrom)
     {
-        get => _folderProfile;
-        private set
-        {
-            if (!SetProperty(ref _folderProfile, value))
-                return;
+        _folderType = type;
+        _folderTypeInheritedFrom = inheritedFrom;
+        _resolvedType = !CanSetFolderProfile
+            ? FolderTypes.General
+            : type.IsAutomatic ? FolderTypes.Detected(CurrentPath, lookAtContents: true) : type;
 
-            OnPropertyChanged(nameof(FolderProfileLabel));
-            OnPropertyChanged(nameof(IsAutomaticProfile));
-            OnPropertyChanged(nameof(IsGeneralProfile));
-            OnPropertyChanged(nameof(IsPhotosProfile));
-            OnPropertyChanged(nameof(IsMusicProfile));
+        OnPropertyChanged(nameof(FolderType));
+        OnPropertyChanged(nameof(FolderProfile));
+        OnPropertyChanged(nameof(FolderTypeInheritedFrom));
+        OnPropertyChanged(nameof(FolderTypeAppliesToSubfolders));
+        OnPropertyChanged(nameof(FolderProfileLabel));
+        OnPropertyChanged(nameof(FolderTypeTooltip));
+        OnPropertyChanged(nameof(IsAutomaticProfile));
+        OnPropertyChanged(nameof(IsGeneralProfile));
+        OnPropertyChanged(nameof(IsPhotosProfile));
+        OnPropertyChanged(nameof(IsMusicProfile));
+        OnPropertyChanged(nameof(ResolvedFolderType));   // NEW (step 2)
+        OnPropertyChanged(nameof(ListGrouping));      // NEW (step 2)
+        OnPropertyChanged(nameof(IsProjectFolder));      // NEW (step 2)
+        OnPropertyChanged(nameof(ShowsProjectStrip));    // NEW (step 2)
+        OnPropertyChanged(nameof(ProjectTitle));         // NEW (step 2)
 
-            LoadColumns();
-        }
+        LoadColumns();
     }
 
-    public string FolderProfileLabel => FolderProfile switch
-    {
-        DirectoryViewProfile.Desktop => "Desktop",
-        DirectoryViewProfile.Documents => "Documents",
-        DirectoryViewProfile.Downloads => "Downloads",
-        DirectoryViewProfile.General => "General",
-        DirectoryViewProfile.Photos => "Photos",
-        DirectoryViewProfile.Music => "Music",
-        DirectoryViewProfile.Videos => "Videos",
-        _ => AutomaticFolderTypeDetector.DetectFromName(CurrentPath) switch
-        {
-            DirectoryViewProfile.Photos => "Automatic (Photos)",
-            DirectoryViewProfile.Music => "Automatic (Music)",
-            _ => "Automatic"
-        }
-    };
+    public string FolderProfileLabel => FolderTypes.Label(_folderType, CurrentPath);
 
-    public bool IsAutomaticProfile => FolderProfile == DirectoryViewProfile.Automatic;
+    // CHANGED (folder types, step 3): says what Automatic picked and why it matters.
+    public string FolderTypeTooltip => _folderTypeInheritedFrom is { } from
+        ? $"Folder type: {_folderType.Name}, applied to this folder by {from}"
+        : _folderType.IsAutomatic && _resolvedType.Id != FolderTypes.General.Id
+            ? $"Automatic picked {_resolvedType.Name}: {_resolvedType.Description}. Choose a type to keep one."
+            : "Choose a folder type for this folder";
+
+    public bool IsAutomaticProfile => _folderType.IsAutomatic;
     public bool IsGeneralProfile => FolderProfile == DirectoryViewProfile.General;
-    public bool IsPhotosProfile => FolderProfile == DirectoryViewProfile.Photos;
-    public bool IsMusicProfile => FolderProfile == DirectoryViewProfile.Music;
+    // CHANGED (folder types, step 3): the detected type counts too (an Automatic folder full of songs gets
+    // the player), and Screenshots and Design & 3D get the photo viewer.
+    public bool IsPhotosProfile => _resolvedType.PhotoViewer;
+    public bool IsMusicProfile => _resolvedType.Base == DirectoryViewProfile.Music;
+
+    // NEW (folder types, step 3): whether visible columns need file properties (title, pages, length...).
+    public bool NeedsFileProperties => ColumnCatalog.NeedsFileProperties(_visibleColumns);
     public bool CanSetFolderProfile => !string.IsNullOrWhiteSpace(CurrentPath) &&
                                        !CurrentPath.StartsWith("clearspace://", StringComparison.OrdinalIgnoreCase);
     public bool HasSelectedFolders => Context.SelectedItems.Any(item => item.IsStandardFolder);
@@ -454,7 +493,8 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         _restoringTileScale = true;
         try
         {
-            TileScale = SettingsService.GetFolderTileScale(path) ?? 1;
+            // CHANGED (folder types, step 2): the type's starting size when the folder has none of its own.
+            TileScale = SettingsService.GetFolderTileScale(path) ?? _resolvedType.TileScale ?? 1;
         }
         finally
         {
@@ -487,21 +527,24 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     public void ToggleLayout()
         => SetLayout(Layout == LayoutMode.Details ? LayoutMode.Grid : LayoutMode.Details);
 
-    public void SetFolderProfile(DirectoryViewProfile profile)
+    public void SetFolderProfile(DirectoryViewProfile profile) => SetFolderType(FolderTypes.ForProfile(profile));
+
+    // CHANGED (folder types): any type, built-in or custom. Its layout comes from the definition.
+    public void SetFolderType(FolderType type)
     {
         if (!CanSetFolderProfile)
             return;
 
-        SettingsService.SetFolderViewProfile(CurrentPath, profile.ToString());
-        FolderProfile = profile;
+        SettingsService.SetFolderViewProfile(CurrentPath, type.Id);
+        if (!type.IsAutomatic)
+            SettingsService.SetFolderTypeAppliesToSubfolders([CurrentPath], type.SubfoldersByDefault);
 
-        var preferredLayout = profile switch
-        {
-            DirectoryViewProfile.Photos or DirectoryViewProfile.Videos => LayoutMode.Grid,
-            DirectoryViewProfile.Music or DirectoryViewProfile.General or
-                DirectoryViewProfile.Desktop or DirectoryViewProfile.Documents or DirectoryViewProfile.Downloads => LayoutMode.Details,
-            _ => ResolveLayout(CurrentPath, Items)
-        };
+        // Automatic may now pick up a parent's type, so resolve rather than assume.
+        RestoreFolderProfile(CurrentPath);
+
+        var preferredLayout = !_folderType.IsAutomatic && _folderType.Layout is { } typed
+            ? typed
+            : ResolveLayout(CurrentPath, Items);
 
         if (preferredLayout == LayoutMode.Grid && Items.Count > GridItemLimit)
             preferredLayout = LayoutMode.Details;
@@ -509,9 +552,83 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         Layout = preferredLayout;
         if (Layout == LayoutMode.Details)
             _ = EnsureItemIconsAsync();
+
+        // NEW (folder types, step 2): the new type's sort, tile size, dimming, Git and project strip.
+        RestoreTileScale(CurrentPath);
+        if (ApplyTypeSort())
+            ResortDirectoryItems();
+        MarkGenerated(_directoryItems);
+        _ = RefreshFolderExtrasAsync(CurrentPath);
     }
 
-    public void SetFolderProfilesForSelection(DirectoryViewProfile profile)
+    // NEW (folder types): whether this folder's type also applies to the folders below it.
+    public void SetFolderTypeAppliesToSubfolders(bool applies)
+    {
+        if (!CanSetFolderProfile || FolderTypes.AssignedTo(CurrentPath).IsAutomatic)
+            return;
+
+        SettingsService.SetFolderTypeAppliesToSubfolders([CurrentPath], applies);
+        OnPropertyChanged(nameof(FolderTypeAppliesToSubfolders));
+        StatusText = applies
+            ? $"{_folderType.Name} now applies to every folder inside this one (unless a folder has its own type)."
+            : $"{_folderType.Name} now applies to this folder only.";
+    }
+
+    // NEW (folder types): save the current layout and columns as a custom type, and apply it here.
+    public void SaveViewAsFolderType(string name)
+    {
+        name = name.Trim();
+        if (!CanSetFolderProfile || name.Length == 0)
+            return;
+
+        var existing = FolderTypes.Find(name);
+        if (existing is { IsCustom: false })
+        {
+            StatusText = $"\"{name}\" is a built-in folder type. Choose another name.";
+            return;
+        }
+
+        var basis = FolderTypes.Resolved(CurrentPath);
+        var data = new CustomFolderTypeData
+        {
+            Id = existing?.Id ?? FolderTypes.NewCustomId(name),
+            Name = name,
+            Base = (basis.Base == DirectoryViewProfile.Automatic ? DirectoryViewProfile.General : basis.Base).ToString(),
+            Layout = Layout.ToString(),
+            Columns = [.. _visibleColumns],
+            Subfolders = true,
+            // NEW (folder types, step 2): the sort and tile size are part of the saved view too.
+            Sort = SortColumn.ToString(),
+            SortDescending = SortDescending,
+            TileScale = Math.Abs(TileScale - 1) < 0.01 ? null : TileScale
+        };
+
+        SettingsService.SaveCustomFolderType(data);
+        SetFolderType(FolderTypes.FromData(data));
+        StatusText = existing is null
+            ? $"Saved \"{name}\" as a folder type and applied it here and to subfolders."
+            : $"Updated the \"{name}\" folder type.";
+    }
+
+    // NEW (folder types): remove a custom type; folders using it go back to Automatic.
+    public void DeleteFolderType(FolderType type)
+    {
+        if (!type.IsCustom)
+            return;
+
+        SettingsService.DeleteCustomFolderType(type.Id);
+        if (!string.IsNullOrWhiteSpace(CurrentPath))
+        {
+            RestoreFolderProfile(CurrentPath);
+            Layout = ResolveLayout(CurrentPath, Items);
+        }
+
+        StatusText = $"Deleted the \"{type.Name}\" folder type.";
+    }
+
+    public void SetFolderProfilesForSelection(DirectoryViewProfile profile) => SetFolderTypeForSelection(FolderTypes.ForProfile(profile));
+
+    public void SetFolderTypeForSelection(FolderType type)
     {
         var folders = Context.SelectedItems
             .Where(item => item.IsStandardFolder)
@@ -525,7 +642,9 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             return;
         }
 
-        SettingsService.SetFolderViewProfiles(folders, profile.ToString());
+        SettingsService.SetFolderViewProfiles(folders, type.Id);
+        if (!type.IsAutomatic)
+            SettingsService.SetFolderTypeAppliesToSubfolders(folders, type.SubfoldersByDefault); // NEW
 
         foreach (var item in Context.SelectedItems.Where(item => item.IsStandardFolder))
         {
@@ -535,21 +654,9 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         }
 
         var folderLabel = folders.Length == 1 ? "folder" : "folders";
-        var typeLabel = profile == DirectoryViewProfile.Automatic ? "automatic" : FolderProfileLabelFor(profile);
+        var typeLabel = type.IsAutomatic ? "automatic" : type.Name;
         StatusText = $"Set {typeLabel} view for {folders.Length:N0} {folderLabel}.";
     }
-
-    private static string FolderProfileLabelFor(DirectoryViewProfile profile) => profile switch
-    {
-        DirectoryViewProfile.Desktop => "Desktop",
-        DirectoryViewProfile.Documents => "Documents",
-        DirectoryViewProfile.Downloads => "Downloads",
-        DirectoryViewProfile.General => "General",
-        DirectoryViewProfile.Photos => "Photos",
-        DirectoryViewProfile.Music => "Music",
-        DirectoryViewProfile.Videos => "Videos",
-        _ => "Automatic"
-    };
 
 
     private DateTime _lastIndexReport = DateTime.MinValue;
@@ -628,6 +735,8 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         System.Reflection.Assembly.GetEntryAssembly()?.GetName().Version?.ToString() ?? "1.0.0";
 
     private string _statusText = "Ready";
+    internal void ReportFileLock(string message) => StatusText = message;
+
     public string StatusText
     {
         get => _statusText;
@@ -857,11 +966,238 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         SortDescending = column == SortColumn && !SortDescending;
         SortColumn = column;
 
+        // NEW (folder types, step 2): a sort you choose becomes your usual sort, unless this folder's
+        // type sets its own (then it lasts for this visit).
+        if (!_typeSortActive)
+        {
+            _userSortColumn = SortColumn;
+            _userSortDescending = SortDescending;
+        }
+
+        ResortDirectoryItems();
+    }
+
+    private void ResortDirectoryItems()
+    {
         var sorted = _directoryItems.ToList();
         sorted.Sort(new ItemComparer(SortColumn, SortDescending));
         SetDirectoryItems(sorted);
         if (!string.IsNullOrWhiteSpace(CurrentPath))
             FolderSnapshotCache.Set(CurrentPath, sorted);
+        OnPropertyChanged(nameof(ListGrouping));
+    }
+
+    // ------------------------------------------------------------------ NEW (folder types, step 2)
+
+    private SortColumn _userSortColumn = SortColumn.Name;
+    private bool _userSortDescending;
+    private bool _typeSortActive;
+
+    // Applies the resolved type's sort, or goes back to your usual sort. True when the sort changed.
+    private bool ApplyTypeSort()
+    {
+        var (column, descending) = (SortColumn, SortDescending);
+
+        if (_resolvedType.Sort is { } typed)
+        {
+            SortColumn = typed;
+            SortDescending = _resolvedType.SortDescending;
+            _typeSortActive = true;
+        }
+        else if (_typeSortActive)
+        {
+            SortColumn = _userSortColumn;
+            SortDescending = _userSortDescending;
+            _typeSortActive = false;
+        }
+
+        OnPropertyChanged(nameof(ListGrouping));
+        return column != SortColumn || descending != SortDescending;
+    }
+
+    // NEW (folder types, step 3): re-resolve an Automatic folder after its contents were seen.
+    private void ReapplyDetectedType(string path)
+    {
+        // Windows' folders, names and repositories were already known; only reapply when the answer moved.
+        if (FolderTypes.Detected(path, lookAtContents: true).Id == _resolvedType.Id)
+            return;
+
+        RestoreFolderProfile(path);
+
+        RestoreTileScale(path);
+        if (ApplyTypeSort())
+            ResortDirectoryItems();
+        else
+            SetDirectoryItems(_directoryItems);
+
+        Layout = ResolveLayout(path, _directoryItems);
+        if (Layout == LayoutMode.Details)
+            _ = EnsureItemIconsAsync();
+    }
+
+    // Screenshots: details view grouped under Today / Yesterday / ... while sorted by date.
+    // CHANGED (folder types, step 3): the item property the details view groups by, or null.
+    // Date groups (Screenshots, Downloads, Archives) only while sorted by date; Kind groups (Desktop) always.
+    public string? ListGrouping
+    {
+        get
+        {
+            if (!IsDetails || HasSearch)
+                return null;
+
+            return _resolvedType.Grouping switch
+            {
+                FolderGrouping.Date when SortColumn == SortColumn.DateModified => nameof(FileSystemItem.DateGroup),
+                FolderGrouping.Kind => nameof(FileSystemItem.KindGroup),
+                _ => null
+            };
+        }
+    }
+
+    // Code: build output and dependency folders are dimmed.
+    private void MarkGenerated(IReadOnlyList<FileSystemItem> items)
+    {
+        var dim = _resolvedType.DimGenerated;
+
+        for (var i = 0; i < items.Count; i++)
+            items[i].IsGenerated = dim && items[i].IsFolder && GeneratedFolders.IsGenerated(items[i].Name);
+    }
+
+    // Code: "git: main · 3 changed" beside the folder type button.
+    private string _folderContextText = string.Empty;
+    public string FolderContextText
+    {
+        get => _folderContextText;
+        private set
+        {
+            if (SetProperty(ref _folderContextText, value))
+                OnPropertyChanged(nameof(HasFolderContext));
+        }
+    }
+
+    public bool HasFolderContext => _folderContextText.Length > 0;
+
+    // Projects: the folder the Projects type is assigned to (this one, or the one it is inherited from).
+    public bool IsProjectFolder => _resolvedType.ShowProjectStrip && CanSetFolderProfile;
+    public bool ShowsProjectStrip => IsProjectFolder && !HasSearch;
+    public string? ProjectRoot => IsProjectFolder ? _folderTypeInheritedFrom ?? CurrentPath : null;
+    public string ProjectTitle => ProjectRoot is { } root ? Path.GetFileName(root.TrimEnd('\\')) : string.Empty;
+
+    public ObservableCollection<ProjectStripItem> ProjectStrip { get; } = [];
+
+    private string _projectStripHint = string.Empty;
+    public string ProjectStripHint
+    {
+        get => _projectStripHint;
+        private set => SetProperty(ref _projectStripHint, value);
+    }
+
+    private CancellationTokenSource? _extrasCancel;
+
+    // Git status (Code) and the project strip (Projects), read in the background after a folder opens.
+    private async Task RefreshFolderExtrasAsync(string path)
+    {
+        _extrasCancel?.Cancel();
+        _extrasCancel = new CancellationTokenSource();
+        var token = _extrasCancel.Token;
+
+        var wantsGit = _resolvedType.Base == DirectoryViewProfile.Code && CanSetFolderProfile;
+        var projectRoot = ProjectRoot;
+
+        if (!wantsGit)
+        {
+            FolderContextText = string.Empty;
+            GitService.Apply(null, _directoryItems);
+        }
+
+        if (projectRoot is null)
+            ProjectStrip.Clear();
+
+        try
+        {
+            if (projectRoot is not null)
+            {
+                var pins = SettingsService.GetProjectPins(projectRoot);
+                var strip = await Task.Run(() => ProjectFiles.Build(projectRoot, pins, 8, token), token);
+
+                if (token.IsCancellationRequested || !path.Equals(CurrentPath, StringComparison.OrdinalIgnoreCase))
+                    return;
+
+                ProjectStrip.Clear();
+                foreach (var item in strip)
+                    ProjectStrip.Add(item);
+
+                ProjectStripHint = strip.Count == 0
+                    ? "Nothing here yet. Right-click a file and choose Pin to project."
+                    : string.Empty;
+            }
+
+            if (wantsGit)
+            {
+                var snapshot = await GitService.ReadAsync(path, token);
+
+                if (token.IsCancellationRequested || !path.Equals(CurrentPath, StringComparison.OrdinalIgnoreCase))
+                    return;
+
+                GitService.Apply(snapshot, _directoryItems);
+                FolderContextText = snapshot is null ? string.Empty : GitService.Describe(snapshot);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+        }
+    }
+
+    public bool CanPinToProject => IsProjectFolder && Context.SelectedItems.Count > 0;
+
+    public void PinSelectionToProject(bool pin)
+    {
+        if (ProjectRoot is not { } root)
+            return;
+
+        var paths = Context.SelectedItems.Select(item => item.FullPath).ToArray();
+        if (paths.Length == 0)
+            return;
+
+        SettingsService.SetProjectPins(root, paths, pin);
+        _ = RefreshFolderExtrasAsync(CurrentPath);
+
+        var count = paths.Length == 1 ? "1 item" : $"{paths.Length:N0} items";
+        StatusText = pin ? $"Pinned {count} to {ProjectTitle}." : $"Unpinned {count} from {ProjectTitle}.";
+    }
+
+    public void UnpinFromProject(ProjectStripItem item)
+    {
+        if (ProjectRoot is not { } root)
+            return;
+
+        SettingsService.SetProjectPins(root, [item.FullPath], pinned: false);
+        _ = RefreshFolderExtrasAsync(CurrentPath);
+    }
+
+    public void OpenProjectItem(ProjectStripItem item)
+    {
+        if (item.IsFolder)
+        {
+            Navigation.Navigate(item.FullPath);
+            return;
+        }
+
+        try
+        {
+            Process.Start(new ProcessStartInfo { FileName = item.FullPath, UseShellExecute = true });
+        }
+        catch (Exception exception)
+        {
+            StatusText = $"Could not open {item.Name}: {exception.Message}";
+        }
+    }
+
+    public void ShowProjectItemInFolder(ProjectStripItem item)
+    {
+        var folder = Path.GetDirectoryName(item.FullPath);
+        if (!string.IsNullOrEmpty(folder))
+            Navigation.Navigate(folder);
     }
 
     public void ApplyRename(FileSystemItem item, string newFullPath)
@@ -904,6 +1240,13 @@ public sealed class MainViewModel : ObservableObject, IDisposable
 
     private void SetDirectoryItems(IReadOnlyList<FileSystemItem> items)
     {
+        MarkGenerated(items); // NEW (folder types, step 2)
+
+        // NEW (folder types, step 3): Desktop groups folders, shortcuts and files; keep each group together
+        // (stable, so the sort inside each group is unchanged).
+        if (_resolvedType.Grouping == FolderGrouping.Kind && items.Count > 1)
+            items = [.. items.OrderBy(item => item.KindRank)];
+
         _directoryItems = items;
         ApplySearchFilter(updateStatus: false);
     }
@@ -962,6 +1305,8 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         CurrentPath = path;
         RestoreFolderProfile(path);
         RestoreTileScale(path);
+        ApplyTypeSort();                       // NEW (folder types, step 2): before the load captures the sort
+        FolderContextText = string.Empty;      // NEW (folder types, step 2)
 
         var cloudRoot = CloudStorageService.RootFor(path);
         IsCloudFolder = cloudRoot is not null;
@@ -1039,6 +1384,14 @@ public sealed class MainViewModel : ObservableObject, IDisposable
 
             FolderSnapshotCache.Set(path, items);
             SetDirectoryItems(items);
+
+            // NEW (folder types, step 3): Automatic looks at what the folder contains. When that changes
+            // the answer (first visit to a folder of photos, say), apply the detected type's view now;
+            // next time it is known before the folder opens.
+            if (AutomaticFolderTypeDetector.LearnContents(path, items) && _folderType.IsAutomatic)
+                ReapplyDetectedType(path);
+
+            _ = RefreshFolderExtrasAsync(path); // NEW (folder types, step 2): Git status, project strip
             stopwatch.Stop();
             readyMilliseconds ??= stopwatch.ElapsedMilliseconds;
 
@@ -1189,13 +1542,12 @@ public sealed class MainViewModel : ObservableObject, IDisposable
 
     private static LayoutMode ResolveLayout(string path, IReadOnlyList<FileSystemItem> items)
     {
-        var profileName = SettingsService.GetFolderViewProfile(path);
-        if (profileName is not null && Enum.TryParse<DirectoryViewProfile>(profileName, out var profile))
+        // CHANGED (folder types): the type in effect (own or inherited) decides, when it has a layout.
+        if (FolderTypes.Effective(path) is { IsAutomatic: false, Layout: { } typed })
         {
-            if ((profile is DirectoryViewProfile.Photos or DirectoryViewProfile.Videos) && items.Count <= GridItemLimit)
+            if (typed == LayoutMode.Grid && items.Count <= GridItemLimit)
                 return LayoutMode.Grid;
-            if (profile is DirectoryViewProfile.General or DirectoryViewProfile.Music or
-                DirectoryViewProfile.Desktop or DirectoryViewProfile.Documents or DirectoryViewProfile.Downloads)
+            if (typed == LayoutMode.Details)
                 return LayoutMode.Details;
         }
 
@@ -1212,7 +1564,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         if (items.Count <= GridItemLimit &&
             (KnownFolders.IsWithinPictures(path) ||
              MediaTypes.LooksVisual(items) ||
-             AutomaticFolderTypeDetector.DetectFromName(path) == DirectoryViewProfile.Photos))
+             FolderTypes.Detected(path, lookAtContents: true).Layout == LayoutMode.Grid)) // CHANGED (step 3): detected type incl. contents
             return LayoutMode.Grid;
 
         return LayoutMode.Details;
@@ -1220,10 +1572,9 @@ public sealed class MainViewModel : ObservableObject, IDisposable
 
     private void RestoreFolderProfile(string path)
     {
-        var saved = SettingsService.GetFolderViewProfile(path);
-        FolderProfile = saved is not null && Enum.TryParse<DirectoryViewProfile>(saved, out var profile)
-            ? profile
-            : DirectoryViewProfile.Automatic;
+        // CHANGED (folder types): own type, else inherited from a parent, else Automatic.
+        var type = FolderTypes.Effective(path, out var inheritedFrom);
+        ApplyFolderType(type, inheritedFrom);
         OnPropertyChanged(nameof(CanSetFolderProfile));
     }
 
@@ -1278,6 +1629,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     {
         _search.Dispose();
         _navigationLoads.Dispose();
+        _extrasCancel?.Cancel(); // NEW (folder types, step 2)
         FileIndexService.Changed -= OnFileIndexChanged;
         TagService.Changed -= OnTagsChanged;
     }

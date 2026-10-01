@@ -1,0 +1,190 @@
+<!-- Clearspace | Lock / unlock dialog for a file or a folder.
+     NEW (lock dialog redesign): moved from a code-built window to XAML so it uses the app's own
+     palette, fonts, card and button styles (same look as the Indexing and Disk usage pages) and the
+     dark title bar. Folders show progress and a list of any files that were skipped. -->
+<Window x:Class="Clearspace.FileLockWindow"
+        x:ClassModifier="internal"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Lock"
+        Width="480"
+        SizeToContent="Height"
+        ResizeMode="NoResize"
+        WindowStartupLocation="CenterOwner"
+        ShowInTaskbar="False"
+        Background="{StaticResource Base}"
+        Foreground="{StaticResource Ink}"
+        FontFamily="{StaticResource UIFont}"
+        FontSize="13"
+        UseLayoutRounding="True">
+
+    <Window.Resources>
+        <SolidColorBrush x:Key="Danger" Color="#FFE39482" />
+
+        <Style x:Key="FieldLabel" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{StaticResource InkMuted}" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Margin" Value="0,16,0,6" />
+        </Style>
+
+        <!-- Matches the app's inputs: Overlay fill, hairline border, 8px corners, accent caret and focus ring. -->
+        <Style x:Key="LockPasswordBox" TargetType="PasswordBox">
+            <Setter Property="Foreground" Value="{StaticResource Ink}" />
+            <Setter Property="CaretBrush" Value="{StaticResource Accent}" />
+            <Setter Property="SelectionBrush" Value="{StaticResource AccentSoft}" />
+            <Setter Property="FontFamily" Value="{StaticResource UIFont}" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="Height" Value="36" />
+            <Setter Property="MaxLength" Value="1024" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="PasswordBox">
+                        <Border x:Name="Box"
+                                Background="{StaticResource Overlay}"
+                                BorderBrush="{StaticResource Line}"
+                                BorderThickness="1"
+                                CornerRadius="8"
+                                Padding="10,0">
+                            <ScrollViewer x:Name="PART_ContentHost"
+                                          VerticalAlignment="Center"
+                                          Focusable="False"
+                                          HorizontalScrollBarVisibility="Hidden"
+                                          VerticalScrollBarVisibility="Hidden" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Box" Property="BorderBrush" Value="{StaticResource InkFaint}" />
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                                <Setter TargetName="Box" Property="BorderBrush" Value="{StaticResource Accent}" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.5" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
+    <Border Background="{StaticResource Surface}" CornerRadius="12" Margin="14" Padding="22,20,22,18">
+        <StackPanel>
+
+            <!-- Header: icon badge + title + item name (same pattern as the Indexing page's status card). -->
+            <DockPanel>
+                <Border DockPanel.Dock="Left"
+                        Width="44" Height="44"
+                        CornerRadius="22"
+                        Background="{StaticResource AccentSoft}"
+                        Margin="0,0,16,0"
+                        VerticalAlignment="Top">
+                    <TextBlock x:Name="Glyph"
+                               Text="&#xE72E;"
+                               FontFamily="{StaticResource IconFont}"
+                               FontSize="18"
+                               Foreground="{StaticResource Accent}"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center" />
+                </Border>
+                <StackPanel VerticalAlignment="Center">
+                    <TextBlock x:Name="Heading" Text="Lock" FontSize="20" FontWeight="SemiBold" />
+                    <TextBlock x:Name="ItemName"
+                               Foreground="{StaticResource InkMuted}"
+                               Margin="0,3,0,0"
+                               TextTrimming="CharacterEllipsis" />
+                </StackPanel>
+            </DockPanel>
+
+            <TextBlock x:Name="Explanation"
+                       Foreground="{StaticResource InkMuted}"
+                       TextWrapping="Wrap"
+                       LineHeight="19"
+                       Margin="0,18,0,0" />
+            <TextBlock x:Name="Limits"
+                       Foreground="{StaticResource InkFaint}"
+                       FontSize="11.5"
+                       TextWrapping="Wrap"
+                       Margin="0,8,0,0" />
+
+            <!-- Password entry. Confirm only appears the first time, when the password is being created. -->
+            <StackPanel x:Name="PasswordPanel">
+                <TextBlock x:Name="PasswordLabel" Text="Password" Style="{StaticResource FieldLabel}" />
+                <PasswordBox x:Name="PasswordInput" Style="{StaticResource LockPasswordBox}" />
+                <!-- NEW (switch to current password): shown only after an older password opened the file/folder. -->
+                <StackPanel x:Name="OlderPanel" Visibility="Collapsed" Margin="0,16,0,0">
+                    <Border Background="{StaticResource AccentSoft}" CornerRadius="8" Padding="12,10">
+                        <TextBlock x:Name="OlderNote" TextWrapping="Wrap" Foreground="{StaticResource Ink}" />
+                    </Border>
+                    <CheckBox x:Name="SwitchCheck"
+                              IsChecked="True"
+                              Margin="0,12,0,0"
+                              Foreground="{StaticResource Ink}"
+                              VerticalContentAlignment="Center"
+                              Checked="OnSwitchChanged"
+                              Unchecked="OnSwitchChanged">
+                        <TextBlock x:Name="SwitchText" TextWrapping="Wrap" Margin="4,0,0,0" />
+                    </CheckBox>
+                </StackPanel>
+                <StackPanel x:Name="ConfirmPanel" Visibility="Collapsed">
+                    <TextBlock x:Name="ConfirmLabel" Text="Confirm password" Style="{StaticResource FieldLabel}" />
+                    <PasswordBox x:Name="ConfirmInput" Style="{StaticResource LockPasswordBox}" />
+                </StackPanel>
+                <!-- NEW (change password): third box, only when the new Clearspace password is being created. -->
+                <StackPanel x:Name="NewConfirmPanel" Visibility="Collapsed">
+                    <TextBlock Text="Confirm new password" Style="{StaticResource FieldLabel}" />
+                    <PasswordBox x:Name="NewConfirmInput" Style="{StaticResource LockPasswordBox}" />
+                </StackPanel>
+            </StackPanel>
+
+            <!-- Folder progress. -->
+            <StackPanel x:Name="ProgressPanel" Visibility="Collapsed" Margin="0,16,0,0">
+                <TextBlock x:Name="ProgressText"
+                           Foreground="{StaticResource InkMuted}"
+                           TextTrimming="CharacterEllipsis" />
+                <ProgressBar x:Name="Progress"
+                             Height="3"
+                             Margin="0,8,0,0"
+                             BorderThickness="0"
+                             Foreground="{StaticResource Accent}"
+                             Background="{StaticResource Line}" />
+            </StackPanel>
+
+            <TextBlock x:Name="StatusText"
+                       TextWrapping="Wrap"
+                       Margin="0,14,0,0"
+                       Visibility="Collapsed" />
+
+            <!-- Files a folder run left alone, with the reason for each. -->
+            <Border x:Name="SkippedPanel"
+                    Visibility="Collapsed"
+                    Background="{StaticResource Overlay}"
+                    CornerRadius="8"
+                    Margin="0,12,0,0"
+                    Padding="12,10,12,2">
+                <ScrollViewer MaxHeight="170" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                    <ItemsControl x:Name="SkippedList">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel Margin="0,0,0,8">
+                                    <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" ToolTip="{Binding Name}" />
+                                    <TextBlock Text="{Binding Reason}"
+                                               Foreground="{StaticResource InkMuted}"
+                                               FontSize="11.5"
+                                               TextWrapping="Wrap"
+                                               Margin="0,2,0,0" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </Border>
+
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,22,0,0">
+                <Button x:Name="CancelButton" Content="Cancel" Style="{StaticResource ViewerTextButton}" Click="OnCancel" />
+                <Button x:Name="SubmitButton" Content="Lock" Style="{StaticResource ViewerTextButtonPrimary}" IsDefault="True" Click="OnSubmit" />
+            </StackPanel>
+        </StackPanel>
+    </Border>
+</Window>

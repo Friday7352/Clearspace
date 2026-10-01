@@ -1,5 +1,7 @@
 # Artifact 3 narrative draft — Clearspace databases
 
+Historical September 29 draft. Superseded by [the Milestone Four narrative](CS499-Milestone-Four-Narrative.md), which includes the implemented file-lock feature and verified Module One outcome mapping.
+
 Payton Castle · CS 499 · September 29, 2026
 
 ## Artifact background

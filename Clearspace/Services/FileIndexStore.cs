@@ -55,16 +55,22 @@ internal static class FileIndexStore
                     // change it mid-write, and drop entries removed since the last full scan.
                     lock (live.WriteGate)
                     {
-                        var volume = live.RemovedCount > 0 ? live.CompactedCopyLocked() : live;
-                        writer.Write(volume.Root);
-                        writer.Write(volume.SerialNumber);
-                        writer.Write(volume.BuiltUtc.Ticks);
-                        writer.Write(volume.Count);
-                        writer.Write(volume.PoolLength);
+                        // CHANGED (memory): removed entries are skipped while writing, not by copying the index.
+                        if (live.RemovedCount > 0)
+                        {
+                            live.WriteCompactedLocked(writer);
+                            continue;
+                        }
+
+                        writer.Write(live.Root);
+                        writer.Write(live.SerialNumber);
+                        writer.Write(live.BuiltUtc.Ticks);
+                        writer.Write(live.Count);
+                        writer.Write(live.PoolLength);
                         writer.Flush();
 
-                        stream.Write(MemoryMarshal.AsBytes(volume.Entries.AsSpan(0, volume.Count)));
-                        stream.Write(MemoryMarshal.AsBytes(volume.Names.AsSpan(0, volume.PoolLength)));
+                        stream.Write(MemoryMarshal.AsBytes(live.Entries.AsSpan(0, live.Count)));
+                        stream.Write(MemoryMarshal.AsBytes(live.Names.AsSpan(0, live.PoolLength)));
                     }
                 }
             }

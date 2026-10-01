@@ -20,7 +20,14 @@ public enum DirectoryViewProfile
     Downloads,
     Photos,
     Music,
-    Videos
+    Videos,
+    // NEW (folder types, step 2): families with their own behavior. Names are saved IDs; keep them stable.
+    Screenshots,
+    Code,
+    Projects,
+    Research,
+    Design,
+    Archives
 }
 
 public static class MediaTypes
@@ -46,7 +53,10 @@ public static class MediaTypes
     private static readonly HashSet<string> PreviewDocument = new(StringComparer.OrdinalIgnoreCase)
     {
         ".pdn", ".psd", ".psb", ".xcf", ".kra", ".ora", ".clip",
-        ".pdf", ".ai", ".eps", ".blend", ".3mf"
+        ".pdf", ".ai", ".eps", ".blend", ".3mf",
+        // NEW (folder types, step 3): 3D models (Design & 3D). Windows draws these when 3D Viewer or a
+        // slicer is installed; otherwise the tile keeps the file's icon.
+        ".stl", ".obj", ".fbx", ".glb", ".gltf", ".ply", ".3ds", ".skp", ".afdesign", ".afphoto"
     };
 
     // NEW (search relevance): the search index tests extensions straight from name spans, so it needs

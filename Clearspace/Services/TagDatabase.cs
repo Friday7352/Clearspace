@@ -45,7 +45,7 @@ internal sealed class TagDatabase(string databasePath, string? legacyPath) : IDi
             using var transaction = connection.BeginTransaction();
             var sql = new TagSql(connection, transaction);
             var version = sql.Number("PRAGMA user_version");
-            if (version != 0 && version != 1)
+            if (version is < 0 or > 5) // CHANGED (unlock vs remove lock): schema version 5
                 throw new InvalidDataException($"Tag database version {version} is not supported by this Clearspace version.");
             if (version == 0)
             {
@@ -71,6 +71,68 @@ internal sealed class TagDatabase(string databasePath, string? legacyPath) : IDi
                     """);
                 Import(sql);
                 sql.Execute("PRAGMA user_version = 1");
+            }
+            if (version < 2)
+            {
+                // Lock records contain only wrapped keys. Existing tags survive this additive upgrade.
+                sql.Execute("""
+                    CREATE TABLE LockSettings (
+                        Id INTEGER PRIMARY KEY CHECK(Id = 1),
+                        Salt BLOB NOT NULL CHECK(length(Salt) = 32),
+                        Iterations INTEGER NOT NULL CHECK(Iterations = 600000),
+                        Verifier BLOB NOT NULL CHECK(length(Verifier) = 32)
+                    );
+                    CREATE TABLE LockedFiles (
+                        FilePath TEXT COLLATE CLEARSPACE_NOCASE PRIMARY KEY NOT NULL,
+                        FileId TEXT NOT NULL,
+                        Header BLOB NOT NULL CHECK(length(Header) = 156),
+                        State TEXT NOT NULL CHECK(State IN ('Preparing', 'Locked', 'Unlocking')),
+                        UpdatedUtc TEXT NOT NULL
+                    );
+                    CREATE INDEX IX_LockedFiles_FileId ON LockedFiles(FileId);
+                    PRAGMA user_version = 2;
+                    """);
+            }
+            if (version < 3)
+            {
+                // NEW (locked folders): folders that ask for the password before they open. State 'Open' means
+                // the folder's files are unlocked for the current visit; SessionKey then holds that visit's
+                // wrapping key protected with Windows DPAPI (current user), so Clearspace can lock the folder
+                // again when you leave it, or on the next start after a crash, without asking for the password.
+                sql.Execute("""
+                    CREATE TABLE LockedFolders (
+                        FolderPath TEXT COLLATE CLEARSPACE_NOCASE PRIMARY KEY NOT NULL,
+                        State TEXT NOT NULL CHECK(State IN ('Locked', 'Open')),
+                        SessionKey BLOB NULL,
+                        UpdatedUtc TEXT NOT NULL
+                    );
+                    PRAGMA user_version = 3;
+                    """);
+            }
+            if (version < 4)
+            {
+                // NEW (Explorer integration): which running Clearspace opened a folder ("pid:start ticks"), so a
+                // second Clearspace window (e.g. started from Explorer) doesn't lock it again under the first one.
+                sql.Execute("""
+                    ALTER TABLE LockedFolders ADD COLUMN Owner TEXT NULL;
+                    PRAGMA user_version = 4;
+                    """);
+            }
+            if (version < 5)
+            {
+                // NEW (unlock vs remove lock): single files unlocked for a visit ("Unlock with Clearspace").
+                // FilePath is the file's unlocked name; it is locked again when Clearspace leaves Directory.
+                // SessionKey and Owner work exactly like the LockedFolders columns.
+                sql.Execute("""
+                    CREATE TABLE OpenFiles (
+                        FilePath TEXT COLLATE CLEARSPACE_NOCASE PRIMARY KEY NOT NULL,
+                        Directory TEXT COLLATE CLEARSPACE_NOCASE NOT NULL,
+                        SessionKey BLOB NOT NULL,
+                        Owner TEXT NULL,
+                        UpdatedUtc TEXT NOT NULL
+                    );
+                    PRAGMA user_version = 5;
+                    """);
             }
             transaction.Commit();
             _connection = connection;
