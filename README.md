@@ -4,6 +4,16 @@ Clearspace is a modern Windows file manager built to be a comfortable replacemen
 
 > **Work in progress:** Clearspace 1.0.0 is an early public release. There will be bugs and rough edges as it is used on more Windows setups and file collections. Please report issues you find; fixes and improvements will continue over time.
 
+<!-- NEW: a short list of the recent additions, linking to the sections below. -->
+## What's new
+
+- **[Password locks](#password-protected-files-and-folders)** for files and folders, with lock icons and right-click entries in Windows Explorer too.
+- **[Folder types](#folder-types-that-adapt-to-your-work)**: thirteen built-in types, types you save yourself, a Projects strip, and Git status in Code folders.
+- **[Instant indexing and fast catch-up](#instant-indexing-and-fast-catch-up)**: a drive's first index takes seconds, and reopening Clearspace reads only what changed.
+- **[The Indexing page](#see-what-is-indexed)** shows how each drive is kept current and what the index is doing right now.
+- **[Disk usage map](#disk-usage-visualizer)**: your drives, motherboard, memory and processor when you zoom out, plus experimental 3D views.
+- **Lower memory use**: saving the index no longer copies it, and memory used by a rescan is handed back to Windows.
+
 ## What Clearspace adds
 
 ### Folder types that adapt to your work
@@ -49,36 +59,51 @@ backup, and recovery details.
 
 ### Password protected files and folders
 
-Right-click one file or folder and choose **Lock with password** to encrypt its
+<!-- CHANGED: same behavior as before, regrouped under short labels so it is easier to scan. -->
+
+Right-click a file or folder and choose **Lock with password…** to encrypt its
 contents. The first lock creates a master password (any length); later locks use
-that password. Choose **Unlock**, or Open on a locked file, to restore it. Keep the
-password safe: it cannot be recovered. Existing copies and backups are not
-encrypted by this operation.
+that password. Keep the password safe: it cannot be recovered. Existing copies and
+backups are not encrypted by this operation.
 
-Locking a folder encrypts every file inside it and its subfolders; names stay
-visible. Opening a locked folder asks for the password; while you're inside, its
-files are unlocked and work normally, and Clearspace locks them again when you
-leave (or on the next start after a crash). Locked items show a lock badge.
+<!-- PICTURE SLOT (uncomment once the file exists):
+![The Lock with password dialog](docs/images/lock-dialog.png)
+-->
 
-Locked files are renamed `<name>.cslock` and get a lock icon in Windows Explorer
-too; double-clicking one there opens Clearspace's password prompt and then the
-file. Explorer's right-click menu gets **Lock with Clearspace** / **Unlock with
-Clearspace** on files and a **Clearspace** submenu on folders (under "Show more
-options" on Windows 11). Locked folders show a lock folder icon in Explorer.
+- **Files.** A locked file is renamed `<name>.cslock` and shows a lock badge.
+  Opening it, or choosing **Unlock…**, asks for the password and restores it. It
+  stays unlocked until no Clearspace or Explorer window is showing its folder,
+  then locks again.
+- **Folders.** Locking a folder encrypts every file inside it and its subfolders;
+  names stay visible. Opening a locked folder asks for the password. While you're
+  inside, its files are unlocked and work normally, and Clearspace locks them
+  again when you leave (or on the next start after a crash).
+- **In Windows Explorer.** Locked files and folders get lock icons there too.
+  Explorer's right-click menu gets **Lock with Clearspace** on files, **Unlock**,
+  **Remove lock** and **Change password with Clearspace** on locked files, and a
+  **Clearspace** submenu on folders (under "Show more options" on Windows 11).
+  These, and double-clicking a locked file, show only the password dialog; only
+  **Open in Clearspace** opens the main window.
+- **Removing locks.** **Remove lock…** decrypts for good and works on several
+  selected files and folders at once. Removing the lock from something inside a
+  locked folder also stops that folder asking for a password (its other files
+  stay locked). **Settings > Remove all locks and reset password…** unlocks
+  everything and lets you create a new password on the next lock.
+- **Reinstalls and other PCs.** Locked files never depend on Clearspace's
+  database: after a reinstall, a Windows reset or on another PC they still open
+  with the password they were locked with. If that is an older password, the
+  prompt says so and offers to switch the file to your current one;
+  **Change password…** does the same for a selection.
+- **Limits.** Files that can't be locked (over 64 MB, links, cloud placeholders,
+  files with additional data streams such as downloads, files in use) are
+  skipped and listed. Drive roots, your user folder, and Windows/program folders
+  are refused.
 
-**Unlock** asks for the password and keeps a file unlocked until no Explorer or
-Clearspace window is showing its folder. From Explorer, Lock / Unlock / Remove
-lock and double-clicking a locked file show only the password dialog; only
-**Open in Clearspace** opens the main window. **Remove lock** decrypts for good and works on several selected
-files and folders at once; removing the lock from something inside a locked folder
-also stops that folder asking for a password (its other files stay locked).
-**Settings > Remove all locks and reset password** unlocks everything and lets you
-create a new password on the next lock. Locked files never depend on Clearspace's
-database: after a reinstall, a Windows reset or on another PC they still open with
-the password they were locked with, and **Change password…** switches files from
-an older password to your current one. Files that can't be locked (over 64 MB, links, cloud placeholders, files
-with additional data streams such as downloads, files in use) are skipped and
-listed. Drive roots, your user folder, and Windows/program folders are refused.
+<!-- PICTURE SLOTS (uncomment once the files exist):
+![Lock badges on a locked file and folder in Clearspace](docs/images/lock-badges.png)
+![Clearspace entries in Windows Explorer's right-click menu](docs/images/explorer-menu.png)
+-->
+
 Lock metadata and the password verifier are stored in SQLite; each encrypted
 file also contains protected recovery metadata. See [file-locking notes](docs/CS499-File-Locking.md)
 for the format, tests, and recovery limitations.
@@ -109,30 +134,79 @@ is:image           image files only
 
 Clearspace maintains a compact filename index and also uses the Windows-maintained index for file contents. Content results depend on Windows indexing the location and having an IFilter for that file type. If a source is unavailable or lacks coverage, Clearspace can fall back to its background crawl.
 
+<!-- NEW: the index helper service, file-table scan and change-journal catch-up. -->
+### Instant indexing and fast catch-up
+
+Clearspace keeps its own index of file names, sizes and dates, so search and the
+disk map never wait on a walk of the disk. A small optional Windows service, the
+**Clearspace Index Helper**, makes that index quick to build and cheap to keep
+current:
+
+- **Instant first index.** Instead of opening every folder, the helper reads the
+  drive's NTFS file table front to back. A few million files take seconds rather
+  than minutes. The first time this is used on a drive, Clearspace compares it
+  once, in the background, with a normal folder walk; if the two disagree, that
+  drive goes back to folder walks and the Indexing page says why.
+- **Fast catch-up.** Windows records every change on an NTFS drive in its change
+  journal. After a restart, or when live watching misses something, Clearspace
+  reads only what changed since it last looked instead of rescanning the whole
+  drive. Drives kept current this way skip the daily rescan.
+
+Turn it on with **Instant indexing** in the installer, or later with **Turn on**
+under *Fast catch-up* on the Indexing page; Windows asks for administrator
+permission once. **Turn off** removes the service again. Clearspace itself always
+runs as a normal user. The helper sees file names and folders, never file
+contents, and only returns paths your own account can open.
+
+Without the helper, and on network drives or drives that are not NTFS, Clearspace
+walks folders as before: live changes are applied as they happen and the drive is
+rescanned once a day.
+
+The index is held in memory while Clearspace runs, roughly 100 MB per million
+files and folders. Saving it writes straight to disk without making a second
+copy, and the memory a rescan needs is handed back to Windows when it finishes.
+
 ### See what is indexed
 
-Open **Indexing** from the file browser toolbar, the disk viewer toolbar, or the
-index status indicator. This page stays inside Clearspace and shows:
+<!-- CHANGED: describes the current Indexing page (fast catch-up, per-drive facts, activity log). -->
 
-- The drive and folder currently being scanned, with live entry and folder counts.
-- Each drive's coverage status and the files and folders actually in its index.
+Open **Indexing** from the file browser toolbar, the disk viewer toolbar, or the
+index status indicator. This page stays inside Clearspace.
+
+![The Indexing page: what is being scanned, totals, fast catch-up, and each drive's status](docs/images/indexing-overview.png)
+
+*The Indexing page, drawn here with sample data.*
+
+It shows:
+
+- What the index is doing right now: the drive and folder being scanned, with
+  live entry and folder counts. Searches keep using the previous index until a
+  scan finishes.
+- Totals: indexed entries, live changes applied this session, the saved index's
+  size on disk and when it was saved, and an estimated memory footprint, listed
+  separately from disk space.
+- **Fast catch-up**: whether it is on, with **Turn on** and **Turn off**.
+- Each drive's status and how it is kept current (the change journal or full
+  scans), its next update and why one is pending, its last catch-up, its last
+  full scan, and the live changes applied this session.
 - During a scan, per-drive progress bars show the percentage of discovered folders processed,
   with processed and waiting counts. More folders are discovered during scanning,
   so the percentage can decrease. Completed drives show a ready status instead of
   an idle progress bar. Excluded or unreadable locations remain listed separately.
   No extra counting scan is required.
-- Waiting drives explain the automatic 20-minute rescan cooldown and retry time,
-  work already running, or errors. **Scan now** bypasses the cooldown and requests
-  a scan on the existing background worker; current saved entries stay available.
-  **Refresh status** only refreshes the display. A ready index does not need a
-  continuous full scan because file changes are tracked in the background.
-- Skipped folders and reasons from the latest scan in this session. Older saved
-  indexes clearly indicate when those details are unavailable.
-- The saved index's size on disk, its last save time, and its full storage path,
-  with buttons to copy the path or open the containing folder.
-- An estimated memory footprint, listed separately from disk space.
+- **Catch up now** reads only what changed since the last look. **Full rescan**
+  requests a complete scan on the existing background worker; current saved
+  entries stay searchable while it runs. Automatic full rescans are spaced 20
+  minutes apart, and **Full rescan** skips that wait. **Refresh status** only
+  refreshes the display.
+- **Recent activity**: a log of this session's scans, catch-ups and problems.
+- **Scan coverage and skipped folders**: skipped folders and reasons from the
+  latest scan in this session. Older saved indexes clearly indicate when those
+  details are unavailable.
+- **Index file**: the saved index's full storage path, with buttons to copy the
+  path or open the containing folder.
 
-The index browser supports folder navigation, filtering, and pages of up to 1,000
+**Browse the index for this drive** supports folder navigation, filtering, and pages of up to 1,000
 entries so large folders do not create enormous interface lists. Index reads run
 in the background. Clearspace indexes names, paths, sizes, and file metadata;
 document-content indexing belongs to Windows Search, whose options are linked
@@ -149,6 +223,11 @@ It displays a snapshot of logical file lengths, so recent
 changes and folders excluded by the index scan may be missing. Refresh reads
 the latest available index rather than starting a new scan.
 
+<!-- NEW: pictures. -->
+![The disk usage map of a whole drive beside its size list](docs/images/disk-usage-map.png)
+
+*The disk usage map, drawn here with sample data.*
+
 The analyzer opens inside Clearspace; **Back to files** restores the browser.
 The whole drive is one nested treemap that fills the space beside the list, and
 the view is a camera moving over it. Click a block to fly into it: the folder
@@ -158,6 +237,14 @@ zoom smoothly at the pointer, drag to pan, and zoom back out to leave a folder;
 the list, breadcrumbs, and history follow along. Back, Up, breadcrumbs and your
 mouse's side buttons fly the same camera, so every transition is continuous.
 Escape (or **Whole folder**) returns to the full current folder after zooming inside it.
+
+![Inside a folder: its contents fill the map while the rest of the drive stays dimmed around it](docs/images/disk-usage-folder.png)
+
+*Inside a folder: the rest of the drive stays in place, dimmed, around it.*
+
+<!-- PICTURE SLOT (uncomment once the file exists):
+![Zoomed out: drives drawn as hardware, cabled to the motherboard](docs/images/disk-usage-hardware.png)
+-->
 
 Keep zooming out past the whole drive's files and the rest of the drive comes into
 view at the same scale: its free space, and used space the index does not account
@@ -272,6 +359,16 @@ in the current folder keep their list colours and everything else is grey; hover
 for the file and how many pieces it is in, click to open it. Free space is shown
 when Clearspace runs as administrator. On an SSD the positions are logical: the
 drive decides where data physically lives.
+<!-- NEW: the 3D city view. -->
+*3D city* shows the folder you are in as a city. Every item is a building on the
+map's own layout: folders are towers, files are low houses, and a tower's floors
+are its subfolders, stacked largest at the bottom in their true proportions.
+Click a tower to step inside: its floors pull apart and one slides out with its
+contents laid out on it, subfolders as rooms and files as crates coloured by
+type. The elevator panel, the arrow keys, or a click moves between floors.
+Double-click a room (or press Enter) to make that folder the tower you are in;
+Back, Up, breadcrumbs and the list follow along. Esc or Backspace steps back out
+onto the street.
 
 Initial layout, folder-path navigation, and detail loading run in the background.
 The map batches tiles through the GPU (with a CPU fallback), limits work per frame,
@@ -319,7 +416,19 @@ release\ClearspaceSetup.exe
 
 The setup is a normal one-click Windows installer. It installs Clearspace for the current user, includes the required .NET runtime, creates a Start Menu entry, and offers an optional desktop shortcut. Building the next version with the same installer updates the existing installation in place.
 
+<!-- NEW: the installer's indexing option. -->
+Setup also offers **Instant indexing** (on by default), which installs the Clearspace Index Helper service described under [Instant indexing and fast catch-up](#instant-indexing-and-fast-catch-up). Windows asks for administrator permission once, during setup.
+
 Building the installer requires the [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0) and [Inno Setup 6](https://jrsoftware.org/isdl.php). End users only need the generated setup file.
+
+<!-- NEW: what uninstalling removes and what it leaves. -->
+### Uninstall
+
+Uninstall Clearspace from Windows Settings like any other app. This removes the app, its shortcuts, the Explorer right-click entries and `.cslock` file type, and the Index Helper service (Windows asks for permission once to remove the service).
+
+Your data is left in place: tags, folder types and lock records in `%APPDATA%\Clearspace`, and the saved index, lock icons and logs in `%LOCALAPPDATA%\Clearspace`. Delete those two folders by hand for a clean slate.
+
+Locked files stay locked. Either remove the locks first (**Settings > Remove all locks and reset password…**), or reinstall Clearspace later and open them with the same password.
 
 ### Development build
 
@@ -328,10 +437,14 @@ Run [Build Clearspace.cmd](Build%20Clearspace.cmd) to publish a local executable
 ## Project layout
 
 ```text
-Clearspace/      WPF application source
-installer/       Inno Setup installer definition
-dist/            Local published build (generated)
-release/         Installer output (generated)
+Clearspace/              WPF application source
+Clearspace.IndexHelper/  Optional Windows service for instant indexing and fast catch-up
+Clearspace.Tests/        Regression tests (run with dotnet test)
+docs/                    Design notes and the pictures used in this README
+installer/               Inno Setup installer definition
+output/                  Test results and rendered previews
+dist/                    Local published build (generated)
+release/                 Installer output (generated)
 ```
 
 For architecture and implementation notes, see [Clearspace/ARCHITECTURE.md](Clearspace/ARCHITECTURE.md).
