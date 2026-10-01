@@ -65,6 +65,11 @@ public partial class App : Application
                 StartupPath = candidate;
         }
 
+        // NEW (themes): put the saved theme in place before any window or dialog opens (including the
+        // password dialog Explorer can ask for without a main window). A theme problem never stops the app.
+        try { Services.ThemeService.Initialize(); }
+        catch (Exception) { }
+
         DispatcherUnhandledException += OnDispatcherUnhandledException;
 
         AppDomain.CurrentDomain.UnhandledException += (_, args) =>

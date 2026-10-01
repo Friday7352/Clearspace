@@ -29,6 +29,14 @@ internal static class ScalableIconService
     {
         foreach (var item in items)
         {
+            // NEW (experimental themes): the theme's own drawing is the tile picture for everything, folders
+            // included. (Photos and videos still get their real picture later, from ThumbnailService.)
+            if (ThemeIcons.For(item) is { } themed)
+            {
+                item.GridPlaceholder = themed;
+                continue;
+            }
+
             if (item.IsFolder)
             {
                 if (FolderIconService.HasType(item))

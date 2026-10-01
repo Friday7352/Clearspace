@@ -38,6 +38,9 @@
 
   <ItemGroup>
     <Resource Include="Assets\Clearspace.ico" />
+    <!-- NEW (pixel font): the Pixel theme's fonts, built into the app so they need no installing. Both are
+         under the SIL Open Font License; the licence texts sit beside them in Assets\Fonts. -->
+    <Resource Include="Assets\Fonts\*.ttf" />
     <!-- NEW (Explorer integration): lock icons Clearspace writes out for Explorer (.cslock files, locked folders). -->
     <EmbeddedResource Include="Assets\LockedFile.ico" LogicalName="Clearspace.LockedFile.ico" />
     <EmbeddedResource Include="Assets\LockedFolder.ico" LogicalName="Clearspace.LockedFolder.ico" />

@@ -1,0 +1,96 @@
+<!-- Clearspace | Pixel theme (experimental).
+     NEW (experimental themes): a 16-bit console menu - a sixteen-colour palette, hard white outlines, square
+     corners and pixel-art icons drawn by the app (ThemeIcons, style Pixel), bundled pixel fonts, and text
+     drawn with hard edges instead of smoothing (ThemeInfo.CrispText). Same keys as Dark.xaml. -->
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- Surfaces -->
+    <SolidColorBrush x:Key="Base"          Color="#FF1A1C2C" />
+    <SolidColorBrush x:Key="Surface"       Color="#FF262B44" />
+    <SolidColorBrush x:Key="Overlay"       Color="#FF29366F" />
+    <SolidColorBrush x:Key="Hover"         Color="#2673EFF7" />
+    <SolidColorBrush x:Key="Pressed"       Color="#4D73EFF7" />
+    <SolidColorBrush x:Key="Selected"      Color="#FF3B5DC9" />
+    <SolidColorBrush x:Key="Line"          Color="#FF566C86" />
+    <SolidColorBrush x:Key="LineFaint"     Color="#FF333C57" />
+
+    <!-- Outlines of buttons, menus and cards (EdgeRaised) and of text boxes and the file list (EdgeSunken). -->
+    <SolidColorBrush x:Key="EdgeRaised"    Color="#FFF4F4F4" />
+    <SolidColorBrush x:Key="EdgeSunken"    Color="#FFF4F4F4" />
+
+    <!-- Text -->
+    <SolidColorBrush x:Key="Ink"           Color="#FFF4F4F4" />
+    <SolidColorBrush x:Key="InkMuted"      Color="#FFA9C0CF" />
+    <SolidColorBrush x:Key="InkFaint"      Color="#FF8499B0" />
+    <SolidColorBrush x:Key="InkDisabled"   Color="#FF566C86" />
+
+    <!-- Accent -->
+    <SolidColorBrush x:Key="Accent"        Color="#FFFFCD75" />
+    <SolidColorBrush x:Key="AccentSoft"    Color="#33FFCD75" />
+    <SolidColorBrush x:Key="AccentWash"    Color="#20FFCD75" />
+    <SolidColorBrush x:Key="AccentInk"     Color="#FF1A1C2C" />   <!-- text on a solid accent fill -->
+
+    <!-- Status -->
+    <SolidColorBrush x:Key="Danger"        Color="#FFEF7D57" />
+    <SolidColorBrush x:Key="Good"          Color="#FFA7F070" />
+    <SolidColorBrush x:Key="Warn"          Color="#FFFFCD75" />
+    <SolidColorBrush x:Key="Bad"           Color="#FFEF7D57" />
+    <SolidColorBrush x:Key="Quiet"         Color="#FFA9C0CF" />
+
+    <!-- Small fills -->
+    <SolidColorBrush x:Key="ThumbRest"     Color="#FF566C86" />   <!-- scroll bar -->
+    <SolidColorBrush x:Key="ThumbHover"    Color="#FF94B0C2" />
+    <SolidColorBrush x:Key="Tint"          Color="#1FF4F4F4" />   <!-- status bar chips -->
+    <SolidColorBrush x:Key="ChipHover"     Color="#FF333C57" />   <!-- a project-strip chip under the pointer -->
+    <SolidColorBrush x:Key="Divider"       Color="#FF566C86" />   <!-- menu separators -->
+    <SolidColorBrush x:Key="RowAlt"        Color="#0AF4F4F4" />   <!-- every other row in Music folders -->
+    <SolidColorBrush x:Key="Track"         Color="#33F4F4F4" />   <!-- drive usage bar background -->
+    <SolidColorBrush x:Key="SliderRail"    Color="#FF566C86" />
+    <SolidColorBrush x:Key="Well"          Color="#33000000" />   <!-- behind a tile's picture -->
+    <SolidColorBrush x:Key="BadgeFill"     Color="#FF1A1C2C" />   <!-- badges drawn over a tile's picture -->
+    <SolidColorBrush x:Key="NavFill"       Color="#FF1A1C2C" />   <!-- previous / next in the photo viewer -->
+    <SolidColorBrush x:Key="Scrim"         Color="#FA1A1C2C" />   <!-- photo viewer backdrop -->
+    <SolidColorBrush x:Key="CardFill"      Color="#FF1A1C2C" />   <!-- tooltips and hover cards -->
+    <SolidColorBrush x:Key="CardEdge"      Color="#FFF4F4F4" />
+    <SolidColorBrush x:Key="Ground3D"      Color="#FF333C57" />   <!-- floor of the 3D disk usage views -->
+
+    <!-- The highlighted row of a menu -->
+    <SolidColorBrush x:Key="MenuHover"       Color="#FFFFCD75" />
+    <SolidColorBrush x:Key="MenuHoverInk"    Color="#FF1A1C2C" />
+    <SolidColorBrush x:Key="MenuHoverMuted"  Color="#FF1A1C2C" />
+    <SolidColorBrush x:Key="MenuHoverFaint"  Color="#FF5D275D" />
+    <SolidColorBrush x:Key="MenuHoverAccent" Color="#FF1A1C2C" />
+
+    <!-- Fonts
+         CHANGED (pixel font): real pixel fonts, shipped inside the app (Assets\Fonts): Pixelify Sans for
+         names and the interface, Press Start 2P (the classic 8-bit arcade face) for titles. Press Start 2P is
+         about twice as wide as normal text, which is why it is not used for file names; to use it everywhere
+         anyway, give UIFont and SerifFont the same value as DisplayFont. -->
+    <FontFamily x:Key="UIFont">/Clearspace;component/Assets/Fonts/#Pixelify Sans, Cascadia Mono, Consolas</FontFamily>
+    <FontFamily x:Key="SerifFont">/Clearspace;component/Assets/Fonts/#Pixelify Sans, Cascadia Mono, Consolas</FontFamily>
+    <FontFamily x:Key="DisplayFont">/Clearspace;component/Assets/Fonts/#Press Start 2P, /Clearspace;component/Assets/Fonts/#Pixelify Sans, Consolas</FontFamily>
+    <FontFamily x:Key="MonoFont">Cascadia Mono, Consolas, Lucida Console</FontFamily>
+
+    <!-- Corner sizes (R8 = "what used to be an 8px corner") -->
+    <CornerRadius x:Key="R2">0</CornerRadius>
+    <CornerRadius x:Key="R3">0</CornerRadius>
+    <CornerRadius x:Key="R4">0</CornerRadius>
+    <CornerRadius x:Key="R5">0</CornerRadius>
+    <CornerRadius x:Key="R6">0</CornerRadius>
+    <CornerRadius x:Key="R7">0</CornerRadius>
+    <CornerRadius x:Key="R8">0</CornerRadius>
+    <CornerRadius x:Key="R9">0</CornerRadius>
+    <CornerRadius x:Key="R10">0</CornerRadius>
+    <CornerRadius x:Key="R12">0</CornerRadius>
+    <CornerRadius x:Key="RPlayerBar">0</CornerRadius>
+
+    <!-- Title bar: the same dark blue (Windows 11 only; Windows 10 keeps its own title bar). -->
+    <Color x:Key="Theme.CaptionColor">#FF1A1C2C</Color>
+    <Color x:Key="Theme.CaptionTextColor">#FFF4F4F4</Color>
+
+    <!-- A selected row is a solid blue block; the two dimmer text colours are lifted so they stay readable on it. ThemeService merges every "SelectedRow.X" key into a selected row as key X. -->
+    <SolidColorBrush x:Key="SelectedRow.InkMuted" Color="#FFE4ECF4" />
+    <SolidColorBrush x:Key="SelectedRow.InkFaint" Color="#FFC2D2E2" />
+
+</ResourceDictionary>

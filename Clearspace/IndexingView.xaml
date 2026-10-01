@@ -6,27 +6,27 @@
 <UserControl x:Class="Clearspace.IndexingView"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    Background="{StaticResource Base}" Foreground="{StaticResource Ink}"
-    FontFamily="{StaticResource UIFont}" FontSize="13" UseLayoutRounding="True">
+    Background="{DynamicResource Base}" Foreground="{DynamicResource Ink}"
+    FontFamily="{DynamicResource UIFont}" FontSize="13" UseLayoutRounding="True">
     <UserControl.Resources>
         <Style x:Key="IndexCard" TargetType="Border">
-            <Setter Property="Background" Value="{StaticResource Surface}"/>
-            <Setter Property="CornerRadius" Value="12"/>
+            <Setter Property="Background" Value="{DynamicResource Surface}"/>
+            <Setter Property="CornerRadius" Value="{DynamicResource R12}"/>
             <Setter Property="Padding" Value="20"/>
         </Style>
         <Style x:Key="IndexRow" TargetType="ListBoxItem">
-            <Setter Property="Foreground" Value="{StaticResource Ink}"/>
+            <Setter Property="Foreground" Value="{DynamicResource Ink}"/>
             <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
             <Setter Property="Padding" Value="12,10"/>
             <Setter Property="Margin" Value="0,0,0,4"/>
             <Setter Property="Template"><Setter.Value>
                 <ControlTemplate TargetType="ListBoxItem">
-                    <Border x:Name="Box" Background="Transparent" CornerRadius="8" Padding="{TemplateBinding Padding}">
+                    <Border x:Name="Box" Background="Transparent" CornerRadius="{DynamicResource R8}" Padding="{TemplateBinding Padding}">
                         <ContentPresenter/>
                     </Border>
                     <ControlTemplate.Triggers>
-                        <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Box" Property="Background" Value="{StaticResource Hover}"/></Trigger>
-                        <Trigger Property="IsSelected" Value="True"><Setter TargetName="Box" Property="Background" Value="{StaticResource Selected}"/></Trigger>
+                        <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Box" Property="Background" Value="{DynamicResource Hover}"/></Trigger>
+                        <Trigger Property="IsSelected" Value="True"><Setter TargetName="Box" Property="Background" Value="{DynamicResource Selected}"/></Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
             </Setter.Value></Setter>
@@ -37,7 +37,7 @@
             <Setter Property="Focusable" Value="False"/>
         </Style>
         <Style x:Key="StatLabel" TargetType="TextBlock">
-            <Setter Property="Foreground" Value="{StaticResource InkMuted}"/>
+            <Setter Property="Foreground" Value="{DynamicResource InkMuted}"/>
             <Setter Property="FontSize" Value="11"/>
         </Style>
         <Style x:Key="StatValue" TargetType="TextBlock">
@@ -45,7 +45,7 @@
             <Setter Property="Margin" Value="0,8,0,4"/>
         </Style>
         <Style x:Key="FactLabel" TargetType="TextBlock">
-            <Setter Property="Foreground" Value="{StaticResource InkMuted}"/>
+            <Setter Property="Foreground" Value="{DynamicResource InkMuted}"/>
             <Setter Property="Margin" Value="0,0,16,10"/>
         </Style>
         <Style x:Key="FactValue" TargetType="TextBlock">
@@ -62,21 +62,21 @@
                 <Button DockPanel.Dock="Right" Content="Refresh status" Click="OnRefresh" Style="{StaticResource ViewerTextButton}" ToolTip="Refresh these details; does not rebuild the index"/>
                 <StackPanel>
                     <TextBlock Text="Indexing" FontSize="26" FontWeight="SemiBold"/>
-                    <TextBlock Text="How Clearspace keeps its file index current, and what it is doing right now" Foreground="{StaticResource InkMuted}" Margin="0,5,0,0"/>
+                    <TextBlock Text="How Clearspace keeps its file index current, and what it is doing right now" Foreground="{DynamicResource InkMuted}" Margin="0,5,0,0"/>
                 </StackPanel>
             </DockPanel>
 
             <!-- NEW: what is happening now -->
             <Border Style="{StaticResource IndexCard}" Margin="0,0,0,14">
                 <DockPanel>
-                    <Border DockPanel.Dock="Left" Width="44" Height="44" CornerRadius="22" Background="{StaticResource AccentSoft}" Margin="0,0,16,0" VerticalAlignment="Top">
-                        <TextBlock x:Name="StatusGlyph" Text="&#xE73E;" FontFamily="{StaticResource IconFont}" FontSize="18" Foreground="{StaticResource Accent}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    <Border DockPanel.Dock="Left" Width="44" Height="44" CornerRadius="22" Background="{DynamicResource AccentSoft}" Margin="0,0,16,0" VerticalAlignment="Top">
+                        <TextBlock x:Name="StatusGlyph" Text="&#xE73E;" FontFamily="{StaticResource IconFont}" FontSize="18" Foreground="{DynamicResource Accent}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                     </Border>
                     <StackPanel>
                         <TextBlock x:Name="ActivityTitle" Text="Checking indexing…" FontSize="18" FontWeight="SemiBold" TextWrapping="Wrap"/>
-                        <TextBlock x:Name="ActivityDetail" Foreground="{StaticResource InkMuted}" Margin="0,6,0,0" TextWrapping="Wrap"/>
-                        <TextBlock x:Name="CurrentFolder" Foreground="{StaticResource InkMuted}" Margin="0,8,0,0" TextTrimming="CharacterEllipsis" Visibility="Collapsed"/>
-                        <ProgressBar x:Name="ScanProgress" Height="3" Margin="0,12,0,0" IsIndeterminate="True" Visibility="Collapsed" Foreground="{StaticResource Accent}" Background="{StaticResource Line}"/>
+                        <TextBlock x:Name="ActivityDetail" Foreground="{DynamicResource InkMuted}" Margin="0,6,0,0" TextWrapping="Wrap"/>
+                        <TextBlock x:Name="CurrentFolder" Foreground="{DynamicResource InkMuted}" Margin="0,8,0,0" TextTrimming="CharacterEllipsis" Visibility="Collapsed"/>
+                        <ProgressBar x:Name="ScanProgress" Height="3" Margin="0,12,0,0" IsIndeterminate="True" Visibility="Collapsed" Foreground="{DynamicResource Accent}" Background="{DynamicResource Line}"/>
                     </StackPanel>
                 </DockPanel>
             </Border>
@@ -94,7 +94,7 @@
                 </Border>
                 <Border Grid.Column="2" Style="{StaticResource IndexCard}">
                     <StackPanel><TextBlock Text="LIVE CHANGES" Style="{StaticResource StatLabel}"/>
-                        <TextBlock x:Name="LiveCount" Text="—" Style="{StaticResource StatValue}" Foreground="{StaticResource Accent}"/>
+                        <TextBlock x:Name="LiveCount" Text="—" Style="{StaticResource StatValue}" Foreground="{DynamicResource Accent}"/>
                         <TextBlock Text="Applied this session without rescanning" Style="{StaticResource StatLabel}" TextWrapping="Wrap"/>
                     </StackPanel>
                 </Border>
@@ -123,9 +123,9 @@
                     </StackPanel>
                     <StackPanel>
                         <TextBlock Text="Fast catch-up" FontSize="16" FontWeight="SemiBold"/>
-                        <TextBlock x:Name="JournalStatus" Text="Checking…" Foreground="{StaticResource Accent}" Margin="0,6,0,0" TextWrapping="Wrap"/>
-                        <TextBlock x:Name="JournalFeedback" Foreground="{StaticResource Ink}" Margin="0,6,0,0" TextWrapping="Wrap" Visibility="Collapsed"/>
-                        <TextBlock x:Name="JournalExplain" Foreground="{StaticResource InkMuted}" Margin="0,6,0,0" TextWrapping="Wrap"
+                        <TextBlock x:Name="JournalStatus" Text="Checking…" Foreground="{DynamicResource Accent}" Margin="0,6,0,0" TextWrapping="Wrap"/>
+                        <TextBlock x:Name="JournalFeedback" Foreground="{DynamicResource Ink}" Margin="0,6,0,0" TextWrapping="Wrap" Visibility="Collapsed"/>
+                        <TextBlock x:Name="JournalExplain" Foreground="{DynamicResource InkMuted}" Margin="0,6,0,0" TextWrapping="Wrap"
                                    Text="Windows records every change on an NTFS drive in its change journal. With fast catch-up on, Clearspace reads only what changed since it last looked, after a restart or when live watching misses something, instead of rescanning the whole drive. A small service does the reading because Windows requires administrator rights for it; it sees file names and folders, never file contents."/>
                     </StackPanel>
                 </DockPanel>
@@ -142,14 +142,14 @@
                             <StackPanel>
                                 <DockPanel>
                                     <TextBlock Text="{Binding Root}" FontSize="17" FontWeight="SemiBold"/>
-                                    <TextBlock Text="{Binding State}" HorizontalAlignment="Right" Foreground="{StaticResource Accent}" FontSize="11" VerticalAlignment="Center"/>
+                                    <TextBlock Text="{Binding State}" HorizontalAlignment="Right" Foreground="{DynamicResource Accent}" FontSize="11" VerticalAlignment="Center"/>
                                 </DockPanel>
-                                <TextBlock Text="{Binding CountText}" Foreground="{StaticResource InkMuted}" FontSize="12" Margin="0,5,0,0"/>
-                                <TextBlock Text="{Binding Method}" Foreground="{StaticResource InkFaint}" FontSize="11" Margin="0,3,0,0"/>
-                                <ProgressBar Value="{Binding ProgressPercent, Mode=OneWay}" Maximum="100" Height="5" Margin="0,8,0,4" Foreground="{StaticResource Accent}" Background="{StaticResource Line}" ToolTip="{Binding ProgressDetail}" AutomationProperties.Name="Drive indexing progress">
+                                <TextBlock Text="{Binding CountText}" Foreground="{DynamicResource InkMuted}" FontSize="12" Margin="0,5,0,0"/>
+                                <TextBlock Text="{Binding Method}" Foreground="{DynamicResource InkFaint}" FontSize="11" Margin="0,3,0,0"/>
+                                <ProgressBar Value="{Binding ProgressPercent, Mode=OneWay}" Maximum="100" Height="5" Margin="0,8,0,4" Foreground="{DynamicResource Accent}" Background="{DynamicResource Line}" ToolTip="{Binding ProgressDetail}" AutomationProperties.Name="Drive indexing progress">
                                     <ProgressBar.Style><Style TargetType="ProgressBar"><Setter Property="Visibility" Value="Collapsed"/><Style.Triggers><DataTrigger Binding="{Binding ShowProgress}" Value="True"><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers></Style></ProgressBar.Style>
                                 </ProgressBar>
-                                <TextBlock Text="{Binding ProgressText}" Foreground="{StaticResource InkMuted}" FontSize="11" TextWrapping="Wrap" Margin="0,3,0,0"/>
+                                <TextBlock Text="{Binding ProgressText}" Foreground="{DynamicResource InkMuted}" FontSize="11" TextWrapping="Wrap" Margin="0,3,0,0"/>
                             </StackPanel>
                         </DataTemplate></ListBox.ItemTemplate>
                     </ListBox>
@@ -165,12 +165,12 @@
                             </StackPanel>
                             <TextBlock x:Name="DriveTitle" Text="Choose a drive" FontSize="17" FontWeight="SemiBold" VerticalAlignment="Center"/>
                         </DockPanel>
-                        <TextBlock x:Name="DriveDetail" Text="Its status appears here." Foreground="{StaticResource InkMuted}" Margin="0,6,0,0" TextWrapping="Wrap"/>
-                        <ProgressBar x:Name="DriveProgress" Maximum="100" Height="5" Margin="0,12,0,6" Foreground="{StaticResource Accent}" Background="{StaticResource Line}" AutomationProperties.Name="Selected drive indexing progress"/>
-                        <TextBlock x:Name="DriveProgressText" Foreground="{StaticResource Accent}" FontSize="12"/>
-                        <TextBlock x:Name="DriveProgressDetail" Foreground="{StaticResource InkMuted}" FontSize="11" Margin="0,4,0,0" TextWrapping="Wrap"/>
+                        <TextBlock x:Name="DriveDetail" Text="Its status appears here." Foreground="{DynamicResource InkMuted}" Margin="0,6,0,0" TextWrapping="Wrap"/>
+                        <ProgressBar x:Name="DriveProgress" Maximum="100" Height="5" Margin="0,12,0,6" Foreground="{DynamicResource Accent}" Background="{DynamicResource Line}" AutomationProperties.Name="Selected drive indexing progress"/>
+                        <TextBlock x:Name="DriveProgressText" Foreground="{DynamicResource Accent}" FontSize="12"/>
+                        <TextBlock x:Name="DriveProgressDetail" Foreground="{DynamicResource InkMuted}" FontSize="11" Margin="0,4,0,0" TextWrapping="Wrap"/>
 
-                        <Rectangle Height="1" Fill="{StaticResource Line}" Margin="0,16,0,16"/>
+                        <Rectangle Height="1" Fill="{DynamicResource Line}" Margin="0,16,0,16"/>
 
                         <!-- NEW: the facts that explain this drive's state -->
                         <Grid>
@@ -182,7 +182,7 @@
                             <TextBlock Text="Kept current by" Style="{StaticResource FactLabel}"/>
                             <StackPanel Grid.Column="1" Margin="0,0,0,10">
                                 <TextBlock x:Name="MethodText" FontWeight="SemiBold" TextWrapping="Wrap"/>
-                                <TextBlock x:Name="MethodDetailText" Foreground="{StaticResource InkMuted}" FontSize="12" TextWrapping="Wrap" Margin="0,3,0,0"/>
+                                <TextBlock x:Name="MethodDetailText" Foreground="{DynamicResource InkMuted}" FontSize="12" TextWrapping="Wrap" Margin="0,3,0,0"/>
                             </StackPanel>
                             <TextBlock Grid.Row="1" Text="Next update" Style="{StaticResource FactLabel}"/>
                             <TextBlock Grid.Row="1" Grid.Column="1" x:Name="NextText" Style="{StaticResource FactValue}"/>
@@ -195,7 +195,7 @@
                             <TextBlock Grid.Row="5" Text="Index" Style="{StaticResource FactLabel}"/>
                             <StackPanel Grid.Row="5" Grid.Column="1">
                                 <TextBlock x:Name="EntriesText" TextWrapping="Wrap"/>
-                                <TextBlock x:Name="ScanWhen" Foreground="{StaticResource InkMuted}" FontSize="12" Margin="0,3,0,0"/>
+                                <TextBlock x:Name="ScanWhen" Foreground="{DynamicResource InkMuted}" FontSize="12" Margin="0,3,0,0"/>
                             </StackPanel>
                         </Grid>
                     </StackPanel>
@@ -206,18 +206,18 @@
             <Border Style="{StaticResource IndexCard}" Margin="0,0,0,20">
                 <StackPanel>
                     <DockPanel>
-                        <TextBlock DockPanel.Dock="Right" x:Name="EventCount" Foreground="{StaticResource InkFaint}" FontSize="11" VerticalAlignment="Center"/>
+                        <TextBlock DockPanel.Dock="Right" x:Name="EventCount" Foreground="{DynamicResource InkFaint}" FontSize="11" VerticalAlignment="Center"/>
                         <TextBlock Text="Recent activity" FontSize="16" FontWeight="SemiBold"/>
                     </DockPanel>
-                    <TextBlock x:Name="NoEvents" Text="Nothing has happened yet this session." Foreground="{StaticResource InkMuted}" Margin="0,10,0,0"/>
+                    <TextBlock x:Name="NoEvents" Text="Nothing has happened yet this session." Foreground="{DynamicResource InkMuted}" Margin="0,10,0,0"/>
                     <ListBox x:Name="EventList" MaxHeight="300" Margin="0,8,0,0" Background="Transparent" BorderThickness="0" ItemContainerStyle="{StaticResource PlainRow}"
                              ScrollViewer.HorizontalScrollBarVisibility="Disabled" VirtualizingPanel.IsVirtualizing="True" AutomationProperties.Name="Recent indexing activity">
                         <ListBox.ItemTemplate><DataTemplate>
                             <Grid>
                                 <Grid.ColumnDefinitions><ColumnDefinition Width="24"/><ColumnDefinition Width="92"/><ColumnDefinition Width="56"/><ColumnDefinition/></Grid.ColumnDefinitions>
-                                <TextBlock Text="{Binding Glyph}" FontFamily="{StaticResource IconFont}" Foreground="{StaticResource Accent}" VerticalAlignment="Top" Margin="0,2,0,0"/>
-                                <TextBlock Grid.Column="1" Text="{Binding TimeText}" Foreground="{StaticResource InkMuted}" FontSize="12"/>
-                                <TextBlock Grid.Column="2" Text="{Binding RootText}" Foreground="{StaticResource InkMuted}" FontSize="12"/>
+                                <TextBlock Text="{Binding Glyph}" FontFamily="{StaticResource IconFont}" Foreground="{DynamicResource Accent}" VerticalAlignment="Top" Margin="0,2,0,0"/>
+                                <TextBlock Grid.Column="1" Text="{Binding TimeText}" Foreground="{DynamicResource InkMuted}" FontSize="12"/>
+                                <TextBlock Grid.Column="2" Text="{Binding RootText}" Foreground="{DynamicResource InkMuted}" FontSize="12"/>
                                 <TextBlock Grid.Column="3" Text="{Binding Message}" TextWrapping="Wrap"/>
                             </Grid>
                         </DataTemplate></ListBox.ItemTemplate>
@@ -226,7 +226,7 @@
             </Border>
 
             <!-- Indexed entries (kept from the previous page) -->
-            <Expander x:Name="BrowseExpander" Header="Browse the index for this drive" Foreground="{StaticResource Ink}" Margin="0,0,0,14">
+            <Expander x:Name="BrowseExpander" Header="Browse the index for this drive" Foreground="{DynamicResource Ink}" Margin="0,0,0,14">
                 <Border Style="{StaticResource IndexCard}" Margin="0,12,0,0">
                     <Grid>
                         <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
@@ -237,9 +237,9 @@
                         </DockPanel>
                         <Grid Grid.Row="1" Margin="0,0,0,8">
                             <TextBox x:Name="Filter" TextChanged="OnFilterChanged" Height="30" Padding="8,4"
-                                     Background="{StaticResource Base}" Foreground="{StaticResource Ink}" BorderBrush="{StaticResource Line}"
+                                     Background="{DynamicResource Base}" Foreground="{DynamicResource Ink}" BorderBrush="{DynamicResource EdgeSunken}"
                                      ToolTip="Filter names in this indexed folder" AutomationProperties.Name="Filter indexed names"/>
-                            <TextBlock Text="Filter names in this folder" IsHitTestVisible="False" Margin="9,0" VerticalAlignment="Center" Foreground="{StaticResource InkFaint}">
+                            <TextBlock Text="Filter names in this folder" IsHitTestVisible="False" Margin="9,0" VerticalAlignment="Center" Foreground="{DynamicResource InkFaint}">
                                 <TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed"/>
                                     <Style.Triggers><DataTrigger Binding="{Binding Text, ElementName=Filter}" Value=""><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers>
                                 </Style></TextBlock.Style>
@@ -250,31 +250,31 @@
                                  MouseDoubleClick="OnOpenEntry" KeyDown="OnEntryKeyDown" SelectionChanged="OnEntrySelected" AutomationProperties.Name="Entries in the saved index">
                             <ListBox.ItemTemplate><DataTemplate>
                                 <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="24"/><ColumnDefinition/><ColumnDefinition Width="105"/></Grid.ColumnDefinitions>
-                                    <TextBlock Text="{Binding Glyph}" FontFamily="{StaticResource IconFont}" Foreground="{StaticResource Accent}" VerticalAlignment="Center"/>
+                                    <TextBlock Text="{Binding Glyph}" FontFamily="{StaticResource IconFont}" Foreground="{DynamicResource Accent}" VerticalAlignment="Center"/>
                                     <TextBlock Grid.Column="1" Text="{Binding Name}" TextTrimming="CharacterEllipsis" ToolTip="{Binding Path}"/>
-                                    <TextBlock Grid.Column="2" Text="{Binding SizeText}" Foreground="{StaticResource InkMuted}" HorizontalAlignment="Right"/>
+                                    <TextBlock Grid.Column="2" Text="{Binding SizeText}" Foreground="{DynamicResource InkMuted}" HorizontalAlignment="Right"/>
                                 </Grid>
                             </DataTemplate></ListBox.ItemTemplate>
                         </ListBox>
                         <DockPanel Grid.Row="3" Margin="0,8,0,0">
                             <Button DockPanel.Dock="Right" x:Name="NextPage" Content="Next" Click="OnNextPage" Style="{StaticResource ViewerTextButton}" IsEnabled="False"/>
                             <Button DockPanel.Dock="Right" x:Name="PreviousPage" Content="Previous" Click="OnPreviousPage" Style="{StaticResource ViewerTextButton}" IsEnabled="False"/>
-                            <TextBlock x:Name="ListStatus" Foreground="{StaticResource InkMuted}" FontSize="11" TextWrapping="Wrap" VerticalAlignment="Center"/>
+                            <TextBlock x:Name="ListStatus" Foreground="{DynamicResource InkMuted}" FontSize="11" TextWrapping="Wrap" VerticalAlignment="Center"/>
                         </DockPanel>
                     </Grid>
                 </Border>
             </Expander>
 
-            <Expander Header="Scan coverage and skipped folders" Foreground="{StaticResource Ink}" Margin="0,0,0,14">
+            <Expander Header="Scan coverage and skipped folders" Foreground="{DynamicResource Ink}" Margin="0,0,0,14">
                 <StackPanel Margin="0,12,0,0">
-                    <TextBlock x:Name="CoverageText" Foreground="{StaticResource InkMuted}" TextWrapping="Wrap"/>
-                    <ListBox x:Name="SkippedList" MaxHeight="180" Margin="0,8,0,0" Background="{StaticResource Surface}" BorderThickness="0" ItemContainerStyle="{StaticResource IndexRow}" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                    <TextBlock x:Name="CoverageText" Foreground="{DynamicResource InkMuted}" TextWrapping="Wrap"/>
+                    <ListBox x:Name="SkippedList" MaxHeight="180" Margin="0,8,0,0" Background="{DynamicResource Surface}" BorderThickness="0" ItemContainerStyle="{StaticResource IndexRow}" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
                         <ListBox.ItemTemplate><DataTemplate><StackPanel>
                             <TextBlock Text="{Binding Path}" TextTrimming="CharacterEllipsis" ToolTip="{Binding Path}"/>
-                            <TextBlock Text="{Binding Reason}" Foreground="{StaticResource InkMuted}" FontSize="11" TextWrapping="Wrap" Margin="0,4,0,0"/>
+                            <TextBlock Text="{Binding Reason}" Foreground="{DynamicResource InkMuted}" FontSize="11" TextWrapping="Wrap" Margin="0,4,0,0"/>
                         </StackPanel></DataTemplate></ListBox.ItemTemplate>
                     </ListBox>
-                    <TextBlock Text="Shows up to 200 skipped locations from the latest full scan this session. A listed folder can have contents that could not be read." Foreground="{StaticResource InkFaint}" FontSize="11" TextWrapping="Wrap" Margin="0,8,0,0"/>
+                    <TextBlock Text="Shows up to 200 skipped locations from the latest full scan this session. A listed folder can have contents that could not be read." Foreground="{DynamicResource InkFaint}" FontSize="11" TextWrapping="Wrap" Margin="0,8,0,0"/>
                 </StackPanel>
             </Expander>
 
@@ -285,25 +285,25 @@
                         <Button DockPanel.Dock="Right" Content="Copy path" Click="OnCopyPath" Style="{StaticResource ViewerTextButton}"/>
                         <TextBlock Text="Index file" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center"/>
                     </DockPanel>
-                    <TextBox x:Name="StoragePath" IsReadOnly="True" Background="Transparent" BorderThickness="0" Foreground="{StaticResource InkMuted}" Padding="0" Margin="0,10,0,0" TextWrapping="Wrap" AutomationProperties.Name="Index file location"/>
-                    <TextBlock x:Name="StorageMessage" Foreground="{StaticResource InkMuted}" FontSize="11" Margin="0,8,0,0" TextWrapping="Wrap"/>
+                    <TextBox x:Name="StoragePath" IsReadOnly="True" Background="Transparent" BorderThickness="0" Foreground="{DynamicResource InkMuted}" Padding="0" Margin="0,10,0,0" TextWrapping="Wrap" AutomationProperties.Name="Index file location"/>
+                    <TextBlock x:Name="StorageMessage" Foreground="{DynamicResource InkMuted}" FontSize="11" Margin="0,8,0,0" TextWrapping="Wrap"/>
                 </StackPanel>
             </Border>
 
-            <Expander Header="What gets indexed?" Foreground="{StaticResource Ink}" Margin="0,20,0,0">
+            <Expander Header="What gets indexed?" Foreground="{DynamicResource Ink}" Margin="0,20,0,0">
                 <StackPanel Margin="0,12,0,0">
-                    <TextBlock Text="Clearspace records names, folder relationships, file sizes, dates and attributes. It includes hidden and system entries on available fixed drives. It does not copy your files or read their contents." TextWrapping="Wrap" Foreground="{StaticResource InkMuted}"/>
-                    <TextBlock x:Name="NetworkScope" TextWrapping="Wrap" Foreground="{StaticResource InkMuted}" Margin="0,8,0,0"/>
-                    <TextBlock Text="Unreadable folders and folder links are skipped. Supported cloud folders are included; their recorded sizes may differ from the space used on disk. There is no fixed folder-depth limit." TextWrapping="Wrap" Foreground="{StaticResource InkMuted}" Margin="0,8,0,0"/>
-                    <TextBlock Text="Each drive is read in full once. After that, live changes are applied as they happen, and fast catch-up (when on) reads only what changed while Clearspace was closed." TextWrapping="Wrap" Foreground="{StaticResource InkMuted}" Margin="0,8,0,0"/>
+                    <TextBlock Text="Clearspace records names, folder relationships, file sizes, dates and attributes. It includes hidden and system entries on available fixed drives. It does not copy your files or read their contents." TextWrapping="Wrap" Foreground="{DynamicResource InkMuted}"/>
+                    <TextBlock x:Name="NetworkScope" TextWrapping="Wrap" Foreground="{DynamicResource InkMuted}" Margin="0,8,0,0"/>
+                    <TextBlock Text="Unreadable folders and folder links are skipped. Supported cloud folders are included; their recorded sizes may differ from the space used on disk. There is no fixed folder-depth limit." TextWrapping="Wrap" Foreground="{DynamicResource InkMuted}" Margin="0,8,0,0"/>
+                    <TextBlock Text="Each drive is read in full once. After that, live changes are applied as they happen, and fast catch-up (when on) reads only what changed while Clearspace was closed." TextWrapping="Wrap" Foreground="{DynamicResource InkMuted}" Margin="0,8,0,0"/>
                     <DockPanel Margin="0,12,0,0">
                         <Button DockPanel.Dock="Right" Content="Windows indexing options" Click="OnWindowsIndexing" Style="{StaticResource ViewerTextButton}"/>
-                        <TextBlock Text="Searching inside documents uses the separate Windows Search index." Foreground="{StaticResource InkMuted}" TextWrapping="Wrap" VerticalAlignment="Center"/>
+                        <TextBlock Text="Searching inside documents uses the separate Windows Search index." Foreground="{DynamicResource InkMuted}" TextWrapping="Wrap" VerticalAlignment="Center"/>
                     </DockPanel>
                 </StackPanel>
             </Expander>
 
-            <TextBlock x:Name="Feedback" Foreground="{StaticResource Accent}" TextWrapping="Wrap" Margin="0,12,0,0"/>
+            <TextBlock x:Name="Feedback" Foreground="{DynamicResource Accent}" TextWrapping="Wrap" Margin="0,12,0,0"/>
         </StackPanel>
     </ScrollViewer>
 </UserControl>

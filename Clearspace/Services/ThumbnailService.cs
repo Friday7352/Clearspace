@@ -129,6 +129,23 @@ public static class ThumbnailService
 
     public static void CancelPending() => Interlocked.Increment(ref _generation);
 
+    // NEW (experimental themes): forget every cached tile picture. Called when a theme switch changes the
+    // icon set, because the cache is keyed by file and would keep handing back the old style.
+    public static void Clear()
+    {
+        CancelPending();
+
+        lock (CacheGate)
+        {
+            CacheIndex.Clear();
+            CacheOrder.Clear();
+            _cacheBytes = 0;
+        }
+
+        Pending.Clear();
+        ShellIconCache.Clear();
+    }
+
     public static void Invalidate(string path)
     {
         var prefix = path + "|";
@@ -242,6 +259,24 @@ public static class ThumbnailService
     private static ImageSource? Extract(FileSystemItem item, int size)
     {
         var path = item.FullPath;
+
+        // NEW (experimental themes): while a theme draws its own icons, tiles use those drawings. Only photos
+        // and videos that are on this device still show their real picture; everything else (folders,
+        // documents, programs) skips Windows' thumbnails and icons.
+        if (ThemeIcons.Active)
+        {
+            if (!item.IsFolder && !item.IsOnlineOnly)
+            {
+                var extension = Path.GetExtension(path);
+                if (MediaTypes.IsImage(extension) && LoadImage(path, Math.Max(144, size * 3)) is { } picture)
+                    return picture;
+                if (MediaTypes.IsVideo(extension) && VideoThumbnailService.Extract(path, size) is { } frame)
+                    return frame;
+            }
+
+            if (ThemeIcons.For(item) is { } themed)
+                return themed;
+        }
 
         // Cached previews only; requesting a thumbnail may download the file.
         if (item.IsOnlineOnly && !item.IsFolder)

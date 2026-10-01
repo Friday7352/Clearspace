@@ -29,7 +29,8 @@ public partial class DiskUsageView : UserControl, IDisposable
     {
         _viewModel = viewModel;
         _preferredPath = preferredPath;
-        _confirmDelete = confirmDelete ?? (request => MessageBox.Show(Window.GetWindow(this), request.ConfirmationMessage,
+        // CHANGED (themes): themed dialog instead of the Windows message box. "No" is still the default button.
+        _confirmDelete = confirmDelete ?? (request => MessageDialog.Show(Window.GetWindow(this), request.ConfirmationMessage,
             "Delete permanently", MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No) == MessageBoxResult.Yes);
         InitializeComponent();
         DataContext = _viewModel;

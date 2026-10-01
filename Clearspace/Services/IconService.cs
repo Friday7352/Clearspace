@@ -20,6 +20,10 @@ public static class IconService
 
     public static ImageSource? GetIcon(FileSystemItem item)
     {
+        // NEW (experimental themes): a theme that draws its own icons goes first; null means "use Windows' icon".
+        if (ThemeIcons.For(item) is { } themed)
+            return themed;
+
         if (item.IsDriveRoot)
             return IconCache.GetOrAdd($"drive:{item.FullPath}", _ => LoadIcon(item.FullPath, isFolder: true, useAttributes: false, large: true));
 
@@ -66,8 +70,21 @@ public static class IconService
         });
     }
 
+    // NEW (empty-area menu): the small Windows icon of a particular program or file on disk (for the
+    // entries installed apps add to the menu), and of a file type by its extension (for "New >").
+    // These are always Windows' own icons, whatever the theme.
+    internal static ImageSource? ForPath(string path)
+        => IconCache.GetOrAdd("path:" + path, _ => LoadIcon(path, isFolder: false, useAttributes: false));
+
+    internal static ImageSource? ForExtension(string extension)
+        => IconCache.GetOrAdd(extension, ext => LoadIcon("file" + ext, isFolder: false, useAttributes: true));
+
     public static ImageSource? GetLargeIcon(FileSystemItem item)
     {
+        // NEW (experimental themes): the theme's drawings are vectors, so the same one serves as the large icon.
+        if (ThemeIcons.For(item) is { } themed)
+            return themed;
+
         var key = item.IsFolder
             ? item.IsDriveRoot ? $"drive:{item.FullPath}" : FolderKey
             : string.IsNullOrEmpty(item.Extension) ? ".__none__" : item.Extension;

@@ -66,9 +66,10 @@ public sealed class DiskBlocks3DView : Grid
     private bool _orbiting, _panning, _moved;
     private int _hoverBlock = -1;
 
-    private static readonly Brush Ink = Frozen(Color.FromRgb(0xEC, 0xE9, 0xE3));
-    private static readonly Brush InkMuted = Frozen(Color.FromRgb(0x9C, 0x96, 0x8D));
-    private static readonly Color Background3D = Color.FromRgb(0x1A, 0x19, 0x17);
+    // CHANGED (themes): from the active theme (were fixed dark-theme values).
+    private static Brush Ink => ThemeService.Ink;
+    private static Brush InkMuted => ThemeService.InkMuted;
+    private static Color Background3D => ThemeService.BaseColor;
 
     public DiskBlocks3DView()
     {
@@ -89,10 +90,10 @@ public sealed class DiskBlocks3DView : Grid
         _cardTitle.Foreground = Ink;
         _cardDetail.Foreground = InkMuted;
         _card.Child = new StackPanel { Children = { _cardTitle, _cardDetail } };
-        _card.Background = Frozen(Color.FromArgb(0xF4, 0x23, 0x22, 0x20));
-        _card.BorderBrush = Frozen(Color.FromRgb(0x3A, 0x37, 0x32));
+        _card.Background = ThemeService.CardFill;      // CHANGED (themes)
+        _card.BorderBrush = ThemeService.CardEdge;     // CHANGED (themes)
         _card.BorderThickness = new Thickness(1);
-        _card.CornerRadius = new CornerRadius(8);
+        _card.CornerRadius = ThemeService.Corner(8);   // CHANGED (themes): square in Retro
         _card.Padding = new Thickness(12, 9, 12, 10);
         _card.Visibility = Visibility.Collapsed;
         _overlay.Children.Add(_card);
@@ -426,7 +427,7 @@ public sealed class DiskBlocks3DView : Grid
             TriangleIndices = [0, 1, 2, 0, 2, 3],
             Normals = [new(0, 1, 0), new(0, 1, 0), new(0, 1, 0), new(0, 1, 0)],
         };
-        var material = new DiffuseMaterial(Frozen(Color.FromRgb(0x2A, 0x28, 0x25)));
+        var material = new DiffuseMaterial(ThemeService.Ground3D);   // CHANGED (themes): the floor follows the theme
         return new GeometryModel3D(mesh, material) { BackMaterial = material };
     }
 

@@ -72,9 +72,10 @@ public sealed class DiskPlatterView : Grid
     private (int Kind, int File) _hover = (-1, -1);
     private System.Windows.Threading.DispatcherTimer? _resize;
 
-    private static readonly Brush Ink = Frozen(Color.FromRgb(0xEC, 0xE9, 0xE3));
-    private static readonly Brush InkMuted = Frozen(Color.FromRgb(0x9C, 0x96, 0x8D));
-    private static readonly Color Surface = Color.FromRgb(0x1A, 0x19, 0x17);
+    // CHANGED (themes): from the active theme (were fixed dark-theme values).
+    private static Brush Ink => ThemeService.Ink;
+    private static Brush InkMuted => ThemeService.InkMuted;
+    private static Color Surface => ThemeService.BaseColor;
 
     // Bucket colours that are not a file read from the drive.
     private const uint ElsewhereColor = 0x77716A, UsedColor = 0x45413C, FreeColor = 0x262422, UnknownColor = 0x34312D;
@@ -98,10 +99,10 @@ public sealed class DiskPlatterView : Grid
         _cardTitle.Foreground = Ink;
         _cardDetail.Foreground = InkMuted;
         _card.Child = new StackPanel { Children = { _cardTitle, _cardDetail } };
-        _card.Background = Frozen(Color.FromArgb(0xF4, 0x23, 0x22, 0x20));
-        _card.BorderBrush = Frozen(Color.FromRgb(0x3A, 0x37, 0x32));
+        _card.Background = ThemeService.CardFill;      // CHANGED (themes)
+        _card.BorderBrush = ThemeService.CardEdge;     // CHANGED (themes)
         _card.BorderThickness = new Thickness(1);
-        _card.CornerRadius = new CornerRadius(8);
+        _card.CornerRadius = ThemeService.Corner(8);   // CHANGED (themes): square in Retro
         _card.Padding = new Thickness(12, 9, 12, 10);
         _card.Visibility = Visibility.Collapsed;
         _overlay.Children.Add(_card);

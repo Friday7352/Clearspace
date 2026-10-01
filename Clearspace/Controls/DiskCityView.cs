@@ -148,10 +148,11 @@ public sealed class DiskCityView : Grid
     private bool _dragging, _panning, _moved;
     private (HitKind Kind, int Index) _hover = (HitKind.None, -1);
 
-    private static readonly Brush Ink = Frozen(Color.FromRgb(0xEC, 0xE9, 0xE3));
-    private static readonly Brush InkMuted = Frozen(Color.FromRgb(0x9C, 0x96, 0x8D));
-    private static readonly Brush RowSelected = Frozen(Color.FromArgb(0x40, 0xEC, 0xE9, 0xE3));
-    private static readonly Color Background3D = Color.FromRgb(0x1A, 0x19, 0x17);
+    // CHANGED (themes): from the active theme (were fixed dark-theme values).
+    private static Brush Ink => ThemeService.Ink;
+    private static Brush InkMuted => ThemeService.InkMuted;
+    private static Brush RowSelected => ThemeService.InkWash;
+    private static Color Background3D => ThemeService.BaseColor;
     private static readonly uint[] Palette = DiskUsagePalette.Branches.Select(hex => Pack((Color)ColorConverter.ConvertFromString(hex))).ToArray();
     private static readonly uint Group = Pack((Color)ColorConverter.ConvertFromString(DiskUsagePalette.GroupColor));
 
@@ -178,10 +179,10 @@ public sealed class DiskCityView : Grid
         _cardTitle.Foreground = Ink;
         _cardDetail.Foreground = InkMuted;
         _card.Child = new StackPanel { Children = { _cardTitle, _cardDetail } };
-        _card.Background = Frozen(Color.FromArgb(0xF4, 0x23, 0x22, 0x20));
-        _card.BorderBrush = Frozen(Color.FromRgb(0x3A, 0x37, 0x32));
+        _card.Background = ThemeService.CardFill;      // CHANGED (themes)
+        _card.BorderBrush = ThemeService.CardEdge;     // CHANGED (themes)
         _card.BorderThickness = new Thickness(1);
-        _card.CornerRadius = new CornerRadius(8);
+        _card.CornerRadius = ThemeService.Corner(8);   // CHANGED (themes): square in Retro
         _card.Padding = new Thickness(12, 9, 12, 10);
         _card.Visibility = Visibility.Collapsed;
         _overlay.Children.Add(_card);
@@ -205,10 +206,10 @@ public sealed class DiskCityView : Grid
         _elevator.Padding = new Thickness(10, 10, 10, 10);
         _elevator.HorizontalAlignment = HorizontalAlignment.Right;
         _elevator.VerticalAlignment = VerticalAlignment.Top;
-        _elevator.Background = Frozen(Color.FromArgb(0xE8, 0x23, 0x22, 0x20));
-        _elevator.BorderBrush = Frozen(Color.FromRgb(0x3A, 0x37, 0x32));
+        _elevator.Background = ThemeService.CardFill;      // CHANGED (themes)
+        _elevator.BorderBrush = ThemeService.CardEdge;     // CHANGED (themes)
         _elevator.BorderThickness = new Thickness(1);
-        _elevator.CornerRadius = new CornerRadius(8);
+        _elevator.CornerRadius = ThemeService.Corner(8);   // CHANGED (themes)
         _elevator.Visibility = Visibility.Collapsed;
         Children.Add(_elevator);
 
@@ -986,7 +987,7 @@ public sealed class DiskCityView : Grid
             TriangleIndices = [0, 1, 2, 0, 2, 3],
             Normals = [new(0, 1, 0), new(0, 1, 0), new(0, 1, 0), new(0, 1, 0)],
         };
-        var material = new DiffuseMaterial(Frozen(Color.FromRgb(0x2A, 0x28, 0x25)));
+        var material = new DiffuseMaterial(ThemeService.Ground3D);   // CHANGED (themes): the floor follows the theme
         return new GeometryModel3D(mesh, material) { BackMaterial = material };
     }
 

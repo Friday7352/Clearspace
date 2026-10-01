@@ -1,0 +1,23 @@
+<!-- Clearspace | Values every theme starts from.
+     NEW (experimental themes): a few extras only experimental themes use. They are "off" here, so the normal
+     theme files do not have to mention them. This file is merged before the active theme and never swapped;
+     a theme switches one on by defining the same key. It must not define "Base" (ThemeService finds the
+     active theme by looking for that key). -->
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- A see-through pattern laid over the whole main window (Neon HUD's scanlines). -->
+    <SolidColorBrush x:Key="OverlayFill" Color="#00000000" />
+    <Visibility x:Key="OverlayVisibility">Collapsed</Visibility>
+
+    <!-- The function-key bar along the bottom of the main window (DOS Commander). -->
+    <Visibility x:Key="FunctionKeysVisibility">Collapsed</Visibility>
+
+    <!-- NEW (sketchbook, round 2): a binding strip down the left edge of the main window, the room the page
+         leaves for it, and the tilt of tooltips. All "none" here; Sketchbook sets them. -->
+    <SolidColorBrush x:Key="BindingFill" Color="#00000000" />
+    <Visibility x:Key="BindingVisibility">Collapsed</Visibility>
+    <Thickness x:Key="PageInset">0</Thickness>
+    <RotateTransform x:Key="NoteTilt" Angle="0" />
+
+</ResourceDictionary>

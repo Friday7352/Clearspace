@@ -35,6 +35,18 @@ internal static class FolderSnapshotCache
         }
     }
 
+    // NEW (experimental themes): drop every remembered folder listing. The rows in them carry the icons
+    // they were given, so after a theme switch that changes the icon set they must be read again.
+    internal static void Clear()
+    {
+        lock (Gate)
+        {
+            Entries.Clear();
+            Recency.Clear();
+            _itemCount = 0;
+        }
+    }
+
     internal static void Set(string path, IReadOnlyList<FileSystemItem> items)
     {
         if (items.Count > MaxItems)

@@ -1,0 +1,118 @@
+<!-- Clearspace | Glass theme (experimental).
+     NEW (experimental themes): the glossy translucent look of the late 2000s - a deep blue-to-teal gradient
+     behind everything, panels that are sheets of frosted white over it, glossy highlights on hover and
+     selection, bright top edges on buttons, and Windows' own colourful icons. The window is not really
+     see-through; the "glass" is painted. Same keys as Dark.xaml plus Theme.BaseColor. -->
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- Surfaces -->
+    <LinearGradientBrush x:Key="Base" StartPoint="0,0" EndPoint="0,1">
+        <GradientStop Color="#FF0A2238" Offset="0" />
+        <GradientStop Color="#FF0F3F56" Offset="0.55" />
+        <GradientStop Color="#FF145A5C" Offset="1" />
+    </LinearGradientBrush>
+    <SolidColorBrush x:Key="Surface"       Color="#1CFFFFFF" />
+    <SolidColorBrush x:Key="Overlay"       Color="#F20F3348" />
+    <LinearGradientBrush x:Key="Hover" StartPoint="0,0" EndPoint="0,1">
+        <GradientStop Color="#40FFFFFF" Offset="0" />
+        <GradientStop Color="#14FFFFFF" Offset="0.5" />
+        <GradientStop Color="#0AFFFFFF" Offset="0.5" />
+        <GradientStop Color="#1FFFFFFF" Offset="1" />
+    </LinearGradientBrush>
+    <SolidColorBrush x:Key="Pressed"       Color="#40FFFFFF" />
+    <LinearGradientBrush x:Key="Selected" StartPoint="0,0" EndPoint="0,1">
+        <GradientStop Color="#664FA8E8" Offset="0" />
+        <GradientStop Color="#384FA8E8" Offset="0.5" />
+        <GradientStop Color="#2A2F88D0" Offset="0.5" />
+        <GradientStop Color="#4D4FA8E8" Offset="1" />
+    </LinearGradientBrush>
+    <SolidColorBrush x:Key="Line"          Color="#40FFFFFF" />
+    <SolidColorBrush x:Key="LineFaint"     Color="#26FFFFFF" />
+
+    <!-- Outlines of buttons, menus and cards (EdgeRaised) and of text boxes and the file list (EdgeSunken). -->
+    <LinearGradientBrush x:Key="EdgeRaised" StartPoint="0,0" EndPoint="0,1">
+        <GradientStop Color="#CCFFFFFF" Offset="0" />
+        <GradientStop Color="#40FFFFFF" Offset="1" />
+    </LinearGradientBrush>
+    <LinearGradientBrush x:Key="EdgeSunken" StartPoint="0,0" EndPoint="0,1">
+        <GradientStop Color="#40FFFFFF" Offset="0" />
+        <GradientStop Color="#99FFFFFF" Offset="1" />
+    </LinearGradientBrush>
+
+    <!-- Text -->
+    <SolidColorBrush x:Key="Ink"           Color="#FFFFFFFF" />
+    <SolidColorBrush x:Key="InkMuted"      Color="#FFDDEEF6" />
+    <SolidColorBrush x:Key="InkFaint"      Color="#FFB4D2E0" />
+    <SolidColorBrush x:Key="InkDisabled"   Color="#FF7FA8BA" />
+
+    <!-- Accent -->
+    <SolidColorBrush x:Key="Accent"        Color="#FFB8F1FF" />
+    <SolidColorBrush x:Key="AccentSoft"    Color="#2EB8F1FF" />
+    <SolidColorBrush x:Key="AccentWash"    Color="#1FB8F1FF" />
+    <SolidColorBrush x:Key="AccentInk"     Color="#FF0A2238" />   <!-- text on a solid accent fill -->
+
+    <!-- Status -->
+    <SolidColorBrush x:Key="Danger"        Color="#FFFFC2B8" />
+    <SolidColorBrush x:Key="Good"          Color="#FFA8F0C0" />
+    <SolidColorBrush x:Key="Warn"          Color="#FFFFE08A" />
+    <SolidColorBrush x:Key="Bad"           Color="#FFFFB4A8" />
+    <SolidColorBrush x:Key="Quiet"         Color="#FFDDEEF6" />
+
+    <!-- Small fills -->
+    <SolidColorBrush x:Key="ThumbRest"     Color="#4DFFFFFF" />   <!-- scroll bar -->
+    <SolidColorBrush x:Key="ThumbHover"    Color="#80FFFFFF" />
+    <SolidColorBrush x:Key="Tint"          Color="#1FFFFFFF" />   <!-- status bar chips -->
+    <SolidColorBrush x:Key="ChipHover"     Color="#33FFFFFF" />   <!-- a project-strip chip under the pointer -->
+    <SolidColorBrush x:Key="Divider"       Color="#33FFFFFF" />   <!-- menu separators -->
+    <SolidColorBrush x:Key="RowAlt"        Color="#0AFFFFFF" />   <!-- every other row in Music folders -->
+    <SolidColorBrush x:Key="Track"         Color="#26FFFFFF" />   <!-- drive usage bar background -->
+    <SolidColorBrush x:Key="SliderRail"    Color="#40FFFFFF" />
+    <SolidColorBrush x:Key="Well"          Color="#1F000000" />   <!-- behind a tile's picture -->
+    <SolidColorBrush x:Key="BadgeFill"     Color="#B30A2238" />   <!-- badges drawn over a tile's picture -->
+    <SolidColorBrush x:Key="NavFill"       Color="#990A2238" />   <!-- previous / next in the photo viewer -->
+    <SolidColorBrush x:Key="Scrim"         Color="#F20A2238" />   <!-- photo viewer backdrop -->
+    <SolidColorBrush x:Key="CardFill"      Color="#F20F3348" />   <!-- tooltips and hover cards -->
+    <SolidColorBrush x:Key="CardEdge"      Color="#80FFFFFF" />
+    <SolidColorBrush x:Key="Ground3D"      Color="#FF0F3F56" />   <!-- floor of the 3D disk usage views -->
+
+    <!-- The highlighted row of a menu -->
+    <LinearGradientBrush x:Key="MenuHover" StartPoint="0,0" EndPoint="0,1">
+        <GradientStop Color="#66FFFFFF" Offset="0" />
+        <GradientStop Color="#26FFFFFF" Offset="0.5" />
+        <GradientStop Color="#14FFFFFF" Offset="0.5" />
+        <GradientStop Color="#33FFFFFF" Offset="1" />
+    </LinearGradientBrush>
+    <SolidColorBrush x:Key="MenuHoverInk"    Color="#FFFFFFFF" />
+    <SolidColorBrush x:Key="MenuHoverMuted"  Color="#FFDDEEF6" />
+    <SolidColorBrush x:Key="MenuHoverFaint"  Color="#FFB4D2E0" />
+    <SolidColorBrush x:Key="MenuHoverAccent" Color="#FFB8F1FF" />
+
+    <!-- Fonts -->
+    <FontFamily x:Key="UIFont">Segoe UI</FontFamily>
+    <FontFamily x:Key="SerifFont">Segoe UI</FontFamily>
+    <FontFamily x:Key="DisplayFont">Segoe UI Light, Segoe UI</FontFamily>
+    <FontFamily x:Key="MonoFont">Cascadia Mono, Consolas</FontFamily>
+
+    <!-- Corner sizes (R8 = "what used to be an 8px corner") -->
+    <CornerRadius x:Key="R2">2</CornerRadius>
+    <CornerRadius x:Key="R3">3</CornerRadius>
+    <CornerRadius x:Key="R4">4</CornerRadius>
+    <CornerRadius x:Key="R5">5</CornerRadius>
+    <CornerRadius x:Key="R6">6</CornerRadius>
+    <CornerRadius x:Key="R7">7</CornerRadius>
+    <CornerRadius x:Key="R8">8</CornerRadius>
+    <CornerRadius x:Key="R9">9</CornerRadius>
+    <CornerRadius x:Key="R10">10</CornerRadius>
+    <CornerRadius x:Key="R12">12</CornerRadius>
+    <CornerRadius x:Key="RPlayerBar">0,0,11,11</CornerRadius>
+
+    <!-- Title bar: the top of the gradient (Windows 11 only; Windows 10 keeps its own title bar). -->
+    <Color x:Key="Theme.CaptionColor">#FF0A2238</Color>
+    <Color x:Key="Theme.CaptionTextColor">#FFFFFFFF</Color>
+
+    <!-- The window background is a gradient, so this is the one flat colour code uses where it needs one
+         (the disk usage map's background, for example). -->
+    <Color x:Key="Theme.BaseColor">#FF0F3F56</Color>
+
+</ResourceDictionary>

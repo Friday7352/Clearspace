@@ -25,6 +25,9 @@ public sealed class SettingsData
 
     public bool UseWindowsIndex { get; set; } = true;
 
+    // NEW (themes): the look picked in Settings - a name from ThemeService.Names ("Dark", "Light", "Retro").
+    public string Theme { get; set; } = "Dark";
+
     // NEW (round 18): disk map performance options. GPU acceleration draws the blocks through
     // Direct3D; turning it off uses the CPU rasterizer, which is the right choice on machines whose
     // display driver is unhappy with a shared surface. Low detail mode draws only the folder you are
@@ -376,6 +379,18 @@ public static class SettingsService
             return;
 
         Current.DiskMapLowDetail = value;
+        Save();
+    }
+
+    // NEW (themes)
+    public static string GetTheme() => Current.Theme ?? "Dark";
+
+    public static void SetTheme(string value)
+    {
+        if (string.Equals(Current.Theme, value, StringComparison.Ordinal))
+            return;
+
+        Current.Theme = value;
         Save();
     }
 

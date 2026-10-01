@@ -101,7 +101,8 @@ internal sealed class LockAgent
             var isFolder = Directory.Exists(path);
             if (!isFolder && !File.Exists(path))
             {
-                MessageBox.Show($"{Path.GetFileName(path)} no longer exists.", "Clearspace", MessageBoxButton.OK, MessageBoxImage.Information);
+                // CHANGED (themes): themed dialog instead of the Windows message box (no owner: Explorer asked).
+                MessageDialog.Show(null, $"{Path.GetFileName(path)} no longer exists.", "Clearspace", MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
             switch (command.Verb)
@@ -237,7 +238,7 @@ internal sealed class LockAgent
     private void Tell(string message, bool attach)
     {
         if (attach && Window is not null) Report(message);
-        else MessageBox.Show(message, "Clearspace", MessageBoxButton.OK, MessageBoxImage.Information);
+        else MessageDialog.Show(null, message, "Clearspace", MessageBoxButton.OK, MessageBoxImage.Information); // CHANGED (themes)
     }
 
     // ---- Unlock (for a visit) ----

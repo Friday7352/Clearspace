@@ -62,6 +62,7 @@ internal sealed partial class FileLockWindow : Window
         Func<Task>? waitFirst = null, string? warning = null)
     {
         InitializeComponent();
+        EInkScreen.Frame(this); // NEW (e-ink): the E-reader theme's panel look reaches this dialog too
         _paths = paths.Count > 0 ? paths : [string.Empty];
         _mode = mode; _service = service; _waitFirst = waitFirst;
         _setup = Locking && !service.HasPassword;
@@ -158,16 +159,9 @@ internal sealed partial class FileLockWindow : Window
         Loaded += (_, _) => PasswordInput.Focus();
     }
 
-    // Same dark title bar and rounded corners as the main window.
-    private void ApplyDarkTitleBar()
-    {
-        var handle = new WindowInteropHelper(this).Handle;
-        var enabled = 1;
-        NativeMethods.DwmSetWindowAttribute(handle, NativeMethods.DWMWA_USE_IMMERSIVE_DARK_MODE, ref enabled, sizeof(int));
-        NativeMethods.DwmSetWindowAttribute(handle, NativeMethods.DWMWA_USE_IMMERSIVE_DARK_MODE_LEGACY, ref enabled, sizeof(int));
-        var round = NativeMethods.DWMWCP_ROUND;
-        NativeMethods.DwmSetWindowAttribute(handle, NativeMethods.DWMWA_WINDOW_CORNER_PREFERENCE, ref round, sizeof(int));
-    }
+    // Same title bar and corners as the main window.
+    // CHANGED (themes): follows the active theme instead of always being dark.
+    private void ApplyDarkTitleBar() => ThemeService.ApplyTitleBar(this);
 
     private static char[] ReadPassword(System.Windows.Controls.PasswordBox box)
     {

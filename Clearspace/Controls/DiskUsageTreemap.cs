@@ -584,14 +584,19 @@ public sealed class DiskUsageTreemap : FrameworkElement, IDisposable
     private Color _baseColor = Color.FromRgb(0x1A, 0x19, 0x17);
     private uint _basePacked = 0x1A1917;
     private SolidColorBrush _base = Frozen(Color.FromRgb(0x1A, 0x19, 0x17));
-    private static readonly SolidColorBrush CardFill = Frozen(Color.FromArgb(0xF4, 0x23, 0x22, 0x20));
-    private static readonly SolidColorBrush Ink = Frozen(Color.FromRgb(0xEC, 0xE9, 0xE3));
-    private static readonly SolidColorBrush InkMuted = Frozen(Color.FromRgb(0x9C, 0x96, 0x8D));
-    private static readonly SolidColorBrush InkFaint = Frozen(Color.FromRgb(0x6E, 0x68, 0x62));
-    private static readonly Pen CardEdge = FrozenPen(Color.FromRgb(0x3A, 0x37, 0x32), 1);
+    // CHANGED (themes): the hover card, messages and the selection outline take the active theme's colours
+    // (these were fixed dark-theme values). The map's own background already followed the "Base" resource.
+    private static SolidColorBrush CardFill => ThemeService.CardFill;
+    private static SolidColorBrush Ink => ThemeService.Ink;
+    private static SolidColorBrush InkMuted => ThemeService.InkMuted;
+    private static SolidColorBrush InkFaint => ThemeService.InkFaint;
+    private static Pen CardEdge => ThemeService.CardEdgePen;
+    // NEW (themes): text printed on the drive and computer pictures stays light in every theme, because
+    // those pictures keep their own dark colours.
+    private static readonly SolidColorBrush CoverInk = Frozen(Color.FromRgb(0xEC, 0xE9, 0xE3));
     private static readonly Pen HoverEdge = FrozenPen(Color.FromArgb(0xF0, 0xFF, 0xFF, 0xFF), 1.5);
     private static readonly Pen FolderEdge = FrozenPen(Color.FromArgb(0x60, 0xB0, 0xA9, 0x9E), 1);
-    private static readonly Pen AccentEdge = FrozenPen(Color.FromRgb(0xD3, 0xA1, 0x5F), 2);
+    private static Pen AccentEdge => ThemeService.AccentEdgePen;   // CHANGED (themes)
 
     // ---------------------------------------------------------------- events for the view
     internal event Action<int>? FolderFocused;              // the user zoomed/clicked into a different folder
@@ -3020,7 +3025,7 @@ public sealed class DiskUsageTreemap : FrameworkElement, IDisposable
         {
             if (_coverText.Count > 256) _coverText.Clear();
             line = Make(text, CoverEm, bold);
-            line.SetForegroundBrush(Ink);
+            line.SetForegroundBrush(CoverInk);   // CHANGED (themes): see CoverInk
             line.MaxTextWidth = Math.Max(1, key.Item3);
             _coverText[key] = line;
         }
@@ -5327,7 +5332,7 @@ public sealed class DiskUsageTreemap : FrameworkElement, IDisposable
         text.MaxTextWidth = Math.Max(1, ActualWidth - 80);
         var card = new Rect(ActualWidth / 2 - text.Width / 2 - 18, ActualHeight / 2 - text.Height / 2 - 12,
             text.Width + 36, text.Height + 24);
-        dc.DrawRoundedRectangle(CardFill, CardEdge, card, 8, 8);
+        dc.DrawRoundedRectangle(CardFill, CardEdge, card, ThemeService.Radius(8), ThemeService.Radius(8));   // CHANGED (themes): square in Retro
         dc.DrawText(text, new Point(card.X + 18, card.Y + 12));
     }
 
@@ -5403,7 +5408,7 @@ public sealed class DiskUsageTreemap : FrameworkElement, IDisposable
             _statsUpdatedAt = Now;
         }
         var box = new Rect(10, 10, _statsText.Width + 20, _statsText.Height + 14);
-        dc.DrawRoundedRectangle(CardFill, CardEdge, box, 6, 6);
+        dc.DrawRoundedRectangle(CardFill, CardEdge, box, ThemeService.Radius(6), ThemeService.Radius(6));   // CHANGED (themes)
         dc.DrawText(_statsText, new Point(20, 17));
     }
 
@@ -5460,7 +5465,7 @@ public sealed class DiskUsageTreemap : FrameworkElement, IDisposable
         if (y + height > ActualHeight - 6) y = _mouse.Y - 12 - height;
         x = Math.Max(6, x);
         y = Math.Max(6, y);
-        dc.DrawRoundedRectangle(CardFill, CardEdge, new Rect(x, y, width, height), 8, 8);
+        dc.DrawRoundedRectangle(CardFill, CardEdge, new Rect(x, y, width, height), ThemeService.Radius(8), ThemeService.Radius(8));   // CHANGED (themes)
         dc.DrawText(title, new Point(x + pad, y + pad));
         var line = y + pad + title.Height + 3;
         // CHANGED (round 40): computed, not read through the node's colour cache - that cache is the
@@ -5569,11 +5574,14 @@ public sealed class DiskUsageTreemap : FrameworkElement, IDisposable
             _regular = new Typeface(family, FontStyles.Normal, FontWeights.Normal, FontStretches.Normal);
             _semibold = new Typeface(family, FontStyles.Normal, FontWeights.SemiBold, FontStretches.Normal);
         }
-        if (TryFindResource("Base") is SolidColorBrush baseBrush && baseBrush.Color != _baseColor)
+        // CHANGED (experimental themes): when the theme's background is not one flat colour (a gradient or a
+        // pattern), use the plain colour the theme names for code instead of keeping the previous one.
+        var baseColor = TryFindResource("Base") is SolidColorBrush baseBrush ? baseBrush.Color : ThemeService.BaseColor;
+        if (baseColor != _baseColor)
         {
-            _baseColor = baseBrush.Color;
-            _basePacked = Pack(baseBrush.Color);
-            _base = Frozen(baseBrush.Color);
+            _baseColor = baseColor;
+            _basePacked = Pack(baseColor);
+            _base = Frozen(baseColor);
         }
     }
 

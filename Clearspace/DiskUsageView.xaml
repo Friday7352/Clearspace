@@ -2,63 +2,37 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:controls="clr-namespace:Clearspace.Controls"
-        Background="{StaticResource Base}" Foreground="{StaticResource Ink}"
-        FontFamily="{StaticResource UIFont}" FontSize="13" UseLayoutRounding="True">
+        Background="{DynamicResource Base}" Foreground="{DynamicResource Ink}"
+        FontFamily="{DynamicResource UIFont}" FontSize="13" UseLayoutRounding="True">
     <UserControl.Resources>
         <Style x:Key="UsageRow" TargetType="ListViewItem">
-            <Setter Property="Foreground" Value="{StaticResource Ink}"/>
+            <Setter Property="Foreground" Value="{DynamicResource Ink}"/>
             <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
             <Setter Property="Padding" Value="8,4"/>
             <Setter Property="Height" Value="32"/>
             <Setter Property="Margin" Value="0"/>
             <Setter Property="Template">
                 <Setter.Value><ControlTemplate TargetType="ListViewItem">
-                    <Border x:Name="Row" CornerRadius="6" Background="Transparent" BorderBrush="Transparent" BorderThickness="1" Padding="{TemplateBinding Padding}">
+                    <Border x:Name="Row" CornerRadius="{DynamicResource R6}" Background="Transparent" BorderBrush="Transparent" BorderThickness="1" Padding="{TemplateBinding Padding}">
                         <ContentPresenter HorizontalAlignment="Stretch"/>
                     </Border>
                     <ControlTemplate.Triggers>
-                        <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Row" Property="Background" Value="{StaticResource Hover}"/></Trigger>
-                        <Trigger Property="IsSelected" Value="True"><Setter TargetName="Row" Property="Background" Value="{StaticResource Selected}"/></Trigger>
-                        <Trigger Property="IsKeyboardFocusWithin" Value="True"><Setter TargetName="Row" Property="BorderBrush" Value="{StaticResource Accent}"/></Trigger>
+                        <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Row" Property="Background" Value="{DynamicResource Hover}"/></Trigger>
+                        <Trigger Property="IsSelected" Value="True"><Setter TargetName="Row" Property="Background" Value="{DynamicResource Selected}"/></Trigger>
+                        <Trigger Property="IsKeyboardFocusWithin" Value="True"><Setter TargetName="Row" Property="BorderBrush" Value="{DynamicResource Accent}"/></Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate></Setter.Value>
             </Setter>
         </Style>
-        <!-- NEW (round 18): checkboxes for the performance panel; the system ones are light-themed. -->
-        <Style x:Key="ViewerCheck" TargetType="CheckBox">
-            <Setter Property="Foreground" Value="{StaticResource Ink}"/>
-            <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="Template">
-                <Setter.Value><ControlTemplate TargetType="CheckBox">
-                    <StackPanel Orientation="Horizontal" Background="Transparent">
-                        <Border x:Name="Box" Width="18" Height="18" CornerRadius="5" Background="{StaticResource Base}"
-                                BorderBrush="{StaticResource Line}" BorderThickness="1" VerticalAlignment="Center">
-                            <TextBlock x:Name="Tick" Text="&#x2713;" FontSize="11" FontWeight="Bold" Foreground="{StaticResource Ink}"
-                                       HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Collapsed"/>
-                        </Border>
-                        <ContentPresenter Margin="9,0,0,0" VerticalAlignment="Center"/>
-                    </StackPanel>
-                    <ControlTemplate.Triggers>
-                        <Trigger Property="IsChecked" Value="True">
-                            <Setter TargetName="Box" Property="Background" Value="{StaticResource Accent}"/>
-                            <Setter TargetName="Box" Property="BorderBrush" Value="{StaticResource Accent}"/>
-                            <Setter TargetName="Tick" Property="Visibility" Value="Visible"/>
-                        </Trigger>
-                        <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="Box" Property="BorderBrush" Value="{StaticResource Accent}"/>
-                        </Trigger>
-                    </ControlTemplate.Triggers>
-                </ControlTemplate></Setter.Value>
-            </Setter>
-        </Style>
+        <!-- CHANGED (themes): the ViewerCheck checkbox style moved to App.xaml so other windows can use it. -->
         <Style x:Key="DrivePicker" TargetType="ComboBox">
-            <Setter Property="Foreground" Value="{StaticResource Ink}"/>
-            <Setter Property="Background" Value="{StaticResource Surface}"/>
+            <Setter Property="Foreground" Value="{DynamicResource Ink}"/>
+            <Setter Property="Background" Value="{DynamicResource Surface}"/>
             <Setter Property="Height" Value="32"/>
             <Setter Property="ItemContainerStyle">
                 <Setter.Value><Style TargetType="ComboBoxItem">
-                    <Setter Property="Foreground" Value="{StaticResource Ink}"/>
-                    <Setter Property="Background" Value="{StaticResource Surface}"/>
+                    <Setter Property="Foreground" Value="{DynamicResource Ink}"/>
+                    <Setter Property="Background" Value="{DynamicResource Surface}"/>
                     <Setter Property="Padding" Value="8,5"/>
                 </Style></Setter.Value>
             </Setter>
@@ -66,12 +40,12 @@
                 <Setter.Value>
                     <ControlTemplate TargetType="ComboBox">
                         <Grid>
-                            <ToggleButton Focusable="False" Foreground="{StaticResource Ink}" IsChecked="{Binding IsDropDownOpen, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}">
+                            <ToggleButton Focusable="False" Foreground="{DynamicResource Ink}" IsChecked="{Binding IsDropDownOpen, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}">
                                 <ToggleButton.Template>
                                     <ControlTemplate TargetType="ToggleButton">
-                                        <Border Background="{StaticResource Surface}" BorderBrush="{StaticResource Line}" BorderThickness="1" CornerRadius="8">
+                                        <Border Background="{DynamicResource Surface}" BorderBrush="{DynamicResource EdgeRaised}" BorderThickness="1" CornerRadius="{DynamicResource R8}">
                                             <DockPanel Margin="10,0">
-                                                <TextBlock DockPanel.Dock="Right" Text="⌄" Foreground="{StaticResource InkMuted}" VerticalAlignment="Center"/>
+                                                <TextBlock DockPanel.Dock="Right" Text="⌄" Foreground="{DynamicResource InkMuted}" VerticalAlignment="Center"/>
                                                 <ContentPresenter Content="{Binding SelectionBoxItem, RelativeSource={RelativeSource AncestorType=ComboBox}}"
                                                                   VerticalAlignment="Center"/>
                                             </DockPanel>
@@ -80,7 +54,7 @@
                                 </ToggleButton.Template>
                             </ToggleButton>
                             <Popup x:Name="PART_Popup" Placement="Bottom" IsOpen="{TemplateBinding IsDropDownOpen}" AllowsTransparency="True" Focusable="False">
-                                <Border Background="{StaticResource Surface}" BorderBrush="{StaticResource Line}" BorderThickness="1"
+                                <Border Background="{DynamicResource Surface}" BorderBrush="{DynamicResource EdgeRaised}" BorderThickness="1"
                                         MinWidth="{TemplateBinding ActualWidth}" Padding="4">
                                     <ScrollViewer MaxHeight="240"><ItemsPresenter KeyboardNavigation.DirectionalNavigation="Contained"/></ScrollViewer>
                                 </Border>
@@ -95,7 +69,7 @@
             </Setter>
         </Style>
     </UserControl.Resources>
-    <Grid Margin="16" Background="{StaticResource Base}">
+    <Grid Margin="16" Background="{DynamicResource Base}">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/>
         </Grid.RowDefinitions>
@@ -103,7 +77,7 @@
             <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
                 <!-- NEW (round 46): experimental views, shown once they are turned on in the map settings. -->
                 <StackPanel x:Name="ViewPickerPanel" Orientation="Horizontal" Visibility="Collapsed" Margin="0,0,16,0">
-                    <TextBlock Text="View" VerticalAlignment="Center" Foreground="{StaticResource InkMuted}" Margin="0,0,10,0"/>
+                    <TextBlock Text="View" VerticalAlignment="Center" Foreground="{DynamicResource InkMuted}" Margin="0,0,10,0"/>
                     <ComboBox x:Name="ViewPicker" Width="118" Style="{StaticResource DrivePicker}" SelectionChanged="OnExperimentalViewPicked"
                               AutomationProperties.Name="Map view">
                         <ComboBoxItem Content="Map"/>
@@ -113,7 +87,7 @@
                     </ComboBox>
                 </StackPanel>
                 <Button Content="Indexing" Click="OnIndexing" Style="{StaticResource ViewerTextButton}" Margin="0,0,8,0" ToolTip="See scan progress, indexed entries and storage"/>
-                <TextBlock Text="Drive" VerticalAlignment="Center" Foreground="{StaticResource InkMuted}" Margin="0,0,10,0"/>
+                <TextBlock Text="Drive" VerticalAlignment="Center" Foreground="{DynamicResource InkMuted}" Margin="0,0,10,0"/>
                 <ComboBox x:Name="Drives" Width="95" Margin="0,0,8,0" Style="{StaticResource DrivePicker}" ItemsSource="{Binding Roots}"
                           SelectedItem="{Binding SelectedRoot, Mode=OneWay}" SelectionChanged="OnDriveChanged"
                           IsEnabled="{Binding IsReady}" AutomationProperties.Name="Indexed drive"/>
@@ -126,43 +100,43 @@
                         ToolTip="Map performance" AutomationProperties.Name="Map performance"/>
                 <Popup x:Name="SettingsPopup" StaysOpen="False" Placement="Bottom" HorizontalOffset="-286" VerticalOffset="6"
                        AllowsTransparency="True" PlacementTarget="{Binding ElementName=SettingsButton}" Opened="OnSettingsOpened">
-                    <Border Background="{StaticResource Surface}" BorderBrush="{StaticResource Line}" BorderThickness="1"
-                            CornerRadius="10" Padding="16" Width="340">
+                    <Border Background="{DynamicResource Surface}" BorderBrush="{DynamicResource EdgeRaised}" BorderThickness="1"
+                            CornerRadius="{DynamicResource R10}" Padding="16" Width="340">
                         <StackPanel>
                             <TextBlock Text="Map performance" FontWeight="SemiBold" Margin="0,0,0,12"/>
                             <CheckBox x:Name="GpuOption" Style="{StaticResource ViewerCheck}" Content="GPU acceleration"
                                       Checked="OnPerformanceOptionChanged" Unchecked="OnPerformanceOptionChanged"/>
-                            <TextBlock x:Name="RendererText" Foreground="{StaticResource InkMuted}" FontSize="11"
+                            <TextBlock x:Name="RendererText" Foreground="{DynamicResource InkMuted}" FontSize="11"
                                        TextWrapping="Wrap" Margin="27,3,0,14"/>
                             <CheckBox x:Name="LowDetailOption" Style="{StaticResource ViewerCheck}" Content="Low performance mode"
                                       Checked="OnPerformanceOptionChanged" Unchecked="OnPerformanceOptionChanged"/>
-                            <TextBlock Foreground="{StaticResource InkMuted}" FontSize="11" TextWrapping="Wrap" Margin="27,3,0,0"
+                            <TextBlock Foreground="{DynamicResource InkMuted}" FontSize="11" TextWrapping="Wrap" Margin="27,3,0,0"
                                        Text="Draws only the folder you are in. Everything inside it stays a solid block until you open it, so a frame never walks a deep tree."/>
                             <CheckBox x:Name="ConserveOption" Style="{StaticResource ViewerCheck}" Content="Conserve memory" Margin="0,14,0,0"
                                       Checked="OnPerformanceOptionChanged" Unchecked="OnPerformanceOptionChanged"/>
-                            <TextBlock Foreground="{StaticResource InkMuted}" FontSize="11" TextWrapping="Wrap" Margin="27,3,0,0"
+                            <TextBlock Foreground="{DynamicResource InkMuted}" FontSize="11" TextWrapping="Wrap" Margin="27,3,0,0"
                                        Text="Draws fewer blocks per frame, keeps far fewer labels in memory, and holds folder sizes for one drive only instead of keeping them warm. Names reappear as you look at them."/>
                             <CheckBox x:Name="BackgroundOption" Style="{StaticResource ViewerCheck}" Content="Build in the background" Margin="0,14,0,0"
                                       Checked="OnPerformanceOptionChanged" Unchecked="OnPerformanceOptionChanged"/>
-                            <TextBlock Foreground="{StaticResource InkMuted}" FontSize="11" TextWrapping="Wrap" Margin="27,3,0,0"
+                            <TextBlock Foreground="{DynamicResource InkMuted}" FontSize="11" TextWrapping="Wrap" Margin="27,3,0,0"
                                        Text="Keeps reading the rest of the drive while you look at part of it, so zooming in later finds it already laid out. What is on screen is always read first. A tree you have built is kept when you close the analyzer or switch drives."/>
                             <CheckBox x:Name="EverythingOption" Style="{StaticResource ViewerCheck}" Content="Render everything (experimental)" Margin="0,14,0,0"
                                       Checked="OnPerformanceOptionChanged" Unchecked="OnPerformanceOptionChanged"/>
-                            <TextBlock Foreground="{StaticResource InkMuted}" FontSize="11" TextWrapping="Wrap" Margin="27,3,0,0"
+                            <TextBlock Foreground="{DynamicResource InkMuted}" FontSize="11" TextWrapping="Wrap" Margin="27,3,0,0"
                                        Text="Draws blocks at every depth down to a fifth of a pixel, up to 750,000 a frame shared across the screen by area, so zooming reveals little that was not already on screen and no part of the view is ever left blank. The whole drive is laid out once, in about a second, into a compact table of roughly 30 MB per million files, and kept while you switch drives. Refreshes and file changes lay it out again in the background."/>
                             <!-- NEW (round 50) -->
                             <TextBlock Text="Drives" FontWeight="SemiBold" Margin="0,18,0,10"/>
                             <CheckBox x:Name="NetworkOption" Style="{StaticResource ViewerCheck}" Content="Index network drives"
                                       Checked="OnNetworkOptionChanged" Unchecked="OnNetworkOptionChanged"/>
-                            <TextBlock Foreground="{StaticResource InkMuted}" FontSize="11" TextWrapping="Wrap" Margin="27,3,0,0"
+                            <TextBlock Foreground="{DynamicResource InkMuted}" FontSize="11" TextWrapping="Wrap" Margin="27,3,0,0"
                                        Text="Also indexes mapped network drives, so they appear in the drive list, in the map and beside your other drives when zoomed out, and in search. The first pass reads the whole share over the network and can take a while on a large NAS. A share that is out of reach keeps its last index until it is back."/>
                             <!-- NEW (round 46) -->
                             <TextBlock Text="Experimental" FontWeight="SemiBold" Margin="0,18,0,10"/>
                             <CheckBox x:Name="ExperimentsOption" Style="{StaticResource ViewerCheck}" Content="Experimental views"
                                       Checked="OnExperimentalViewChanged" Unchecked="OnExperimentalViewChanged"/>
-                            <TextBlock Foreground="{StaticResource InkMuted}" FontSize="11" TextWrapping="Wrap" Margin="27,3,0,0"
+                            <TextBlock Foreground="{DynamicResource InkMuted}" FontSize="11" TextWrapping="Wrap" Margin="27,3,0,0"
                                        Text="Adds a View picker next to the drive: the folder as 3D blocks, with a choice of what the height means, as a city of towers you can step inside (floors are subfolders, rooms and crates are what is on them), or the drive as it is laid out on disk, read from the file system like a defragmenter does. The map itself is unchanged and stays where you left it."/>
-                            <TextBlock Foreground="{StaticResource InkFaint}" FontSize="11" TextWrapping="Wrap" Margin="0,14,0,0"
+                            <TextBlock Foreground="{DynamicResource InkFaint}" FontSize="11" TextWrapping="Wrap" Margin="0,14,0,0"
                                        Text="Press F3 on the map for frame timings and memory."/>
                         </StackPanel>
                     </Border>
@@ -170,10 +144,10 @@
             </StackPanel>
             <StackPanel Orientation="Horizontal">
                 <Button Content="Back to files" Click="OnClose" Style="{StaticResource ViewerTextButton}" IsEnabled="{Binding IsReady}" Margin="0,0,16,0"/>
-                <TextBlock Text="Disk usage" FontFamily="{StaticResource DisplayFont}" FontSize="24" VerticalAlignment="Center"/>
+                <TextBlock Text="Disk usage" FontFamily="{DynamicResource DisplayFont}" FontSize="24" VerticalAlignment="Center"/>
             </StackPanel>
         </DockPanel>
-        <Border Grid.Row="1" Background="{StaticResource Surface}" CornerRadius="8" Padding="4" Margin="0,0,0,12">
+        <Border Grid.Row="1" Background="{DynamicResource Surface}" CornerRadius="{DynamicResource R8}" Padding="4" Margin="0,0,0,12">
             <DockPanel>
                 <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" Margin="0,0,12,0">
                     <Button x:Name="BackButton" Content="&#xE72B;" Style="{StaticResource IconButton}" Click="OnBack"
@@ -188,7 +162,7 @@
                         <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
                         <ItemsControl.ItemTemplate><DataTemplate>
                             <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="›" Foreground="{StaticResource InkFaint}" VerticalAlignment="Center" Margin="2,0"/>
+                                <TextBlock Text="›" Foreground="{DynamicResource InkFaint}" VerticalAlignment="Center" Margin="2,0"/>
                                 <Button Click="OnBreadcrumb" Style="{StaticResource CrumbButton}" ToolTip="{Binding Name}" MaxWidth="170">
                                     <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis"/>
                                 </Button>
@@ -209,8 +183,8 @@
                     <TextBlock Text="{Binding FolderName}" FontSize="18" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" ToolTip="{Binding CurrentPath}"/>
                     <DockPanel Margin="0,4,0,0">
                         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
-                            <TextBlock Text="{Binding Items.Count, StringFormat={}{0:N0} items}" FontSize="11" Foreground="{StaticResource InkMuted}" VerticalAlignment="Center"/>
-                            <Button Content="ⓘ" FontFamily="{StaticResource UIFont}" FontSize="14" Width="26" Height="26" Margin="4,0,0,0"
+                            <TextBlock Text="{Binding Items.Count, StringFormat={}{0:N0} items}" FontSize="11" Foreground="{DynamicResource InkMuted}" VerticalAlignment="Center"/>
+                            <Button Content="ⓘ" FontFamily="{DynamicResource UIFont}" FontSize="14" Width="26" Height="26" Margin="4,0,0,0"
                                     Style="{StaticResource IconButton}" AutomationProperties.Name="About these sizes">
                                 <Button.ToolTip>
                                     <StackPanel MaxWidth="290">
@@ -221,19 +195,19 @@
                                 </Button.ToolTip>
                             </Button>
                         </StackPanel>
-                        <TextBlock Text="{Binding TotalSize}" FontSize="23" Foreground="{StaticResource Accent}" VerticalAlignment="Center"/>
+                        <TextBlock Text="{Binding TotalSize}" FontSize="23" Foreground="{DynamicResource Accent}" VerticalAlignment="Center"/>
                     </DockPanel>
                 </StackPanel>
                 <DockPanel Grid.Row="1" Height="30" Margin="8,0,22,2" ToolTip="Largest first · double-click a folder to open it">
-                    <TextBlock DockPanel.Dock="Right" Text="Size ↓" FontSize="11" Foreground="{StaticResource InkMuted}" VerticalAlignment="Center"/>
+                    <TextBlock DockPanel.Dock="Right" Text="Size ↓" FontSize="11" Foreground="{DynamicResource InkMuted}" VerticalAlignment="Center"/>
                     <!-- CHANGED: returns to the whole current folder after zooming inside it -->
                     <Button x:Name="ZoomOutButton" DockPanel.Dock="Right" Content="Whole folder" Click="OnBack" Visibility="Collapsed"
                             Height="26" Margin="0,0,12,0" Style="{StaticResource ViewerTextButton}"/>
-                    <TextBlock Text="Name" FontSize="11" Foreground="{StaticResource InkMuted}" VerticalAlignment="Center"/>
+                    <TextBlock Text="Name" FontSize="11" Foreground="{DynamicResource InkMuted}" VerticalAlignment="Center"/>
                 </DockPanel>
-            <ListView x:Name="ItemList" Grid.Row="2" ItemsSource="{Binding Items}" Background="{StaticResource Base}"
+            <ListView x:Name="ItemList" Grid.Row="2" ItemsSource="{Binding Items}" Background="{DynamicResource Base}"
                       SelectionMode="Extended" PreviewMouseRightButtonDown="OnListRightClick"
-                      Foreground="{StaticResource Ink}" BorderThickness="0" Padding="0" ItemContainerStyle="{StaticResource UsageRow}"
+                      Foreground="{DynamicResource Ink}" BorderThickness="0" Padding="0" ItemContainerStyle="{StaticResource UsageRow}"
                       SelectionChanged="OnSelectionChanged" MouseDoubleClick="OnItemDoubleClick" KeyDown="OnListKeyDown"
                       ScrollViewer.HorizontalScrollBarVisibility="Disabled" ScrollViewer.CanContentScroll="True"
                       VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling"
@@ -277,16 +251,16 @@
                 <StackPanel Grid.Row="3">
                     <StackPanel Margin="0,8,0,0" Visibility="{Binding CanDelete, Converter={StaticResource BoolToVisible}}">
                         <TextBlock Text="{Binding Details}" FontSize="11" MaxHeight="16" TextTrimming="CharacterEllipsis"
-                                   Foreground="{StaticResource InkMuted}" ToolTip="{Binding Details}" Margin="0,0,0,6"/>
+                                   Foreground="{DynamicResource InkMuted}" ToolTip="{Binding Details}" Margin="0,0,0,6"/>
                         <Button x:Name="DeleteButton" Content="{Binding DeleteLabel}" HorizontalAlignment="Stretch"
                                 IsEnabled="{Binding CanDelete}" Click="OnDeletePermanently" ToolTip="Permanently delete selected files and folders · Shift+Delete">
                             <Button.Style><Style TargetType="Button" BasedOn="{StaticResource ViewerTextButton}">
-                                <Setter Property="Foreground" Value="#E2A3A3"/>
-                                <Style.Triggers><Trigger Property="IsEnabled" Value="False"><Setter Property="Foreground" Value="{StaticResource InkDisabled}"/></Trigger></Style.Triggers>
+                                <Setter Property="Foreground" Value="{DynamicResource Danger}"/>
+                                <Style.Triggers><Trigger Property="IsEnabled" Value="False"><Setter Property="Foreground" Value="{DynamicResource InkDisabled}"/></Trigger></Style.Triggers>
                             </Style></Button.Style>
                         </Button>
                     </StackPanel>
-                    <TextBlock Text="{Binding Status}" FontSize="11" Foreground="{StaticResource InkMuted}" TextTrimming="CharacterEllipsis" ToolTip="{Binding Status}" Margin="0,8,0,0">
+                    <TextBlock Text="{Binding Status}" FontSize="11" Foreground="{DynamicResource InkMuted}" TextTrimming="CharacterEllipsis" ToolTip="{Binding Status}" Margin="0,8,0,0">
                         <TextBlock.Style><Style TargetType="TextBlock">
                             <Style.Triggers><DataTrigger Binding="{Binding Status}" Value=""><Setter Property="Visibility" Value="Collapsed"/></DataTrigger></Style.Triggers>
                         </Style></TextBlock.Style>
@@ -299,7 +273,7 @@
                      of file types. Only the gesture hints remain. -->
                 <TextBlock x:Name="MapHint" DockPanel.Dock="Bottom" Margin="2,10,2,0" HorizontalAlignment="Right"
                            Text="Scroll to zoom · drag to pan · click to open · hover for details · Esc for the whole folder"
-                           FontSize="11" Foreground="{StaticResource InkFaint}" TextTrimming="CharacterEllipsis"/>
+                           FontSize="11" Foreground="{DynamicResource InkFaint}" TextTrimming="CharacterEllipsis"/>
                 <!-- CHANGED (round 46): the map shares its area with the experimental views. It is only hidden
                      while they show (not collapsed), so it keeps its size and scene and comes back instantly. -->
                 <Grid>

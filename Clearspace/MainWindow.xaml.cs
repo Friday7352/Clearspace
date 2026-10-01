@@ -35,6 +35,7 @@ public partial class MainWindow : Window
         IndexingHost.Content = _indexingView;
         ExplorerShell.Visibility = DiskUsageHost.Visibility = Visibility.Collapsed;
         IndexingHost.Visibility = Visibility.Visible;
+        FlashPage(); // NEW (e-reader)
         _indexingView.Focus();
     }
 
@@ -44,6 +45,7 @@ public partial class MainWindow : Window
         _indexingView = null;
         IndexingHost.Content = null;
         IndexingHost.Visibility = Visibility.Collapsed;
+        FlashPage(); // NEW (e-reader)
         if (_diskUsageView is not null) DiskUsageHost.Visibility = Visibility.Visible;
         else ExplorerShell.Visibility = Visibility.Visible;
     }
@@ -71,10 +73,12 @@ public partial class MainWindow : Window
             ExplorerShell.Visibility = Visibility.Visible;
             _diskUsageView = null;
             FileList.Focus();
+            FlashPage(); // NEW (e-reader)
         };
         DiskUsageHost.Content = _diskUsageView;
         ExplorerShell.Visibility = Visibility.Collapsed;
         DiskUsageHost.Visibility = Visibility.Visible;
+        FlashPage(); // NEW (e-reader)
     }
     private FileSystemItem? _renameTarget;
     private SidebarEntry? _sidebarDragEntry;
@@ -109,7 +113,17 @@ public partial class MainWindow : Window
         InitializeFileLocks(); // CHANGED (locked folders): wires OpenLockedFile, the folder password gate and re-locking
 
         Loaded += OnLoaded;
-        Closed += (_, _) => { _indexingView?.Dispose(); _diskUsageView?.Dispose(); _viewModel.Dispose(); };
+        // CHANGED (themes): also stops listening for theme switches when the window closes.
+        ThemeService.Changed += OnThemeChanged;
+        // NEW (e-reader): refresh the "page" when the folder changes or the photo viewer opens or closes.
+        _viewModel.PropertyChanged += (_, e) => { if (e.PropertyName == nameof(MainViewModel.CurrentPath)) TurnPage(); };   // CHANGED (e-ink): a page turn
+        _viewModel.Viewer.PropertyChanged += (_, e) => { if (e.PropertyName == nameof(PhotoViewerViewModel.IsOpen)) FlashPage(); };
+        InitializeBackgroundMenu(); // NEW (empty-area menu): remembers the files-and-folders menu, reads the "New" templates
+        // NEW (experimental themes): keeps the Zen theme's fading toolbar in step with the pointer and keyboard.
+        ToolbarRow.MouseEnter += (_, _) => UpdateToolbarFade();
+        ToolbarRow.MouseLeave += (_, _) => UpdateToolbarFade();
+        ToolbarRow.IsKeyboardFocusWithinChanged += (_, _) => UpdateToolbarFade();
+        Closed += (_, _) => { ThemeService.Changed -= OnThemeChanged; _indexingView?.Dispose(); _diskUsageView?.Dispose(); _viewModel.Dispose(); };
         PreviewKeyDown += OnPreviewKeyDown;
         PreviewMouseDown += OnWindowMouseDown;
         PreviewMouseMove += OnSidebarMouseMove;
@@ -119,6 +133,8 @@ public partial class MainWindow : Window
         _viewModel.Viewer.ZoomChanged += OnViewerZoomChanged;
         _viewModel.Viewer.FileChanged += (_, _) => _ = _viewModel.RefreshAsync();
         SizeChanged += (_, _) => UpdateViewerSize();
+        // NEW (e-ink): the picture of the previous page no longer fits a resized window, so drop its ghost.
+        SizeChanged += (_, _) => { if (EInkScreen.Main is { } screen) { screen.BeginAnimation(EInkEffect.GhostAmountProperty, null); screen.GhostAmount = 0; } };
 
         DependencyPropertyDescriptor
             .FromProperty(ListView.ViewProperty, typeof(ListView))
@@ -329,7 +345,8 @@ public partial class MainWindow : Window
         if (sender is not MenuItem { DataContext: TagOption option })
             return;
 
-        var confirm = MessageBox.Show(
+        var confirm = MessageDialog.Show( // CHANGED (themes): themed dialog instead of the Windows message box
+            this,
             $"Delete the {option.Name} tag?\n\nIt will be removed from everything currently tagged with it. Files themselves are not affected.",
             "Delete tag",
             MessageBoxButton.OKCancel,
@@ -360,7 +377,9 @@ public partial class MainWindow : Window
         _viewModel.Context.OwnerHandle = handle;
         _viewModel.Viewer.OwnerHandle = handle;
 
-        ApplyDarkTitleBar(handle);
+        ThemeService.ApplyTitleBar(this); // CHANGED (themes): was ApplyDarkTitleBar; the title bar (and text edges) follow the theme
+        UpdateToolbarFade(); // NEW (experimental themes)
+        ApplyScreenEffect(); // NEW (e-ink)
         HookColumnHeaders();
         ApplyColumns();
 
@@ -368,14 +387,73 @@ public partial class MainWindow : Window
         FileList.Focus();
     }
 
-    private static void ApplyDarkTitleBar(IntPtr handle)
-    {
-        var enabled = 1;
-        NativeMethods.DwmSetWindowAttribute(handle, NativeMethods.DWMWA_USE_IMMERSIVE_DARK_MODE, ref enabled, sizeof(int));
-        NativeMethods.DwmSetWindowAttribute(handle, NativeMethods.DWMWA_USE_IMMERSIVE_DARK_MODE_LEGACY, ref enabled, sizeof(int));
+    // REMOVED (themes): ApplyDarkTitleBar. ThemeService.ApplyTitleBar now sets the dark or light title bar,
+    // the corner style and (Windows 11) the caption colours for whichever theme is active.
 
-        var round = NativeMethods.DWMWCP_ROUND;
-        NativeMethods.DwmSetWindowAttribute(handle, NativeMethods.DWMWA_WINDOW_CORNER_PREFERENCE, ref round, sizeof(int));
+    // NEW (themes): the Settings menu ticks the theme in use each time it opens.
+    private void OnSettingsMenuOpened(object sender, RoutedEventArgs e)
+    {
+        if (sender is not ContextMenu menu)
+            return;
+
+        TickCurrentTheme(menu);
+    }
+
+    // CHANGED (experimental themes): also looks inside submenus (the experimental themes have their own).
+    private static void TickCurrentTheme(ItemsControl menu)
+    {
+        foreach (var item in menu.Items.OfType<MenuItem>())
+        {
+            if (item.Tag is string theme)
+                item.IsChecked = string.Equals(theme, ThemeService.Current, StringComparison.OrdinalIgnoreCase);
+            if (item.HasItems)
+                TickCurrentTheme(item);
+        }
+    }
+
+    // NEW (themes): a theme was picked in the Settings menu. Switched once the menu has closed, so the
+    // menu is not repainted in the new colours halfway through fading out.
+    private void OnThemePicked(object sender, RoutedEventArgs e)
+    {
+        if (sender is MenuItem { Tag: string theme })
+            Dispatcher.BeginInvoke(new Action(() => ThemeService.Apply(theme)));
+    }
+
+    // NEW (themes): colours in XAML repaint by themselves. The status colours in the file list (cloud, Git,
+    // drive space) are handed out by each file's row data, so the visible rows are rebuilt to ask again.
+    // CHANGED (experimental themes): when the switch changes the icon set, every row needs a new icon, so
+    // the remembered folder listings and tile pictures are dropped and the current folder is read again.
+    private void OnThemeChanged()
+    {
+        UpdateToolbarFade();
+        ApplyScreenEffect(); // NEW (e-ink)
+
+        if (ThemeService.IconsChanged)
+        {
+            ThumbnailService.Clear();
+            FolderSnapshotCache.Clear();
+            _ = _viewModel.RefreshAsync();
+            return;
+        }
+
+        FileList.Items.Refresh();
+    }
+
+    // CHANGED (e-ink): the dimming sheet this used to animate is gone, and so is the full refresh that replaced
+    // it. Changing the whole view (photo viewer, Disk usage, Indexing) is a page turn like any other; see
+    // MainWindow.EInk.cs.
+    private void FlashPage() => TurnPage();
+
+    // NEW (experimental themes): in a theme that asks for it (Zen), the toolbar fades back while the pointer
+    // is elsewhere and nothing in it has the keyboard, and returns as soon as either comes back.
+    private void UpdateToolbarFade()
+    {
+        if (!ThemeService.FadeToolbar && ToolbarRow.Opacity >= 1)
+            return; // nothing to do in the themes that never fade it
+
+        var rest = ThemeService.FadeToolbar && !ToolbarRow.IsMouseOver && !ToolbarRow.IsKeyboardFocusWithin;
+        var animation = new System.Windows.Media.Animation.DoubleAnimation(rest ? 0.2 : 1, TimeSpan.FromMilliseconds(rest ? 450 : 120));
+        ToolbarRow.BeginAnimation(OpacityProperty, animation);
     }
 
 
@@ -838,8 +916,9 @@ public partial class MainWindow : Window
     private static void ShowSidebarDropTarget(Button button, DragEventArgs e)
     {
         var placeAfter = e.GetPosition(button).Y >= button.ActualHeight / 2;
-        button.Background = new SolidColorBrush(Color.FromArgb(30, 211, 161, 95));
-        button.BorderBrush = new SolidColorBrush(Color.FromRgb(211, 161, 95));
+        // CHANGED (themes): the theme's accent instead of a fixed amber.
+        button.Background = ThemeService.AccentWash;
+        button.BorderBrush = ThemeService.Accent;
         button.BorderThickness = placeAfter ? new Thickness(0, 0, 0, 2) : new Thickness(0, 2, 0, 0);
     }
 
@@ -937,7 +1016,8 @@ public partial class MainWindow : Window
             var delete = new MenuItem { Header = $"Delete the \"{assigned.Name}\" folder type" };
             delete.Click += (_, _) =>
             {
-                var confirm = MessageBox.Show(
+                var confirm = MessageDialog.Show( // CHANGED (themes): themed dialog instead of the Windows message box
+                    this,
                     $"Delete the {assigned.Name} folder type?\n\nFolders using it go back to Automatic. Files are not affected.",
                     "Delete folder type", MessageBoxButton.OKCancel, MessageBoxImage.Question);
                 if (confirm == MessageBoxResult.OK) _viewModel.DeleteFolderType(assigned);
@@ -1126,8 +1206,9 @@ public partial class MainWindow : Window
 
         ClearFileDropHighlight();
         _fileDropTarget = row;
-        row.Background = new SolidColorBrush(Color.FromArgb(45, 211, 161, 95));
-        row.BorderBrush = new SolidColorBrush(Color.FromRgb(211, 161, 95));
+        // CHANGED (themes): the theme's accent instead of a fixed amber.
+        row.Background = ThemeService.AccentSoft;
+        row.BorderBrush = ThemeService.Accent;
         row.BorderThickness = new Thickness(1);
     }
 
@@ -1571,13 +1652,32 @@ public partial class MainWindow : Window
 
     private void OnViewerPrevious(object sender, RoutedEventArgs e) => _viewModel.Viewer.Previous();
 
+    // CHANGED (empty-area menu): decides which right-click menu the list shows. On a file or folder: the usual
+    // one. On empty space inside a real folder: the selection is cleared (as Explorer does) and the empty-area
+    // menu from MainWindow.BackgroundMenu.cs is shown. Column headers, scroll bars and places that are not
+    // folders (This PC, hubs) keep the usual menu.
     private void OnFileListRightClick(object sender, MouseButtonEventArgs e)
     {
-        if (FindAncestor<ListViewItem>(e.OriginalSource as DependencyObject) is not { DataContext: FileSystemItem item })
-            return;
+        var source = e.OriginalSource as DependencyObject;
 
-        if (!FileList.SelectedItems.Contains(item))
-            FileList.SelectedItem = item;
+        if (FindAncestor<ListViewItem>(source) is { DataContext: FileSystemItem item })
+        {
+            FileList.ContextMenu = _itemMenu;
+            if (!FileList.SelectedItems.Contains(item))
+                FileList.SelectedItem = item;
+            return;
+        }
+
+        if (FindAncestor<GridViewColumnHeader>(source) is not null
+            || FindAncestor<ScrollBar>(source) is not null
+            || !Directory.Exists(_viewModel.CurrentPath))
+        {
+            FileList.ContextMenu = _itemMenu;
+            return;
+        }
+
+        FileList.UnselectAll();
+        FileList.ContextMenu = BuildBackgroundMenu();
     }
 
     private void OnSelectionChanged(object sender, SelectionChangedEventArgs e)

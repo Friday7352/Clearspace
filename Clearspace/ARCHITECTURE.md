@@ -94,12 +94,61 @@ engine download it. `ThumbnailService` therefore adds `SIIGBF_INCACHEONLY` for
 online-only items, or scrolling one grid of an online-only Pictures folder would
 quietly pull gigabytes over the network.
 
+## Themes
+
+<!-- NEW (themes) -->
+Dark (the default), OLED Black, Light, Blueprint, Terminal and Retro, picked from the Settings menu
+and remembered in `settings.json`.
+
+- Every colour, the four text fonts and the corner sizes live in one file per theme: `Themes/Dark.xaml`,
+  `Themes/Light.xaml`, `Themes/Retro.xaml` and so on. Every theme file defines the same keys (`Base`, `Surface`, `Ink`,
+  `Accent`, `R8`, `UIFont`, ...).
+- `App.xaml` merges `Dark.xaml`. `ThemeService.Apply` swaps that one merged dictionary for another
+  theme's. Windows, menus, popups, tooltips and dialogs all refer to the keys with `DynamicResource`, so
+  they repaint at once. A new piece of XAML must use `DynamicResource` for these keys, never
+  `StaticResource`, or it will stay in the theme it was created in.
+- Code that draws by hand (the disk usage map and 3D views, status colours in the file list, drag-drop
+  highlights) reads frozen brushes from `ThemeService` (`ThemeService.Ink`, `.Good`, `.CardFill`, ...).
+- `ThemeService.ApplyTitleBar` gives each window the matching title bar: dark or light, round or square
+  corners, and on Windows 11 the caption colours a theme asks for (`Theme.CaptionColor`).
+- Retro's selected rows are solid navy, so text inside them must turn light (Terminal does the same for
+  its green block). The theme lists
+  replacements as `SelectedRow.Ink`, `SelectedRow.InkMuted`, ...; `ThemeService` merges them into a row's
+  own resources while it is selected, and everything inside the row picks them up.
+- `MessageDialog` is the themed stand-in for the Windows message box.
+
+<!-- NEW (experimental themes) -->
+**Experimental themes** (Pixel, DOS Commander, Wireframe, Neon HUD, Glass, Sketchbook, Type tiles, Zen,
+1-bit Mac, 1-bit Mac (dark), E-reader) sit in their own submenu and go beyond colour:
+
+- `ThemeService.Themes` lists every theme as a `ThemeInfo`: its file name, menu label, whether it is
+  experimental, which icon style it uses, whether the toolbar fades (Zen) and whether the window is
+  shown as an e-ink panel (E-reader). That last one is a pixel shader over the whole window
+  (`Services/EInkScreen.cs`: 16 greys, paper and ink tones) driven by `MainWindow.EInk.cs` (page turns that
+  morph the old page into the new one).
+- `ThemeIcons` draws the icon sets. `IconService`, `ScalableIconService` and `ThumbnailService` ask
+  `ThemeIcons.For(item)` first and use Windows' icon when it returns null. The drawings are vectors chosen
+  by kind of file (folder, picture, music, program ...), so one drawing serves every size. Photos and
+  videos still show their real picture in tile view.
+- When a switch changes the icon style, `MainWindow` clears the tile-picture and folder-listing caches
+  and reads the current folder again, because each row carries the icon it was given.
+- `Themes/Defaults.xaml` is merged before the active theme and holds the "off" value of extras only
+  experimental themes use: `OverlayFill` / `OverlayVisibility` (Neon HUD's scanlines) and
+  `FunctionKeysVisibility` (DOS Commander's key bar). A theme turns one on by defining the same key.
+- A theme whose `Base` is not a flat colour (Glass: gradient, Sketchbook: graph paper) also defines
+  `Theme.BaseColor` for code. The text, accent, status and card colours must stay flat colours in every
+  theme, because `ThemeService` reads them for the hand-drawn parts.
+
+To add a theme: copy `Themes/Dark.xaml`, change the values, keep every key, add an entry to
+`ThemeService.Themes`, and add a menu item for it in the Settings menu in `MainWindow.xaml`.
+
 ## Layout
 
 ```
 Native/       FindFirstFileEx enumeration and Win32 declarations
 Models/       FileSystemItem, natural-order sorting
-Services/     Icons, shell file operations, navigation history
+Services/     Icons, shell file operations, navigation history, themes (ThemeService)
+Themes/       One resource file per theme: colours, fonts, corner sizes
 Commands/     IAction, the registry, and the actions themselves
 ViewModels/   MainViewModel: loading, sorting, status, sidebar
 ```

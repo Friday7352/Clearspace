@@ -1,0 +1,94 @@
+<!-- Clearspace | Terminal theme.
+     NEW (themes): a green-phosphor screen - black background, green text, an amber second colour for the
+     accent, monospace everywhere, square corners, and inverse-video menu highlights. Same keys as Dark.xaml,
+     plus the two extras at the bottom. -->
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- Surfaces -->
+    <SolidColorBrush x:Key="Base"          Color="#FF000000" />
+    <SolidColorBrush x:Key="Surface"       Color="#FF030803" />
+    <SolidColorBrush x:Key="Overlay"       Color="#FF061006" />
+    <SolidColorBrush x:Key="Hover"         Color="#1A33FF66" />
+    <SolidColorBrush x:Key="Pressed"       Color="#3333FF66" />
+    <SolidColorBrush x:Key="Selected"      Color="#FF0F5A26" />
+    <SolidColorBrush x:Key="Line"          Color="#FF0F5A26" />
+    <SolidColorBrush x:Key="LineFaint"     Color="#FF0A3316" />
+
+    <!-- Outlines of buttons, menus and cards (EdgeRaised) and of text boxes and the file list (EdgeSunken). -->
+    <SolidColorBrush x:Key="EdgeRaised"    Color="#FF1FB84A" />
+    <SolidColorBrush x:Key="EdgeSunken"    Color="#FF1FB84A" />
+
+    <!-- Text -->
+    <SolidColorBrush x:Key="Ink"           Color="#FF33FF66" />
+    <SolidColorBrush x:Key="InkMuted"      Color="#FF1FB84A" />
+    <SolidColorBrush x:Key="InkFaint"      Color="#FF178A38" />
+    <SolidColorBrush x:Key="InkDisabled"   Color="#FF0F5A26" />
+
+    <!-- Accent -->
+    <SolidColorBrush x:Key="Accent"        Color="#FFFFB000" />
+    <SolidColorBrush x:Key="AccentSoft"    Color="#33FFB000" />
+    <SolidColorBrush x:Key="AccentWash"    Color="#20FFB000" />
+    <SolidColorBrush x:Key="AccentInk"     Color="#FF000000" />   <!-- text on a solid accent fill -->
+
+    <!-- Status -->
+    <SolidColorBrush x:Key="Danger"        Color="#FFFF5F5F" />
+    <SolidColorBrush x:Key="Good"          Color="#FF33FF66" />
+    <SolidColorBrush x:Key="Warn"          Color="#FFFFB000" />
+    <SolidColorBrush x:Key="Bad"           Color="#FFFF5F5F" />
+    <SolidColorBrush x:Key="Quiet"         Color="#FF1FB84A" />
+
+    <!-- Small fills -->
+    <SolidColorBrush x:Key="ThumbRest"     Color="#661FB84A" />   <!-- scroll bar -->
+    <SolidColorBrush x:Key="ThumbHover"    Color="#B31FB84A" />
+    <SolidColorBrush x:Key="Tint"          Color="#1433FF66" />   <!-- status bar chips -->
+    <SolidColorBrush x:Key="ChipHover"     Color="#FF0A3316" />   <!-- a project-strip chip under the pointer -->
+    <SolidColorBrush x:Key="Divider"       Color="#FF0F5A26" />   <!-- menu separators -->
+    <SolidColorBrush x:Key="RowAlt"        Color="#0833FF66" />   <!-- every other row in Music folders -->
+    <SolidColorBrush x:Key="Track"         Color="#2633FF66" />   <!-- drive usage bar background -->
+    <SolidColorBrush x:Key="SliderRail"    Color="#4D33FF66" />
+    <SolidColorBrush x:Key="Well"          Color="#0A33FF66" />   <!-- behind a tile's picture -->
+    <SolidColorBrush x:Key="BadgeFill"     Color="#E6000000" />   <!-- badges drawn over a tile's picture -->
+    <SolidColorBrush x:Key="NavFill"       Color="#CC000000" />   <!-- previous / next in the photo viewer -->
+    <SolidColorBrush x:Key="Scrim"         Color="#FA000000" />   <!-- photo viewer backdrop -->
+    <SolidColorBrush x:Key="CardFill"      Color="#FF000000" />   <!-- tooltips and hover cards -->
+    <SolidColorBrush x:Key="CardEdge"      Color="#FF1FB84A" />
+    <SolidColorBrush x:Key="Ground3D"      Color="#FF061006" />   <!-- floor of the 3D disk usage views -->
+
+    <!-- The highlighted row of a menu -->
+    <SolidColorBrush x:Key="MenuHover"       Color="#FF33FF66" />
+    <SolidColorBrush x:Key="MenuHoverInk"    Color="#FF000000" />
+    <SolidColorBrush x:Key="MenuHoverMuted"  Color="#FF000000" />
+    <SolidColorBrush x:Key="MenuHoverFaint"  Color="#FF0A3316" />
+    <SolidColorBrush x:Key="MenuHoverAccent" Color="#FF000000" />
+
+    <!-- Fonts -->
+    <FontFamily x:Key="UIFont">Cascadia Mono, Consolas, Lucida Console</FontFamily>
+    <FontFamily x:Key="SerifFont">Cascadia Mono, Consolas, Lucida Console</FontFamily>
+    <FontFamily x:Key="DisplayFont">Cascadia Mono, Consolas, Lucida Console</FontFamily>
+    <FontFamily x:Key="MonoFont">Cascadia Mono, Consolas, Lucida Console</FontFamily>
+
+    <!-- Corner sizes (R8 = "what used to be an 8px corner") -->
+    <CornerRadius x:Key="R2">0</CornerRadius>
+    <CornerRadius x:Key="R3">0</CornerRadius>
+    <CornerRadius x:Key="R4">0</CornerRadius>
+    <CornerRadius x:Key="R5">0</CornerRadius>
+    <CornerRadius x:Key="R6">0</CornerRadius>
+    <CornerRadius x:Key="R7">0</CornerRadius>
+    <CornerRadius x:Key="R8">0</CornerRadius>
+    <CornerRadius x:Key="R9">0</CornerRadius>
+    <CornerRadius x:Key="R10">0</CornerRadius>
+    <CornerRadius x:Key="R12">0</CornerRadius>
+    <CornerRadius x:Key="RPlayerBar">0</CornerRadius>
+
+    <!-- Title bar: black with green text (Windows 11 only; Windows 10 keeps its own dark title bar). -->
+    <Color x:Key="Theme.CaptionColor">#FF000000</Color>
+    <Color x:Key="Theme.CaptionTextColor">#FF33FF66</Color>
+
+    <!-- A selected row is a dark green block. The two dimmer greens would sink into it, so inside a
+         selected row they are swapped for brighter ones (ThemeService merges every "SelectedRow.X" key into
+         the row as key X while it is selected). -->
+    <SolidColorBrush x:Key="SelectedRow.InkMuted"   Color="#FF7DFF9E" />
+    <SolidColorBrush x:Key="SelectedRow.InkFaint"   Color="#FF33FF66" />
+
+</ResourceDictionary>

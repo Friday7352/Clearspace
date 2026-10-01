@@ -91,9 +91,11 @@ public sealed class FileSystemItem : ObservableObject
         _ => string.Empty
     };
 
-    private static readonly Brush CloudRemoteBrush = Frozen(Color.FromRgb(156, 150, 141));
-    private static readonly Brush CloudLocalBrush = Frozen(Color.FromRgb(112, 178, 132));
-    private static readonly Brush CloudPinnedBrush = Frozen(Color.FromRgb(211, 161, 95));
+    // CHANGED (themes): status colours come from the active theme (were fixed greys/greens/ambers that
+    // only suited the dark background). Read each time, so they follow a theme switch.
+    private static Brush CloudRemoteBrush => ThemeService.Quiet;
+    private static Brush CloudLocalBrush => ThemeService.Good;
+    private static Brush CloudPinnedBrush => ThemeService.Warn;
 
     public Brush CloudStatusBrush => CloudState switch
     {
@@ -303,10 +305,11 @@ public sealed class FileSystemItem : ObservableObject
         _ => string.Empty
     };
 
-    private static readonly Brush GitModifiedBrush = Frozen(Color.FromRgb(211, 161, 95));
-    private static readonly Brush GitAddedBrush = Frozen(Color.FromRgb(112, 178, 132));
-    private static readonly Brush GitConflictBrush = Frozen(Color.FromRgb(214, 95, 84));
-    private static readonly Brush GitQuietBrush = Frozen(Color.FromRgb(156, 150, 141));
+    // CHANGED (themes): from the active theme.
+    private static Brush GitModifiedBrush => ThemeService.Warn;
+    private static Brush GitAddedBrush => ThemeService.Good;
+    private static Brush GitConflictBrush => ThemeService.Bad;
+    private static Brush GitQuietBrush => ThemeService.Quiet;
 
     public Brush GitStatusBrush => _gitCode switch
     {
@@ -347,16 +350,10 @@ public sealed class FileSystemItem : ObservableObject
         ? 0
         : Math.Clamp((DriveTotalSpace - DriveAvailableSpace) * 100d / DriveTotalSpace, 0, 100);
 
-    private static readonly Brush DriveFullBrush = Frozen(Color.FromRgb(214, 95, 84));
-    private static readonly Brush DriveWarnBrush = Frozen(Color.FromRgb(211, 161, 95));
-    private static readonly Brush DriveOkBrush = Frozen(Color.FromRgb(112, 178, 132));
-
-    private static Brush Frozen(Color color)
-    {
-        var brush = new SolidColorBrush(color);
-        brush.Freeze();
-        return brush;
-    }
+    // CHANGED (themes): from the active theme. (The Frozen helper that built the fixed colours is gone.)
+    private static Brush DriveFullBrush => ThemeService.Bad;
+    private static Brush DriveWarnBrush => ThemeService.Warn;
+    private static Brush DriveOkBrush => ThemeService.Good;
 
     public Brush DriveUsageBrush => DriveUsagePercent switch
     {
