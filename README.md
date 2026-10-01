@@ -18,23 +18,61 @@ Clearspace is a modern Windows file manager built to be a comfortable replacemen
 
 ### Folder types that adapt to your work
 
-Every folder has a type. Leave it on **Automatic** and Clearspace picks one from Windows' own folders (Desktop, Downloads, Pictures…), the folder's name, a code repository, or what the folder contains; the toolbar shows what it picked, for example **Auto (Photos)**. Or choose a type yourself: it is saved for that folder and can apply to every folder inside it. Each type does something the plain list does not:
+<!-- CHANGED: every folder type explained in one table (what it opens as, what it adds, and when
+     Automatic picks it), with a picture of the menu. -->
 
-- **Photos**: picture tiles, the in-app photo viewer (zoom, rotate, crop), and image sizes in details view.
-- **Screenshots**: everything Photos does, newest first, and grouped under Today, Yesterday, This week… in details view.
-- **Videos**: tiles show each video's length; details view adds length and resolution.
-- **Music**: artist, album, track and length columns, and the built-in music player.
-- **Documents**: page counts and authors, read from the files themselves.
-- **Research**: papers by their real title and authors (so `2304.12345.pdf` reads as a paper), most recent first. PDFs are read by Clearspace itself, since Windows has no PDF property reader.
-- **Downloads**: newest first, grouped by day, with the site each file came from.
-- **Desktop**: folders, shortcuts and files in their own groups.
-- **Code**: the Git branch and how many files have changed, a Git column with each file's status, and build and dependency folders such as `bin`, `obj` and `node_modules` dimmed.
-- **Projects**: a strip above the list with files you pinned to the project and the files changed most recently anywhere inside it. Right-click a file and choose **Pin to project**.
-- **Design & 3D**: large previews (3D models too, where Windows can draw them), the photo viewer, and pixel sizes.
-- **Archives & Backups**: grouped by date, and their contents rank below your current files in search.
-- **General**: a plain, fast list with no extras.
+Every folder has a type, chosen from the folder type button in the toolbar. The
+type decides how the folder opens (tiles or a list), which columns it shows, how
+it is sorted and grouped, and which extras it gets, such as the photo viewer or
+the music player. A type you choose is saved for that folder.
 
-Arrange a folder the way you like it and choose **Save this view as a folder type…** to keep its layout, columns, sort and tile size as your own type (for example "School"). Search understands folder types too: `screenshots receipt` or `type:school essay`.
+<img src="docs/images/folder-types-menu.png" width="222" align="right" alt="The folder type menu: Automatic, General files, Documents, Downloads, Desktop, Photos, Music, Videos, Screenshots, Code, Projects, Research, Design &amp; 3D, Archives &amp; Backups, Apply to subfolders, and Save this view as a folder type">
+
+Leave a folder on **Automatic** and Clearspace picks the type for you. The
+toolbar shows what it picked, for example **Auto (Photos)**, or just **Auto**
+when nothing in particular fits and the folder opens as General files. It
+decides in this order:
+
+1. **Windows' own folders.** Desktop, Documents, Downloads, Pictures, Music,
+   Videos and Pictures\Screenshots keep their meaning wherever they have been
+   moved to.
+2. **The folder's name.** A folder called "Camera roll" opens as Photos, "Old
+   backups" as Archives & Backups, and so on.
+3. **A code repository.** A `.git` folder, a solution or project file, or a
+   package manifest such as `package.json` in the folder or any folder above it.
+4. **What the folder contains.** Once a folder has been opened, at least three
+   files with most of them (60 %) of one kind decide it: mostly pictures is
+   Photos, mostly songs is Music.
+
+**Apply to subfolders** makes the type you chose cover every folder inside it,
+unless one of them has a type of its own; the nearest choice wins. Code,
+Projects, Research and Archives & Backups apply to subfolders as soon as you
+choose them.
+
+<br clear="right">
+
+What each type does:
+
+| Type | Opens as | What it adds | Automatic picks it for |
+| --- | --- | --- | --- |
+| **General files** | List: name, date modified, type | Nothing extra: a plain, fast list. Cloud folders also show each file's sync status. | Anything no other type fits |
+| **Documents** | List: name, pages, authors, date modified, type, size | Page counts and authors, read from the files themselves. | Windows' Documents folder; folders of mostly PDFs, Office files, text and e-books |
+| **Downloads** | List: name, source, date modified, type, size | Newest first, grouped by day, with the site each file came from. | Windows' Downloads folder; names containing "downloads" |
+| **Desktop** | List: name, type, date modified, size | Folders, shortcuts and files in their own groups. | Windows' Desktop folder |
+| **Photos** | Picture tiles | The in-app photo viewer (zoom, rotate, crop), and image dimensions in details view. | Windows' Pictures folder; names like photos, pictures, images, camera roll, wallpapers; folders of mostly pictures |
+| **Music** | List: play, name, artist, album, length, date modified | Track details read from the files, and the built-in music player. | Windows' Music folder; names like music, songs, albums, playlists; folders of mostly audio |
+| **Videos** | Video tiles | Each tile shows the video's length; details view adds length and resolution. | Windows' Videos folder; names like videos, movies, clips, recordings; folders of mostly videos |
+| **Screenshots** | Picture tiles | Everything Photos does, newest first, and grouped under Today, Yesterday, This week… in details view. | Pictures\Screenshots; names like screenshots, screen captures, snips; pictures mostly named "Screenshot…", "Capture…" or "Snip…" |
+| **Code** | List: name, Git, date modified, type, size | The Git branch and how many files have changed, a Git column with each file's status, and build and dependency folders such as `bin`, `obj` and `node_modules` dimmed. | A code repository at or above the folder |
+| **Projects** | List: name, date modified, type, tags | A strip above the list with files you pinned to the project and the files changed most recently anywhere inside it. Right-click a file and choose **Pin to project**. | Never; choose it yourself |
+| **Research** | List: name, title, authors, pages, date modified | Papers by their real title and authors (so `2304.12345.pdf` reads as a paper), most recent first. PDFs are read by Clearspace itself, since Windows has no PDF property reader. | Names like research, papers, literature, readings, thesis |
+| **Design & 3D** | Large tiles (160 %) | Large previews (3D models too, where Windows can draw them), the photo viewer, and pixel sizes. | Names like design, renders, artwork, 3D models, Blender; folders of design files (PSD, AI, SVG, Blender, STL, OBJ, FBX…) kept with their pictures |
+| **Archives & Backups** | List: name, date modified, date created, size, type | Newest first and grouped by date, and their contents rank below your current files in search. | Names containing "backup" or "archive"; folders of mostly archives (ZIP, 7z, RAR, ISO, BAK…) |
+
+Columns, sorting, layout and tile size can still be changed in any folder; the
+type only sets where it starts.
+
+Arrange a folder the way you like it and choose **Save this view as a folder type…** to keep its layout, columns, sort and tile size as your own type (for example "School"). A saved type keeps the extras of the type it was made from, so one saved from Photos still has the photo viewer. Search understands folder types too: `screenshots receipt` or `type:school essay`.
 
 Select several folders, right-click, and set their type together when organizing a larger collection.
 
@@ -376,17 +414,40 @@ map immediately instead of calculating first. They are recomputed when you choos
 updates itself quietly in the background. Changing drives, resizing, and first
 load cross-fade from the picture already on screen rather than blanking.
 
-**Map performance** (the gear beside Refresh) holds two options, both remembered
-between runs. *GPU acceleration* draws the blocks through Direct3D; turning it off
-uses the built-in multi-threaded CPU rasterizer, which is what runs anyway on a
-machine with no usable Direct3D adapter. The panel names the adapter in use.
-*Render everything (experimental)* draws every block at every depth, so zooming
-reveals nothing that was not already on screen and nothing pops in. The drawing
-itself is nearly free on a discrete card; the cost is that the whole folder must be
-read and held in memory, so watch the F3 memory line in a very large folder.
-*Low performance mode* draws only the folder you are in - everything inside it
-stays a solid block until you open it - so a frame never walks a deep tree. That
-is the setting to reach for on integrated graphics or in enormous folders.
+<!-- CHANGED: the map's settings as they appear in the gear panel, with a picture. -->
+The gear beside Refresh opens the map's settings. All of them are remembered
+between runs.
+
+<img src="docs/images/disk-usage-settings.png" width="300" align="right" alt="The disk usage settings panel: Map performance, Drives and Experimental options">
+
+**Map performance**
+
+- *GPU acceleration* draws the blocks through Direct3D; turning it off uses the
+  built-in multi-threaded CPU rasterizer, which is what runs anyway on a machine
+  with no usable Direct3D adapter. The panel names the adapter in use.
+- *Low performance mode* draws only the folder you are in - everything inside it
+  stays a solid block until you open it - so a frame never walks a deep tree.
+  That is the setting to reach for on integrated graphics or in enormous folders.
+- *Conserve memory* draws fewer blocks per frame, keeps far fewer labels in
+  memory, and holds folder sizes for one drive only instead of keeping them
+  warm. Names reappear as you look at them.
+- *Build in the background* keeps reading the rest of the drive while you look
+  at part of it, so zooming in later finds it already laid out.
+- *Render everything (experimental)* draws blocks at every depth, down to a
+  fifth of a pixel and up to 750,000 a frame, so zooming reveals little that was
+  not already on screen and nothing pops in. The drawing itself is nearly free
+  on a discrete card; the cost is that the whole folder must be read and held in
+  memory, so watch the F3 memory line in a very large folder.
+
+**Drives**
+
+- *Index network drives* also indexes mapped network drives, as described above.
+
+**Experimental**
+
+- *Experimental views* adds the **View** picker described below.
+
+<br clear="right">
 
 **Experimental views** (also in the gear panel, off by default) add a **View** picker
 beside the drive list. The map itself is untouched: it is only hidden while another
