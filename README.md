@@ -66,9 +66,13 @@ contents. The first lock creates a master password (any length); later locks use
 that password. Keep the password safe: it cannot be recovered. Existing copies and
 backups are not encrypted by this operation.
 
-<!-- PICTURE SLOT (uncomment once the file exists):
-![The Lock with password dialog](docs/images/lock-dialog.png)
--->
+<!-- NEW: pictures of the lock and unlock dialogs. -->
+<p>
+  <img src="docs/images/lock-dialog.png" width="400" align="top" alt="The Lock file dialog, creating the password for the first lock">
+  <img src="docs/images/unlock-dialog.png" width="400" align="top" alt="The Unlock file dialog, asking for the password">
+</p>
+
+*Left: the first lock creates your password. Right: unlocking a locked file.*
 
 - **Files.** A locked file is renamed `<name>.cslock` and shows a lock badge.
   Opening it, or choosing **Unlock…**, asks for the password and restores it. It
@@ -78,12 +82,9 @@ backups are not encrypted by this operation.
   names stay visible. Opening a locked folder asks for the password. While you're
   inside, its files are unlocked and work normally, and Clearspace locks them
   again when you leave (or on the next start after a crash).
-- **In Windows Explorer.** Locked files and folders get lock icons there too.
-  Explorer's right-click menu gets **Lock with Clearspace** on files, **Unlock**,
-  **Remove lock** and **Change password with Clearspace** on locked files, and a
-  **Clearspace** submenu on folders (under "Show more options" on Windows 11).
-  These, and double-clicking a locked file, show only the password dialog; only
-  **Open in Clearspace** opens the main window.
+- **In Windows Explorer.** The same actions are in Explorer's right-click menu,
+  and locked items get lock icons there too. See
+  [Using locks from Windows Explorer](#using-locks-from-windows-explorer) below.
 - **Removing locks.** **Remove lock…** decrypts for good and works on several
   selected files and folders at once. Removing the lock from something inside a
   locked folder also stops that folder asking for a password (its other files
@@ -94,19 +95,62 @@ backups are not encrypted by this operation.
   with the password they were locked with. If that is an older password, the
   prompt says so and offers to switch the file to your current one;
   **Change password…** does the same for a selection.
-- **Limits.** Files that can't be locked (over 64 MB, links, cloud placeholders,
-  files with additional data streams such as downloads, files in use) are
-  skipped and listed. Drive roots, your user folder, and Windows/program folders
-  are refused.
+- **Limits.** Locking works on local NTFS drives. Files that can't be locked
+  (over 64 MB, links, cloud placeholders, files with additional data streams
+  such as downloads, files in use) are skipped and listed. Drive roots, your
+  user folder, and Windows/program folders are refused.
 
-<!-- PICTURE SLOTS (uncomment once the files exist):
+<!-- PICTURE SLOT (uncomment once the file exists):
 ![Lock badges on a locked file and folder in Clearspace](docs/images/lock-badges.png)
-![Clearspace entries in Windows Explorer's right-click menu](docs/images/explorer-menu.png)
 -->
 
 Lock metadata and the password verifier are stored in SQLite; each encrypted
 file also contains protected recovery metadata. See [file-locking notes](docs/CS499-File-Locking.md)
 for the format, tests, and recovery limitations.
+
+<!-- NEW: how locking works in File Explorer, without opening Clearspace. -->
+#### Using locks from Windows Explorer
+
+You don't need the Clearspace window open to use locks. Setup, and every start
+of Clearspace, adds Clearspace's entries to Explorer's right-click menu (under
+**Show more options** on Windows 11). Explorer also shows locked items with
+their own icons: a locked file appears as `<name>.cslock` with a lock icon and
+the type "Clearspace locked file", and a locked folder gets a lock folder icon.
+
+<!-- PICTURE SLOT (uncomment once the file exists):
+![Clearspace entries in Windows Explorer's right-click menu](docs/images/explorer-menu.png)
+-->
+
+| In Explorer | What happens |
+| --- | --- |
+| Right-click a file, **Lock with Clearspace** | The password dialog opens on its own. The file is encrypted in place and renamed `<name>.cslock`. |
+| Double-click a `.cslock` file | Asks for the password, unlocks the file, and opens it in its usual program. |
+| Right-click a `.cslock` file, **Unlock with Clearspace** | Unlocks it for now, without opening it. |
+| Right-click a `.cslock` file, **Remove lock with Clearspace** | Decrypts it for good. |
+| Right-click a `.cslock` file, **Change password with Clearspace** | Switches a file locked with an older password to your current one. |
+| Right-click a folder, **Clearspace**, then **Lock folder**, **Unlock folder**, **Remove lock** or **Change password** | The same actions for every file inside the folder and its subfolders. |
+| Right-click a folder, **Clearspace**, **Open in Clearspace** | Opens the folder in the main Clearspace window. This is the only entry that does; all the others show just the password dialog. |
+
+Unlocking is for a visit, not for good. An unlocked file goes back to its normal
+name and works in any program. Meanwhile Clearspace keeps running in the
+background with no window and watches which folders your Explorer windows and
+tabs are showing:
+
+- A few seconds after no Explorer or Clearspace window is showing that folder,
+  the file is encrypted again. Clearspace exits once nothing is left unlocked.
+- If you unlock a folder from its right-click menu and don't open it within a
+  minute, it locks again.
+- A file another program still has open is retried every 30 seconds.
+- Anything left unlocked by a crash or a shutdown is locked again the next time
+  Clearspace starts.
+
+A file inside a locked folder is unlocked by unlocking the folder: one password
+prompt covers everything in it.
+
+One difference from Clearspace itself: Explorer can still open a locked folder
+and list what is in it without a password. What it lists are the encrypted
+`.cslock` files, so nothing in them can be read until you unlock. Only
+Clearspace's own window stops at the folder and asks for the password first.
 
 ### Photo viewer and editing
 
@@ -226,7 +270,7 @@ the latest available index rather than starting a new scan.
 <!-- NEW: pictures. -->
 ![The disk usage map of a whole drive beside its size list](docs/images/disk-usage-map.png)
 
-*The disk usage map, drawn here with sample data.*
+*A 6 TiB drive with **Render everything** on: every block at every depth is drawn at once.*
 
 The analyzer opens inside Clearspace; **Back to files** restores the browser.
 The whole drive is one nested treemap that fills the space beside the list, and
@@ -240,11 +284,7 @@ Escape (or **Whole folder**) returns to the full current folder after zooming in
 
 ![Inside a folder: its contents fill the map while the rest of the drive stays dimmed around it](docs/images/disk-usage-folder.png)
 
-*Inside a folder: the rest of the drive stays in place, dimmed, around it.*
-
-<!-- PICTURE SLOT (uncomment once the file exists):
-![Zoomed out: drives drawn as hardware, cabled to the motherboard](docs/images/disk-usage-hardware.png)
--->
+*Inside a folder (sample data): the rest of the drive stays in place, dimmed, around it.*
 
 Keep zooming out past the whole drive's files and the rest of the drive comes into
 view at the same scale: its free space, and used space the index does not account
@@ -272,6 +312,10 @@ processor, a memory block holding its slots (a module in each one that is really
 filled, labelled with its size), and the graphics card, all named from the machine
 itself. Network drives sit on their servers beside it, cabled to the board. Hover a
 part for its details.
+
+![Zoomed all the way out: each drive drawn as the device it is, cabled to the motherboard, with a network share on its own server](docs/images/disk-usage-hardware.png)
+
+*Zoomed all the way out: the drives, the motherboard with its processor, memory and graphics card, and a network share on its server.*
 
 Zoom into the memory and its sticks fade away to show what it holds, laid out like a
 drive: every running program sized by the memory it takes (all its processes
