@@ -6,7 +6,17 @@ Clearspace is a modern Windows file manager built to be a comfortable replacemen
 
 ![Clearspace in the Desktop workspace](docs/images/desktop-demo.png)
 
+<<<<<<< Updated upstream
 > The screenshot uses Clearspace Demo Mode. Every folder and file shown is fictional.
+=======
+- **[Password locks](#password-protected-files-and-folders)** for files and folders, with lock icons and right-click entries in Windows Explorer too.
+- **[Folder types](#folder-types-that-adapt-to-your-work)**: thirteen built-in types, types you save yourself, a Projects strip, and Git status in Code folders.
+- **[Instant indexing and fast catch-up](#instant-indexing-and-fast-catch-up)**: a drive's first index takes seconds, and reopening Clearspace reads only what changed.
+- **[The Indexing page](#see-what-is-indexed)** shows how each drive is kept current and what the index is doing right now.
+- **[Disk usage map](#disk-usage-visualizer)**: your drives, motherboard, memory and processor when you zoom out, plus experimental 3D views.
+- **Lower memory use**: saving the index no longer copies it, and memory used by a rescan is handed back to Windows.
+- **[Themes](#themes)**: six looks to choose from, plus a set of experimental ones that change the icons and fonts too.
+>>>>>>> Stashed changes
 
 ## What Clearspace adds
 
@@ -59,6 +69,43 @@ is:image           image files only
 ```
 
 Clearspace uses the Windows-maintained index; it does not create a second private index of your files. Content results depend on Windows indexing the location and having an IFilter for that file type. If the service is off or a location is not indexed, Clearspace falls back gracefully to its background crawl.
+
+<!-- NEW: the themes. -->
+### Themes
+
+Clearspace comes with a choice of looks. Pick one from the **Settings** menu (the gear
+button), under **Theme**; it applies at once to every window (the main window, dialogs, right-click menus,
+tooltips and the title bar) and is remembered.
+
+| Theme | What it looks like |
+| --- | --- |
+| **Dark** | The default: warm dark greys with an amber accent. |
+| **OLED Black** | True black with dim grey text, so an OLED screen switches those pixels off. |
+| **Light** | Warm paper tones. |
+| **Blueprint** | A drafting sheet: deep navy, white and pale-cyan lines, a monospace face for names and paths. |
+| **Terminal** | A green-phosphor screen: black background, green text, monospace everywhere. |
+| **Retro** | The classic 1998 desktop: grey chrome, white lists, navy highlights, square corners. |
+
+The **Experimental themes** submenu in the same menu goes further: these
+change the icons, fonts and shapes as well as the colours:
+
+| Theme | What it looks like |
+| --- | --- |
+| **Pixel** | A 16-bit console menu with pixel fonts and pixel-art icons. |
+| **DOS Commander** | The blue two-panel file managers of the DOS years, with a function-key bar along the bottom. |
+| **Wireframe** | Outlines only, in one colour, with line-drawing icons. |
+| **Neon HUD** | A sci-fi display: near-black violet, cyan outlines, hot pink, faint scanlines. |
+| **Glass** | The glossy translucent look of the late 2000s over a blue-to-teal gradient. |
+| **Sketchbook** | A spiral-bound sketchbook: paper grain, pencil outlines, a handwriting font, highlighter for selection, hand-sketched icons. |
+| **Sketchbook (dark)** | The same sketchbook on black paper, drawn in chalk-white pencil. |
+| **Type tiles** | Every file is a flat coloured tile with its extension written on it. |
+| **Zen** | As little as possible: soft off-white, a coloured dot instead of each icon, and a toolbar that fades until you need it. |
+| **1-bit Mac** | A 1984 desktop: black on white, dithered shading. |
+| **1-bit Mac (dark)** | The same, white on black. |
+| **E-reader** | An e-ink display: sixteen greys, a book typeface, and a page-turn fade when you change folders. |
+
+Windows' own dialogs (the file properties sheet, for example) keep the Windows
+look in every theme.
 
 ## Familiar file-manager foundations
 
