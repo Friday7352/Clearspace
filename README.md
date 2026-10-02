@@ -519,21 +519,56 @@ Run [Build Installer.cmd](Build%20Installer.cmd). It publishes a self-contained 
 release\ClearspaceSetup.exe
 ```
 
-The setup is a normal one-click Windows installer. It installs Clearspace for the current user, includes the required .NET runtime, creates a Start Menu entry, and offers an optional desktop shortcut. Building the next version with the same installer updates the existing installation in place.
+The setup is a normal Windows installer in Clearspace's dark look. It installs Clearspace for the current user, creates a Start Menu entry, and offers an optional desktop shortcut.
+
+<!-- NEW: dependencies, update. -->
+**Nothing else to install.** .NET, WPF and SQLite are built into `Clearspace.exe` (and into the index helper); everything else Clearspace uses is part of Windows 10 and 11. The setup file works offline and downloads nothing. The installer script refuses to build if the published app is not the self-contained one.
+
+**Updating.** The version number comes from the [VERSION](VERSION) file: raise it, run `Build Installer.cmd` again, and run the new setup on a PC that already has Clearspace. Setup then opens on a page offering:
+
+- **Update** (or **Repair** when the same version is installed) — replaces the app and keeps settings, tags, the saved index and locked files. Clearspace is closed first; anything unlocked for a visit is locked again before it closes.
+- **Update and choose the options again** — the same, plus the page with the desktop shortcut and Instant indexing options.
+- **Remove Clearspace** — starts the uninstaller.
+
+A silent run (`ClearspaceSetup.exe /VERYSILENT`) performs the plain update.
+
+<!-- NEW: in-app updates. -->
+### Updates from inside Clearspace
+
+Nobody has to download the installer by hand after the first install:
+
+- **Settings > Check for updates…** looks for a newer release right away.
+- **Settings > About Clearspace…** shows the version, where Clearspace and its data are, and the Windows and .NET it runs on, with the same **Check for updates** button and a **Copy details** button for bug reports.
+- **Check for updates automatically** (in the About window, on by default) looks quietly a few seconds after Clearspace starts and every 6 hours while it is open. It never interrupts: a newer version shows as an **Update available** chip in the status bar.
+- The update dialog shows what changed. **Update now** downloads the installer, checks it against the size and SHA-256 fingerprint GitHub lists for it, runs it with only a progress window, and opens Clearspace again. **Later** keeps the chip; **Skip this version** hides it until something newer is released.
+
+The check is one request to GitHub's public API for the newest release of this repository; nothing else is sent. Turn **Check for updates automatically** off in the About window to stop it.
+
+**Publishing an update:**
+
+1. Raise the number in [VERSION](VERSION) (for example `1.3.0`).
+2. Run `Build Installer.cmd`.
+3. Create a GitHub release tagged `v1.3.0` — the tag must match `VERSION` — and attach `release\ClearspaceSetup.exe` under that exact file name. The release description is what the update dialog shows.
+
+Copies of Clearspace older than 1.2.0 have no update check, so they need the 1.2.0 installer run once by hand.
 
 <!-- NEW: the installer's indexing option. -->
 Setup also offers **Instant indexing** (on by default), which installs the Clearspace Index Helper service described under [Instant indexing and fast catch-up](#instant-indexing-and-fast-catch-up). Windows asks for administrator permission once, during setup.
 
-Building the installer requires the [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0) and [Inno Setup 6](https://jrsoftware.org/isdl.php). End users only need the generated setup file.
+Building the installer requires the [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0) and [Inno Setup](https://jrsoftware.org/isdl.php) (`winget install -e --id JRSoftware.InnoSetup`). The dark look needs Inno Setup 6.6 or newer, and 6.7 or newer for Clearspace's exact background color; older versions still build, with a light installer. End users only need the generated setup file.
 
 <!-- NEW: what uninstalling removes and what it leaves. -->
 ### Uninstall
 
-Uninstall Clearspace from Windows Settings like any other app. This removes the app, its shortcuts, the Explorer right-click entries and `.cslock` file type, and the Index Helper service (Windows asks for permission once to remove the service).
+Uninstall Clearspace from Windows Settings like any other app (or run the setup again and choose **Remove Clearspace**). This closes Clearspace and removes the app, its shortcuts, the Explorer right-click entries and `.cslock` file type, and the Index Helper service (Windows asks for permission once to remove the service).
 
-Your data is left in place: tags, folder types and lock records in `%APPDATA%\Clearspace`, and the saved index, lock icons and logs in `%LOCALAPPDATA%\Clearspace`. Delete those two folders by hand for a clean slate.
+<!-- CHANGED: the uninstaller now asks about locks and data instead of leaving both behind. -->
+Before anything is removed, the uninstaller asks up to two questions:
 
-Locked files stay locked. Either remove the locks first (**Settings > Remove all locks and reset password…**), or reinstall Clearspace later and open them with the same password.
+1. **Locked files** (only when something is still locked): **Remove the locks first** opens Clearspace's *Remove all locks* dialog, which asks for your password and decrypts everything; **Leave them locked** uninstalls anyway. Files left locked open again after reinstalling Clearspace, with the same password.
+2. **Your data**: **Keep my data** leaves tags, folder types and settings in `%APPDATA%\Clearspace` and the saved index, lock icons and logs in `%LOCALAPPDATA%\Clearspace` for a later install. **Remove everything** deletes both folders. If items are still locked, the lock records (`tags.db`) and lock icons are kept either way.
+
+A silent uninstall asks nothing and leaves locks and data alone.
 
 ### Development build
 

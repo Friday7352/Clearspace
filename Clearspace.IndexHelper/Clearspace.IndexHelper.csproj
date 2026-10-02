@@ -10,6 +10,10 @@
     <AssemblyName>ClearspaceIndexHelper</AssemblyName>
     <RootNamespace>Clearspace.IndexHelper</RootNamespace>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <!-- NEW (logo): the helper had no icon, so Task Manager and Explorer showed it as a blank program. -->
+    <ApplicationIcon>..\Clearspace\Assets\Clearspace.ico</ApplicationIcon>
+    <!-- NEW (installer): same version number as Clearspace.exe and the installer (the VERSION file). -->
+    <Version Condition="Exists('$(MSBuildThisFileDirectory)..\VERSION')">$([System.IO.File]::ReadAllText('$(MSBuildThisFileDirectory)..\VERSION').Trim())</Version>
 
     <Platforms>x64</Platforms>
     <PlatformTarget>x64</PlatformTarget>

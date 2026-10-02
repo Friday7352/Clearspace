@@ -28,6 +28,11 @@ public sealed class SettingsData
     // NEW (themes): the look picked in Settings - a name from ThemeService.Names ("Dark", "Light", "Retro").
     public string Theme { get; set; } = "Dark";
 
+    // NEW (updates): "Check for updates automatically" (in the About window), and the version "Skip this version" was chosen for
+    // (e.g. "1.3.0"; the update chip stays away until something newer is released).
+    public bool CheckForUpdates { get; set; } = true;
+    public string? SkippedUpdate { get; set; }
+
     // NEW (round 18): disk map performance options. GPU acceleration draws the blocks through
     // Direct3D; turning it off uses the CPU rasterizer, which is the right choice on machines whose
     // display driver is unhappy with a shared surface. Low detail mode draws only the folder you are
@@ -391,6 +396,29 @@ public static class SettingsService
             return;
 
         Current.Theme = value;
+        Save();
+    }
+
+    // NEW (updates)
+    public static bool GetCheckForUpdates() => Current.CheckForUpdates;
+
+    public static void SetCheckForUpdates(bool value)
+    {
+        if (Current.CheckForUpdates == value)
+            return;
+
+        Current.CheckForUpdates = value;
+        Save();
+    }
+
+    public static string? GetSkippedUpdate() => Current.SkippedUpdate;
+
+    public static void SetSkippedUpdate(string? value)
+    {
+        if (string.Equals(Current.SkippedUpdate, value, StringComparison.Ordinal))
+            return;
+
+        Current.SkippedUpdate = value;
         Save();
     }
 

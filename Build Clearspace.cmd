@@ -47,6 +47,10 @@ powershell -NoProfile -ExecutionPolicy Bypass -Command ^
   "$s.Description = 'Clearspace file manager';" ^
   "$s.Save()"
 
+REM NEW (logo): Windows caches program icons and often keeps showing the old one after a rebuild (taskbar,
+REM Task Manager, the desktop shortcut). This asks it to reload them. Harmless if the tool is missing.
+ie4uinit.exe -show >nul 2>&1
+
 echo.
 echo Done.
 echo   Executable:  %~dp0dist\Clearspace.exe

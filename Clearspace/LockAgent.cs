@@ -40,6 +40,7 @@ internal sealed class LockAgent
     private readonly CancellationTokenSource _listener = new();
     private int _holds; // commands and dialogs in progress keep a window-less Clearspace running
     private bool _started;
+    private bool _quitting; // NEW (installer): Setup or Uninstall asked this Clearspace to close
 
     internal MainWindow? Window { get; private set; }
 
@@ -59,6 +60,7 @@ internal sealed class LockAgent
             _ = Task.Run(() =>
             {
                 try { ShellIntegration.Register(exe); } catch (Exception) { }
+                try { ShellIntegration.RefreshAppIconIfChanged(exe); } catch (Exception) { } // NEW (logo): see there
                 try { Service.EnsureFolderIcons(); } catch (Exception) { }
             });
 
@@ -91,6 +93,12 @@ internal sealed class LockAgent
 
     internal void Run(ShellCommand command)
     {
+        // NEW (installer): "close" from Setup / Uninstall has no file or folder to look at.
+        if (command.Verb == ShellVerb.Quit)
+        {
+            Quit();
+            return;
+        }
         _holds++;
         try
         {
@@ -356,6 +364,33 @@ internal sealed class LockAgent
         if (dialog.ResultMessage is null) return;
         _openedFolders.Clear();
         AfterChange(dialog.ResultMessage);
+    }
+
+    // ---- Closing for Setup / Uninstall ----
+
+    // NEW (installer): Setup (before replacing Clearspace's files) or Uninstall asked this Clearspace to
+    // close. Whatever is unlocked for a visit is locked again first, so nothing is left readable by
+    // accident; that gets up to 20 seconds, then Clearspace closes anyway (anything still unlocked is
+    // locked again the next time Clearspace starts).
+    internal async void Quit()
+    {
+        if (_quitting) return;
+        _quitting = true;
+        _listener.Cancel(); // stop answering, so the next "close" reaches any other running Clearspace
+        try
+        {
+            FileLockRegistry.Reload();
+            var pending = new List<Task>(_relocks.Values);
+            foreach (var folder in FileLockRegistry.OpenFolders)
+                if (IsMine(FileLockRegistry.OwnerOf(folder))) pending.Add(StartRelock(folder));
+            foreach (var (file, _, owner) in FileLockRegistry.OpenFiles)
+                if (IsMine(owner)) pending.Add(StartRelockFile(file));
+            if (pending.Count > 0)
+                await Task.WhenAny(Task.WhenAll(pending), Task.Delay(TimeSpan.FromSeconds(20)));
+        }
+        catch (Exception) { }
+        _timer.Stop();
+        Application.Current.Shutdown();
     }
 
     // ---- Locking again ----

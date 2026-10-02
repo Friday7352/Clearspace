@@ -23,6 +23,22 @@ public partial class App : Application
     {
         base.OnStartup(e);
 
+        // NEW (installer): questions and requests from Setup / Uninstall (--lock-count, --remove-all-locks,
+        // --quit). They never open the main window and answer through the exit code, so the process ends
+        // right here instead of going through OnExit (which would open the tag database just to close it).
+        if (Services.InstallerCommands.IsInstallerSwitch(e.Args))
+        {
+            ShutdownMode = ShutdownMode.OnExplicitShutdown;
+            // Only --remove-all-locks shows a window (the password dialog); give it the saved theme.
+            if (e.Args[0].Equals(Services.InstallerCommands.RemoveAllLocks, StringComparison.OrdinalIgnoreCase))
+            {
+                try { Services.ThemeService.Initialize(); }
+                catch (Exception) { }
+            }
+            Environment.Exit(Services.InstallerCommands.Run(e.Args[0]));
+            return;
+        }
+
         // NEW (Explorer integration): installer hooks.
         if (e.Args.Length == 1 && e.Args[0] is "--register-shell" or "--unregister-shell")
         {
@@ -68,6 +84,22 @@ public partial class App : Application
         // NEW (themes): put the saved theme in place before any window or dialog opens (including the
         // password dialog Explorer can ask for without a main window). A theme problem never stops the app.
         try { Services.ThemeService.Initialize(); }
+        catch (Exception) { }
+
+        // NEW (logo): every Clearspace window (the main window and each dialog) is given the app icon
+        // directly, so the title bar, the taskbar button and Alt+Tab show the logo at the right size from
+        // Clearspace.ico itself instead of whatever Windows has cached for the .exe. Task Manager, shortcuts
+        // and Explorer read the icon built into Clearspace.exe (ApplicationIcon in Clearspace.csproj), which
+        // is the same file.
+        try
+        {
+            var icon = System.Windows.Media.Imaging.BitmapFrame.Create(new Uri("pack://application:,,,/Assets/Clearspace.ico"));
+            EventManager.RegisterClassHandler(typeof(Window), FrameworkElement.LoadedEvent,
+                new RoutedEventHandler((sender, _) =>
+                {
+                    if (sender is Window { Icon: null } window) window.Icon = icon;
+                }));
+        }
         catch (Exception) { }
 
         DispatcherUnhandledException += OnDispatcherUnhandledException;

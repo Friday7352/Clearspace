@@ -15,6 +15,10 @@
     <RootNamespace>Clearspace</RootNamespace>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>Assets\Clearspace.ico</ApplicationIcon>
+    <!-- NEW (installer): Clearspace.exe carries the version from the VERSION file at the repository root,
+         the same number the installer shows. Without the file (e.g. a copy of this folder alone) the
+         SDK's default 1.0.0 is used. -->
+    <Version Condition="Exists('$(MSBuildThisFileDirectory)..\VERSION')">$([System.IO.File]::ReadAllText('$(MSBuildThisFileDirectory)..\VERSION').Trim())</Version>
 
     <Platforms>x64</Platforms>
     <PlatformTarget>x64</PlatformTarget>

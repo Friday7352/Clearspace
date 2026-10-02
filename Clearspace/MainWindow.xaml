@@ -780,19 +780,9 @@
                                      Opened="OnFolderTypeMenuOpened" />
                     </Button.ContextMenu>
                 </Button>
-                <StackPanel Orientation="Horizontal" Margin="0,0,7,0"
-                            Visibility="{Binding IsGrid, Converter={StaticResource BoolToVisible}}">
-                    <Button Style="{StaticResource IconButton}" Content="&#xE71F;"
-                            Click="OnZoomOut" ToolTip="Smaller tiles  ·  Ctrl+mouse wheel" />
-                    <TextBlock Text="{Binding TileZoomText}"
-                               Width="42"
-                               VerticalAlignment="Center"
-                               TextAlignment="Center"
-                               FontSize="10.5"
-                               Foreground="{DynamicResource InkMuted}" />
-                    <Button Style="{StaticResource IconButton}" Content="&#xE710;"
-                            Click="OnZoomIn" ToolTip="Larger tiles  ·  Ctrl+mouse wheel" />
-                </StackPanel>
+                <!-- REMOVED (toolbar): the tile size control (- 100% +) that appeared here in tile view. It made the
+                     toolbar wider in Pictures and Videos folders, which squeezed the address bar and search box.
+                     It now sits in the status bar at the bottom right, where there is room for it. -->
                 <Button x:Name="ColumnsButton"
                         Style="{StaticResource IconButton}"
                         Content="&#xE71D;"
@@ -863,6 +853,8 @@
                                 <MenuItem Header="Neon HUD" Tag="NeonHud" IsCheckable="True" Click="OnThemePicked" />
                                 <MenuItem Header="Glass" Tag="Glass" IsCheckable="True" Click="OnThemePicked" />
                                 <MenuItem Header="Sketchbook" Tag="Sketchbook" IsCheckable="True" Click="OnThemePicked" />
+                                <!-- NEW (dark sketchbook) -->
+                                <MenuItem Header="Sketchbook (dark)" Tag="SketchbookDark" IsCheckable="True" Click="OnThemePicked" />
                                 <MenuItem Header="Type tiles" Tag="TypeTiles" IsCheckable="True" Click="OnThemePicked" />
                                 <MenuItem Header="Zen" Tag="Zen" IsCheckable="True" Click="OnThemePicked" />
                                 <MenuItem Header="1-bit Mac" Tag="Mac1Bit" IsCheckable="True" Click="OnThemePicked" />
@@ -873,6 +865,12 @@
                             <Separator />
                             <MenuItem Header="File locking" IsEnabled="False" />
                             <MenuItem Header="Remove all locks and reset password…" Click="OnRemoveAllLocks" />
+                            <!-- NEW (updates): check now. CHANGED (about): the version number and the "check
+                                 automatically" switch moved into the About window (AboutWindow.cs), which also has
+                                 the same check as a button. See MainWindow.Updates.cs. -->
+                            <Separator />
+                            <MenuItem Header="Check for updates…" Click="OnCheckForUpdates" />
+                            <MenuItem Header="About Clearspace…" Click="OnAbout" />
                         </ContextMenu>
                     </Button.ContextMenu>
                 </Button>
@@ -1395,7 +1393,14 @@
                                 <RowDefinition Height="Auto" />
                                 <RowDefinition Height="Auto" />
                             </Grid.RowDefinitions>
-                            <TextBlock Grid.Row="1"
+                            <!-- CHANGED (toolbar): the status text and the chips on the right now have a column
+                                 each, so the text is cut short where the chips begin instead of running under
+                                 them (it used to keep a fixed 110 px clear, which the chips can exceed). -->
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Row="1" Grid.ColumnSpan="2"
                                        Text="{Binding Context.LastFileOperation.Message}"
                                        ToolTip="{Binding Context.LastFileOperation.Message}"
                                        Visibility="{Binding Context.HasFileOperationResult, Converter={StaticResource BoolToVisible}}"
@@ -1404,15 +1409,39 @@
                                        FontSize="11.5"
                                        Foreground="{DynamicResource InkMuted}" />
                             <TextBlock Text="{Binding StatusText}"
-                                       Margin="0,0,110,0"
+                                       Margin="0,0,14,0"
                                        Foreground="{DynamicResource InkMuted}"
                                        FontSize="11.5"
                                        VerticalAlignment="Center"
                                        TextTrimming="CharacterEllipsis" />
 
-                            <StackPanel Orientation="Horizontal"
+                            <StackPanel Grid.Column="1"
+                                        Orientation="Horizontal"
                                         HorizontalAlignment="Right"
                                         VerticalAlignment="Center">
+
+                                <!-- NEW (toolbar): tile size, moved here from the toolbar. Only in tile view. The
+                                     buttons are the toolbar's icon buttons made small enough for this bar. -->
+                                <Border Background="{DynamicResource Tint}" CornerRadius="{DynamicResource R5}"
+                                        Margin="0,0,8,0"
+                                        Visibility="{Binding IsGrid, Converter={StaticResource BoolToVisible}}">
+                                    <StackPanel Orientation="Horizontal">
+                                        <Button Style="{StaticResource IconButton}" Content="&#xE71F;"
+                                                Width="24" Height="20" Margin="0" FontSize="10"
+                                                Click="OnZoomOut" ToolTip="Smaller tiles  ·  Ctrl+mouse wheel"
+                                                AutomationProperties.Name="Smaller tiles" />
+                                        <TextBlock Text="{Binding TileZoomText}"
+                                                   Width="36"
+                                                   VerticalAlignment="Center"
+                                                   TextAlignment="Center"
+                                                   FontSize="10.5"
+                                                   Foreground="{DynamicResource InkMuted}" />
+                                        <Button Style="{StaticResource IconButton}" Content="&#xE710;"
+                                                Width="24" Height="20" Margin="0" FontSize="10"
+                                                Click="OnZoomIn" ToolTip="Larger tiles  ·  Ctrl+mouse wheel"
+                                                AutomationProperties.Name="Larger tiles" />
+                                    </StackPanel>
+                                </Border>
 
                                 <Border Background="{DynamicResource Tint}" CornerRadius="{DynamicResource R5}"
                                         Padding="9,3"
@@ -1432,6 +1461,29 @@
                                                    Foreground="{DynamicResource InkMuted}" />
                                     </StackPanel>
                                 </Border>
+
+                                <!-- NEW (updates): only there when a newer Clearspace has been released (and not
+                                     skipped). Opens the update dialog. -->
+                                <Button x:Name="UpdateChip"
+                                        Style="{StaticResource ViewerTextButton}" Background="{DynamicResource AccentSoft}"
+                                        Padding="9,3"
+                                        Margin="0,0,8,0"
+                                        Visibility="Collapsed"
+                                        Click="OnUpdateChip" AutomationProperties.Name="Update available" ToolTip="A newer Clearspace is ready to install">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="&#xE896;"
+                                                   FontFamily="{StaticResource IconFont}"
+                                                   FontSize="10"
+                                                   VerticalAlignment="Center"
+                                                   Foreground="{DynamicResource Accent}" />
+                                        <TextBlock x:Name="UpdateChipText"
+                                                   Text="Update available"
+                                                   Margin="6,0,0,0"
+                                                   FontSize="10.5"
+                                                   VerticalAlignment="Center"
+                                                   Foreground="{DynamicResource Accent}" />
+                                    </StackPanel>
+                                </Button>
 
                                 <Button Style="{StaticResource ViewerTextButton}" Background="{DynamicResource Tint}"
                                         Padding="9,3"

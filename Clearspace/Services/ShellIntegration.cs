@@ -115,6 +115,24 @@ internal static class ShellIntegration
         run?.DeleteValue("Clearspace locked folders", throwOnMissingValue: false);
     }
 
+    // NEW (logo): Windows keeps its own cache of every program's icon and does not always notice that a
+    // rebuilt or updated Clearspace.exe carries a different one, so a pinned taskbar button, the Start menu
+    // and Task Manager can go on showing the old logo. The first time a changed Clearspace.exe runs, tell
+    // Windows to read its icon again and to reload its icon cache. A small stamp file next to the lock icons
+    // remembers which Clearspace.exe was seen last, so this happens once per build or update, not every start.
+    internal static void RefreshAppIconIfChanged(string exePath)
+    {
+        var file = new FileInfo(exePath);
+        var current = $"{exePath}|{file.Length}|{file.LastWriteTimeUtc.Ticks}";
+        var stamp = Path.Combine(IconsFolder, "app-icon.stamp");
+        if (File.Exists(stamp) && File.ReadAllText(stamp) == current) return;
+
+        Directory.CreateDirectory(IconsFolder);
+        File.WriteAllText(stamp, current);
+        Refresh(exePath);
+        SHChangeNotify(SHCNE_ASSOCCHANGED, SHCNF_IDLIST, IntPtr.Zero, IntPtr.Zero);
+    }
+
     private static void DeleteKey(string key, ref bool changed)
     {
         using var classes = Registry.CurrentUser.OpenSubKey(@"Software\Classes", writable: true);

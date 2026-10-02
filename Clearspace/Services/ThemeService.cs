@@ -42,6 +42,7 @@ public static class ThemeService
         new ThemeInfo("NeonHud", "Neon HUD", Experimental: true, Icons: IconStyle.Neon),
         new ThemeInfo("Glass", "Glass", Experimental: true),
         new ThemeInfo("Sketchbook", "Sketchbook", Experimental: true, Icons: IconStyle.Sketch),
+        new ThemeInfo("SketchbookDark", "Sketchbook (dark)", Experimental: true, Icons: IconStyle.Sketch),   // NEW (dark sketchbook)
         new ThemeInfo("TypeTiles", "Type tiles", Experimental: true, Icons: IconStyle.Tile),
         new ThemeInfo("Zen", "Zen", Experimental: true, Icons: IconStyle.Dot, FadeToolbar: true),
         new ThemeInfo("Mac1Bit", "1-bit Mac", Experimental: true, Icons: IconStyle.OneBit),
@@ -172,7 +173,9 @@ public static class ThemeService
         // NEW (experimental themes): the theme's icon set and toolbar behaviour. Drawn icons are thrown away
         // on every switch because some styles take their colour from the theme.
         var info = Themes.First(known => known.Name == theme);
-        IconsChanged = info.Icons != Icons;
+        // CHANGED (dark sketchbook): two themes can share a drawn style and still colour it differently
+        // (Sketchbook's graphite outline is chalk-white on black paper), so any switch to a drawn style counts.
+        IconsChanged = info.Icons != Icons || info.Icons != IconStyle.System;
         Icons = info.Icons;
         FadeToolbar = info.FadeToolbar;
         EInk = info.EInk;

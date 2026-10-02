@@ -297,7 +297,8 @@ internal static class ThemeIcons
     // outline is turned a little instead of only shifted.
     private static void DrawSketch(DrawingGroup group, IconKind kind)
     {
-        var pencil = Rgb(0x3A3A44);
+        // CHANGED (dark sketchbook): graphite on light paper, chalk-white pencil on black paper.
+        var pencil = ThemeService.IsDark ? Rgb(0xE8E5DC) : Rgb(0x3A3A44);
         var colour = KindColor(kind);
 
         // Diagonal strokes across the whole box, cut to the icon's outer shape.

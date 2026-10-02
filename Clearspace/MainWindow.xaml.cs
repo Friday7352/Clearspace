@@ -118,6 +118,7 @@ public partial class MainWindow : Window
         // NEW (e-reader): refresh the "page" when the folder changes or the photo viewer opens or closes.
         _viewModel.PropertyChanged += (_, e) => { if (e.PropertyName == nameof(MainViewModel.CurrentPath)) TurnPage(); };   // CHANGED (e-ink): a page turn
         _viewModel.Viewer.PropertyChanged += (_, e) => { if (e.PropertyName == nameof(PhotoViewerViewModel.IsOpen)) FlashPage(); };
+        InitializeUpdates(); // NEW (updates): the quiet update check and the status bar's "Update available" chip
         InitializeBackgroundMenu(); // NEW (empty-area menu): remembers the files-and-folders menu, reads the "New" templates
         // NEW (experimental themes): keeps the Zen theme's fading toolbar in step with the pointer and keyboard.
         ToolbarRow.MouseEnter += (_, _) => UpdateToolbarFade();
