@@ -53,12 +53,13 @@ echo.
 echo Done.
 echo Clearspace %VERSION% installer: "%RELEASE%\ClearspaceSetup.exe"
 echo On a PC that already has Clearspace, the same file updates, repairs or removes it.
-echo For the next release, raise the number in the VERSION file before building.
+REM CHANGED (versioning): points at the rules for which number to raise.
+echo For the next release, raise the number in the VERSION file before building. VERSIONING.md says which one.
 pause
 exit /b 0
 
 :noversion
-echo The VERSION file is missing or empty. It holds the version number, for example 1.2.0.
+echo The VERSION file is missing or empty. It holds the version number, for example 1.3.0.
 echo.
 pause
 exit /b 1

@@ -161,6 +161,7 @@ Setup uses `--quit` before replacing files (only when the installed version is 1
 ones are closed by Windows). The uninstaller uses all three: it asks about locks only when the count is
 above zero, then about keeping or removing the data folders. `VERSION` at the repository root is the
 single version number: the installer reads it, and both project files stamp it into the executables.
+`VERSIONING.md` next to it says what each part of the number means and when to raise it. <!-- NEW (versioning) -->
 The dark look is Inno Setup's dark style with the Dark theme's `Base` color as `WizardBackColor`.
 
 The logo (a folder with a C on it, no background) is drawn by `installer/make-icons.py` (Python with Pillow), which writes `Assets/Clearspace.ico`
@@ -181,9 +182,73 @@ file whose size or SHA-256 differs from what GitHub lists for the asset. It then
 with `/SILENT /relaunch=1` and closes Clearspace through `LockAgent.Quit`; the installer's `[Run]`
 entry with `Check: RelaunchRequested` opens Clearspace again.
 
-Publishing an update therefore means: raise `VERSION`, run `Build Installer.cmd`, and create a GitHub
+Publishing an update therefore means: raise `VERSION` (by the rules in `VERSIONING.md`), run `Build Installer.cmd`, and create a GitHub
 release tagged `v<VERSION>` with `release\ClearspaceSetup.exe` attached under that exact name. The tag
 must match `VERSION`: a tag higher than the number built into the app would be offered again and again.
+
+## Tabs
+
+<!-- NEW (tabs) -->
+There is one file list and one `MainViewModel`, however many tabs are open. A tab
+(`ViewModels/ExplorerTabs.cs`) is a `NavigationHistory` (its own back / forward list) plus what the
+window puts aside for it while it is in the background: search text, scroll position and selection.
+
+- `NavigationService` works on whichever history is attached. Switching tabs calls `Attach`, which raises
+  `Navigated` like any other move, so the tab's folder loads through `MainViewModel.LoadAsync` and comes
+  straight from `FolderSnapshotCache` when it was shown recently. A background tab costs nothing: nothing
+  is loaded, watched or kept in memory for it beyond its history.
+- `ExplorerTabs` (open, close, switch, reorder, duplicate, reopen) has no WPF in it and is covered by
+  `Clearspace.Tests/TabTests.cs`.
+- `MainWindow.Tabs.cs` is the mouse and keyboard side, and saves and restores each tab's scroll position
+  and selection. The strip is XAML at the top of `MainWindow.xaml`, laid out by `Controls/TabStripPanel.cs`.
+- The tab commands are `IAction`s (`Commands/Actions/TabActions.cs`): Ctrl+T, Ctrl+W, Ctrl+Tab,
+  Ctrl+Shift+Tab, Ctrl+Shift+T. `MainWindow.TryHandleTabKey` runs them before the "typing in a text box"
+  check, so they work from the search and address boxes, and handles Ctrl+1 ... Ctrl+9 itself.
+- Locked folders: `NavigationService.MayEnter` puts the password gate in front of a tab that sits in a
+  locked folder before it is shown. `LockAgent` counts the folder of every tab that has been shown
+  (`MainWindow.ShownLocations`) when it decides what to lock again, and `MainWindow.LeaveFolder` moves
+  every tab out of a folder that is being locked.
+
+What a tab does not keep while it is in the background: a folder load or a search in progress. Both are
+cancelled when you leave the tab and started again when you come back (the search text is kept).
+
+## More than one window
+
+<!-- NEW (new window) -->
+"Open in new window" and Ctrl+N open another `MainWindow` in the same process (`MainWindow.Windows.cs`),
+never a second `Clearspace.exe`. That is what keeps a second window cheap: the file index, the
+`FolderSnapshotCache`, the icon and thumbnail caches, the tag database and `LockAgent` are static and
+exist once per process. A window owns only its controls, its `MainViewModel` (tabs, history, the listing
+on screen), its sidebar, music player and photo viewer. Starting `Clearspace.exe` again from a shortcut
+is still a separate process with its own copy of the index.
+
+- `LockAgent` keeps every open window (`Attach` / `Activated` / `Detach`); `Window` is the one used last,
+  which is where password prompts attach and messages go. Clearspace exits when the last window closes
+  (and nothing unlocked for a visit is left to lock again).
+- `SidebarViewModel` rebuilds every window's sidebar when one of them changes a pin, a category or Your
+  files, and `MainViewModel.Dispose` stops a closed window's music and takes its sidebar off that list.
+- The E-reader screen effect is one per window (`EInkScreen.CreateForWindow`), so a page turn in one
+  window does not show over another.
+- A tab can leave its window for one of its own: drag it off the tab strip and let go, or "Move to new
+  window" in its menu (`MainWindow.MoveTabToNewWindow`). `ExplorerTabs.Detach` takes it out without
+  counting it as closed, and the new window's `NavigationService` starts on the tab's own
+  `NavigationHistory`, so back / forward, search, scroll position and selection all come along. There
+  is no dropping a tab into another window yet.
+- Known limit: `ThumbnailService.CancelPending` and `MediaPropertyService.CancelPending` are process-wide.
+  Opening a folder in one window drops tile pictures another window had asked for but not yet received;
+  they come back when those tiles are scrolled or the folder is refreshed.
+
+## Your files
+
+<!-- NEW (your files) -->
+The Your files page and the sidebar section of the same name show Windows' six folders
+(`LocationCatalog.BuildUserFileEntries`) followed by folders the user added. Those are a plain list of
+paths in `settings.json` (`SettingsData.LibraryFolders`, list logic in `Services/LibraryFolders.cs`,
+tests in `Clearspace.Tests/YourFilesTests.cs`). On that page New folder (toolbar, Ctrl+Shift+N, or the
+empty-area menu) creates a folder in the user folder, adds it to the list and starts renaming it;
+"Add a folder you already have" lists an existing one. Renaming a listed folder in Clearspace keeps it
+listed (`MainViewModel.ApplyRename`); deleting it drops it the next time the page loads (a folder whose
+whole drive is missing is kept). "Remove from Your files" only takes it off the list.
 
 ## Layout
 
@@ -193,12 +258,12 @@ Models/       FileSystemItem, natural-order sorting
 Services/     Icons, shell file operations, navigation history, themes (ThemeService)
 Themes/       One resource file per theme: colours, fonts, corner sizes
 Commands/     IAction, the registry, and the actions themselves
-ViewModels/   MainViewModel: loading, sorting, status, sidebar
+ViewModels/   MainViewModel: loading, sorting, status, sidebar; ExplorerTabs: the tab strip
 ```
 
 ## Not built yet
 
-- Tabs and split panes
+- Split panes
 - Real per-file thumbnails (images and video) via `IShellItemImageFactory`
 - Native shell context menus via `IContextMenu` (the current menu is Clearspace's own)
 - Drag and drop

@@ -42,7 +42,12 @@ internal sealed class LockAgent
     private bool _started;
     private bool _quitting; // NEW (installer): Setup or Uninstall asked this Clearspace to close
 
-    internal MainWindow? Window { get; private set; }
+    // CHANGED (new window): there can be several main windows now. All of them are kept here, the one used
+    // most recently last. Window (what prompts attach to, where messages go, what "Open in Clearspace"
+    // brings forward) is that last one.
+    private readonly List<MainWindow> _windows = [];
+
+    internal MainWindow? Window => _windows.Count > 0 ? _windows[^1] : null;
 
     internal static FileLockService Service => new(TagService.DatabasePath, TagService.TagFilePath);
 
@@ -70,13 +75,21 @@ internal sealed class LockAgent
 
     internal void Attach(MainWindow window)
     {
-        Window = window;
+        Activated(window); // CHANGED (new window): joins the list (was: became the one window)
         Check();
+    }
+
+    // NEW (new window): the window you are using moves to the end of the list.
+    internal void Activated(MainWindow window)
+    {
+        if (ReferenceEquals(Window, window)) return;
+        _windows.Remove(window);
+        _windows.Add(window);
     }
 
     internal void Detach(MainWindow window)
     {
-        if (ReferenceEquals(Window, window)) Window = null;
+        _windows.Remove(window); // CHANGED (new window): Clearspace stays open while another window is (see Check)
         Check();
     }
 
@@ -150,7 +163,7 @@ internal sealed class LockAgent
         if (Window is { } window)
         {
             window.BringToFront();
-            window.NavigateTo(folder);
+            window.OpenFolder(folder); // CHANGED (tabs): opens in a tab of its own (was NavigateTo: replaced the folder on screen)
             return;
         }
         App.StartupPath = folder;
@@ -184,7 +197,9 @@ internal sealed class LockAgent
     {
         FileLockRegistry.Reload();
         if (message is not null) Report(message);
-        Window?.RefreshAfterLockChange(message);
+        // CHANGED (new window): every window re-reads its folder; the message goes to the one in use.
+        foreach (var window in _windows.ToArray())
+            window.RefreshAfterLockChange(ReferenceEquals(window, Window) ? message : null);
         Check();
     }
 
@@ -230,8 +245,9 @@ internal sealed class LockAgent
             if (governing!.Value.State == LockState.Open)
             {
                 // "Lock" on a folder that's open right now: leave it if the main window is inside, lock it now.
-                if (Window?.CurrentLocation is { } current && (FileLockService.SamePath(current, folder) || FileLockService.IsInside(current, folder)))
-                    Window.NavigateTo(Path.GetDirectoryName(folder) ?? ExplorerLocations.MyPcPath);
+                // CHANGED (tabs): every tab that is inside leaves, not only the one on screen.
+                // CHANGED (new window): in every window.
+                foreach (var window in _windows.ToArray()) window.LeaveFolder(folder);
                 _ = StartRelock(folder);
                 Report($"Locking {name}…");
             }
@@ -442,8 +458,11 @@ internal sealed class LockAgent
     private List<string> ShownLocations()
     {
         var shown = new List<string>(ExplorerWindows.Folders());
-        if (Window?.CurrentLocation is { } current && !current.StartsWith("clearspace://", StringComparison.OrdinalIgnoreCase))
+        // CHANGED (tabs): every tab of the main window counts (was only the one folder on screen).
+        // CHANGED (new window): of every main window.
+        foreach (var current in _windows.SelectMany(window => window.ShownLocations))
         {
+            if (current.StartsWith("clearspace://", StringComparison.OrdinalIgnoreCase)) continue;
             try { shown.Add(Path.GetFullPath(current)); } catch (Exception) { }
         }
         return shown;
@@ -543,13 +562,17 @@ internal sealed class LockAgent
             _retryAfter.Remove(path);
         }
         FileLockRegistry.Reload();
-        Window?.RefreshLockBadges();
-        // Files were renamed to/from .cslock; show the new names if they're on screen.
-        if (Window?.CurrentLocation is { } current)
+        // CHANGED (new window): in every window (was the one window).
+        foreach (var window in _windows.ToArray())
         {
-            var parent = Path.GetDirectoryName(path) ?? "";
-            if (FileLockService.SamePath(current, path) || FileLockService.IsInside(current, path) || FileLockService.SamePath(current, parent))
-                Window.RefreshAfterLockChange(null);
+            window.RefreshLockBadges();
+            // Files were renamed to/from .cslock; show the new names if they're on screen.
+            if (window.CurrentLocation is { } current)
+            {
+                var parent = Path.GetDirectoryName(path) ?? "";
+                if (FileLockService.SamePath(current, path) || FileLockService.IsInside(current, path) || FileLockService.SamePath(current, parent))
+                    window.RefreshAfterLockChange(null);
+            }
         }
     }
 

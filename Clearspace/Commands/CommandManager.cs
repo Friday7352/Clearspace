@@ -51,6 +51,19 @@ public sealed class CommandManager
 
         Add(new OpenTerminalAction(context));
 
+        // NEW (tabs)
+        Add(new NewTabAction(context));
+        Add(new CloseTabAction(context));
+        Add(new NextTabAction(context));
+        Add(new PreviousTabAction(context));
+        Add(new ReopenClosedTabAction(context));
+        Add(new DuplicateTabAction(context));
+        Add(new OpenInNewTabAction(context));
+
+        // NEW (new window)
+        Add(new NewWindowAction(context));
+        Add(new OpenInNewWindowAction(context));
+
         void Add(IAction action) => _commands[action.Code] = new RichCommand(action, context);
     }
 

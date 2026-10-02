@@ -70,6 +70,9 @@ public sealed class SettingsData
 
     public Dictionary<string, string> SidebarOverrides { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 
+    // NEW (your files): folders you added to Your files, shown after Windows' six. See Services/LibraryFolders.cs.
+    public List<string> LibraryFolders { get; set; } = [];
+
     public Dictionary<string, string> PinnedDirectories { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 
     public List<PinnedCategory> PinnedCategories { get; set; } = [];
@@ -146,6 +149,7 @@ public static class SettingsService
                         StringComparer.OrdinalIgnoreCase);
                     loaded.SidebarOverrides = new Dictionary<string, string>(loaded.SidebarOverrides, StringComparer.OrdinalIgnoreCase);
                     loaded.PinnedDirectories = new Dictionary<string, string>(loaded.PinnedDirectories, StringComparer.OrdinalIgnoreCase);
+                    loaded.LibraryFolders ??= []; // NEW (your files)
                     loaded.PinnedCategories ??= [];
                     loaded.PinnedDirectoryCategories = new Dictionary<string, string>(loaded.PinnedDirectoryCategories ?? [], StringComparer.OrdinalIgnoreCase);
                     loaded.PinnedDirectoryOrder ??= [];
@@ -537,6 +541,28 @@ public static class SettingsService
     {
         if (Current.SidebarOverrides.Remove(name))
             Save();
+    }
+
+    // ---- NEW (your files): the folders you added to Your files. Each returns true when the list changed.
+
+    public static IReadOnlyList<string> GetLibraryFolders() => Current.LibraryFolders;
+
+    public static bool IsLibraryFolder(string path) => LibraryFolders.Contains(Current.LibraryFolders, path);
+
+    public static bool AddLibraryFolder(string path) => SaveIf(LibraryFolders.Add(Current.LibraryFolders, path));
+
+    public static bool RemoveLibraryFolder(string path) => SaveIf(LibraryFolders.Remove(Current.LibraryFolders, path));
+
+    // A folder was renamed or moved in Clearspace; if it is one of yours it stays on the list.
+    public static bool MoveLibraryFolder(string from, string to) => SaveIf(LibraryFolders.Move(Current.LibraryFolders, from, to));
+
+    // Forgets folders that no longer exist (deleted, or renamed outside Clearspace).
+    public static bool PruneLibraryFolders() => SaveIf(LibraryFolders.Prune(Current.LibraryFolders, System.IO.Directory.Exists));
+
+    private static bool SaveIf(bool changed)
+    {
+        if (changed) Save();
+        return changed;
     }
 
     public static IReadOnlyDictionary<string, string> GetPinnedDirectories() => Current.PinnedDirectories;

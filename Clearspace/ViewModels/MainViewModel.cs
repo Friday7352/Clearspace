@@ -24,7 +24,9 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     private readonly NavigationCoordinator _navigationLoads = new();
     private readonly SearchCoordinator _search;
 
-    public MainViewModel()
+    // CHANGED (tab to new window): takes the history a window starts with (a tab moved out of another
+    // window brings its own); null for an ordinary new window.
+    public MainViewModel(NavigationHistory? history = null)
     {
         _search = new SearchCoordinator(new SearchSources(), update =>
         {
@@ -32,9 +34,18 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             IsSearchingTree = update.IsSearching;
             if (update.Status is not null) StatusText = update.Status;
         });
-        Navigation = new NavigationService();
+        Navigation = new NavigationService(history); // CHANGED (tab to new window): was new NavigationService()
         Context = new ExplorerContext { Navigation = Navigation };
         Commands = new CommandManager(Context);
+
+        // NEW (tabs): the window starts with one tab, which takes over Navigation's history. A new tab
+        // starts in your user folder, the same place Clearspace itself starts. Each tab keeps its own
+        // search: it is put aside when you leave the tab and typed back in when you return.
+        Tabs = new ExplorerTabs(Navigation, () => KnownFolders.Profile, TabTitle);
+        Context.Tabs = Tabs;
+        Tabs.Deactivating += (_, tab) => tab.SearchText = SearchText;
+        Tabs.Activated += (_, tab) => SearchText = tab.SearchText;
+        Tabs.Changed += (_, _) => Commands.RefreshState();
 
         Navigation.Navigated += async (_, path) => await LoadAsync(path);
         Context.RefreshRequested += async (_, _) => await RefreshAsync();
@@ -45,7 +56,15 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             OnPropertyChanged(nameof(HasSelectedFolders));
             OnPropertyChanged(nameof(HasCloudSelection));
             OnPropertyChanged(nameof(CanPinToProject)); // NEW (folder types, step 2)
+            OnPropertyChanged(nameof(CanRemoveFromYourFiles)); // NEW (your files)
             RefreshTagOptions();
+        };
+
+        // NEW (status line): "Delete: Completed." and the like go away by themselves.
+        Context.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(ExplorerContext.LastFileOperation))
+                ScheduleFileOperationClear();
         };
 
         TagService.Changed += OnTagsChanged;
@@ -60,7 +79,46 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         ShowHiddenItems = SettingsService.GetShowHiddenItems();
     }
 
+    // ------------------------------------------------------------------ NEW (status line)
+    // The line under the status text that reports a copy, move, rename or delete used to stay until the
+    // next operation replaced it. It now clears itself: a result that needs no attention ("Completed.")
+    // after a few seconds, one that says something went wrong or was cancelled after longer, since that
+    // is the one worth reading.
+    private static readonly TimeSpan FileOperationSuccessTime = TimeSpan.FromSeconds(4);
+    private static readonly TimeSpan FileOperationProblemTime = TimeSpan.FromSeconds(12);
+
+    private DispatcherTimer? _fileOperationTimer;
+
+    private void ScheduleFileOperationClear()
+    {
+        _fileOperationTimer?.Stop();
+
+        if (Context.LastFileOperation is not { } result)
+            return;
+
+        if (_fileOperationTimer is null)
+        {
+            var timer = new DispatcherTimer();
+            timer.Tick += (_, _) =>
+            {
+                timer.Stop();
+                Context.ClearFileOperation();
+            };
+            _fileOperationTimer = timer;
+        }
+
+        _fileOperationTimer.Interval = result.Succeeded ? FileOperationSuccessTime : FileOperationProblemTime;
+        _fileOperationTimer.Start();
+    }
+
     public NavigationService Navigation { get; }
+
+    // NEW (tabs): the tab strip. Navigation always works on the active tab's history.
+    public ExplorerTabs Tabs { get; }
+
+    // NEW (tabs): the name on a tab is the last part of the address bar's trail for that location.
+    private static string TabTitle(string path)
+        => BuildBreadcrumbs(path) is { Count: > 0 } crumbs ? crumbs[^1].Name : path;
 
     public ExplorerContext Context { get; }
 
@@ -194,6 +252,9 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     public RichCommand NewFolderCommand => Commands[CommandCode.NewFolder];
     public RichCommand PropertiesCommand => Commands[CommandCode.ShowProperties];
     public RichCommand TerminalCommand => Commands[CommandCode.OpenTerminal];
+    public RichCommand NewTabCommand => Commands[CommandCode.NewTab];             // NEW (tabs)
+    public RichCommand OpenInNewTabCommand => Commands[CommandCode.OpenInNewTab]; // NEW (tabs)
+    public RichCommand OpenInNewWindowCommand => Commands[CommandCode.OpenInNewWindow]; // NEW (new window)
 
     private IReadOnlyList<FileSystemItem> _items = [];
     public IReadOnlyList<FileSystemItem> Items
@@ -361,6 +422,8 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             {
                 Context.CurrentPath = value;
                 OnPropertyChanged(nameof(Breadcrumbs));
+                OnPropertyChanged(nameof(IsYourFilesHub));          // NEW (your files)
+                OnPropertyChanged(nameof(CanRemoveFromYourFiles));  // NEW (your files)
 
                 OnPropertyChanged(nameof(FolderProfileLabel));
             }
@@ -947,9 +1010,17 @@ public sealed class MainViewModel : ObservableObject, IDisposable
 
     public void Start(string? initialPath = null)
     {
-        var start = !string.IsNullOrWhiteSpace(initialPath) && Directory.Exists(initialPath)
+        // CHANGED (new window): a window can also start on one of Clearspace's own pages (This PC, a hub),
+        // which is where Ctrl+N from such a page opens the new window.
+        var start = !string.IsNullOrWhiteSpace(initialPath) &&
+                    (Directory.Exists(initialPath) || initialPath.StartsWith("clearspace://", StringComparison.OrdinalIgnoreCase))
             ? initialPath
             : KnownFolders.Profile;
+
+        // NEW (tab to new window): a window made for a tab that was moved out of another one is already
+        // somewhere (its history came with it). Show that place; initialPath does not apply.
+        if (Navigation.CurrentPath is { } resumed)
+            start = resumed;
 
         Navigation.Navigate(start);
 
@@ -1200,8 +1271,64 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             Navigation.Navigate(folder);
     }
 
+    // ------------------------------------------------------------------ NEW (your files)
+    // The Your files page shows Windows' six folders and, after them, folders you added yourself
+    // (Services/LibraryFolders.cs). "New folder" there makes one in your user folder, next to Documents
+    // and the rest; the window does that (it owns the renaming box) and reports it here.
+
+    public bool IsYourFilesHub => CurrentPath.Equals(YourFilesPath, StringComparison.OrdinalIgnoreCase);
+
+    // Where a new folder of yours is made: the user folder, where Windows keeps the six by default.
+    public static string LibraryRoot => KnownFolders.Profile;
+
+    public void AddLibraryFolder(string path)
+    {
+        // One of Windows' six, or a folder you added before, is already on the page.
+        var listed = LocationCatalog.BuildUserFileEntries().Any(entry => string.Equals(
+            Path.TrimEndingDirectorySeparator(entry.Path), Path.TrimEndingDirectorySeparator(path), StringComparison.OrdinalIgnoreCase));
+
+        if (listed)
+        {
+            StatusText = $"{LibraryFolders.NameOf(path)} is already in Your files.";
+            return;
+        }
+
+        SidebarState.AddLibraryFolder(path);
+        StatusText = $"Added {LibraryFolders.NameOf(path)} to Your files.";
+    }
+
+    // True when everything selected on the Your files page is a folder you added (the six stay put).
+    public bool CanRemoveFromYourFiles
+        => IsYourFilesHub && Context.SelectedItems.Count > 0 &&
+           Context.SelectedItems.All(item => SettingsService.IsLibraryFolder(item.FullPath));
+
+    // Takes the selected folders off the Your files page. The folders themselves are not touched.
+    public async Task RemoveSelectionFromYourFilesAsync()
+    {
+        if (!CanRemoveFromYourFiles)
+            return;
+
+        var paths = Context.SelectedPaths;
+        foreach (var path in paths)
+            SidebarState.RemoveLibraryFolder(path);
+
+        await RefreshAsync();
+        StatusText = paths.Length == 1
+            ? $"Removed {LibraryFolders.NameOf(paths[0])} from Your files. The folder itself is still in {Path.GetDirectoryName(paths[0])}."
+            : $"Removed {paths.Length:N0} folders from Your files. The folders themselves were not deleted.";
+    }
+
+    public void RemoveLibraryFolder(string path)
+    {
+        SidebarState.RemoveLibraryFolder(path);
+        if (IsYourFilesHub)
+            _ = RefreshAsync();
+    }
+
     public void ApplyRename(FileSystemItem item, string newFullPath)
     {
+        SidebarState.RenameLibraryFolder(item.FullPath, newFullPath); // NEW (your files): a folder of yours keeps its place
+
         var index = -1;
         for (var i = 0; i < _directoryItems.Count; i++)
         {
@@ -1225,7 +1352,9 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         reordered.RemoveAt(index);
 
         var comparer = new ItemComparer(SortColumn, SortDescending);
-        var insertAt = reordered.FindIndex(existing => comparer.Compare(item, existing) < 0);
+        // CHANGED (your files): a hub's list is in its own order (Windows' six, then yours), not sorted,
+        // so a renamed entry stays where it is there instead of jumping to its alphabetical place.
+        var insertAt = IsHub ? index : reordered.FindIndex(existing => comparer.Compare(item, existing) < 0);
         if (insertAt < 0)
             insertAt = reordered.Count;
 
@@ -1478,6 +1607,11 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         var categoryId = path.StartsWith(CategoryPathPrefix, StringComparison.OrdinalIgnoreCase)
             ? path[CategoryPathPrefix.Length..]
             : null;
+
+        // NEW (your files): a folder of yours that was deleted (here or anywhere else) comes off the list.
+        if (path.Equals(YourFilesPath, StringComparison.OrdinalIgnoreCase))
+            SidebarState.PruneLibraryFolders();
+
         var items = await Task.Run(() => LocationCatalog.BuildHubItems(isPinnedHub, isCloudHub, categoryId), token);
 
         if (token.IsCancellationRequested)
@@ -1512,12 +1646,13 @@ public sealed class MainViewModel : ObservableObject, IDisposable
                 ? items.Count == 0 ? "No items in this category" : $"{items.Count:N0} saved location{(items.Count == 1 ? string.Empty : "s")}" 
                 : isPinnedHub
                 ? items.Count == 0 ? "Nothing pinned yet" : $"{items.Count:N0} saved location{(items.Count == 1 ? string.Empty : "s")}" 
-                : "Six primary folders",
+                : items.Count > 6 ? $"{items.Count:N0} folders" : "Six primary folders", // CHANGED (your files): counts the ones you added
             categoryName is not null
                 ? "Drag Favorites into or out of this category to keep your sidebar organized."
                 : isPinnedHub
                 ? "Pin any file or folder from its right-click menu to keep it within reach."
-                : "Desktop, Documents, Downloads, Pictures, Music, and Videos—your everyday starting points.");
+                // CHANGED (your files): says how to add your own.
+                : "Desktop, Documents, Downloads, Pictures, Music, and Videos—your everyday starting points. Right-click an empty area to add a folder of your own.");
         TimingText = $"{stopwatch.ElapsedMilliseconds} ms";
     }
 
@@ -1629,6 +1764,9 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     {
         _search.Dispose();
         _navigationLoads.Dispose();
+        _fileOperationTimer?.Stop(); // NEW (status line)
+        Player.Stop();            // NEW (new window): a closed window must not keep playing while others stay open
+        SidebarState.Dispose();   // NEW (new window): this window's sidebar stops following settings changes
         _extrasCancel?.Cancel(); // NEW (folder types, step 2)
         FileIndexService.Changed -= OnFileIndexChanged;
         TagService.Changed -= OnTagsChanged;

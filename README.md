@@ -2,23 +2,18 @@
 
 Clearspace is a modern Windows file manager built to be a comfortable replacement for File Explorer: familiar file operations, a calmer interface, and better ways to organize and find work.
 
-> **Work in progress:** Clearspace 1.0.0 is an early public release. There will be bugs and rough edges as it is used on more Windows setups and file collections. Please report issues you find; fixes and improvements will continue over time.
+> **Work in progress:** Clearspace is still an early public release. There will be bugs and rough edges as it is used on more Windows setups and file collections. Please report issues you find; fixes and improvements will continue over time.
 
 <!-- NEW: a short list of the recent additions, linking to the sections below. -->
 ## What's new
 
-> The screenshot uses Clearspace Demo Mode. Every folder and file shown is fictional.
 - **[Password locks](#password-protected-files-and-folders)** for files and folders, with lock icons and right-click entries in Windows Explorer too.
 - **[Folder types](#folder-types-that-adapt-to-your-work)**: thirteen built-in types, types you save yourself, a Projects strip, and Git status in Code folders.
 - **[Instant indexing and fast catch-up](#instant-indexing-and-fast-catch-up)**: a drive's first index takes seconds, and reopening Clearspace reads only what changed.
 - **[The Indexing page](#see-what-is-indexed)** shows how each drive is kept current and what the index is doing right now.
 - **[Disk usage map](#disk-usage-visualizer)**: your drives, motherboard, memory and processor when you zoom out, plus experimental 3D views.
 - **Lower memory use**: saving the index no longer copies it, and memory used by a rescan is handed back to Windows.
-<<<<<<< HEAD
 - **[Themes](#themes)**: six looks to choose from, plus a set of experimental ones that change the icons and fonts too.
->>>>>>> Stashed changes
-=======
->>>>>>> b3c02165ce55015e46ad3b5505c2f43fff230a08
 
 ## What Clearspace adds
 
@@ -545,6 +540,9 @@ look in every theme.
 
 - Browse local, mapped network, and known Windows folders.
 - Back, forward, up, breadcrumb navigation, side-mouse navigation, and an address bar.
+- Tabs, as in File Explorer: Ctrl+T for a new tab, middle-click a folder to open it in one, drag files onto a tab. Each tab keeps its own history, search, scroll position and selection.
+- More windows: Ctrl+N or "Open in new window". They share one index and one set of caches, so a second window costs little.
+- Your files can hold folders of your own beside Desktop, Documents and the rest: right-click an empty area there for New folder.
 - Copy, cut, paste, rename, new folder, delete to the Recycle Bin, and properties.
 - Explorer-style right-click menus and Windows copy/conflict dialogs.
 - This PC and Network hubs with drive capacity indicators.
@@ -567,7 +565,7 @@ The setup is a normal Windows installer in Clearspace's dark look. It installs C
 <!-- NEW: dependencies, update. -->
 **Nothing else to install.** .NET, WPF and SQLite are built into `Clearspace.exe` (and into the index helper); everything else Clearspace uses is part of Windows 10 and 11. The setup file works offline and downloads nothing. The installer script refuses to build if the published app is not the self-contained one.
 
-**Updating.** The version number comes from the [VERSION](VERSION) file: raise it, run `Build Installer.cmd` again, and run the new setup on a PC that already has Clearspace. Setup then opens on a page offering:
+**Updating.** The version number comes from the [VERSION](VERSION) file ([VERSIONING.md](VERSIONING.md) says what each number means): raise it, run `Build Installer.cmd` again, and run the new setup on a PC that already has Clearspace. Setup then opens on a page offering:
 
 - **Update** (or **Repair** when the same version is installed) — replaces the app and keeps settings, tags, the saved index and locked files. Clearspace is closed first; anything unlocked for a visit is locked again before it closes.
 - **Update and choose the options again** — the same, plus the page with the desktop shortcut and Instant indexing options.
@@ -587,9 +585,10 @@ Nobody has to download the installer by hand after the first install:
 
 The check is one request to GitHub's public API for the newest release of this repository; nothing else is sent. Turn **Check for updates automatically** off in the About window to stop it.
 
+<!-- CHANGED (versioning): which number to raise is set out in VERSIONING.md. -->
 **Publishing an update:**
 
-1. Raise the number in [VERSION](VERSION) (for example `1.3.0`).
+1. Raise the number in [VERSION](VERSION) by the rules in [VERSIONING.md](VERSIONING.md) (for example `1.3.0`).
 2. Run `Build Installer.cmd`.
 3. Create a GitHub release tagged `v1.3.0` — the tag must match `VERSION` — and attach `release\ClearspaceSetup.exe` under that exact file name. The release description is what the update dialog shows.
 
@@ -625,9 +624,11 @@ Clearspace.IndexHelper/  Optional Windows service for instant indexing and fast 
 Clearspace.Tests/        Regression tests (run with dotnet test)
 docs/                    Design notes and the pictures used in this README
 installer/               Inno Setup installer definition
-output/                  Test results and rendered previews
+output/                  Saved test reports and coursework packages
 dist/                    Local published build (generated)
 release/                 Installer output (generated)
+VERSION                  The version number, read by both projects and the installer
+VERSIONING.md            What each part of the version number means and when to raise it
 ```
 
 For architecture and implementation notes, see [Clearspace/ARCHITECTURE.md](Clearspace/ARCHITECTURE.md).

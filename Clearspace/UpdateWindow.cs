@@ -135,7 +135,9 @@ internal sealed class UpdateWindow : Window
         _install.IsDefault = true;
         _install.Click += async (_, _) => await InstallAsync();
 
-        var row = new StackPanel
+        // FIXED (about): a WrapPanel, so in themes with a wide font (1-bit Mac, Pixel) the three buttons move
+        // onto a second line instead of being cut off at the window's edge.
+        var row = new WrapPanel
         {
             Orientation = Orientation.Horizontal,
             HorizontalAlignment = HorizontalAlignment.Right,

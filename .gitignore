@@ -16,3 +16,14 @@ installer/Payload.zip
 
 # Visual Studio test deploy scratch (the kept evidence lives in output/test-results/)
 Clearspace.Tests/TestResults/
+
+# NEW (repo cleanup): the same scratch inside the kept evidence. Every test run copies its screenshots
+# into a folder of its own (Payton_PC_date/In/..., Deploy_...), so the same pictures pile up run after
+# run. The .trx reports next to those folders are what the docs cite, and they stay in the repo.
+output/test-results/*/*/
+
+# NEW (repo cleanup): rendered previews and one-off design screenshots. The README's pictures are in
+# docs/images/. (A test rewrites output/previews/ each run.)
+output/previews/
+output/algorithms/
+output/installer-preview/

@@ -20,7 +20,7 @@ namespace Clearspace;
 
 public partial class MainWindow : Window
 {
-    private readonly MainViewModel _viewModel = new();
+    private readonly MainViewModel _viewModel; // CHANGED (tab to new window): made in the constructor (was "= new()")
     private DiskUsageView? _diskUsageView;
     private IndexingView? _indexingView;
 
@@ -98,8 +98,21 @@ public partial class MainWindow : Window
     private bool _isColumnDragging;
     private bool _suppressColumnSort;
 
-    public MainWindow()
+    // NEW (new window): the folder this window opens on. Null for the first window, which opens on the
+    // folder Clearspace was started with (App.StartupPath) or your user folder.
+    private readonly string? _startPath;
+
+    // NEW (tab to new window): the tab this window was made for, when a tab was dragged out of another
+    // window (or sent here with "Move to new window"). Its history becomes this window's first tab.
+    private readonly ExplorerTab? _startTab;
+
+    // CHANGED (new window): takes the folder to open on (see MainWindow.Windows.cs).
+    // CHANGED (tab to new window): or the tab to open with.
+    public MainWindow(string? startPath = null, ExplorerTab? startTab = null)
     {
+        _startPath = startPath;
+        _startTab = startTab;
+        _viewModel = new MainViewModel(startTab?.History);
         InitializeComponent();
         DataContext = _viewModel;
 
@@ -120,6 +133,9 @@ public partial class MainWindow : Window
         _viewModel.Viewer.PropertyChanged += (_, e) => { if (e.PropertyName == nameof(PhotoViewerViewModel.IsOpen)) FlashPage(); };
         InitializeUpdates(); // NEW (updates): the quiet update check and the status bar's "Update available" chip
         InitializeBackgroundMenu(); // NEW (empty-area menu): remembers the files-and-folders menu, reads the "New" templates
+        InitializeTabs(); // NEW (tabs): the tab strip's mouse and keyboard handling, and each tab's scroll position and selection
+        InitializeWindows(); // NEW (new window): "Open in new window" and Ctrl+N
+        _viewModel.Context.NewLibraryFolder = CreateLibraryFolder; // NEW (your files): New folder on the Your files page
         // NEW (experimental themes): keeps the Zen theme's fading toolbar in step with the pointer and keyboard.
         ToolbarRow.MouseEnter += (_, _) => UpdateToolbarFade();
         ToolbarRow.MouseLeave += (_, _) => UpdateToolbarFade();
@@ -135,7 +151,8 @@ public partial class MainWindow : Window
         _viewModel.Viewer.FileChanged += (_, _) => _ = _viewModel.RefreshAsync();
         SizeChanged += (_, _) => UpdateViewerSize();
         // NEW (e-ink): the picture of the previous page no longer fits a resized window, so drop its ghost.
-        SizeChanged += (_, _) => { if (EInkScreen.Main is { } screen) { screen.BeginAnimation(EInkEffect.GhostAmountProperty, null); screen.GhostAmount = 0; } };
+        // CHANGED (new window): this window's own effect (was the one effect every window would have shared).
+        SizeChanged += (_, _) => { if (_screen is { } screen) { screen.BeginAnimation(EInkEffect.GhostAmountProperty, null); screen.GhostAmount = 0; } };
 
         DependencyPropertyDescriptor
             .FromProperty(ListView.ViewProperty, typeof(ListView))
@@ -384,7 +401,8 @@ public partial class MainWindow : Window
         HookColumnHeaders();
         ApplyColumns();
 
-        _viewModel.Start(App.StartupPath);
+        _viewModel.Start(_startPath ?? App.StartupPath); // CHANGED (new window): a new window opens on the folder it was asked for
+        if (_startTab is { } moved) ResumeMovedTab(moved); // NEW (tab to new window): its search, scroll position and selection
         FileList.Focus();
     }
 
@@ -472,6 +490,12 @@ public partial class MainWindow : Window
             if (e.Key == Key.F3) { _diskUsageView.ToggleMapStats(); e.Handled = true; }
             return;
         }
+        // NEW (tabs): Ctrl+T, Ctrl+W, Ctrl+Tab ... work wherever the keyboard is, including the search and
+        // address boxes (which is why this comes before the text box check below). Not while the photo
+        // viewer covers the window. See MainWindow.Tabs.cs.
+        if (!_viewModel.Viewer.IsOpen && TryHandleTabKey(e))
+            return;
+
         if (e.Key == Key.F && (Keyboard.Modifiers & ModifierKeys.Control) != 0)
         {
             SearchBox.Focus();
@@ -1161,8 +1185,15 @@ public partial class MainWindow : Window
         if (targetFolder is null)
             return DragDropEffects.None;
 
-        var destination = targetFolder;
+        return FileDropEffects(sourcePaths, targetFolder, e.KeyStates); // CHANGED (tabs): the rules moved out, below
+    }
 
+    // CHANGED (tabs): taken out of ResolveFileDropEffects unchanged, so that dropping files on a tab
+    // (MainWindow.Tabs.cs) follows exactly the same rules as dropping them into the list: nothing when the
+    // files are already there or a folder would go into itself; Shift = move, Ctrl = copy; otherwise move
+    // on the same drive and copy across drives.
+    private static DragDropEffects FileDropEffects(string[] sourcePaths, string destination, DragDropKeyStates keys)
+    {
         if (sourcePaths.Any(path => IsSameOrAncestorOf(path, destination)))
             return DragDropEffects.None;
 
@@ -1170,10 +1201,10 @@ public partial class MainWindow : Window
                 string.Equals(Path.GetDirectoryName(path), destination, StringComparison.OrdinalIgnoreCase)))
             return DragDropEffects.None;
 
-        if ((e.KeyStates & DragDropKeyStates.ShiftKey) != 0)
+        if ((keys & DragDropKeyStates.ShiftKey) != 0)
             return DragDropEffects.Move;
 
-        if ((e.KeyStates & DragDropKeyStates.ControlKey) != 0)
+        if ((keys & DragDropKeyStates.ControlKey) != 0)
             return DragDropEffects.Copy;
 
         var sameDrive = sourcePaths.All(path =>
@@ -1669,9 +1700,18 @@ public partial class MainWindow : Window
             return;
         }
 
-        if (FindAncestor<GridViewColumnHeader>(source) is not null
-            || FindAncestor<ScrollBar>(source) is not null
-            || !Directory.Exists(_viewModel.CurrentPath))
+        var onHeaderOrScrollBar = FindAncestor<GridViewColumnHeader>(source) is not null
+                                  || FindAncestor<ScrollBar>(source) is not null;
+
+        // NEW (your files): empty space on the Your files page has a menu of its own (New folder, Add a folder).
+        if (!onHeaderOrScrollBar && _viewModel.IsYourFilesHub)
+        {
+            FileList.UnselectAll();
+            FileList.ContextMenu = BuildYourFilesMenu();
+            return;
+        }
+
+        if (onHeaderOrScrollBar || !Directory.Exists(_viewModel.CurrentPath))
         {
             FileList.ContextMenu = _itemMenu;
             return;

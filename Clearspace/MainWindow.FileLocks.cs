@@ -7,6 +7,7 @@
 using System.IO;
 using System.Windows;
 using Clearspace.Services;
+using Clearspace.ViewModels; // NEW (tabs): ExplorerTabs.ParentOf
 
 namespace Clearspace;
 
@@ -20,6 +21,7 @@ public partial class MainWindow
         _viewModel.Navigation.CanEnter = CanEnterLocation;
         _viewModel.Navigation.Navigated += (_, _) => Agent.Check();
         Loaded += (_, _) => Agent.Attach(this);
+        Activated += (_, _) => Agent.Activated(this); // NEW (new window): password prompts belong to the window in use
         Closed += (_, _) => Agent.Detach(this);
     }
 
@@ -27,7 +29,18 @@ public partial class MainWindow
 
     internal string? CurrentLocation => _viewModel.Navigation.CurrentPath;
 
+    // NEW (tabs): every folder this window counts as showing: the tab on screen, and background tabs that
+    // have been shown where they are. Something unlocked for a visit stays unlocked while a tab is in it,
+    // the same way it does while an Explorer tab is.
+    internal IEnumerable<string> ShownLocations => Tabs.ShownLocations;
+
     internal void NavigateTo(string path) => _viewModel.Navigation.Navigate(path);
+
+    // NEW (tabs): a folder is about to be locked again on request: every tab that is in it (or anywhere
+    // inside it) moves out to the folder above. Background tabs are moved without being shown.
+    internal void LeaveFolder(string folder) => Tabs.MoveOut(
+        location => FileLockService.SamePath(location, folder) || FileLockService.IsInside(location, folder),
+        ExplorerTabs.ParentOf(folder));
 
     internal void ReportLockStatus(string message) => _viewModel.ReportFileLock(message);
 
@@ -104,5 +117,18 @@ public partial class MainWindow
         var entered = Agent.OpenFolderPrompt(governing.Folder, attach: true);
         _viewModel.RefreshLockBadges();
         return entered;
+    }
+
+    // NEW (tabs): whether going to this location would put the password prompt on screen (it is in a
+    // locked folder that is not open right now). Asked before anything that must not be interrupted by a
+    // prompt: switching tabs while files are being dragged, taking a drop on a tab.
+    private static bool WouldAskForPassword(string path)
+    {
+        if (path.Length == 0 || path.StartsWith("clearspace://", StringComparison.OrdinalIgnoreCase)) return false;
+        string full;
+        try { full = Path.TrimEndingDirectorySeparator(Path.GetFullPath(path)); }
+        catch (Exception) { return false; }
+
+        return FileLockRegistry.Governing(full) is { } governing && !Agent.IsOpenHere(governing.Folder);
     }
 }

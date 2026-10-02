@@ -51,7 +51,20 @@ public enum CommandCode
     InvertSelection,
 
     ToggleHiddenItems,
-    OpenTerminal
+    OpenTerminal,
+
+    // NEW (tabs)
+    NewTab,
+    CloseTab,
+    NextTab,
+    PreviousTab,
+    ReopenClosedTab,
+    DuplicateTab,
+    OpenInNewTab,
+
+    // NEW (new window)
+    NewWindow,
+    OpenInNewWindow
 }
 
 

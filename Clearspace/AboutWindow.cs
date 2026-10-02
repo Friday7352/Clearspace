@@ -28,8 +28,12 @@ internal sealed class AboutWindow : Window
     internal AboutWindow()
     {
         Title = "About Clearspace";
-        Width = 500;
-        SizeToContent = SizeToContent.Height;
+        // FIXED (about): the window had a fixed width of 500, which cut off the "Copy details" button in
+        // themes with a wide font (1-bit Mac, Pixel). It now grows to fit its widest row, between 500 and
+        // 760; past that the paths wrap and the link buttons move onto a second line instead of being cut.
+        MinWidth = 500;
+        MaxWidth = 760;
+        SizeToContent = SizeToContent.WidthAndHeight;
         ResizeMode = ResizeMode.NoResize;
         ShowInTaskbar = false;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
@@ -132,7 +136,7 @@ internal sealed class AboutWindow : Window
         close.Click += (_, _) => Close();
         DockPanel.SetDock(close, Dock.Right);
 
-        var links = new StackPanel { Orientation = Orientation.Horizontal };
+        var links = new WrapPanel { Orientation = Orientation.Horizontal }; // FIXED (about): wraps, never clips
         links.Children.Add(website);
         links.Children.Add(releases);
         links.Children.Add(copy);

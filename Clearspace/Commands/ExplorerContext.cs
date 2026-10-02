@@ -2,12 +2,17 @@
 
 using Clearspace.Models;
 using Clearspace.Services;
+using Clearspace.ViewModels; // NEW (tabs): ExplorerTabs
 
 namespace Clearspace.Commands;
 
 public sealed class ExplorerContext : ObservableObject
 {
     public required NavigationService Navigation { get; init; }
+
+    // NEW (tabs): the window's tabs, for the tab actions (Commands/Actions/TabActions.cs). Null where
+    // there is no tab strip (unit tests that build a context on its own).
+    public ExplorerTabs? Tabs { get; set; }
 
     public IntPtr OwnerHandle { get; set; }
 
@@ -25,6 +30,10 @@ public sealed class ExplorerContext : ObservableObject
     public bool HasFileOperationResult => LastFileOperation is not null;
 
     public void ReportFileOperation(FileOperationResult result) => LastFileOperation = result;
+
+    // NEW (status line): takes the "Delete: Completed." line away again. MainViewModel calls it a few
+    // seconds after a result was reported; nothing else clears it (a refresh deliberately does not).
+    public void ClearFileOperation() => LastFileOperation = null;
 
     private string _currentPath = string.Empty;
     public string CurrentPath
@@ -71,6 +80,13 @@ public sealed class ExplorerContext : ObservableObject
     public Action? FocusAddressBar { get; set; }
 
     public Action? ToggleLayout { get; set; }
+
+    // NEW (new window): opens another Clearspace window on a location. Set by the main window.
+    public Action<string>? OpenWindow { get; set; }
+
+    // NEW (your files): makes a new folder of your own on the Your files page and starts renaming it.
+    // Set by the main window (the renaming box is the window's).
+    public Action? NewLibraryFolder { get; set; }
 
     public string[] SelectedPaths => SelectedItems.Select(item => item.FullPath).ToArray();
 }

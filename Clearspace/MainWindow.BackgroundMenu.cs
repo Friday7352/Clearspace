@@ -11,6 +11,7 @@ using System.Windows.Input;
 using System.Windows.Media;
 using Clearspace.Models;
 using Clearspace.Services;
+using Clearspace.ViewModels; // NEW (your files)
 
 namespace Clearspace;
 
@@ -188,5 +189,96 @@ public partial class MainWindow
         {
             // the item exists; failing to select it is not worth an error box
         }
+    }
+
+    // ------------------------------------------------------------------ NEW (your files)
+    // The Your files page lists Windows' six folders and the ones you added. Empty space there gets this
+    // menu instead of the files-and-folders one: New folder makes a folder in your user folder (next to
+    // Documents and the rest) and adds it to the page; Add a folder puts a folder you already have there.
+
+    private ContextMenu BuildYourFilesMenu()
+    {
+        var menu = new ContextMenu();
+        menu.Items.Add(Entry("New folder", "\uE8F4", CreateLibraryFolder, "Ctrl+Shift+N"));
+        menu.Items.Add(Entry("Add a folder you already have…", "\uE8B7", AddExistingLibraryFolder));
+        menu.Items.Add(new Separator());
+        menu.Items.Add(Entry("Refresh", "\uE72C", () => _viewModel.RefreshCommand.Execute(null), "F5"));
+        return menu;
+    }
+
+    // Also what the toolbar's New folder button and Ctrl+Shift+N do on this page (ExplorerContext.NewLibraryFolder).
+    private async void CreateLibraryFolder()
+    {
+        try
+        {
+            string path;
+            try
+            {
+                path = ShellMenuService.CreateFolder(MainViewModel.LibraryRoot);
+            }
+            catch (Exception error)
+            {
+                MessageDialog.Show(this, error.Message, "Couldn't create a folder in " + MainViewModel.LibraryRoot,
+                    MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            _viewModel.AddLibraryFolder(path);
+            await SelectOnYourFilesPage(path, rename: true);
+        }
+        catch (Exception)
+        {
+            // the folder exists and is listed; failing to select it is not worth an error box
+        }
+    }
+
+    private async void AddExistingLibraryFolder()
+    {
+        try
+        {
+            var picker = new Microsoft.Win32.OpenFolderDialog
+            {
+                Title = "Choose a folder to add to Your files",
+                InitialDirectory = MainViewModel.LibraryRoot,
+                Multiselect = false
+            };
+
+            if (picker.ShowDialog(this) != true)
+                return;
+
+            _viewModel.AddLibraryFolder(picker.FolderName);
+            await SelectOnYourFilesPage(picker.FolderName, rename: false);
+        }
+        catch (Exception)
+        {
+        }
+    }
+
+    private async Task SelectOnYourFilesPage(string path, bool rename)
+    {
+        if (!_viewModel.IsYourFilesHub)
+            return;
+
+        await _viewModel.RefreshAsync();
+
+        var item = _viewModel.Items.FirstOrDefault(candidate => string.Equals(candidate.FullPath, path, StringComparison.OrdinalIgnoreCase));
+        if (item is null)
+            return; // one of Windows' six, or already listed under another spelling
+
+        FileList.SelectedItem = item;
+        FileList.ScrollIntoView(item);
+        if (rename)
+            BeginRename(item);
+    }
+
+    // "Remove from Your files" on the page: takes the selected folders of yours off it. Nothing is deleted.
+    private async void OnRemoveFromYourFiles(object sender, RoutedEventArgs e)
+        => await _viewModel.RemoveSelectionFromYourFilesAsync();
+
+    // The same, from a sidebar entry's menu.
+    private void OnRemoveSidebarLibrary(object sender, RoutedEventArgs e)
+    {
+        if (sender is MenuItem { DataContext: SidebarEntry { IsLibrary: true } entry })
+            _viewModel.RemoveLibraryFolder(entry.Path);
     }
 }

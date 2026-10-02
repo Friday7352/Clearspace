@@ -14,7 +14,8 @@ public sealed record SidebarEntry(
     bool IsSection = false,
     string? SectionId = null,
     bool IsChild = false,
-    string? CloudProvider = null)
+    string? CloudProvider = null,
+    bool IsLibrary = false) // NEW (your files): a folder you added to Your files (it can be taken off again)
 {
     public string DisplayName => Name;
     public string CollapseGlyph => IsCollapsed ? "\uE76C" : "\uE70D";

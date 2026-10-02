@@ -193,10 +193,21 @@ public sealed class NewFolderAction(ExplorerContext context) : IAction
     public string Description => "Create a folder here";
     public string Glyph => "\uE8F4";
     public HotKey HotKey => new(Key.N, ModifierKeys.Control | ModifierKeys.Shift);
-    public bool IsExecutable => Directory.Exists(context.CurrentPath);
+    // CHANGED (your files): also available on the Your files page, where it makes a folder of your own.
+    public bool IsExecutable => Directory.Exists(context.CurrentPath) || IsYourFiles;
+
+    private bool IsYourFiles => context.NewLibraryFolder is not null &&
+                                context.CurrentPath.Equals(ExplorerLocations.YourFilesPath, StringComparison.OrdinalIgnoreCase);
 
     public Task ExecuteAsync(object? parameter = null)
     {
+        // NEW (your files)
+        if (IsYourFiles)
+        {
+            context.NewLibraryFolder!.Invoke();
+            return Task.CompletedTask;
+        }
+
         if (!Directory.Exists(context.CurrentPath))
             return Task.CompletedTask;
 

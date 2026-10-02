@@ -73,5 +73,22 @@ internal static class LocationCatalog
         yield return Entry("Pictures", KnownFolders.Pictures);
         yield return Entry("Music", KnownFolders.Music);
         yield return Entry("Videos", KnownFolders.Videos);
+
+        // NEW (your files): then the folders you added yourself. One that is not there right now (deleted,
+        // or on a drive that is not connected) is left out, as is one that is already among the six.
+        string[] builtIn = [KnownFolders.Desktop, KnownFolders.Documents, KnownFolders.Downloads,
+            KnownFolders.Pictures, KnownFolders.Music, KnownFolders.Videos];
+
+        foreach (var path in SettingsService.GetLibraryFolders())
+        {
+            if (!Directory.Exists(path) || builtIn.Any(known => string.Equals(Path.TrimEndingDirectorySeparator(known), Path.TrimEndingDirectorySeparator(path), StringComparison.OrdinalIgnoreCase)))
+                continue;
+
+            yield return new SidebarEntry(
+                LibraryFolders.NameOf(path),
+                path,
+                IsLibrary: true,
+                CloudProvider: CloudStorageService.IsDiscovered ? CloudStorageService.RootFor(path)?.Name : null);
+        }
     }
 }

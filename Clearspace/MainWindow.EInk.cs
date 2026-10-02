@@ -19,10 +19,14 @@ namespace Clearspace;
 
 public partial class MainWindow
 {
+    // CHANGED (new window): each window has its own effect. They used to share one (EInkScreen.Main), which
+    // was fine for a single window; with two, a page turn in one would show its old page over the other.
+    private EInkEffect? _screen;
+
     // Puts the panel effect on the window (E-reader theme) or takes it off (every other theme).
     private void ApplyScreenEffect()
     {
-        var screen = ThemeService.EInk ? EInkScreen.Main : null;
+        var screen = ThemeService.EInk ? (_screen ??= EInkScreen.CreateForWindow()) : null;
         if (screen is not null)
             ClearGhost(screen);
         ScreenFrame.Effect = screen;
@@ -30,7 +34,7 @@ public partial class MainWindow
 
     // The effect, when it is on this window right now; otherwise null.
     private EInkEffect? ActiveScreen =>
-        ThemeService.EInk && EInkScreen.Main is { } screen && ReferenceEquals(ScreenFrame.Effect, screen) ? screen : null;
+        ThemeService.EInk && _screen is { } screen && ReferenceEquals(ScreenFrame.Effect, screen) ? screen : null;
 
     // A page turn: remember what is on screen, then let the new page come through it.
     private void TurnPage()

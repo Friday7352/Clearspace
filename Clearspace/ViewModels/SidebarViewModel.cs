@@ -6,11 +6,26 @@ using static Clearspace.Services.ExplorerLocations;
 
 namespace Clearspace.ViewModels;
 
-public sealed class SidebarViewModel
+// CHANGED (new window): every window has its own sidebar, built from the same settings. A change made in
+// one window (a pin, a category, a folder added to Your files) now rebuilds the sidebar of every open
+// window (RebuildEverySidebar), not only its own.
+public sealed class SidebarViewModel : IDisposable
 {
+    private static event Action? SettingsChanged; // NEW (new window)
+
     private List<SidebarEntry> _driveEntries = [];
     public ObservableCollection<SidebarEntry> Sidebar { get; } = [];
-    public SidebarViewModel() => RebuildSidebar();
+
+    public SidebarViewModel()
+    {
+        RebuildSidebar();
+        SettingsChanged += RebuildSidebar;
+    }
+
+    // NEW (new window): a closed window's sidebar stops listening (called from MainViewModel.Dispose).
+    public void Dispose() => SettingsChanged -= RebuildSidebar;
+
+    private static void RebuildEverySidebar() => SettingsChanged?.Invoke();
 
     public async Task LoadDrivesAsync()
     {
@@ -41,13 +56,44 @@ public sealed class SidebarViewModel
     public void SetSidebarLocation(string name, string path)
     {
         SettingsService.SetSidebarOverride(name, path);
-        RebuildSidebar();
+        RebuildEverySidebar();
     }
 
     public void ResetSidebarLocation(string name)
     {
         SettingsService.ClearSidebarOverride(name);
-        RebuildSidebar();
+        RebuildEverySidebar();
+    }
+
+    // ---- NEW (your files): folders you add to Your files, after Windows' six.
+
+    public void AddLibraryFolder(string path)
+    {
+        if (SettingsService.AddLibraryFolder(path))
+            RebuildEverySidebar();
+    }
+
+    public void RemoveLibraryFolder(string path)
+    {
+        if (SettingsService.RemoveLibraryFolder(path))
+            RebuildEverySidebar();
+    }
+
+    // A folder was renamed in Clearspace: if it is one of yours, it stays in Your files under its new name.
+    public void RenameLibraryFolder(string from, string to)
+    {
+        if (SettingsService.MoveLibraryFolder(from, to))
+            RebuildEverySidebar();
+    }
+
+    // Forgets folders of yours that no longer exist. True when any were dropped.
+    public bool PruneLibraryFolders()
+    {
+        if (!SettingsService.PruneLibraryFolders())
+            return false;
+
+        RebuildEverySidebar();
+        return true;
     }
 
     public void PinDirectory(string path)
@@ -60,67 +106,67 @@ public sealed class SidebarViewModel
             name = path;
 
         SettingsService.PinDirectory(path, name);
-        RebuildSidebar();
+        RebuildEverySidebar();
     }
 
     public void UnpinDirectory(string path)
     {
         SettingsService.UnpinDirectory(path);
-        RebuildSidebar();
+        RebuildEverySidebar();
     }
 
     public void CreatePinnedCategory(string name)
     {
         SettingsService.CreatePinnedCategory(name);
-        RebuildSidebar();
+        RebuildEverySidebar();
     }
 
     public void RenamePinnedCategory(string id, string name)
     {
         SettingsService.RenamePinnedCategory(id, name);
-        RebuildSidebar();
+        RebuildEverySidebar();
     }
 
     public void DeletePinnedCategory(string id)
     {
         SettingsService.DeletePinnedCategory(id);
-        RebuildSidebar();
+        RebuildEverySidebar();
     }
 
     public void TogglePinnedCategory(string id)
     {
         SettingsService.TogglePinnedCategory(id);
-        RebuildSidebar();
+        RebuildEverySidebar();
     }
 
     public void ToggleSidebarSection(string id)
     {
         SettingsService.ToggleSidebarSection(id);
-        RebuildSidebar();
+        RebuildEverySidebar();
     }
 
     public void RenameSidebarSection(string id, string name)
     {
         SettingsService.RenameSidebarSection(id, name);
-        RebuildSidebar();
+        RebuildEverySidebar();
     }
 
     public void MoveSidebarSection(string sourceId, string targetId, bool placeAfter)
     {
         SettingsService.MoveSidebarSection(sourceId, targetId, placeAfter);
-        RebuildSidebar();
+        RebuildEverySidebar();
     }
 
     public void MovePinnedDirectory(string path, string? categoryId, string? targetPath, bool placeAfter)
     {
         SettingsService.MovePinnedDirectory(path, categoryId, targetPath, placeAfter);
-        RebuildSidebar();
+        RebuildEverySidebar();
     }
 
     public void MovePinnedCategory(string sourceId, string beforeId)
     {
         SettingsService.MovePinnedCategory(sourceId, beforeId);
-        RebuildSidebar();
+        RebuildEverySidebar();
     }
 
     private void RebuildSidebar()

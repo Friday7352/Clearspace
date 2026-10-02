@@ -1,13 +1,51 @@
 // Clearspace | Navigation history and current location.
+// CHANGED (tabs): the back / forward list is now its own object (NavigationHistory) and every tab owns
+// one. NavigationService works on whichever history is attached, so Back, Forward and Up always act on
+// the tab you are looking at. Nothing else about it changed: one service, one Navigated event.
 
 using System.IO;
 
 namespace Clearspace.Services;
 
+// NEW (tabs): one tab's back / forward list and its place in it.
+public sealed class NavigationHistory
+{
+    internal List<string> Entries { get; } = [];
+
+    internal int Index { get; set; } = -1;
+
+    public string? CurrentPath => Index >= 0 && Index < Entries.Count ? Entries[Index] : null;
+
+    public int Count => Entries.Count;
+
+    // Moves to a new location: whatever was "forward" of here is dropped, as in a browser.
+    internal void Push(string path)
+    {
+        if (Index < Entries.Count - 1)
+            Entries.RemoveRange(Index + 1, Entries.Count - Index - 1);
+
+        Entries.Add(path);
+        Index = Entries.Count - 1;
+    }
+
+    // A separate copy, for "Duplicate tab" and for remembering a closed tab.
+    public NavigationHistory Clone()
+    {
+        var copy = new NavigationHistory();
+        copy.Entries.AddRange(Entries);
+        copy.Index = Index;
+        return copy;
+    }
+}
+
 public sealed class NavigationService
 {
-    private readonly List<string> _history = [];
-    private int _index = -1;
+    // CHANGED (tabs): was a List<string> and an index held here; now the attached tab's history.
+    private NavigationHistory _history;
+
+    // NEW (tab to new window): a service can start on a history that already exists. That is how a tab
+    // dragged out of one window carries its back / forward list into the window made for it.
+    public NavigationService(NavigationHistory? history = null) => _history = history ?? new NavigationHistory();
 
     public event EventHandler<string>? Navigated;
 
@@ -16,15 +54,44 @@ public sealed class NavigationService
     // is never gated.
     public Func<string, bool>? CanEnter { get; set; }
 
-    public string? CurrentPath => _index >= 0 && _index < _history.Count ? _history[_index] : null;
+    // NEW (tabs): the history Back and Forward are working on right now (the active tab's).
+    public NavigationHistory History => _history;
 
-    public bool CanGoBack => _index > 0;
+    public string? CurrentPath => _history.CurrentPath;
 
-    public bool CanGoForward => _index >= 0 && _index < _history.Count - 1;
+    public bool CanGoBack => _history.Index > 0;
+
+    public bool CanGoForward => _history.Index >= 0 && _history.Index < _history.Entries.Count - 1;
 
     public bool CanGoUp => CurrentPath is not null &&
                            !CurrentPath.StartsWith("clearspace://", StringComparison.OrdinalIgnoreCase) &&
                            Directory.GetParent(CurrentPath) is not null;
+
+    // NEW (tabs): a history that starts at one location (a new tab).
+    public static NavigationHistory CreateHistory(string path)
+    {
+        var history = new NavigationHistory();
+        history.Push(Normalize(path));
+        return history;
+    }
+
+    // NEW (tabs): whether the window may show this location now. The same gate Navigate uses, for a move
+    // that does not go through Navigate (switching to a tab that sits in a locked folder).
+    public bool MayEnter(string? path)
+        => path is null ||
+           string.Equals(CurrentPath, path, StringComparison.OrdinalIgnoreCase) ||
+           CanEnter is null ||
+           CanEnter(path);
+
+    // NEW (tabs): switches to another tab's history and shows where that tab is. Not gated; callers ask
+    // MayEnter first.
+    public void Attach(NavigationHistory history)
+    {
+        _history = history;
+
+        if (history.CurrentPath is { } path)
+            Navigated?.Invoke(this, path);
+    }
 
     public void Navigate(string path)
     {
@@ -38,11 +105,7 @@ public sealed class NavigationService
 
         if (CanEnter is not null && !CanEnter(path)) return; // NEW (locked folders)
 
-        if (_index < _history.Count - 1)
-            _history.RemoveRange(_index + 1, _history.Count - _index - 1);
-
-        _history.Add(path);
-        _index = _history.Count - 1;
+        _history.Push(path); // CHANGED (tabs): the truncate-then-add moved into NavigationHistory.Push
 
         Navigated?.Invoke(this, path);
     }
@@ -50,17 +113,17 @@ public sealed class NavigationService
     public void GoBack()
     {
         if (!CanGoBack) return;
-        if (CanEnter is not null && !CanEnter(_history[_index - 1])) return; // NEW (locked folders)
-        _index--;
-        Navigated?.Invoke(this, _history[_index]);
+        if (CanEnter is not null && !CanEnter(_history.Entries[_history.Index - 1])) return; // NEW (locked folders)
+        _history.Index--;
+        Navigated?.Invoke(this, _history.Entries[_history.Index]);
     }
 
     public void GoForward()
     {
         if (!CanGoForward) return;
-        if (CanEnter is not null && !CanEnter(_history[_index + 1])) return; // NEW (locked folders)
-        _index++;
-        Navigated?.Invoke(this, _history[_index]);
+        if (CanEnter is not null && !CanEnter(_history.Entries[_history.Index + 1])) return; // NEW (locked folders)
+        _history.Index++;
+        Navigated?.Invoke(this, _history.Entries[_history.Index]);
     }
 
     public void GoUp()
@@ -71,7 +134,8 @@ public sealed class NavigationService
             Navigate(parent.FullName);
     }
 
-    private static string Normalize(string path)
+    // CHANGED (tabs): internal (was private) so a tab's starting location is tidied the same way.
+    internal static string Normalize(string path)
     {
         path = path.Trim().Trim('"');
 

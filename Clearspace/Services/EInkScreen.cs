@@ -104,9 +104,10 @@ float4 main(float2 uv : TEXCOORD0) : COLOR
     // True while the E-reader theme is the active one.
     internal static bool Active { get; private set; }
 
-    // The main window's effect: the one whose ghost, negative and flash values are animated. Null if the
-    // shader could not be compiled.
-    internal static EInkEffect? Main { get; private set; }
+    // CHANGED (new window): was a single shared effect (Main). Each main window now asks for its own: the
+    // one whose ghost, negative and flash values that window animates. Null if the shader could not be
+    // compiled.
+    internal static EInkEffect? CreateForWindow() => Create();
 
     // Turns the panel look on or off. Called by ThemeService on every theme switch (UI thread).
     internal static void SetActive(bool active)
@@ -123,7 +124,7 @@ float4 main(float2 uv : TEXCOORD0) : COLOR
             return;
         }
 
-        Main ??= Create();
+        // REMOVED (new window): "Main ??= Create();" - the windows make their own in ApplyScreenEffect.
         if (!app.Resources.Contains(PopupEffectKey) && Create() is { } popup)
             app.Resources[PopupEffectKey] = popup;
     }

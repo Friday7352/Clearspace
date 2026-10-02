@@ -1,10 +1,15 @@
 <!-- Clearspace | Main window layout and templates.
      CHANGED (themes): colours, fonts and corner sizes are DynamicResource references into the active theme
      (Themes/*.xaml) and the colours that used to be written out here have theme keys. The theme picker is
-     in the Settings menu. -->
+     in the Settings menu.
+     NEW (tabs): the tab strip above the toolbar ("TabRow" below), "Open in new tab" in the file and sidebar
+     menus, and the xmlns:controls line on the Window, which the strip's panel (TabStripPanel) needs.
+     NEW (new window): "Open in new window" in the same two menus.
+     NEW (your files): "Remove from Your files" in the same two menus, for folders you added to that page. -->
 <Window x:Class="Clearspace.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="clr-namespace:Clearspace.Controls"
         Title="Clearspace"
         Height="800" Width="1280"
         MinHeight="500" MinWidth="860"
@@ -602,9 +607,120 @@
             <RowDefinition Height="Auto" />   <!-- NEW (experimental themes): the function-key bar -->
         </Grid.RowDefinitions>
 
+        <!-- NEW (tabs): the tab strip sits above the toolbar. The two share the shell's first row (this Grid),
+             so the rows below it and the photo viewer's RowSpan are unchanged. Everything a tab does is in
+             MainWindow.Tabs.cs; the tabs themselves are ViewModels/ExplorerTabs.cs. -->
+        <Grid Grid.Row="0">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <DockPanel x:Name="TabRow" Grid.Row="0" LastChildFill="False" Margin="10,8,14,0" Background="Transparent">
+            <!-- The tabs. TabStripPanel gives every tab the same width and narrows them as more are opened;
+                 it keeps ReservedWidth free for the "new tab" button that follows. -->
+            <ItemsControl x:Name="TabStrip"
+                          DockPanel.Dock="Left"
+                          ItemsSource="{Binding Tabs.Items}"
+                          Focusable="False"
+                          ClipToBounds="True"
+                          Background="Transparent"
+                          PreviewMouseMove="OnTabStripMouseMove"
+                          PreviewMouseLeftButtonUp="OnTabStripMouseUp"
+                          LostMouseCapture="OnTabStripLostCapture">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <controls:TabStripPanel ReservedWidth="40" />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <!-- One tab: symbol, name, close button. Click to switch, drag to reorder, middle-click
+                             to close, right-click for the menu; files can be dragged onto it. -->
+                        <Border x:Name="Tab"
+                                Height="30"
+                                Margin="0,0,4,0"
+                                Background="Transparent"
+                                BorderBrush="Transparent"
+                                BorderThickness="1"
+                                CornerRadius="{DynamicResource R8}"
+                                ToolTip="{Binding Hint}"
+                                AllowDrop="True"
+                                MouseLeftButtonDown="OnTabMouseDown"
+                                MouseRightButtonUp="OnTabRightClick"
+                                DragEnter="OnTabDragOver"
+                                DragOver="OnTabDragOver"
+                                DragLeave="OnTabDragLeave"
+                                Drop="OnTabDrop">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock x:Name="TabGlyph"
+                                           Grid.Column="0"
+                                           Text="{Binding Glyph}"
+                                           FontFamily="{StaticResource IconFont}"
+                                           FontSize="12"
+                                           Margin="10,0,8,0"
+                                           VerticalAlignment="Center"
+                                           Foreground="{DynamicResource InkFaint}" />
+                                <TextBlock x:Name="TabTitle"
+                                           Grid.Column="1"
+                                           Text="{Binding Title}"
+                                           FontFamily="{DynamicResource UIFont}"
+                                           FontSize="12"
+                                           VerticalAlignment="Center"
+                                           TextTrimming="CharacterEllipsis"
+                                           Foreground="{DynamicResource InkMuted}" />
+                                <Button Grid.Column="2"
+                                        Content="&#xE711;"
+                                        Click="OnTabCloseClick"
+                                        ToolTip="Close tab  ·  Ctrl+W"
+                                        AutomationProperties.Name="Close tab">
+                                    <Button.Style>
+                                        <Style TargetType="Button" BasedOn="{StaticResource IconButton}">
+                                            <Setter Property="Width" Value="20" />
+                                            <Setter Property="Height" Value="20" />
+                                            <Setter Property="FontSize" Value="8" />
+                                            <Setter Property="Margin" Value="4,0,5,0" />
+                                        </Style>
+                                    </Button.Style>
+                                </Button>
+                            </Grid>
+                        </Border>
+                        <DataTemplate.Triggers>
+                            <Trigger SourceName="Tab" Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Tab" Property="Background" Value="{DynamicResource Hover}" />
+                            </Trigger>
+                            <!-- The tab you are on looks like the address bar: raised from the window. Listed
+                                 after the hover trigger so it wins while the pointer is over the tab. -->
+                            <DataTrigger Binding="{Binding IsActive}" Value="True">
+                                <Setter TargetName="Tab" Property="Background" Value="{DynamicResource Surface}" />
+                                <Setter TargetName="Tab" Property="BorderBrush" Value="{DynamicResource EdgeSunken}" />
+                                <Setter TargetName="TabTitle" Property="Foreground" Value="{DynamicResource Ink}" />
+                                <Setter TargetName="TabGlyph" Property="Foreground" Value="{DynamicResource Accent}" />
+                            </DataTrigger>
+                        </DataTemplate.Triggers>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+            <Button DockPanel.Dock="Left"
+                    Style="{StaticResource IconButton}"
+                    Width="30" Height="30"
+                    FontSize="11"
+                    Content="&#xE710;"
+                    Command="{Binding NewTabCommand}"
+                    ToolTip="New tab  ·  Ctrl+T"
+                    AutomationProperties.Name="New tab" />
+        </DockPanel>
+
         <!-- CHANGED (experimental themes): named, and given a see-through background so the whole strip (not
              just its buttons) counts as "pointer over the toolbar" for the Zen theme's fading toolbar. -->
-        <Grid x:Name="ToolbarRow" Grid.Row="0" Margin="10,10,14,8" Background="Transparent">
+        <!-- CHANGED (tabs): second row of the Grid above (was the shell's row 0); a little less space on top. -->
+        <Grid x:Name="ToolbarRow" Grid.Row="1" Margin="10,6,14,8" Background="Transparent">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="*" />
@@ -876,6 +992,7 @@
                 </Button>
             </StackPanel>
         </Grid>
+        </Grid> <!-- NEW (tabs): end of the tab strip + toolbar row -->
 
         <Grid Grid.Row="1">
             <Grid.ColumnDefinitions>
@@ -1026,6 +1143,14 @@
                                     </Button.Content>
                                     <Button.ContextMenu>
                                         <ContextMenu>
+                                            <!-- NEW (tabs) -->
+                                            <MenuItem Header="Open in new tab" Click="OnSidebarOpenInNewTab" />
+                                            <!-- NEW (new window) -->
+                                            <MenuItem Header="Open in new window" Click="OnSidebarOpenInNewWindow" />
+                                            <!-- NEW (your files): only on folders you added to Your files. -->
+                                            <MenuItem Header="Remove from Your files"
+                                                      Click="OnRemoveSidebarLibrary"
+                                                      Visibility="{Binding IsLibrary, Converter={StaticResource BoolToVisible}}" />
                                             <MenuItem Header="Change location…" Click="OnChangeSidebarLocation">
                                                 <MenuItem.Style>
                                                     <Style TargetType="MenuItem">
@@ -1284,6 +1409,15 @@
                         <ListView.ContextMenu>
                             <ContextMenu DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}">
                                 <MenuItem Header="Open" Command="{Binding OpenCommand}" />
+                                <!-- NEW (tabs): shown when the selection has folders; they open in the background. -->
+                                <MenuItem Header="Open in new tab"
+                                          Command="{Binding OpenInNewTabCommand}"
+                                          Visibility="{Binding IsEnabled, RelativeSource={RelativeSource Self}, Converter={StaticResource BoolToVisible}}" />
+                                <!-- NEW (new window): folders only, one window each. The window belongs to this
+                                     Clearspace, so the index and caches are shared (MainWindow.Windows.cs). -->
+                                <MenuItem Header="Open in new window"
+                                          Command="{Binding OpenInNewWindowCommand}"
+                                          Visibility="{Binding IsEnabled, RelativeSource={RelativeSource Self}, Converter={StaticResource BoolToVisible}}" />
                                 <Separator />
                                 <MenuItem Header="Cut" Command="{Binding CutCommand}" InputGestureText="Ctrl+X" />
                                 <MenuItem Header="Copy" Command="{Binding CopyCommand}" InputGestureText="Ctrl+C" />
@@ -1302,6 +1436,10 @@
                                 <MenuItem Header="Change password…" Click="OnChangeLockPassword" IsEnabled="{Binding Context.HasSelection}" />
                                 <Separator />
                                 <MenuItem Header="Pin to sidebar" Click="OnPinDirectory" />
+                                <!-- NEW (your files): on the Your files page, for folders you added. Deletes nothing. -->
+                                <MenuItem Header="Remove from Your files"
+                                          Click="OnRemoveFromYourFiles"
+                                          Visibility="{Binding CanRemoveFromYourFiles, Converter={StaticResource BoolToVisible}}" />
                                 <!-- NEW (folder types, step 2): Projects folders -->
                                 <MenuItem Header="Pin to project"
                                           Click="OnPinToProject"
