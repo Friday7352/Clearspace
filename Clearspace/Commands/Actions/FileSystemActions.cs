@@ -1,3 +1,5 @@
+// Clearspace | File-system command actions.
+
 using System.Collections.Specialized;
 using System.Diagnostics;
 using System.IO;
@@ -16,19 +18,20 @@ public sealed class OpenItemAction(ExplorerContext context) : IAction
     public HotKey HotKey => new(Key.Enter);
     public bool IsExecutable => context.HasSelection;
 
-    public Task ExecuteAsync(object? parameter = null)
+    public async Task ExecuteAsync(object? parameter = null)
     {
         foreach (var item in context.SelectedItems)
         {
             if (item.IsFolder)
             {
-                // Only the first folder wins; opening several at once needs tabs.
                 context.Navigation.Navigate(item.FullPath);
-                return Task.CompletedTask;
+                return;
             }
 
             try
             {
+                if (context.OpenLockedFile is not null && await context.OpenLockedFile(item.FullPath))
+                    continue;
                 Process.Start(new ProcessStartInfo
                 {
                     FileName = item.FullPath,
@@ -37,11 +40,9 @@ public sealed class OpenItemAction(ExplorerContext context) : IAction
             }
             catch (Exception)
             {
-                // No association, or the user cancelled the Open With prompt.
             }
         }
 
-        return Task.CompletedTask;
     }
 }
 
@@ -60,7 +61,7 @@ public sealed class DeleteAction(ExplorerContext context) : IAction
         if (paths.Length == 0)
             return Task.CompletedTask;
 
-        FileOperationService.Delete(paths, context.OwnerHandle);
+        context.ReportFileOperation(FileOperationService.Delete(paths, context.OwnerHandle));
         context.RequestRefresh();
         return Task.CompletedTask;
     }
@@ -81,7 +82,7 @@ public sealed class DeletePermanentlyAction(ExplorerContext context) : IAction
         if (paths.Length == 0)
             return Task.CompletedTask;
 
-        FileOperationService.Delete(paths, context.OwnerHandle, permanent: true);
+        context.ReportFileOperation(FileOperationService.Delete(paths, context.OwnerHandle, permanent: true));
         context.RequestRefresh();
         return Task.CompletedTask;
     }
@@ -150,10 +151,10 @@ public sealed class PasteItemAction(ExplorerContext context) : IAction
         if (paths.Length == 0 || !Directory.Exists(context.CurrentPath))
             return Task.CompletedTask;
 
-        if (cut)
-            FileOperationService.Move(paths, context.CurrentPath, context.OwnerHandle);
-        else
-            FileOperationService.Copy(paths, context.CurrentPath, context.OwnerHandle);
+        var result = cut
+            ? FileOperationService.Move(paths, context.CurrentPath, context.OwnerHandle)
+            : FileOperationService.Copy(paths, context.CurrentPath, context.OwnerHandle);
+        context.ReportFileOperation(result);
 
         context.RequestRefresh();
         return Task.CompletedTask;
@@ -179,7 +180,6 @@ public sealed class CopyPathAction(ExplorerContext context) : IAction
         }
         catch (Exception)
         {
-            // Another process is holding the clipboard open.
         }
 
         return Task.CompletedTask;
@@ -213,7 +213,6 @@ public sealed class NewFolderAction(ExplorerContext context) : IAction
         }
         catch (Exception)
         {
-            // Read-only location or insufficient rights.
         }
 
         return Task.CompletedTask;
@@ -240,10 +239,6 @@ public sealed class ShowPropertiesAction(ExplorerContext context) : IAction
     }
 }
 
-/// <summary>
-/// Clipboard interop for file lists. Explorer signals a cut by attaching a
-/// "Preferred DropEffect" stream alongside the file drop list.
-/// </summary>
 internal static class ClipboardHelper
 {
     private const string PreferredDropEffect = "Preferred DropEffect";
@@ -262,7 +257,6 @@ internal static class ClipboardHelper
             var data = new DataObject();
             data.SetFileDropList(files);
 
-            // 2 = DROPEFFECT_MOVE, 5 = DROPEFFECT_COPY
             var effect = new MemoryStream(BitConverter.GetBytes(cut ? 2 : 5));
             data.SetData(PreferredDropEffect, effect);
 
@@ -270,7 +264,6 @@ internal static class ClipboardHelper
         }
         catch (Exception)
         {
-            // Clipboard contention; the user can retry.
         }
     }
 

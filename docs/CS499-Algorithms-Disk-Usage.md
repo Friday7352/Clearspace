@@ -1,0 +1,668 @@
+# CS 499: Algorithms and data structures — disk usage visualizer
+
+**September 23 completion:** the planned traversal-depth and per-drive health
+enhancements are now implemented. See [Artifact Two completion and evidence](CS499-Artifact-Two-Completion.md)
+for the final scope, current tests, measured results, and submission materials.
+The numbered rounds below retain the development history; the completion report
+and current source take precedence over earlier implementation descriptions.
+
+## Implemented enhancement
+
+Clearspace now has an embedded disk usage view accessible from the toolbar or the
+file-list context menu. It opens at the selected folder (or current location)
+when that folder exists in the captured index. Otherwise it shows an indexed
+drive root and explains the fallback. It replaces the browser content inside the
+existing Clearspace window; Back to files restores the browser and its location.
+
+The view provides a nested treemap of the whole drive, a descending size list,
+folder drill-down, Up and breadcrumb navigation, drive selection, cancellation,
+and explicit refresh. Back/Forward buttons and the mouse's XButton1/XButton2
+follow visited locations, including across drives. Alt+Left/Right navigate
+history; Alt+Up goes to the parent. History stores paths rather than retaining
+old indexes. New navigation after Back discards the forward branch, while refresh
+preserves it. History advances only after a successful load; unavailable paths
+and cancellation preserve the current view and history position.
+Select a file for its full path, exact byte count, and percentage of the current
+folder. Keyboard users can navigate the list with Enter and Backspace; + and −
+zoom the focused map. Zero-byte items stay in the list. Rows are 32 pixels tall
+with the name and size on one line; counts, snapshot information, and
+limitations are under the info button. Selection reveals deletion controls.
+
+**One continuous space (revised).** The first version drew one folder level at a
+time and animated folder entry by cross-fading a newly packed square into the
+old one, while the wheel used a separate camera. Entering a folder therefore
+re-laid out its contents in a different shape than the tile the user clicked,
+and every zoom step rebuilt hundreds of WPF buttons. The revised map lays out
+the entire drive once in fixed world coordinates: each folder's children are
+placed inside that folder's own rectangle and never move. The view is a single
+camera over that world. Clicking a block, Back/Forward, Up, breadcrumbs, list
+navigation and the wheel all move the same camera, so every transition is
+continuous and reversible by construction, and the neighbors of the open folder
+remain visible behind a veil that glides to the new folder.
+
+Clicks act one level at a time: inside the current folder, a click opens (or,
+for a file, selects) the child on the path to what was hit. The wheel zooms at
+the pointer with exponential smoothing; successive ticks accumulate on the
+running target while the point under the pointer stays fixed. A folder is
+entered once the camera has zoomed in past its parent and the folder nearly
+fills the view around the pointer; the list follows after the zoom settles for
+140 ms so passing through folders does not churn it. Zooming back out past an
+opened folder returns to its parent. Dragging pans. Hovering shows a card with
+the item's type, size, share of its folder and what a click will do.
+
+Blocks use branch colors shared with the list, with zoom-dependent color transitions.
+Their geometry stays fixed as the camera moves. Open folders show
+a small name tag that fades out once the folder fills the view. Labels are laid
+out in the visible part of a tile and fade in as space appears.
+
+Files and folders can be permanently deleted through the map's right-click
+menu or a selection in the list (including Ctrl/Shift multi-selection), using
+the Delete permanently button, list context menu, or Shift+Delete. A default-No
+confirmation names the target paths, explains that the Recycle Bin is bypassed,
+and states that folder deletion includes current contents missing from the index.
+Drive roots and the synthetic grouped tile cannot be deleted. Windows executes
+the confirmed operation with the existing shell service; tests inject a fake.
+
+After every attempted operation, including cancellation or failure, the view
+checks the selected indexed subtrees. Only paths confirmed missing are excluded;
+permission or I/O uncertainty leaves entries visible. Subtree totals and history
+are then updated, and the main browser refreshes. A session-wide removal ledger
+prevents older captured indexes from restoring deleted entries on Refresh or
+reopening the analyzer. An index started after the removal can include a newly
+created item at that path. The ledger is not persisted across application exits.
+
+## Data structure and aggregation
+
+The live `VolumeIndex` stores file metadata and parent indexes in
+compact arrays. `DiskUsageSnapshot` retains a single published volume and adds
+five arrays: subtree bytes, subtree file counts, first child, next sibling, and
+an exclusion flag. The additional payload is approximately 25 bytes per index entry, plus
+array headers. It does not duplicate the filename pool or modify the persisted
+index format. The active snapshot keeps that index version alive until reload
+or closing the analyzer; a concurrent index rebuild can temporarily increase memory.
+
+The hierarchy is validated before aggregation: there must be one directory root,
+and each remaining parent must be an earlier directory entry. This matches the
+existing builder's parent-before-child insertion order and rules out cycles.
+Invalid name offsets and overflowing totals fail with a visible error instead
+of presenting a plausible but incorrect total.
+
+File sizes initialize leaf weights. Folder metadata sizes are ignored. A reverse
+pass adds each entry's accumulated bytes and file count to its parent exactly
+once. This evaluates recursive subtree sums using an iterative bottom-up
+traversal, without consuming the call stack. It takes **O(n) time and O(n)
+additional space**, compared with **O(n × d)** for walking up to `d` ancestors
+for every file. A folder's immediate children are found through the sibling
+arrays in O(k) time and sorted by size, name, then index in **O(k log k)** time.
+Sorting and aggregation run off the UI thread. Cancellation and request identity
+prevent canceled or superseded work from publishing over newer results.
+
+## Treemap layout and camera
+
+`SquarifiedTreemap` fills each level with byte-proportional rectangles, using
+greedy row construction in O(k) time after O(k log k) sorting (the snapshot
+already returns children sorted, which the layout detects in O(k) and reuses).
+`DiskUsageTreemap` applies it recursively and lazily: a folder's children are
+laid out inside its own world rectangle the first time the folder becomes large
+enough on screen (prefetch begins at 10 px) to need them. Initial layout,
+folder-path navigation, and detail loading run on background threads with a
+per-snapshot cancellation token and at most six speculative
+loads in flight, largest on-screen folder first; results fade in over 220 ms.
+A folder with more than 150 items gives the largest 120 their own tiles and
+splits the rest into up to 100 balanced "smaller items" blocks of roughly equal
+count. Those blocks are layout partitions, not filesystem levels, and expand
+(asynchronously, from memory) as they grow. Every level is exact: children
+exactly tile their parent, so areas remain byte-proportional within each folder.
+
+The camera is a world rectangle with the view's aspect ratio. Flights between
+two camera rectangles interpolate about their **fixed point**, the one world
+point that occupies the same screen position in both views. The scale changes
+exponentially around it (constant perceived zoom speed), so a folder grows
+straight out of where it sits instead of drifting. When neither view contains
+the other (for example Back to a different branch), the flight rises to an
+overview containing both and then descends. Durations scale with the zoom
+ratio and pan distance (320–680 ms) and use a CSS-style ease curve. Wheel zoom
+eases toward its target with a 45 ms time constant using the same interpolation.
+
+Color encodes structure: every item directly inside the folder being viewed takes
+its own hue and everything within it shares that hue, so a region is readable as a
+region. Within a branch the value comes from a hash of each item's name over a wide
+range, which keeps siblings individually visible instead of ramping in size order or
+fusing into a flat field. (Coloring by file type was tried and reverted: on a Windows
+drive most files have no recognised extension, so the map went grey, and mixing type
+hues with branch hues left nothing to separate structure from content.) Gutters grow
+with tile size to a capped one pixel, and tiles down to 8 px on their shorter side
+draw them.
+
+Two user-visible performance options, persisted in settings, cover machines without
+capable graphics. Turning off GPU acceleration disposes the Direct3D renderer and
+returns to the CPU rasterizer, which is also what runs when no adapter can be created;
+the settings panel reports the adapter actually in use, read from the D3D9 adapter
+identifier. Low detail mode makes `OpenAmount` return zero for any node off the open
+path, so traversal visits one level regardless of the depth or size of the tree. Both
+take effect on the next frame: the first replaces the presentation path, the second
+bumps the detail revision that invalidates the cached geometry layer.
+
+What the map looks like is decided by its expansion thresholds far more than by its palette.
+A folder began opening at 24 px on screen and was fully open at 56 px, so a block of about
+30 px - a small project at drive-level zoom - was a fifth open and drew as a flat slab. Opening
+from 9 px to 22 px makes that same block fully expanded and shows two or three more levels of
+nesting at the same camera. The tile budget rose with it, and is now chosen by renderer: each
+block costs five rectangles, which the GPU draws in well under a millisecond at 32,000 blocks,
+while the software rasterizer fills them span by span and keeps a 10,000 budget. A folder more
+than one level below the labelled one also barely darkened (0.8), so its frame disappeared and
+everything under the second level read as one field; every level now recesses.
+
+Folders are read ahead of being needed. Whatever load capacity is left after the folders on
+screen have been claimed goes to a breadth-first frontier that walks the rest of the tree while the
+window is open - breadth-first because the next thing zoomed into is more likely to be large and
+shallow than small and deep. The frontier is seeded from a finished build, extended as each folder
+arrives, and recovered by walking a tree taken back from the cache, which is already part-read. It
+stops at 80% of the node ceiling so that reading ahead never provokes the eviction sweep it would
+then be fighting. Each finished load already schedules a frame and the pump runs on every frame, so
+the two carry each other without a timer.
+
+Reading ahead must never cost the view on screen anything, and the first version did. Every folder
+it finished bumped the detail revision, which rebuilds the whole geometry once the load-settle gate
+passes - for folders nowhere near the screen, and in the middle of a zoom - and its loads held the
+same slots that on-screen folders are requested through. A finished background load now changes the
+scene only if its folder was drawn in the current geometry, and even then the rebuild is held until
+the camera has been still for 0.6 s and at most once every 1.5 s. Background loads are counted
+separately so they never take an on-screen slot, pause entirely while the camera moves, and stop at
+70% of the normal node budget whichever mode is active. Trees kept across drive switches are bounded
+to 450,000 nodes in total, because every kept node is heap the collector traces during a gesture.
+
+"Render everything" no longer gets its detail by materialising a node object for every file.
+Each node cost roughly 400 bytes, plus an item record and a name string, so a million-file drive
+was the better part of a gigabyte of small objects that every gen2 collection had to trace, and
+each folder appeared only once it had been read. The whole drive is now laid out up front into
+flat arrays in depth-first pre-order: four float edges relative to the parent, a subtree end
+index, the snapshot id, a quantised name hash for the colour spread and a flag byte - 31 bytes
+per entry, about 30 MB per million entries, in a handful of large arrays that hold no references
+and are never traced. Because a subtree is the contiguous range [i, End(i)), skipping one that is
+off screen or too small is a single jump, and siblings are walked by following End.
+
+The flat layout reproduces the node layout exactly: the same ordering (size, then name ignoring
+case, then id), the same "smaller items" grouping with the same group ids, and the same
+squarified call on the same world rectangles. A harness comparing it with the node recursion on
+a synthetic 1.2 million-entry drive, including folders large enough to nest groups inside
+groups, produced identical output entry for entry. Subtrees of folders holding more than 25,000
+files are laid out in parallel into separate buffers and appended in order, so the result is the
+same as the sequential walk; on two cores the whole synthetic drive took about 0.65 s.
+
+Nodes are still built for what needs an object - labels, hover, clicks and the open path - but
+only down to the normal prefetch size, so their number stays at the normal mode's ceiling. When
+the geometry walk reaches a folder with no nodes loaded, it draws that folder's contents straight
+from the arrays with the same gutter, shading, opening and colour rules, which is why a folder's
+nodes arriving later changes nothing on screen and no longer triggers a rebuild. A node finds its
+entry by walking down from the root, resolving all of a folder's children at once and checking
+ids as it goes, so a tree and a layout that disagree fall back to solid blocks rather than wrong
+ones. A refresh builds the new tree and the new flat layout in parallel from the same snapshot
+and swaps them in together.
+
+Rebuilding the scene no longer happens on the UI thread in a live window. Everything one build
+reads is captured when it is prepared, the walk writes only into its own buffers, and it runs on
+the thread pool together with filling the GPU vertex buffer (the Direct3D 9Ex device is created
+multithreaded). The previous scene keeps being drawn, stretched to the moving camera as it always
+is between rebuilds, and the new one is swapped in when ready. Only one walk runs at a time; a tree
+still being walked is never handed out of the kept-tree cache, and a result for a tree released in
+the meantime is discarded. The first scene of a source, tests and off-screen renders still build
+inline, since there is nothing to show while waiting.
+
+A change of colour level fades instead of snapping. The walk for the new level is paired with a
+twin for the old level on identical inputs, so the two scenes contain the same rectangles and
+differ only in colour; cross-fading them cannot double any edge, which is why the fade can run
+while the camera moves. Rebuilds that land during the fade build their own twin and continue it.
+
+Memory: the walk's command buffer is reused from build to build instead of growing from 16,384
+entries by doubling each time, and once the map has been idle for a few seconds after the heap has
+grown by 384 MB a single non-compacting full collection runs, because the analyzer's
+SustainedLowLatency mode otherwise never performs one and discarded buffers accumulate for as long
+as it is open.
+
+A laid-out tree now outlives the view that built it. Closing the analyzer, or switching to
+another drive and back, discarded every folder that had been read, laid out and allocated, and
+began again - which at a hundred thousand nodes is the wait. The tree is handed to a small static
+cache on the way out, keyed by the snapshot it was laid out over and by the viewport's aspect
+bucketed at the 8% step that forces a re-layout anyway, and taken back on the way in; two entries
+are kept, which covers the drive in use and the one before it. It is dropped whenever the
+snapshots behind it are, since its nodes hold that snapshot's items.
+
+It is deliberately not written to disk. Nothing in it came from disk: the sizes are read from the
+file index already in memory, and the cost is the squarified layout and the node allocation.
+Serializing the result and reading it back would have to allocate the same objects again, plus the
+I/O, so it would be slower than rebuilding. What is worth keeping is the built result, in memory.
+
+Rebuilding the geometry is the one cost that remains proportional to the number of blocks, and
+two things in it were paid per node without needing to be. Colour was carried as
+`System.Windows.Media.Color`, a struct holding scRGB floats alongside the sRGB bytes, so every
+`FromArgb` converts between the two - and each block mixes and shades several times. The tile
+path now carries packed 0xRRGGBB integers and does the same arithmetic on bytes, converting to a
+`Color` only for the handful of labels and brushes that need one. Whether a node lies on the open
+path was two hash-set lookups per node, although only a chain of nodes from the root can ever be
+on it; it is carried down the recursion instead, and the lookup survives only for the children of
+a node already on the path.
+
+Colour follows the level being viewed, and the level follows the camera continuously, so a single
+zoom used to pass through several levels and recolour the whole map at each. A level must now hold
+for a third of a second before the colours follow it, so passing through costs nothing and only
+arriving changes anything; the cross-fade lengthened to match.
+
+Per-frame cost is now independent of how many blocks are drawn. A loop had walked every cached
+tile on every frame, transforming each into screen space to maintain a flat list used for hit
+testing and for deciding which folders to prefetch. At a few thousand blocks that cost about a
+millisecond and was invisible; at several hundred thousand it is the entire frame. None of it
+needed to be per-frame: the cache already holds every tile in its own coordinates, so hit testing
+maps the pointer back into those coordinates on demand and searches from the end, where the
+deepest blocks are, and prefetch is decided once while the geometry is built. The tile list is
+also handed to the cache rather than copied into it, since at this size the copy is tens of
+megabytes of large-object allocation per rebuild. Nodes are stamped with the build that drew
+them rather than with every frame, so the eviction sweeps measure idleness from the last build:
+a view nobody touches stops building and stops evicting, which is correct, because nothing has
+left the screen.
+
+An experimental mode removes every limit on what is drawn: no minimum tile size beyond
+a fifth of a pixel, no expansion threshold, no per-subtree allowance, and a budget of
+750,000 blocks - past which blocks are smaller than a pixel on a 2.6-megapixel window and
+add only vertices. Nothing then appears on zoom that was not already on screen. The
+rectangles are not the constraint; a discrete card draws a million of them without
+noticing. The constraints are that every folder must be loaded and retained, which the
+node ceiling raises to 1.2 million for this mode, and that the walk producing the geometry
+grows with the tree - so the geometry reuse window widens to [0.45, 2.4], a scene this
+dense tolerating more stretching between rebuilds. A vertex buffer of that size may be
+refused by the driver, which now falls back for that frame rather than disabling the
+renderer for the session.
+
+Where a frame is prepared turned out to matter more than what it costs. With the Direct3D path a
+whole frame - walk, labels, upload and draw - measured about a millisecond, while frames arrived
+22 ms apart and a counter recorded hundreds of frames the compositor had declined to release its
+surface for. The cause was the input-friendly frame queue: handing the work to a
+background-priority dispatcher operation placed it after WPF had already taken the composition
+surface, so `D3DImage.TryLock` failed and the frame was dropped. The GPU path now renders inside
+the `CompositionTarget.Rendering` callback, which is the point in the frame before the surface is
+taken; the queue is kept for the software rasterizer, whose frame is heavy enough to starve input.
+The zero-length lock wait became a few milliseconds, so incidental contention costs a wait rather
+than a whole vsync. Separately, the map animates against a heap dominated by the file index, where
+one blocking gen2 collection is a quarter-second stall regardless of frame cost; the view requests
+`SustainedLowLatency` while it is open and restores the previous mode on close.
+
+Sub-pixel seams make multisampling load-bearing rather than cosmetic. Once a seam is a fraction
+of a pixel wide, a renderer without coverage sampling either snaps it to a whole pixel or drops
+it, so the GPU path showed jagged small blocks and seams that vanished between neighbours while
+the software rasterizer, which computes fractional edge coverage, did not. The Direct3D path
+multisamples again. Separately, the device is now created on the adapter driving the monitor the
+window is on, found through `MonitorFromWindow` and `GetAdapterMonitor`, rather than on adapter
+zero: when WPF composes on a different adapter than the shared surface lives on, every frame is
+copied between them and the software rasterizer measures faster. The F3 readout counts frames the
+compositor declined to release the surface for, which separates contention from drawing cost.
+
+Seams are not drawn at all. A folder paints its whole surface once, and each child paints a
+single inset rectangle on top of it; what shows between two children is the surface underneath.
+This replaced four border strips plus a fill per block - five rectangles - with one, which is
+what pays for the density above, and it makes an unpainted region structurally impossible: the
+earlier black blocks were holes where an inset had consumed a block entirely and the degenerate
+rectangle was returned undrawn, or where a child with no measurable area was skipped. The
+invariant weakens from "every point painted exactly once" to "every point painted at least once
+and at most a bounded number of times", which the regression now checks. Drawing a seam as a
+line in its own right had also made it far too heavy: 74% shading applied to a folder that had
+already darkened to 42% gave a near-black seam several pixels wide. Separation now comes from
+the line being thin rather than dark.
+
+Three separate causes of visual jitter were removed. A cross-fade puts two copies of the
+same scene, at different scales, on screen together, so every edge is doubled and offset;
+the blend is now reserved for a change of level, where the colours genuinely differ, while
+rebuilds caused by a finished load or by camera movement swap outright. The gutter is handed
+down by the folder instead of derived from each block's own size, so a large block and a
+small one no longer meet with two different half-gaps. And a child's screen rectangle is
+built by mapping the layout coordinates of all four of its edges, rather than a mapped
+origin plus a separately scaled width, so two touching blocks resolve to the same value
+instead of a fraction apart.
+
+An open folder insets its contents and paints the ring between its own rectangle and
+that inset in its own (darkened) color, as four disjoint strips. Together with the
+sibling gutter this gives two nested frames - one separating a folder from its
+siblings, one separating it from the blocks inside it - while still partitioning the
+parent rectangle exactly, so no region is painted twice and none is left uncovered.
+
+Replacing the source no longer blanks the map. `SetSource` runs on a drive change, on
+the post-resize relayout, and on first load; each used to clear the cached picture and
+show the bare background for as long as the background build took. The outgoing scene
+cache is now kept as a detached layer that draws frozen at its own camera, and the
+incoming one cross-fades over it through the same two-layer blend used for detail
+changes. A detached layer is dropped after four seconds so a failed build cannot leave
+a stale picture up. Cached geometry also carries the viewport it was built for, so only
+a change of aspect ratio - not any resize - invalidates it.
+
+The dominant cost was never the node tree. A folder of N children produces at most about
+220 nodes - 120 named and up to 100 grouped blocks - but each grouped block held an
+`ArraySegment` over the folder's whole sorted child array, so one expanded folder pinned a
+`DiskUsageItem`, object and name, for every file beneath it: on the order of a hundred bytes
+times N, for as long as the folder stayed expanded. A grouped block now stores only its
+members' ids, four bytes each, and resolves them from the snapshot when the block is opened.
+The sorted item array becomes garbage as soon as the layout returns. For a folder of 500,000
+files that is about 2 MB retained instead of 50 MB, and membership tests become an integer
+scan rather than a projection over objects.
+
+Nothing collapsed what had been expanded. A laid-out item costs roughly half a kilobyte
+- the node, its `DiskUsageItem`, its name - and a folder's grouped tail holds the entire
+child array open, so exploring a large drive grew the tree without any bound. Nodes now
+record when they were last on screen, and a sweep collapses any folder whose whole
+subtree has been off screen for twenty seconds, dropping its child nodes, their grouped
+tails and the item array those tails held; they reload on demand exactly as they did the
+first time. The ceiling is 120,000 nodes (30,000 when conserving memory), the sweep waits
+for a pause unless the tree is at twice the ceiling, and everything the control still
+points at - the open path, focus, hover, highlight, colour levels - is protected first, so
+a click can never land on a node that has left the tree.
+
+Memory is dominated by text, not by geometry. A frame of 13,806 blocks is about 330 KB
+of vertices and measured 0.7 ms to draw; a single labelled node holds four WPF
+`FormattedText` layouts and four frozen glyph `Drawing`s, kilobytes each, and nothing
+released them, so a session of zooming accumulated them without bound. Nodes now record
+when they were last on screen, registering in a list when they first create text; a
+sweep hands that text back after five seconds off screen and enforces a hard ceiling
+(2,500 labelled nodes, 700 when conserving memory), evicting the longest-unseen first.
+A reclaimed node re-creates its text through the same per-frame allowance that limits
+new labels, so the ceiling costs a brief fade rather than a stall. The F3 readout
+reports heap size, labels held against the ceiling, cached rectangles and GPU buffer
+size, so the claim above is checkable rather than asserted.
+
+Snapshots are cached per volume (`DiskUsageSnapshotCache`) rather than aggregated on
+every open. The invalidation rule is the interesting part: a live index edit does not
+invalidate, because a drive under continuous change would otherwise make every open
+slow again; the view's own background refresh replaces the stored snapshot while it is
+already open. A snapshot is discarded only when the user chooses Refresh or when a
+volume's last full scan time changes, and the cache holds at most two volumes, least
+recently used dropped. Snapshots are prewarmed on a background thread once an index
+exists, so the first open after launch is immediate too.
+
+The geometry cache keeps its layer while the camera scale stays within [0.62, 1.6] of
+the scale it was built at, and the layer is built with 35% overscan so that window is
+reached before the cached tiles run out of viewport. Widening it from the original
+[0.8, 1.25] removed the case where zooming out left the coverage test failing every
+frame, which forced an ungated rebuild per frame.
+
+Rendering uses batched Direct3D tiles, with a parallel bitmap rasterizer as the
+fallback, plus separate WPF label and overlay layers. There are no per-tile
+controls. The traversal culls tiles outside the view and below 1.6 px on their
+shorter side, blends folders into their contents between 24 and 56 px, and
+scales gaps with tile size. Brushes, pens, text, and caption strings are cached;
+a hard 12,000-tile limit bounds traversal independently of monitor size. Distant
+groups stay intact when their children cannot fit their share of the budget;
+detail fades across a range of allowances instead of switching at a threshold.
+Sibling allowances depend on visible area, not on how much detail an earlier
+sibling happened to consume. Focused paths remain open. Captions use reusable value records
+instead of a closure allocation per visited node. Frames run on
+`CompositionTarget.Rendering` only while something is moving or fading.
+The rendering event coalesces work into one background-priority dispatcher
+operation, below mouse/window input. Live layout notifications use the same
+queue instead of preparing another expensive scene during resize. The camera,
+blocks, labels, and overlays update in the same queued operation. Text preparation
+is limited to eight new labels per moving frame, with less frequent width
+reformatting during motion. Pixel resolution is unchanged.
+Names that already fit retain their text layout as their tiles grow. Hover text
+is cached per target, and the F3 readout refreshes four times per second.
+Speculative detail loading is limited to one folder during movement and two
+when settled; barely visible folders no longer trigger whole-directory loads.
+Resizing keeps the camera; a large aspect change re-lays out the world once,
+220 ms after resizing stops.
+
+Both image paths use a zero-wait buffer lock: a busy compositor retains the
+previous image and schedules a retry rather than blocking input.
+GPU frames reserve the surface before preparing labels or hit targets, keeping
+all three layers on the same camera when the compositor is busy. Duplicate
+render notifications for the same compositor timestamp are ignored. Selection
+lookups are cached instead of rescanning grouped members on every frame.
+Closing the analyzer cancels loads, stops timers/render callbacks, and releases
+tree caches and graphics surfaces. Old loads cannot overwrite a newer drive
+or navigation request.
+
+The sidebar uses an explicit dark ListView template for both enabled and loading
+states, avoiding the system theme's light disabled background. Map-driven list
+updates wait for the gesture to settle, both before preparing and before
+publishing the listing. The former 640 ms timeout no longer forces a list rebind
+during a long gesture. Returning to the currently listed folder cancels any
+older deferred listing.
+
+### Other drives (round 47)
+
+Past the drive's own rectangle the camera frame grows a second time, from the
+drive to a "machine" rectangle that also holds every other local drive in the
+drive list. Each drive keeps the current drive's bytes-per-area scale, so its
+side is `sqrt(capacity / this drive's capacity)` times this drive's side (with a
+small minimum so a USB stick stays clickable), and drives are shelf-packed
+largest first in columns to the right. Each is two regions, used and free, split
+in proportion. `Clamp` lerps the world bounds files -> drive -> machine in step
+with the zoom, so the frame never jumps and nothing inside the folder map moves.
+A click on another drive raises `DriveRequested`, which loads it exactly as the
+drive picker does. Capacities are read with `DriveInfo` off the UI thread and only
+for fixed and removable drives, since a sleeping network share can take seconds
+to answer.
+
+Round 48 puts the drives in one bottom-aligned row and draws the computer under
+it, with an orthogonal cable from each drive to a port. Ports keep the drives'
+left-to-right order; cables running right take lanes from the bottom up starting
+with the leftmost drive, and the mirror image for cables running left, which
+guarantees no two cables cross. Indexed drives show a preview of their contents:
+the same squarified layout, expanded largest-folder-first to a 6,000-tile budget,
+stored in unit coordinates (a few hundred kilobytes per drive) and placed in the
+drive's top-left corner at the same bytes-per-area scale, with unindexed and free
+space around it as for the current drive. Previews are built one drive at a time
+on a below-normal-priority thread, from the cached snapshot when one is held and
+otherwise from a transient snapshot that is dropped straight after, and are
+rebuilt only when that drive's index is replaced.
+
+Round 49 makes the machine layout independent of which drive is open: drives are
+placed in drive-letter order outward from the open one, and every size (gaps,
+plates, cables, computer) derives from the largest drive, so opening another
+drive only re-anchors the same picture. The camera clamp gained an *anchor*: the
+drive under the pointer when zooming in (taken only while the view is still
+wider than that drive's files, so a notch at the edge of a bigger drive cannot
+swing the camera out to it). The files -> drive -> machine lerp runs for the
+anchor, so zooming in heads into that drive; when its files fill the view the
+camera settles there and the drive opens, and its real map replaces the preview
+at exactly that view. A click flies to the same view first and opens on landing;
+any wheel, drag or other flight cancels a pending open. Region ids are numbered
+in a fixed block per drive and unchanged labels keep their nodes between rebuilds,
+and free-space changes under 256 MB no longer rebuild the view, which removes the
+flicker when fully zoomed out.
+
+### Drives as devices (round 51)
+
+`DriveHardwareProbe` asks each volume what it sits on with
+`IOCTL_STORAGE_QUERY_PROPERTY` on a query-only handle (no administrator rights
+needed): `StorageDeviceProperty` for the bus type (NVMe, USB, SATA...) and the
+model string, and `StorageDeviceSeekPenaltyProperty` to tell platters from flash.
+Network drives are named from Windows' connection table (`WNetGetConnection`),
+never by contacting the server. Each drive gets a body (drawn in the scene under
+its files, with connectors, contacts or a tray handle in its frame) and a cover
+(drawn by the overlay above the scene and every label). The cover's opacity is a
+smoothstep of the camera width between 1.1x and 2x the width that fits the drive,
+so it is fully closed at the whole-machine view and fully open before the camera
+reaches the drive's files, where the drive opens. Because the overlay is above the
+label layer, a closed cover hides the drive's contents and their names without
+the scene having to know. Cover text is laid out once at a fixed size and drawn
+scaled, so zooming does not re-lay text each frame. Network drives are grouped by
+server; each group is cabled to its server and each server to the computer with
+nested lanes, so no cables cross.
+
+### Experimental views (round 46)
+
+Two optional views share the map's area behind an *Experimental views* setting.
+The treemap is set to `Hidden` rather than `Collapsed` while they show, so it keeps
+its size, scene and camera and needs no re-layout when switched back.
+
+**3D blocks** reuses `SquarifiedTreemap.Layout` and extrudes it. Folders are
+expanded largest-first from a priority queue until a 15,000-block budget is
+spent (at most 160 children per folder, the rest merged into one block, five
+levels deep), so the budget goes where the eye goes. Heights are the folder slab
+(stacked mode), `sqrt(bytes / max)`, `log(1 + files) / log(1 + max)`, or
+`sqrt(share)` of the block's dominant file type. All blocks form a single
+`MeshGeometry3D` whose texture coordinates index a one-pixel-high palette
+texture (nearest-neighbour, absolute brush viewport), so thousands of colours
+are still one draw call. Layout and mesh are built and frozen on the thread
+pool. Picking casts a ray from the camera (the inverse of the label projection)
+against every block's axis-aligned box with the slab method, which is far
+cheaper than WPF's per-triangle hit test on one large mesh. A refreshed
+snapshot with the same folder, mode and totals is not rebuilt, and ids from an
+older snapshot are resolved by path before navigating.
+
+**Disk layout** reads cluster runs with `FSCTL_GET_RETRIEVAL_POINTERS` on
+handles opened for attributes only (cloud placeholders and reparse points are
+skipped) for the 20,000 largest files on the drive plus the 4,000 largest in
+the folder being viewed. The volume's clusters are grouped into at most 2^18
+buckets; a run claims the buckets it covers completely and only unclaimed
+buckets at its ends. With administrator rights the allocation bitmap
+(`FSCTL_GET_VOLUME_BITMAP`, read a megabyte at a time and popcounted into
+per-bucket occupancy) separates free space from used space that was not read;
+`IOCTL_STORAGE_QUERY_PROPERTY` (seek penalty) identifies SSDs, where positions
+are logical. The platter maps buckets onto concentric tracks in proportion to
+their circumference, as zoned recording packs more sectors into outer tracks;
+the grid gives each cell the majority colour of its buckets, and the hover card
+uses the same representative bucket so it describes what the cell shows. One
+background worker at a time does all disk and snapshot work and redraws after
+every 1,500 files; the UI thread only copies pixels, spins the bitmap and draws
+the head arm, which swings to the track under the pointer.
+
+## Snapshot semantics and limitations
+
+- These are **indexed logical file lengths**, not physical allocation, free
+  space, or a fresh full-drive scan. Hard links can be counted more than once;
+  sparse, compressed, and cloud-placeholder files can differ from disk usage.
+- Hidden and system entries already in the index are included in totals.
+- The existing index builder skips inaccessible folders and directory reparse
+  targets other than supported cloud placeholders. Neither indexing nor fallback
+  search has an arbitrary depth limit now. The visualizer cannot recover missing entries
+  or claim complete coverage. The UI states those exclusions.
+- The displayed timestamp is when the index build started. Search overlay
+  events are intentionally not merged with older subtree sizes. Refresh captures
+  the latest *published* index; it does not force a rebuild or filesystem scan.
+- If no index is available, the view explains how to retry after indexing.
+  Browsing does not open file contents. Permanent deletion is an explicit,
+  confirmed action; after partial deletion, surviving file lengths still come
+  from the saved index.
+
+The depth-limit removal and per-drive watcher recovery are implemented. Exact
+per-directory scan coverage and an explicit user-triggered rescan remain future
+work. Database migration remains separate from this artifact.
+
+## Verification and portfolio evidence
+
+Run the Release suite:
+
+```powershell
+dotnet test Clearspace.Tests/Clearspace.Tests.csproj -c Release --logger "trx;LogFileName=algorithms.trx" --results-directory output/test-results/algorithms
+```
+
+Tests cover nested totals, hidden entries, empty items, stable sorting, path
+boundaries, a 100,000-level synthetic hierarchy, invalid trees, numeric overflow,
+cancellation, snapshot reload, drive changes, and superseded results. Layout
+tests check total area, proportionality, bounds, non-overlap, equal-weight
+squares, large weights, and empty or invalid inputs.
+
+The September 23, 2026 completion run passed **150/150 tests**, with no failures
+or skipped tests. Evidence: `output/test-results/artifact-two-completion/completion-final.trx`.
+This includes the new native traversal, per-drive recovery, flat layout, stable
+layout and cache replacement regressions. Earlier performance reports below
+are historical samples, not measurements of the final version.
+
+Performance/lifecycle coverage includes slow and superseded loads,
+closing during a load, dense camera frames at 1280 × 800 and 4748 × 1220,
+GPU presentation/resizing, input-priority/coalescing, and continued zooming
+through the frame queue in a hidden native WPF presentation source.
+Additional regressions verify that GPU contention defers labels and hit targets
+with the tiles, detail allowances fade gradually, zoom prefetch starts one load,
+and sidebar publication waits or cancels when a gesture resumes or changes target.
+The busy-buffer regression forces three unsuccessful lock attempts and then
+verifies that drawing recovers with no outstanding image lock. It failed before
+the fix: D3DImage increments its lock count even when TryLock returns false, so
+the skipped-frame return must remain inside the Unlock finally block. This
+prevents frozen blocks beneath moving labels. The test uses WPF's private
+compositor event only for deterministic contention injection; production code
+uses public APIs. See the [WPF implementation](https://source.dot.net/PresentationCore/System/Windows/InterOp/D3DImage.cs.html).
+The GPU check presented 12/12 frames with multisampling on this host. It reports
+when hardware is unavailable so the fallback remains testable on other hosts.
+
+A 1280 × 800 CPU-fallback fixture with 25,600 files rendered 180 camera frames:
+median 1.92 ms, p95 10.10 ms, maximum 13.19 ms, and up to 25,793 tiles.
+UI-thread temporary allocations fell from 1,187,983 to 275,140 bytes per frame
+(about 77%) after removing traversal closures and repeated caption formatting.
+The before/after timing samples are variable; they do not establish a frame-rate
+speedup or a guarantee of uninterrupted real-drive presentation. Timing excludes
+PNG export and records synchronous frame work, not display refresh or GPU latency.
+Reports are in `output/test-results/performance/`. The regression enforces a
+tile bound and an allocation ceiling, not a machine-dependent timing limit.
+
+The subsequent fullscreen check reduced peak drawn tiles from 25,793 to 11,983.
+In the 4748 × 1220 fixture, traversal p95 changed from 3.38 to 2.29 ms and
+UI-thread allocation from 627,847 to 543,050 bytes/frame. Full CPU-fallback
+frame p95 varied from 11.02 to 12.56 ms, so this is not a demonstrated end-to-end
+frame-rate improvement. The key responsiveness regression explicitly verifies
+that input executes before a burst of 100 coalesced map requests and that close
+cancels the queued frame. Reports: `fullscreen-before.trx` and
+`fullscreen-after.trx` in the same results directory.
+
+The zoom-stability revision's 4748 × 1220 CPU fixture recorded a 3.11 ms median,
+8.13 ms p95, 12.92 ms maximum, and 8,181 peak tiles (`zoom-release.trx`). These
+synthetic work timings do not measure visible GPU presentation or establish that
+all real-drive stalls have been eliminated.
+
+The geometry-cache revision keeps each detail layer's tiles in immutable,
+camera-local geometry: a frame whose camera moved but whose detail did not
+re-uses the same vertex buffer and changes only a projection matrix, and each
+layer is flattened so every area is painted exactly once. Measured over 180
+camera frames on 25,600 files (`geometry-cache.trx`): the 4748 x 1220 GPU
+fixture ran a 0.38 ms median and 3.43 ms p95 with 23 geometry builds against
+299 reused frames and 23 vertex uploads; the same fixture on the CPU fallback
+ran 4.70 ms median, 9.71 ms p95 and 271,965 bytes/frame, down from 543,050.
+The reuse regression asserts the ratio of reused to rebuilt frames rather than
+an absolute count, because how many frames a contended compositor lets the
+test prepare is not under the test's control. Test-driven frames now advance a
+manual clock, so cache ageing cannot run ahead of camera motion on a slow host.
+These are synthetic work timings and do not measure visible GPU presentation.
+
+A WPF integration test uses the application's actual resources and a synthetic
+index. Animations are driven with a deterministic clock (`AdvanceTime`) rather
+than wall time. It renders the embedded view at two sizes and an empty folder;
+checks that root tile areas match byte shares and fill the view; clicks a folder
+and verifies that it grows continuously mid-flight, ends up filling the view,
+and keeps exactly the same world geometry it had before entry; waits for a
+nested folder to load and appear; sends both side mouse buttons; verifies wheel
+anchoring (the world point under the pointer does not move), wheel entry into a
+folder and back out to its parent, and Back returning to the whole folder after a
+zoom; exercises history across drives, drive-picker synchronization, and
+deletion with injected confirmation. A 100,000-file folder is rendered and
+zoomed to confirm the per-frame budget holds and individual files appear.
+PNGs are attached to the test report. This does not start the real indexing
+service, scan personal files, or replace an interactive check on actual drives.
+Deletion tests cover permanent shell flags, target validation, rejection of
+confirmation, partial cancellation, access failures, updated totals, history
+cleanup, and removal retention across Refresh and reopened views. No test
+deletes real files.
+
+The implementation files to explain in the artifact are:
+
+1. `Clearspace/Services/DiskUsageSnapshot.cs` — hierarchy, validation, aggregation.
+2. `Clearspace/Services/SquarifiedTreemap.cs` — one level of squarified layout.
+3. `Clearspace/Controls/DiskUsageTreemap.cs` — lazy nested layout, fixed-point
+   camera, culling renderer, and input.
+4. `Clearspace/Services/DiskUsagePalette.cs` — file-type colors shared by map, list and legend.
+5. `Clearspace/ViewModels/DiskUsageViewModel.cs` and `Clearspace/DiskUsageView.xaml`
+   — asynchronous snapshot lifecycle and user-facing limits.
+6. `Clearspace.Tests/DiskUsageTests.cs` and `DiskUsageWindowTests.cs` — evidence.
+
+Before final course submission, perform an interactive walkthrough with the
+actual index, prepare the reflective narrative against the assignment rubric,
+package original and enhanced source, and update the ePortfolio. This document
+records the implementation; it is not the student's reflective narrative.
+
+Colour changes follow the zoom and turn around the colour wheel instead of through grey. Every block
+of a scene carries two colours: under the level being shown, and under a second level - the folder the
+camera is zooming into, or the level a jump came from. The GPU mixes them per vertex each frame in
+OKLCH (lightness, chroma and hue interpolated separately, hue the short way round), because a straight
+RGB mix of complementary colours such as blue and orange passes through grey; checked on the palette,
+the OKLCH path never drops below the chroma of its ends, where the RGB path fell to near zero. The
+blend follows the zoom as a folder grows from about a third of the view to filling it, so entering it
+only hands over a scene already showing its colours. Each new scene starts its blend where the colours
+on screen already are. A folder's children also take the palette from the folder's own place in it, so
+the largest child keeps the folder's colour and nothing outside the folder changes colour at all. If
+the shader cannot be compiled, the fixed-function pipeline mixes the two colours in RGB instead.

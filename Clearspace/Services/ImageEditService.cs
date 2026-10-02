@@ -1,3 +1,5 @@
+// Clearspace | Image rotation and crop operations.
+
 using System.IO;
 using System.Windows;
 using System.Windows.Media;
@@ -5,25 +7,13 @@ using System.Windows.Media.Imaging;
 
 namespace Clearspace.Services;
 
-/// <summary>
-/// Rotation, cropping, and saving for the photo viewer.
-///
-/// Two things worth knowing. Writes go to a temporary file first and only then
-/// replace the original, so a failure part-way through cannot leave a truncated
-/// image where a photo used to be. And re-encoding a JPEG is lossy: rotating one
-/// costs a little quality every time, which is the tradeoff for not shipping a
-/// lossless JPEG transform.
-/// </summary>
 public static class ImageEditService
 {
-    /// <summary>Formats WPF can write back. Others are read-only and must be saved as a copy.</summary>
     public static bool CanSaveInPlace(string path)
         => CreateEncoder(Path.GetExtension(path)) is not null;
 
     public static BitmapSource Rotate(BitmapSource source, int degrees)
     {
-        // TransformedBitmap only accepts right-angle rotations, which is all a
-        // photo viewer needs and keeps the operation pixel-exact.
         var normalised = ((degrees % 360) + 360) % 360;
 
         if (normalised == 0)
@@ -36,8 +26,6 @@ public static class ImageEditService
 
     public static BitmapSource? Crop(BitmapSource source, Int32Rect region)
     {
-        // Clamp rather than throw: the selection comes from a mouse drag and can
-        // easily run a pixel past the edge.
         var x = Math.Clamp(region.X, 0, source.PixelWidth - 1);
         var y = Math.Clamp(region.Y, 0, source.PixelHeight - 1);
         var width = Math.Clamp(region.Width, 1, source.PixelWidth - x);
@@ -51,7 +39,6 @@ public static class ImageEditService
         return cropped;
     }
 
-    /// <summary>Writes the image to disk. Returns null on success, or a reason on failure.</summary>
     public static string? Save(BitmapSource image, string path)
     {
         var encoder = CreateEncoder(Path.GetExtension(path));
@@ -70,7 +57,6 @@ public static class ImageEditService
 
             if (File.Exists(path))
             {
-                // Move overwrites in one step, so the original is never absent.
                 File.Move(temporary, path, overwrite: true);
             }
             else
@@ -87,14 +73,12 @@ public static class ImageEditService
         }
     }
 
-    /// <summary>Builds a non-colliding "name (2).ext" beside the original.</summary>
     public static string NextAvailableCopyPath(string original)
     {
         var directory = Path.GetDirectoryName(original) ?? string.Empty;
         var stem = Path.GetFileNameWithoutExtension(original);
         var extension = Path.GetExtension(original);
 
-        // PNG is the safe target when the source format has no encoder.
         if (CreateEncoder(extension) is null)
             extension = ".png";
 
@@ -117,7 +101,6 @@ public static class ImageEditService
         }
         catch (Exception)
         {
-            // Another process is holding the clipboard open.
             return false;
         }
     }
@@ -142,7 +125,6 @@ public static class ImageEditService
         }
         catch (Exception)
         {
-            // Nothing more to do about a stray temp file.
         }
     }
 }

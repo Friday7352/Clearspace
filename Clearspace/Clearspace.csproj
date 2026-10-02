@@ -1,3 +1,4 @@
+<!-- Clearspace | WPF project settings and dependencies. -->
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
@@ -5,6 +6,8 @@
     <TargetFramework>net10.0-windows</TargetFramework>
     <UseWPF>true</UseWPF>
     <Nullable>enable</Nullable>
+    <!-- NEW: the disk usage map rasterizes straight into a WriteableBitmap's back buffer. -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <ImplicitUsings>enable</ImplicitUsings>
     <LangVersion>latest</LangVersion>
 
@@ -12,47 +15,46 @@
     <RootNamespace>Clearspace</RootNamespace>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>Assets\Clearspace.ico</ApplicationIcon>
+    <!-- NEW (installer): Clearspace.exe carries the version from the VERSION file at the repository root,
+         the same number the installer shows. Without the file (e.g. a copy of this folder alone) the
+         SDK's default 1.0.0 is used. -->
+    <Version Condition="Exists('$(MSBuildThisFileDirectory)..\VERSION')">$([System.IO.File]::ReadAllText('$(MSBuildThisFileDirectory)..\VERSION').Trim())</Version>
 
     <Platforms>x64</Platforms>
     <PlatformTarget>x64</PlatformTarget>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <SelfContained>false</SelfContained>
 
-    <!-- Publish as one double-clickable exe. Framework-dependent means our own
-         assembly is the only thing bundled, so nothing is extracted to disk at
-         launch; the WPF native libraries come from the shared runtime. -->
     <PublishSingleFile>true</PublishSingleFile>
     <PublishReadyToRun>true</PublishReadyToRun>
     <EnableCompressionInSingleFile>false</EnableCompressionInSingleFile>
-    <!-- WPF depends on native presentation libraries. Keep them inside the
-         single-file release so an installer only has one app file to deploy. -->
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
 
-    <!-- Startup time is a headline goal, so keep the runtime lean and warm. -->
     <TieredPGO>true</TieredPGO>
     <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
     <DebugType>portable</DebugType>
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- The Windows Search index is reached through its OLE DB provider,
-         Search.CollatorDSO. System.Data.OleDb is not in the shared framework,
-         so it comes in as a package. -->
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.12" />
     <PackageReference Include="System.Data.OleDb" Version="9.0.0" />
   </ItemGroup>
 
   <ItemGroup>
-    <!-- The executable resource supplies the taskbar icon; this packaged copy is
-         what WPF uses for the window chrome and Alt+Tab icon. -->
     <Resource Include="Assets\Clearspace.ico" />
+    <!-- NEW (pixel font): the Pixel theme's fonts, built into the app so they need no installing. Both are
+         under the SIL Open Font License; the licence texts sit beside them in Assets\Fonts. -->
+    <Resource Include="Assets\Fonts\*.ttf" />
+    <!-- NEW (Explorer integration): lock icons Clearspace writes out for Explorer (.cslock files, locked folders). -->
+    <EmbeddedResource Include="Assets\LockedFile.ico" LogicalName="Clearspace.LockedFile.ico" />
+    <EmbeddedResource Include="Assets\LockedFolder.ico" LogicalName="Clearspace.LockedFolder.ico" />
+    <InternalsVisibleTo Include="Clearspace.Tests" />
   </ItemGroup>
 
+  <!-- NEW (memory): let the garbage collector compact large arrays when free space builds up between
+       them, instead of growing the process to make room. Costs a little speed during big rebuilds. -->
   <ItemGroup>
-    <!-- Screenshot-safe images used only by Clearspace demo mode. They stay beside
-         the app so the in-app photo viewer can decode full-resolution originals. -->
-    <Content Include="Assets\Demo\*.png"
-             CopyToOutputDirectory="PreserveNewest"
-             CopyToPublishDirectory="PreserveNewest" />
+    <RuntimeHostConfigurationOption Include="System.GC.ConserveMemory" Value="5" />
   </ItemGroup>
 
 </Project>

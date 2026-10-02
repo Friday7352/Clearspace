@@ -1,0 +1,38 @@
+  Determining projects to restore...
+  All projects are up-to-date for restore.
+  Clearspace -> E:\GithubRepos\File Explorer Remake\Clearspace\bin\Release\net10.0-windows\win-x64\Clearspace.dll
+  Clearspace.Tests -> E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll
+Test run for E:\GithubRepos\File Explorer Remake\Clearspace.Tests\bin\Release\net10.0-windows\Clearspace.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+  Failed LockedFolderOpensWithPasswordAndLocksAgainWithoutIt [1 s]
+  Error Message:
+   TestCleanup method Clearspace.Tests.FileLockTests.Cleanup threw exception. System.IO.IOException: Access to the path '\\?\C:\Users\Payton\AppData\Local\Temp\Clearspace-TagTests-f82991a2db9340efa79bac88db762469\vault' is denied..
+  Stack Trace:
+     at System.IO.FileSystem.RemoveDirectoryRecursive(String fullPath, WIN32_FIND_DATA& findData, Boolean topLevel)
+   at System.IO.FileSystem.RemoveDirectory(String fullPath, Boolean recursive)
+   at Clearspace.Tests.TagTestScope.Dispose() in E:\GithubRepos\File Explorer Remake\Clearspace.Tests\TagTestScope.cs:line 53
+   at Clearspace.Tests.FileLockTests.Cleanup() in E:\GithubRepos\File Explorer Remake\Clearspace.Tests\FileLockTests.cs:line 20
+   at InvokeStub_FileLockTests.Cleanup(Object, Object, IntPtr*)
+   at System.Reflection.RuntimeMethodInfo.Invoke(Object obj, BindingFlags invokeAttr, Binder binder, Object[] parameters, CultureInfo culture)
+
+  Failed FilesLockedWithAnOlderPasswordStillUnlockAfterAReset [651 ms]
+  Error Message:
+   StringAssert.Contains failed. String 'Unlocked report's data.txt. It still uses its older password.' does not contain string 'different password'. .
+  Stack Trace:
+     at Clearspace.Tests.FileLockTests.FilesLockedWithAnOlderPasswordStillUnlockAfterAReset() in E:\GithubRepos\File Explorer Remake\Clearspace.Tests\FileLockTests.cs:line 633
+   at System.RuntimeMethodHandle.InvokeMethod(ObjectHandleOnStack target, Void** arguments, ObjectHandleOnStack sig, BOOL isConstructor, ObjectHandleOnStack result)
+   at System.Reflection.MethodBaseInvoker.InterpretedInvoke_Method(Object obj, IntPtr* args)
+   at System.Reflection.RuntimeMethodInfo.Invoke(Object obj, BindingFlags invokeAttr, Binder binder, Object[] parameters, CultureInfo culture)
+
+  Failed WorkerWakesWhenRetryBecomesEligibleInsteadOfWaitingForNextSave [1 ms]
+  Error Message:
+   Assert.IsNull failed. 
+  Stack Trace:
+     at Clearspace.Tests.IndexingOverviewTests.WorkerWakesWhenRetryBecomesEligibleInsteadOfWaitingForNextSave() in E:\GithubRepos\File Explorer Remake\Clearspace.Tests\IndexingOverviewTests.cs:line 37
+   at System.RuntimeMethodHandle.InvokeMethod(ObjectHandleOnStack target, Void** arguments, ObjectHandleOnStack sig, BOOL isConstructor, ObjectHandleOnStack result)
+   at System.Reflection.MethodBaseInvoker.InterpretedInvoke_Method(Object obj, IntPtr* args)
+   at System.Reflection.RuntimeMethodInfo.Invoke(Object obj, BindingFlags invokeAttr, Binder binder, Object[] parameters, CultureInfo culture)
+
+Results File: E:\GithubRepos\File Explorer Remake\output\test-results\milestone-four\milestone-four-final.trx
+
+Failed!  - Failed:     3, Passed:   280, Skipped:     0, Total:   283, Duration: 37 s - Clearspace.Tests.dll (net10.0)

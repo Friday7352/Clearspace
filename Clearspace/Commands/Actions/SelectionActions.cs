@@ -1,3 +1,5 @@
+// Clearspace | Selection command actions.
+
 using System.Windows.Input;
 
 namespace Clearspace.Commands.Actions;

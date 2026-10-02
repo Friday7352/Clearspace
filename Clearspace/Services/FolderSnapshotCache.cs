@@ -1,12 +1,9 @@
+// Clearspace | Cached folder listings.
+
 using Clearspace.Models;
 
 namespace Clearspace.Services;
 
-/// <summary>
-/// Bounded in-memory LRU cache for directory snapshots. Returning to a recently
-/// visited location becomes a pointer swap; a background refresh then reconciles
-/// it with disk without making navigation wait.
-/// </summary>
 internal static class FolderSnapshotCache
 {
     private sealed record Entry(FileSystemItem[] Items, LinkedListNode<string> Node);
@@ -14,16 +11,6 @@ internal static class FolderSnapshotCache
     private const int MaxFolders = 32;
     private const int MaxItems = 100_000;
 
-    /// <summary>
-    /// How many recent folders keep their decoded thumbnails alive.
-    ///
-    /// Snapshot entries hold FileSystemItem objects, and each of those holds a
-    /// strong reference to its thumbnail bitmap. Without this, bounding the
-    /// thumbnail cache achieves nothing: 32 folders of photos would pin hundreds
-    /// of megabytes that the cache believes it has already evicted. Older
-    /// snapshots keep their file listing, which is what makes going back instant;
-    /// they just re-request pixels, which is fast.
-    /// </summary>
     private const int PixelRetentionFolders = 3;
 
     private static readonly object Gate = new();
@@ -45,6 +32,18 @@ internal static class FolderSnapshotCache
             Recency.AddFirst(entry.Node);
             items = entry.Items;
             return true;
+        }
+    }
+
+    // NEW (experimental themes): drop every remembered folder listing. The rows in them carry the icons
+    // they were given, so after a theme switch that changes the icon set they must be read again.
+    internal static void Clear()
+    {
+        lock (Gate)
+        {
+            Entries.Clear();
+            Recency.Clear();
+            _itemCount = 0;
         }
     }
 
@@ -82,7 +81,6 @@ internal static class FolderSnapshotCache
         }
     }
 
-    /// <summary>Drops thumbnail references from every snapshot past the newest few.</summary>
     private static void ReleasePixelsBeyondRetention()
     {
         var index = 0;
@@ -97,8 +95,6 @@ internal static class FolderSnapshotCache
 
             foreach (var item in entry.Items)
             {
-                // These items are not bound to anything: only the current folder's
-                // list is, and that is always within the retained window.
                 item.Thumbnail = null;
                 item.GridPlaceholder = null;
             }

@@ -1,15 +1,9 @@
+// Clearspace | Command registration and lookup.
+
 using Clearspace.Commands.Actions;
 
 namespace Clearspace.Commands;
 
-/// <summary>
-/// The command registry.
-///
-/// Adding a feature to Clearspace is two edits: write the action class, add one line
-/// to <see cref="Register"/>. Everything else (key binding, enabled state, menu entry,
-/// tooltip text) is derived. Files uses a Roslyn generator to remove even that one
-/// line; that is a worthwhile upgrade once the list stops changing shape.
-/// </summary>
 public sealed class CommandManager
 {
     private readonly Dictionary<CommandCode, RichCommand> _commands = [];
@@ -33,7 +27,6 @@ public sealed class CommandManager
     {
         Add(new NoneAction());
 
-        // Navigation
         Add(new NavigateBackAction(context));
         Add(new NavigateForwardAction(context));
         Add(new NavigateUpAction(context));
@@ -41,7 +34,6 @@ public sealed class CommandManager
         Add(new RefreshAction(context));
         Add(new FocusAddressBarAction(context));
 
-        // File system
         Add(new OpenItemAction(context));
         Add(new DeleteAction(context));
         Add(new DeletePermanentlyAction(context));
@@ -53,12 +45,10 @@ public sealed class CommandManager
         Add(new NewFolderAction(context));
         Add(new ShowPropertiesAction(context));
 
-        // Selection
         Add(new SelectAllAction(context));
         Add(new ClearSelectionAction(context));
         Add(new InvertSelectionAction(context));
 
-        // View
         Add(new OpenTerminalAction(context));
 
         void Add(IAction action) => _commands[action.Code] = new RichCommand(action, context);
@@ -71,7 +61,6 @@ public sealed class CommandManager
             if (command.HotKey.IsNone)
                 continue;
 
-            // Last registration wins; duplicates are a registration bug, not user input.
             _keyBindings[command.HotKey] = command;
         }
     }
@@ -79,7 +68,6 @@ public sealed class CommandManager
     public RichCommand? TryGetByHotKey(HotKey hotKey)
         => _keyBindings.TryGetValue(hotKey, out var command) ? command : null;
 
-    /// <summary>Re-evaluates every command's enabled state. Called after selection or navigation.</summary>
     public void RefreshState()
     {
         foreach (var command in _commands.Values)

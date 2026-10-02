@@ -1,0 +1,40 @@
+{
+  "artifact": "Clearspace Artifact 3 - SQLite tags and assignments",
+  "baselineCommit": "d810ca8304ae7294a80d7fc49777e4995e48435a",
+  "branch": "codex/artifact-three-sqlite",
+  "sourceState": "Working source including uncommitted Artifact 3 changes",
+  "createdUtc": "2026-09-29T22:29:26.7830549Z",
+  "tests": {
+    "total": 180,
+    "passed": 180,
+    "failed": 0,
+    "skipped": 0
+  },
+  "releasePublish": "Succeeded: dist/artifact-three",
+  "manualVerification": {
+    "status": "User reported the supplied manual checklist worked",
+    "reportedOn": "2026-09-29",
+    "source": "Payton: all those tests seem to work",
+    "independentlyObserved": false
+  },
+  "archives": [
+    {
+      "name": "Clearspace-Artifact3-Enhanced.zip",
+      "entries": 132,
+      "bytes": 633180,
+      "sha256": "7027EAFC827DE31F795E5A8B634F6336CD47F0D422F325FA73942426D2F179F1"
+    },
+    {
+      "name": "Clearspace-Artifact3-Evidence.zip",
+      "entries": 4,
+      "bytes": 48466,
+      "sha256": "5B0A349700598D8C2B95C6914E29617184B946FD8534B8850D46298E00814372"
+    },
+    {
+      "name": "Clearspace-Artifact3-Original.zip",
+      "entries": 142,
+      "bytes": 626389,
+      "sha256": "6BF4639A275421E63B5DDB5871E6E8AA9DDF68984D0B0FBE4F17ACBB2469C348"
+    }
+  ]
+}

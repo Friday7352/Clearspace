@@ -1,0 +1,85 @@
+<!-- Clearspace | Light theme.
+     NEW (themes): warm paper tones to match the dark theme's warm greys. Same keys as Dark.xaml. -->
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- Surfaces -->
+    <SolidColorBrush x:Key="Base"          Color="#FFEFECE5" />
+    <SolidColorBrush x:Key="Surface"       Color="#FFFAF8F4" />
+    <SolidColorBrush x:Key="Overlay"       Color="#FFFFFFFF" />
+    <SolidColorBrush x:Key="Hover"         Color="#0F1A1917" />
+    <SolidColorBrush x:Key="Pressed"       Color="#1F1A1917" />
+    <SolidColorBrush x:Key="Selected"      Color="#FFE2DCCF" />
+    <SolidColorBrush x:Key="Line"          Color="#FFD9D3C8" />
+    <SolidColorBrush x:Key="LineFaint"     Color="#FFE6E2D9" />
+
+    <SolidColorBrush x:Key="EdgeRaised"    Color="#FFD9D3C8" />
+    <SolidColorBrush x:Key="EdgeSunken"    Color="#FFD9D3C8" />
+
+    <!-- Text -->
+    <SolidColorBrush x:Key="Ink"           Color="#FF24221E" />
+    <SolidColorBrush x:Key="InkMuted"      Color="#FF68635B" />
+    <SolidColorBrush x:Key="InkFaint"      Color="#FF8A847A" />
+    <SolidColorBrush x:Key="InkDisabled"   Color="#FFB9B3A8" />
+
+    <!-- Accent: the dark theme's amber, deepened so it stays readable on paper -->
+    <SolidColorBrush x:Key="Accent"        Color="#FF8C5A14" />
+    <SolidColorBrush x:Key="AccentSoft"    Color="#268C5A14" />
+    <SolidColorBrush x:Key="AccentWash"    Color="#1A8C5A14" />
+    <SolidColorBrush x:Key="AccentInk"     Color="#FFFFFFFF" />
+
+    <!-- Status -->
+    <SolidColorBrush x:Key="Danger"        Color="#FFB5432F" />
+    <SolidColorBrush x:Key="Good"          Color="#FF2E7D4F" />
+    <SolidColorBrush x:Key="Warn"          Color="#FF8C5A14" />
+    <SolidColorBrush x:Key="Bad"           Color="#FFC0392B" />
+    <SolidColorBrush x:Key="Quiet"         Color="#FF68635B" />
+
+    <!-- Small fills -->
+    <SolidColorBrush x:Key="ThumbRest"     Color="#33000000" />
+    <SolidColorBrush x:Key="ThumbHover"    Color="#59000000" />
+    <SolidColorBrush x:Key="Tint"          Color="#0F000000" />
+    <SolidColorBrush x:Key="ChipHover"     Color="#FFE2DCCF" />
+    <SolidColorBrush x:Key="Divider"       Color="#14000000" />
+    <SolidColorBrush x:Key="RowAlt"        Color="#06000000" />
+    <SolidColorBrush x:Key="Track"         Color="#1F000000" />
+    <SolidColorBrush x:Key="SliderRail"    Color="#33000000" />
+    <SolidColorBrush x:Key="Well"          Color="#0A000000" />
+    <SolidColorBrush x:Key="BadgeFill"     Color="#E6FFFFFF" />
+    <SolidColorBrush x:Key="NavFill"       Color="#CCFFFFFF" />
+    <SolidColorBrush x:Key="Scrim"         Color="#F5EFECE5" />
+    <SolidColorBrush x:Key="CardFill"      Color="#FAFFFFFF" />
+    <SolidColorBrush x:Key="CardEdge"      Color="#FFCFC8BB" />
+    <SolidColorBrush x:Key="Ground3D"      Color="#FFD6D0C5" />
+
+    <!-- The highlighted row of a menu -->
+    <SolidColorBrush x:Key="MenuHover"       Color="#0F1A1917" />
+    <SolidColorBrush x:Key="MenuHoverInk"    Color="#FF24221E" />
+    <SolidColorBrush x:Key="MenuHoverMuted"  Color="#FF68635B" />
+    <SolidColorBrush x:Key="MenuHoverFaint"  Color="#FFB9B3A8" />
+    <SolidColorBrush x:Key="MenuHoverAccent" Color="#FF8C5A14" />
+
+    <!-- Fonts -->
+    <FontFamily x:Key="UIFont">Segoe UI Variable Text, Segoe UI</FontFamily>
+    <FontFamily x:Key="SerifFont">Source Serif 4, Source Serif Pro, Newsreader, Spectral, Cambria, Georgia</FontFamily>
+    <FontFamily x:Key="DisplayFont">Source Serif 4, Newsreader, Cambria, Georgia</FontFamily>
+    <FontFamily x:Key="MonoFont">Cascadia Mono, Consolas</FontFamily>
+
+    <!-- Corner sizes -->
+    <CornerRadius x:Key="R2">2</CornerRadius>
+    <CornerRadius x:Key="R3">3</CornerRadius>
+    <CornerRadius x:Key="R4">4</CornerRadius>
+    <CornerRadius x:Key="R5">5</CornerRadius>
+    <CornerRadius x:Key="R6">6</CornerRadius>
+    <CornerRadius x:Key="R7">7</CornerRadius>
+    <CornerRadius x:Key="R8">8</CornerRadius>
+    <CornerRadius x:Key="R9">9</CornerRadius>
+    <CornerRadius x:Key="R10">10</CornerRadius>
+    <CornerRadius x:Key="R12">12</CornerRadius>
+    <CornerRadius x:Key="RPlayerBar">0,0,11,11</CornerRadius>
+
+    <!-- Title bar: match the window instead of Windows' plain white (Windows 11 only; ignored on 10). -->
+    <Color x:Key="Theme.CaptionColor">#FFEFECE5</Color>
+    <Color x:Key="Theme.CaptionTextColor">#FF24221E</Color>
+
+</ResourceDictionary>

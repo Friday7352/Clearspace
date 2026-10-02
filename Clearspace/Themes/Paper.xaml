@@ -1,0 +1,91 @@
+<!-- Clearspace | E-reader theme (file name Paper; experimental).
+     CHANGED (e-ink): this theme is now an e-ink panel, not cream paper. The colours below are plain
+     black, white and greys ON PURPOSE: Services/EInkScreen.cs lays an effect over the window that turns
+     everything into the 16 greys a panel can show and maps white to the panel's pale-grey "paper" and black
+     to its dark-grey "ink". So "#FFFFFFFF" here ends up as the paper tone on screen. Also: a book face for
+     all text (Bookerly or Literata if installed, otherwise Georgia), grey-wash icons (ThemeIcons, style
+     Ink), and page turns that morph the old page into the new one (MainWindow.EInk.cs). -->
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- Surfaces -->
+    <SolidColorBrush x:Key="Base"          Color="#FFFFFFFF" />
+    <SolidColorBrush x:Key="Surface"       Color="#FFFFFFFF" />
+    <SolidColorBrush x:Key="Overlay"       Color="#FFFFFFFF" />
+    <SolidColorBrush x:Key="Hover"         Color="#14000000" />
+    <SolidColorBrush x:Key="Pressed"       Color="#26000000" />
+    <SolidColorBrush x:Key="Selected"      Color="#FFCCCCCC" />
+    <SolidColorBrush x:Key="Line"          Color="#FF888888" />
+    <SolidColorBrush x:Key="LineFaint"     Color="#FFCCCCCC" />
+
+    <!-- Outlines of buttons, menus and cards (EdgeRaised) and of text boxes and the file list (EdgeSunken). -->
+    <SolidColorBrush x:Key="EdgeRaised"    Color="#FF333333" />
+    <SolidColorBrush x:Key="EdgeSunken"    Color="#FF333333" />
+
+    <!-- Text -->
+    <SolidColorBrush x:Key="Ink"           Color="#FF000000" />
+    <SolidColorBrush x:Key="InkMuted"      Color="#FF444444" />
+    <SolidColorBrush x:Key="InkFaint"      Color="#FF777777" />
+    <SolidColorBrush x:Key="InkDisabled"   Color="#FFAAAAAA" />
+
+    <!-- Accent -->
+    <SolidColorBrush x:Key="Accent"        Color="#FF000000" />
+    <SolidColorBrush x:Key="AccentSoft"    Color="#26000000" />
+    <SolidColorBrush x:Key="AccentWash"    Color="#1A000000" />
+    <SolidColorBrush x:Key="AccentInk"     Color="#FFFFFFFF" />   <!-- text on a solid accent fill -->
+
+    <!-- Status -->
+    <SolidColorBrush x:Key="Danger"        Color="#FF000000" />
+    <SolidColorBrush x:Key="Good"          Color="#FF555555" />
+    <SolidColorBrush x:Key="Warn"          Color="#FF555555" />
+    <SolidColorBrush x:Key="Bad"           Color="#FF555555" />
+    <SolidColorBrush x:Key="Quiet"         Color="#FF555555" />
+
+    <!-- Small fills -->
+    <SolidColorBrush x:Key="ThumbRest"     Color="#FF888888" />   <!-- scroll bar -->
+    <SolidColorBrush x:Key="ThumbHover"    Color="#FF333333" />
+    <SolidColorBrush x:Key="Tint"          Color="#14000000" />   <!-- status bar chips -->
+    <SolidColorBrush x:Key="ChipHover"     Color="#FFDDDDDD" />   <!-- a project-strip chip under the pointer -->
+    <SolidColorBrush x:Key="Divider"       Color="#FF999999" />   <!-- menu separators -->
+    <SolidColorBrush x:Key="RowAlt"        Color="#08000000" />   <!-- every other row in Music folders -->
+    <SolidColorBrush x:Key="Track"         Color="#33000000" />   <!-- drive usage bar background -->
+    <SolidColorBrush x:Key="SliderRail"    Color="#FFAAAAAA" />
+    <SolidColorBrush x:Key="Well"          Color="#0D000000" />   <!-- behind a tile's picture -->
+    <SolidColorBrush x:Key="BadgeFill"     Color="#FFFFFFFF" />   <!-- badges drawn over a tile's picture -->
+    <SolidColorBrush x:Key="NavFill"       Color="#FFFFFFFF" />   <!-- previous / next in the photo viewer -->
+    <SolidColorBrush x:Key="Scrim"         Color="#FAFFFFFF" />   <!-- photo viewer backdrop -->
+    <SolidColorBrush x:Key="CardFill"      Color="#FFFFFFFF" />   <!-- tooltips and hover cards -->
+    <SolidColorBrush x:Key="CardEdge"      Color="#FF000000" />
+    <SolidColorBrush x:Key="Ground3D"      Color="#FFBBBBBB" />   <!-- floor of the 3D disk usage views -->
+
+    <!-- The highlighted row of a menu -->
+    <SolidColorBrush x:Key="MenuHover"       Color="#FF000000" />
+    <SolidColorBrush x:Key="MenuHoverInk"    Color="#FFFFFFFF" />
+    <SolidColorBrush x:Key="MenuHoverMuted"  Color="#FFFFFFFF" />
+    <SolidColorBrush x:Key="MenuHoverFaint"  Color="#FFCCCCCC" />
+    <SolidColorBrush x:Key="MenuHoverAccent" Color="#FFFFFFFF" />
+
+    <!-- Fonts -->
+    <FontFamily x:Key="UIFont">Bookerly, Literata, Georgia, Cambria, Segoe UI</FontFamily>
+    <FontFamily x:Key="SerifFont">Bookerly, Literata, Georgia, Cambria, Segoe UI</FontFamily>
+    <FontFamily x:Key="DisplayFont">Bookerly, Literata, Georgia, Cambria, Segoe UI</FontFamily>
+    <FontFamily x:Key="MonoFont">Cascadia Mono, Consolas</FontFamily>
+
+    <!-- Corner sizes (R8 = "what used to be an 8px corner") -->
+    <CornerRadius x:Key="R2">2</CornerRadius>
+    <CornerRadius x:Key="R3">3</CornerRadius>
+    <CornerRadius x:Key="R4">4</CornerRadius>
+    <CornerRadius x:Key="R5">5</CornerRadius>
+    <CornerRadius x:Key="R6">6</CornerRadius>
+    <CornerRadius x:Key="R7">7</CornerRadius>
+    <CornerRadius x:Key="R8">8</CornerRadius>
+    <CornerRadius x:Key="R9">9</CornerRadius>
+    <CornerRadius x:Key="R10">10</CornerRadius>
+    <CornerRadius x:Key="R12">12</CornerRadius>
+    <CornerRadius x:Key="RPlayerBar">0,0,11,11</CornerRadius>
+
+    <!-- Title bar: the panel's paper and ink tones, to match what the effect shows below it (Windows 11 only). -->
+    <Color x:Key="Theme.CaptionColor">#FFE5E3DB</Color>
+    <Color x:Key="Theme.CaptionTextColor">#FF242423</Color>
+
+</ResourceDictionary>

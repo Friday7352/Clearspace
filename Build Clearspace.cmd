@@ -1,21 +1,38 @@
 @echo off
+REM Clearspace | Builds a local Clearspace release and desktop shortcut.
 setlocal
 cd /d "%~dp0Clearspace"
 
 echo Publishing Clearspace...
 echo.
 
-REM A still-running Clearspace holds a lock on its own exe, and the build fails at
-REM the copy step rather than at compile. Closing it first turns a confusing
-REM "Build failed" into a normal rebuild. Returns 128 when nothing was running,
-REM which is not an error here.
 taskkill /IM Clearspace.exe /F >nul 2>&1
 if not errorlevel 1 timeout /t 1 /nobreak >nul
 
-dotnet publish -c Release -o "%~dp0dist"
+REM FIXED: never reuse precompiled code left by an older self-contained installer build (it made
+REM dist\Clearspace.exe fail fast on startup). Cheap to redo: only Clearspace itself is precompiled here.
+if exist "obj\Release\net10.0-windows\win-x64\R2R" rmdir /s /q "obj\Release\net10.0-windows\win-x64\R2R"
+
+REM FIXED: a WPF build that is interrupted (or an editor's background build) can leave a temporary
+REM Clearspace_*_wpftmp.csproj next to the real one, and "dotnet publish" with no project named then
+REM stops with MSB1011 ("more than one project file"). Remove leftovers and always name the project.
+del /q "Clearspace_*_wpftmp.csproj" >nul 2>&1
+
+dotnet publish "Clearspace.csproj" -c Release -o "%~dp0dist"
 if errorlevel 1 (
     echo.
     echo Publish failed. See the errors above.
+    pause
+    exit /b 1
+)
+
+REM NEW (journal catch-up): the optional index helper service lives next to Clearspace.exe.
+echo.
+echo Publishing the index helper...
+dotnet publish "%~dp0Clearspace.IndexHelper\Clearspace.IndexHelper.csproj" -c Release -o "%~dp0dist"
+if errorlevel 1 (
+    echo.
+    echo Publishing the index helper failed. See the errors above.
     pause
     exit /b 1
 )
@@ -29,6 +46,10 @@ powershell -NoProfile -ExecutionPolicy Bypass -Command ^
   "$s.WorkingDirectory = '%~dp0dist';" ^
   "$s.Description = 'Clearspace file manager';" ^
   "$s.Save()"
+
+REM NEW (logo): Windows caches program icons and often keeps showing the old one after a rebuild (taskbar,
+REM Task Manager, the desktop shortcut). This asks it to reload them. Harmless if the tool is missing.
+ie4uinit.exe -show >nul 2>&1
 
 echo.
 echo Done.

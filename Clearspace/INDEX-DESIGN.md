@@ -5,6 +5,13 @@ with no elevation at any point.
 
 Status: built.
 
+September 23 update: indexing and fallback search now traverse without arbitrary
+depth caps. Search coverage and recovery are tracked per volume; a failed drive
+does not force a crawl of healthy drives. Loaded indexes receive a background
+catch-up scan before claiming live search coverage. See
+`../docs/CS499-Artifact-Two-Completion.md` for the current implementation and tests.
+The design discussion below also contains historical measurements and proposals.
+
 `Services/FileIndex.cs` (store), `FileIndexBuilder.cs` (background walk),
 `FileIndexStore.cs` (persistence), `FileIndexService.cs` (ownership and queries),
 `IndexOverlay.cs` (changes since the walk) and `FileIndexWatcher.cs` (watching).
@@ -28,13 +35,13 @@ file deep in a tree updates only its immediate parent's timestamp, not its
 ancestors', so pruning on mtime would skip precisely the subtrees that changed.
 Finding out what happened costs a full walk either way.
 
-So the gap is closed from the other end. Results are verified rather than the
-index: after a search has already been shown, the rows it returned are checked
-for existence and any that have gone are pruned and recorded. That is bounded by
-how many results came back, not by the size of the index, which is what makes it
-affordable - and it is the same answer where it is visible, since a stale entry
-nobody ever sees in a result does no harm. Volumes are also rebuilt if they are
-more than an hour old, which bounds how long that can persist.
+Saved volumes now enter per-volume recovery on startup. Their saved data remains
+available to the disk map, while searches crawl the affected roots until the
+background catch-up scan publishes a replacement. Checking that existing hits
+still exist cannot discover files created while the app was closed, so pruning
+alone is not treated as complete coverage. During the session, watcher errors
+queue recovery for their own volume, throttled to avoid repeated scans during
+heavy activity. Queries still prune vanished local hits as a secondary check.
 
 ## What actually makes search instant
 

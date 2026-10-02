@@ -1,43 +1,63 @@
+// Clearspace | Windows shell file operations.
+
 using System.Runtime.InteropServices;
+using System.IO;
+using Clearspace.Models;
 using Clearspace.Native;
 
 namespace Clearspace.Services;
 
-/// <summary>
-/// Routes destructive work through the shell so Clearspace inherits Explorer's
-/// progress dialog, conflict prompts, undo stack, and Recycle Bin semantics
-/// instead of reimplementing them badly.
-/// </summary>
 public static class FileOperationService
 {
-    /// <summary>Sends items to the Recycle Bin, or deletes permanently when asked.</summary>
-    public static bool Delete(IReadOnlyList<string> paths, IntPtr owner, bool permanent = false)
-    {
-        if (paths.Count == 0)
-            return false;
+    // Only used after the disk usage window's explicit, default-No confirmation.
+    internal static FileOperationResult DeletePermanentlyConfirmed(IReadOnlyList<string> paths, IntPtr owner,
+        ShellOperation? invoke = null)
+        => Run(FileOperationKind.Delete, paths, null, NativeMethods.FOF_NOCONFIRMATION, owner, invoke);
 
+    public static FileOperationResult Delete(IReadOnlyList<string> paths, IntPtr owner, bool permanent = false)
+    {
         ushort flags = permanent
             ? NativeMethods.FOF_WANTNUKEWARNING
             : (ushort)(NativeMethods.FOF_ALLOWUNDO | NativeMethods.FOF_WANTNUKEWARNING);
 
-        return Run(NativeMethods.FO_DELETE, paths, null, flags, owner);
+        return Run(FileOperationKind.Delete, paths, null, flags, owner);
     }
 
-    public static bool Copy(IReadOnlyList<string> paths, string destinationFolder, IntPtr owner)
-        => Run(NativeMethods.FO_COPY, paths, destinationFolder, NativeMethods.FOF_ALLOWUNDO, owner);
+    public static FileOperationResult Copy(IReadOnlyList<string> paths, string destinationFolder, IntPtr owner)
+        => Run(FileOperationKind.Copy, paths, destinationFolder, NativeMethods.FOF_ALLOWUNDO, owner);
 
-    public static bool Move(IReadOnlyList<string> paths, string destinationFolder, IntPtr owner)
-        => Run(NativeMethods.FO_MOVE, paths, destinationFolder, NativeMethods.FOF_ALLOWUNDO, owner);
+    public static FileOperationResult Move(IReadOnlyList<string> paths, string destinationFolder, IntPtr owner)
+        => Run(FileOperationKind.Move, paths, destinationFolder, NativeMethods.FOF_ALLOWUNDO, owner);
 
-    public static bool Rename(string path, string newFullPath, IntPtr owner)
-        => Run(NativeMethods.FO_RENAME, [path], newFullPath, NativeMethods.FOF_ALLOWUNDO, owner);
+    public static FileOperationResult Rename(string path, string newFullPath, IntPtr owner)
+        => Run(FileOperationKind.Rename, [path], newFullPath, NativeMethods.FOF_ALLOWUNDO, owner);
 
-    private static bool Run(uint operation, IReadOnlyList<string> from, string? to, ushort flags, IntPtr owner)
+    internal delegate int ShellOperation(ref NativeMethods.SHFILEOPSTRUCT operation);
+
+    // Injection is per call, so tests can exercise the native boundary without changing files
+    // or replacing global application state.
+    internal static FileOperationResult Run(FileOperationKind operation, IReadOnlyList<string> from,
+        string? to, ushort flags, IntPtr owner, ShellOperation? invoke = null)
     {
+        if (from.Count == 0)
+            return FileOperationResult.InvalidInput(operation, "No files or folders were selected.");
+
+        if (from.Any(path => !IsValidShellPath(path)) ||
+            (operation != FileOperationKind.Delete && !IsValidShellPath(to)))
+            return FileOperationResult.InvalidInput(operation,
+                "Use full file or folder paths without wildcards or embedded null characters.");
+
         var op = new NativeMethods.SHFILEOPSTRUCT
         {
             hwnd = owner,
-            wFunc = operation,
+            wFunc = operation switch
+            {
+                FileOperationKind.Copy => NativeMethods.FO_COPY,
+                FileOperationKind.Move => NativeMethods.FO_MOVE,
+                FileOperationKind.Rename => NativeMethods.FO_RENAME,
+                FileOperationKind.Delete => NativeMethods.FO_DELETE,
+                _ => throw new ArgumentOutOfRangeException(nameof(operation))
+            },
             pFrom = ToDoubleNullTerminated(from),
             pTo = to is null ? null : ToDoubleNullTerminated([to]),
             fFlags = flags,
@@ -45,22 +65,20 @@ public static class FileOperationService
             lpszProgressTitle = null
         };
 
-        var result = NativeMethods.SHFileOperationW(ref op);
-        return result == 0 && !op.fAnyOperationsAborted;
+        var result = (invoke ?? NativeMethods.SHFileOperationW)(ref op);
+        return FileOperationResult.FromShellResult(operation, result, op.fAnyOperationsAborted);
     }
 
-    /// <summary>
-    /// SHFileOperation takes a list as one buffer of null-separated strings with an
-    /// extra trailing null. The LPWStr marshaller copies the managed string by length,
-    /// so embedded nulls survive the transition.
-    /// </summary>
+    private static bool IsValidShellPath(string? path)
+        => !string.IsNullOrWhiteSpace(path) && path.IndexOfAny(['\0', '*', '?']) < 0 && Path.IsPathFullyQualified(path);
+
+    // The shell API expects a null-separated list with one extra null at the end.
     private static string ToDoubleNullTerminated(IReadOnlyList<string> paths)
         => string.Join('\0', paths) + "\0\0";
 
-    /// <summary>Opens the shell's Properties dialog for a single item.</summary>
+
     public static bool ShowProperties(string path, IntPtr owner) => InvokeVerb("properties", path, owner);
 
-    /// <summary>Shows Windows' own "Open with" chooser.</summary>
     public static bool OpenWith(string path, IntPtr owner) => InvokeVerb("openas", path, owner);
 
     private static bool InvokeVerb(string verb, string path, IntPtr owner)
