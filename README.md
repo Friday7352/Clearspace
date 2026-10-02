@@ -4,9 +4,71 @@ Clearspace is a modern Windows file manager built to be a comfortable replacemen
 
 > **Work in progress:** Clearspace is still an early public release. There will be bugs and rough edges as it is used on more Windows setups and file collections. Please report issues you find; fixes and improvements will continue over time.
 
+<!-- CHANGED (user readme): this page is now for the person installing and using Clearspace. Installing
+     comes first. Building from source, publishing a release and the project layout moved to
+     DEVELOPMENT.md. -->
+## Install
+
+1. Download **[ClearspaceSetup.exe](https://github.com/Friday7352/Clearspace/releases/latest/download/ClearspaceSetup.exe)**, the newest release. Earlier versions are on the [Releases page](https://github.com/Friday7352/Clearspace/releases).
+2. Run it. Windows may show a blue **Windows protected your PC** notice, because the installer is not signed with a publisher certificate. Choose **More info**, then **Run anyway**.
+3. Follow the steps. Setup offers the two options described below.
+
+**What you need:** 64-bit Windows 10 or Windows 11. Nothing else has to be installed first: everything Clearspace uses is inside the setup file or already part of Windows. The setup file works offline and downloads nothing.
+
+**What setup does:** it installs Clearspace for your Windows account only, so it needs no administrator permission, and adds it to the Start menu. Clearspace sits beside File Explorer and does not replace it. Setup offers two options:
+
+- **A desktop shortcut.**
+- **Instant indexing** (on by default) installs the Clearspace Index Helper service described under [Instant indexing and fast catch-up](#instant-indexing-and-fast-catch-up). Windows asks for administrator permission once, during setup. You can turn it on or off later from the Indexing page.
+
+<!-- CHANGED (user readme): the in-app update comes first; running a newer setup by hand is the fallback. -->
+### Updating
+
+Clearspace updates itself. After the first install nobody has to download the installer by hand:
+
+- **Settings > Check for updates…** looks for a newer release right away.
+- **Settings > About Clearspace…** shows the version, where Clearspace and its data are, and the Windows and .NET it runs on, with the same **Check for updates** button and a **Copy details** button for bug reports.
+- **Check for updates automatically** (in the About window, on by default) looks quietly a few seconds after Clearspace starts and every 6 hours while it is open. It never interrupts: a newer version shows as an **Update available** chip in the status bar.
+- The update dialog shows what changed. **Update now** downloads the installer, checks it against the size and SHA-256 fingerprint GitHub lists for it, runs it with only a progress window, and opens Clearspace again. **Later** keeps the chip; **Skip this version** hides it until something newer is released.
+
+The check is one request to GitHub for the newest Clearspace release. Nothing about your PC is sent beyond what any web request carries. Turn **Check for updates automatically** off in the About window to stop it.
+
+You can also update by hand: download the newer `ClearspaceSetup.exe` and run it. Setup sees the Clearspace that is already installed and opens on a page offering:
+
+- **Update** (or **Repair** when the same version is installed) — replaces the app and keeps settings, tags, the saved index and locked files. Clearspace is closed first; anything unlocked for a visit is locked again before it closes.
+- **Update and choose the options again** — the same, plus the page with the desktop shortcut and Instant indexing options.
+- **Remove Clearspace** — starts the uninstaller.
+
+Copies of Clearspace older than 1.2.0 have no update check, so they need the newest installer run once by hand.
+
+A silent run (`ClearspaceSetup.exe /VERYSILENT`) performs the plain update.
+
+<!-- CHANGED (user readme): says plainly that locked files are left in place; only their icon and
+     double-click handling go. -->
+### Uninstalling
+
+Uninstall Clearspace from Windows Settings like any other app, or run the setup again and choose **Remove Clearspace**. This closes Clearspace and removes the app, its shortcuts, its entries in Explorer's right-click menu, the lock icon and double-click handling for `.cslock` files, and the Index Helper service (Windows asks for permission once to remove the service).
+
+**Your own files are never removed.** Files you left locked stay where they are, still encrypted. Without Clearspace they show a blank icon and cannot be opened; install Clearspace again and they open with the same password.
+
+Before anything is removed, the uninstaller asks up to two questions:
+
+1. **Locked files** (only when something is still locked): **Remove the locks first** opens Clearspace's *Remove all locks* dialog, which asks for your password and decrypts everything; **Leave them locked** uninstalls anyway.
+2. **Your data**: **Keep my data** leaves tags, folder types and settings in `%APPDATA%\Clearspace` and the saved index, lock icons and logs in `%LOCALAPPDATA%\Clearspace` for a later install. **Remove everything** deletes both folders. If items are still locked, the lock records (`tags.db`) and lock icons are kept either way.
+
+A silent uninstall asks nothing and leaves locks and data alone.
+
+<!-- NEW (user readme) -->
+### Reporting a problem
+
+**Settings > About Clearspace…** has a **Copy details** button that copies the version and system details. Paste them into a new issue on the [Issues page](https://github.com/Friday7352/Clearspace/issues), with what you were doing when it went wrong.
+
 <!-- NEW: a short list of the recent additions, linking to the sections below. -->
 ## What's new
 
+<!-- NEW (user readme): the 1.3.0 additions. -->
+- **[Tabs](#familiar-file-manager-foundations)**: Ctrl+T for a new tab, or middle-click a folder to open it in one. Each tab keeps its own history, search, scroll position and selection.
+- **[More than one window](#familiar-file-manager-foundations)**: Ctrl+N or "Open in new window".
+- **[Your own folders in Your files](#familiar-file-manager-foundations)**, beside Desktop, Documents and the rest.
 - **[Password locks](#password-protected-files-and-folders)** for files and folders, with lock icons and right-click entries in Windows Explorer too.
 - **[Folder types](#folder-types-that-adapt-to-your-work)**: thirteen built-in types, types you save yourself, a Projects strip, and Git status in Code folders.
 - **[Instant indexing and fast catch-up](#instant-indexing-and-fast-catch-up)**: a drive's first index takes seconds, and reopening Clearspace reads only what changed.
@@ -16,6 +78,10 @@ Clearspace is a modern Windows file manager built to be a comfortable replacemen
 - **[Themes](#themes)**: six looks to choose from, plus a set of experimental ones that change the icons and fonts too.
 
 ## What Clearspace adds
+
+<!-- CHANGED (user readme): notes written for developers were taken out of this section or reworded
+     (how tags and locks are stored, how the disk map draws, links to the design notes). The design
+     notes are linked from DEVELOPMENT.md. -->
 
 ### Folder types that adapt to your work
 
@@ -90,11 +156,7 @@ Tags are lightweight labels you can create and apply to one or many selected fil
 - Pin frequently used locations to Favorites in the sidebar.
 - Organize pinned locations into your own collapsible, reorderable categories.
 
-Tags are saved in `%APPDATA%\Clearspace\tags.db` using SQLite. On the first run,
-existing `tags.json` data is imported automatically and the original file is kept.
-Bulk changes save together, and failed writes leave the previous assignments intact.
-See [Artifact 3 database notes](docs/CS499-Artifact-Three-Databases.md) for migration,
-backup, and recovery details.
+Tags are saved on this PC in `%APPDATA%\Clearspace\tags.db`. If you used an early version that kept them in `tags.json`, they are brought over automatically the first time and the old file is kept. A change to many items at once is saved together, so a save that fails leaves your tags as they were.
 
 ### Password protected files and folders
 
@@ -143,9 +205,7 @@ backups are not encrypted by this operation.
 ![Lock badges on a locked file and folder in Clearspace](docs/images/lock-badges.png)
 -->
 
-Lock metadata and the password verifier are stored in SQLite; each encrypted
-file also contains protected recovery metadata. See [file-locking notes](docs/CS499-File-Locking.md)
-for the format, tests, and recovery limitations.
+Locked files are encrypted with AES-256, using a key made from your password.
 
 <!-- NEW: how locking works in File Explorer, without opening Clearspace. -->
 #### Using locks from Windows Explorer
@@ -215,7 +275,7 @@ is:folder          folders only
 is:image           image files only
 ```
 
-Clearspace maintains a compact filename index and also uses the Windows-maintained index for file contents. Content results depend on Windows indexing the location and having an IFilter for that file type. If a source is unavailable or lacks coverage, Clearspace can fall back to its background crawl.
+Clearspace maintains a compact filename index and also uses the Windows-maintained index for file contents. Content results depend on Windows indexing the location and being able to read that file type. If a source is unavailable or lacks coverage, Clearspace can fall back to its background crawl.
 
 <!-- NEW: the index helper service, file-table scan and change-journal catch-up. -->
 ### Instant indexing and fast catch-up
@@ -278,7 +338,7 @@ It shows:
   an idle progress bar. Excluded or unreadable locations remain listed separately.
   No extra counting scan is required.
 - **Catch up now** reads only what changed since the last look. **Full rescan**
-  requests a complete scan on the existing background worker; current saved
+  runs a complete scan in the background; current saved
   entries stay searchable while it runs. Automatic full rescans are spaced 20
   minutes apart, and **Full rescan** skips that wait. **Refresh status** only
   refreshes the display.
@@ -384,8 +444,7 @@ driver, so they are not shown). It is drawn as the chip is organised, not to sca
 **Index network drives** (in the same gear panel, off by default) indexes mapped
 network drives too, so a NAS or share appears in the drive list, in the map, beside
 your other drives when zoomed out, and in search. Clearspace only reads a share while
-it answers - reachability is checked in the background once a minute, never on the
-UI thread - and a share that is out of reach keeps its last index so its sizes can
+it answers - it checks once a minute, in the background - and a share that is out of reach keeps its last index so its sizes can
 still be browsed. The first pass reads the whole share over the network, so a large
 NAS can take a while. Turning the option off drops those indexes straight away.
 
@@ -423,9 +482,7 @@ between runs.
 
 **Map performance**
 
-- *GPU acceleration* draws the blocks through Direct3D; turning it off uses the
-  built-in multi-threaded CPU rasterizer, which is what runs anyway on a machine
-  with no usable Direct3D adapter. The panel names the adapter in use.
+- *GPU acceleration* draws the map with your graphics card. Turned off, the processor draws it instead, which is what happens anyway on a PC without a suitable graphics card. The panel names the graphics card in use.
 - *Low performance mode* draws only the folder you are in - everything inside it
   stays a solid block until you open it - so a frame never walks a deep tree.
   That is the setting to reach for on integrated graphics or in enormous folders.
@@ -476,17 +533,7 @@ Double-click a room (or press Enter) to make that folder the tower you are in;
 Back, Up, breadcrumbs and the list follow along. Esc or Backspace steps back out
 onto the street.
 
-Initial layout, folder-path navigation, and detail loading run in the background.
-The map batches tiles through the GPU (with a CPU fallback), limits work per frame,
-and stops its animation loop when idle. Press **F3** in the analyzer to see frame
-timings on your own drive. Closing the analyzer cancels its remaining work.
-Map redraws yield to mouse and window input. Distant groups stay compact when
-their fine detail would exceed the frame budget; zooming closer reveals their
-contents at full pixel resolution.
-
-Zoom detail fades gradually, and delayed GPU frames retain their matching labels
-and hit targets. Background detail loading is limited during gestures; the sidebar
-waits until zooming settles before replacing its listing.
+The map is built to stay smooth on large drives. It does its work in the background, stops drawing when nothing is moving, and keeps distant folders as single blocks until you zoom in close enough to see inside them. Closing the analyzer stops whatever it was still working on. Press **F3** in the analyzer to see frame timings on your own drive.
 
 The sidebar uses single-line name/size rows. Hover for full names and percentages;
 the info button holds index details. Selection reveals the permanent-delete controls.
@@ -495,9 +542,6 @@ To **delete permanently**, right-click a file/folder block or select items in
 the list and use the delete button or **Shift+Delete**. The confirmation lists
 the targets and explains that they will bypass the Recycle Bin. Afterward, the
 map and totals update for items confirmed removed, including partial deletions.
-
-See [algorithm implementation notes](docs/CS499-Algorithms-Disk-Usage.md) for
-design decisions, complexity, tests, and limitations.
 
 <!-- NEW: the themes. -->
 ### Themes
@@ -550,87 +594,9 @@ look in every theme.
 - Grid zoom is remembered independently for each folder.
 - Optional terminal launch in the folder currently being viewed.
 
-## Install or build
+<!-- NEW (user readme): where the build and release instructions went. -->
+## Building Clearspace yourself
 
-### Installable release
-
-Run [Build Installer.cmd](Build%20Installer.cmd). It publishes a self-contained 64-bit build, then creates:
-
-```text
-release\ClearspaceSetup.exe
-```
-
-The setup is a normal Windows installer in Clearspace's dark look. It installs Clearspace for the current user, creates a Start Menu entry, and offers an optional desktop shortcut.
-
-<!-- NEW: dependencies, update. -->
-**Nothing else to install.** .NET, WPF and SQLite are built into `Clearspace.exe` (and into the index helper); everything else Clearspace uses is part of Windows 10 and 11. The setup file works offline and downloads nothing. The installer script refuses to build if the published app is not the self-contained one.
-
-**Updating.** The version number comes from the [VERSION](VERSION) file ([VERSIONING.md](VERSIONING.md) says what each number means): raise it, run `Build Installer.cmd` again, and run the new setup on a PC that already has Clearspace. Setup then opens on a page offering:
-
-- **Update** (or **Repair** when the same version is installed) — replaces the app and keeps settings, tags, the saved index and locked files. Clearspace is closed first; anything unlocked for a visit is locked again before it closes.
-- **Update and choose the options again** — the same, plus the page with the desktop shortcut and Instant indexing options.
-- **Remove Clearspace** — starts the uninstaller.
-
-A silent run (`ClearspaceSetup.exe /VERYSILENT`) performs the plain update.
-
-<!-- NEW: in-app updates. -->
-### Updates from inside Clearspace
-
-Nobody has to download the installer by hand after the first install:
-
-- **Settings > Check for updates…** looks for a newer release right away.
-- **Settings > About Clearspace…** shows the version, where Clearspace and its data are, and the Windows and .NET it runs on, with the same **Check for updates** button and a **Copy details** button for bug reports.
-- **Check for updates automatically** (in the About window, on by default) looks quietly a few seconds after Clearspace starts and every 6 hours while it is open. It never interrupts: a newer version shows as an **Update available** chip in the status bar.
-- The update dialog shows what changed. **Update now** downloads the installer, checks it against the size and SHA-256 fingerprint GitHub lists for it, runs it with only a progress window, and opens Clearspace again. **Later** keeps the chip; **Skip this version** hides it until something newer is released.
-
-The check is one request to GitHub's public API for the newest release of this repository; nothing else is sent. Turn **Check for updates automatically** off in the About window to stop it.
-
-<!-- CHANGED (versioning): which number to raise is set out in VERSIONING.md. -->
-**Publishing an update:**
-
-1. Raise the number in [VERSION](VERSION) by the rules in [VERSIONING.md](VERSIONING.md) (for example `1.3.0`).
-2. Run `Build Installer.cmd`.
-3. Create a GitHub release tagged `v1.3.0` — the tag must match `VERSION` — and attach `release\ClearspaceSetup.exe` under that exact file name. The release description is what the update dialog shows.
-
-Copies of Clearspace older than 1.2.0 have no update check, so they need the 1.2.0 installer run once by hand.
-
-<!-- NEW: the installer's indexing option. -->
-Setup also offers **Instant indexing** (on by default), which installs the Clearspace Index Helper service described under [Instant indexing and fast catch-up](#instant-indexing-and-fast-catch-up). Windows asks for administrator permission once, during setup.
-
-Building the installer requires the [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0) and [Inno Setup](https://jrsoftware.org/isdl.php) (`winget install -e --id JRSoftware.InnoSetup`). The dark look needs Inno Setup 6.6 or newer, and 6.7 or newer for Clearspace's exact background color; older versions still build, with a light installer. End users only need the generated setup file.
-
-<!-- NEW: what uninstalling removes and what it leaves. -->
-### Uninstall
-
-Uninstall Clearspace from Windows Settings like any other app (or run the setup again and choose **Remove Clearspace**). This closes Clearspace and removes the app, its shortcuts, the Explorer right-click entries and `.cslock` file type, and the Index Helper service (Windows asks for permission once to remove the service).
-
-<!-- CHANGED: the uninstaller now asks about locks and data instead of leaving both behind. -->
-Before anything is removed, the uninstaller asks up to two questions:
-
-1. **Locked files** (only when something is still locked): **Remove the locks first** opens Clearspace's *Remove all locks* dialog, which asks for your password and decrypts everything; **Leave them locked** uninstalls anyway. Files left locked open again after reinstalling Clearspace, with the same password.
-2. **Your data**: **Keep my data** leaves tags, folder types and settings in `%APPDATA%\Clearspace` and the saved index, lock icons and logs in `%LOCALAPPDATA%\Clearspace` for a later install. **Remove everything** deletes both folders. If items are still locked, the lock records (`tags.db`) and lock icons are kept either way.
-
-A silent uninstall asks nothing and leaves locks and data alone.
-
-### Development build
-
-Run [Build Clearspace.cmd](Build%20Clearspace.cmd) to publish a local executable to `dist\` and create a desktop shortcut. [Run Clearspace.cmd](Run%20Clearspace.cmd) is the rebuild-and-launch option for development.
-
-## Project layout
-
-```text
-Clearspace/              WPF application source
-Clearspace.IndexHelper/  Optional Windows service for instant indexing and fast catch-up
-Clearspace.Tests/        Regression tests (run with dotnet test)
-docs/                    Design notes and the pictures used in this README
-installer/               Inno Setup installer definition
-output/                  Saved test reports and coursework packages
-dist/                    Local published build (generated)
-release/                 Installer output (generated)
-VERSION                  The version number, read by both projects and the installer
-VERSIONING.md            What each part of the version number means and when to raise it
-```
-
-For architecture and implementation notes, see [Clearspace/ARCHITECTURE.md](Clearspace/ARCHITECTURE.md).
+The source code is in this repository. To build Clearspace from it, publish a release, or see how it is put together, read [DEVELOPMENT.md](DEVELOPMENT.md).
 
 Please note that this is still in early development. There will be bugs and missing features. I will try to add these and patch bugs when I can. Thank you for trying this out!
