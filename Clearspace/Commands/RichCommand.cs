@@ -1,13 +1,11 @@
+// Clearspace | WPF adapter for application commands.
+
 using System.ComponentModel;
 using System.Windows.Input;
 using Clearspace.Models;
 
 namespace Clearspace.Commands;
 
-/// <summary>
-/// Wraps an <see cref="IAction"/> so WPF can bind to it directly. Buttons, menu items,
-/// and key bindings all consume this, which means an action only ever gets described once.
-/// </summary>
 public sealed class RichCommand : ObservableObject, ICommand
 {
     private readonly IAction _action;
@@ -16,8 +14,6 @@ public sealed class RichCommand : ObservableObject, ICommand
     {
         _action = action;
 
-        // Enabled state usually depends on selection or current folder, so re-evaluate
-        // whenever the context moves rather than making every action subscribe itself.
         context.PropertyChanged += OnContextChanged;
     }
 
@@ -47,7 +43,6 @@ public sealed class RichCommand : ObservableObject, ICommand
         }
         catch (OperationCanceledException)
         {
-            // Navigation superseded by a newer one.
         }
         catch (Exception exception)
         {

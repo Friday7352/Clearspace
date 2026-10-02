@@ -1,0 +1,124 @@
+<!-- Clearspace | 1-bit Mac theme (experimental).
+     NEW (experimental themes): a 1984 desktop - black on white, square corners, black outlines, solid black
+     selection with white text, black-and-white icons with dithered shading (ThemeIcons, style OneBit), and
+     hover drawn as a dither pattern instead of a grey. A few greys remain where plain black or white could
+     not be read (dimmer text, status colours). Same keys as Dark.xaml plus the extras at the bottom. -->
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- Surfaces -->
+    <SolidColorBrush x:Key="Base"          Color="#FFFFFFFF" />
+    <SolidColorBrush x:Key="Surface"       Color="#FFFFFFFF" />
+    <SolidColorBrush x:Key="Overlay"       Color="#FFFFFFFF" />
+    <DrawingBrush x:Key="Hover" TileMode="Tile" Viewport="0,0,4,4" ViewportUnits="Absolute"
+                  Viewbox="0,0,4,4" ViewboxUnits="Absolute">
+        <DrawingBrush.Drawing>
+            <DrawingGroup>
+                <GeometryDrawing Brush="#FF000000">
+                    <GeometryDrawing.Geometry>
+                        <GeometryGroup>
+                            <RectangleGeometry Rect="0,0,1,1" />
+                            <RectangleGeometry Rect="2,2,1,1" />
+                        </GeometryGroup>
+                    </GeometryDrawing.Geometry>
+                </GeometryDrawing>
+            </DrawingGroup>
+        </DrawingBrush.Drawing>
+    </DrawingBrush>
+    <DrawingBrush x:Key="Pressed" TileMode="Tile" Viewport="0,0,2,2" ViewportUnits="Absolute"
+                  Viewbox="0,0,2,2" ViewboxUnits="Absolute">
+        <DrawingBrush.Drawing>
+            <DrawingGroup>
+                <GeometryDrawing Brush="#FF000000">
+                    <GeometryDrawing.Geometry>
+                        <GeometryGroup>
+                            <RectangleGeometry Rect="0,0,1,1" />
+                        </GeometryGroup>
+                    </GeometryDrawing.Geometry>
+                </GeometryDrawing>
+            </DrawingGroup>
+        </DrawingBrush.Drawing>
+    </DrawingBrush>
+    <SolidColorBrush x:Key="Selected"      Color="#FF000000" />
+    <SolidColorBrush x:Key="Line"          Color="#FF000000" />
+    <SolidColorBrush x:Key="LineFaint"     Color="#FF000000" />
+
+    <!-- Outlines of buttons, menus and cards (EdgeRaised) and of text boxes and the file list (EdgeSunken). -->
+    <SolidColorBrush x:Key="EdgeRaised"    Color="#FF000000" />
+    <SolidColorBrush x:Key="EdgeSunken"    Color="#FF000000" />
+
+    <!-- Text -->
+    <SolidColorBrush x:Key="Ink"           Color="#FF000000" />
+    <SolidColorBrush x:Key="InkMuted"      Color="#FF3C3C3C" />
+    <SolidColorBrush x:Key="InkFaint"      Color="#FF6E6E6E" />
+    <SolidColorBrush x:Key="InkDisabled"   Color="#FF9A9A9A" />
+
+    <!-- Accent -->
+    <SolidColorBrush x:Key="Accent"        Color="#FF000000" />
+    <SolidColorBrush x:Key="AccentSoft"    Color="#26000000" />
+    <SolidColorBrush x:Key="AccentWash"    Color="#1A000000" />
+    <SolidColorBrush x:Key="AccentInk"     Color="#FFFFFFFF" />   <!-- text on a solid accent fill -->
+
+    <!-- Status -->
+    <SolidColorBrush x:Key="Danger"        Color="#FF000000" />
+    <SolidColorBrush x:Key="Good"          Color="#FF777777" />
+    <SolidColorBrush x:Key="Warn"          Color="#FF777777" />
+    <SolidColorBrush x:Key="Bad"           Color="#FF777777" />
+    <SolidColorBrush x:Key="Quiet"         Color="#FF777777" />
+
+    <!-- Small fills -->
+    <SolidColorBrush x:Key="ThumbRest"     Color="#FF777777" />   <!-- scroll bar -->
+    <SolidColorBrush x:Key="ThumbHover"    Color="#FF000000" />
+    <SolidColorBrush x:Key="Tint"          Color="#00000000" />   <!-- status bar chips -->
+    <SolidColorBrush x:Key="ChipHover"     Color="#26000000" />   <!-- a project-strip chip under the pointer -->
+    <SolidColorBrush x:Key="Divider"       Color="#FF000000" />   <!-- menu separators -->
+    <SolidColorBrush x:Key="RowAlt"        Color="#00000000" />   <!-- every other row in Music folders -->
+    <SolidColorBrush x:Key="Track"         Color="#33000000" />   <!-- drive usage bar background -->
+    <SolidColorBrush x:Key="SliderRail"    Color="#FF9A9A9A" />
+    <SolidColorBrush x:Key="Well"          Color="#00000000" />   <!-- behind a tile's picture -->
+    <SolidColorBrush x:Key="BadgeFill"     Color="#FFFFFFFF" />   <!-- badges drawn over a tile's picture -->
+    <SolidColorBrush x:Key="NavFill"       Color="#FFFFFFFF" />   <!-- previous / next in the photo viewer -->
+    <SolidColorBrush x:Key="Scrim"         Color="#FAFFFFFF" />   <!-- photo viewer backdrop -->
+    <SolidColorBrush x:Key="CardFill"      Color="#FFFFFFFF" />   <!-- tooltips and hover cards -->
+    <SolidColorBrush x:Key="CardEdge"      Color="#FF000000" />
+    <SolidColorBrush x:Key="Ground3D"      Color="#FFBBBBBB" />   <!-- floor of the 3D disk usage views -->
+
+    <!-- The highlighted row of a menu -->
+    <SolidColorBrush x:Key="MenuHover"       Color="#FF000000" />
+    <SolidColorBrush x:Key="MenuHoverInk"    Color="#FFFFFFFF" />
+    <SolidColorBrush x:Key="MenuHoverMuted"  Color="#FFFFFFFF" />
+    <SolidColorBrush x:Key="MenuHoverFaint"  Color="#FFDDDDDD" />
+    <SolidColorBrush x:Key="MenuHoverAccent" Color="#FFFFFFFF" />
+
+    <!-- Fonts -->
+    <FontFamily x:Key="UIFont">ChicagoFLF, Chicago, Charcoal, Verdana, Segoe UI</FontFamily>
+    <FontFamily x:Key="SerifFont">Geneva, Verdana, Segoe UI</FontFamily>
+    <FontFamily x:Key="DisplayFont">ChicagoFLF, Chicago, Charcoal, Verdana, Segoe UI</FontFamily>
+    <FontFamily x:Key="MonoFont">Monaco, Cascadia Mono, Consolas, Lucida Console</FontFamily>
+
+    <!-- Corner sizes (R8 = "what used to be an 8px corner") -->
+    <CornerRadius x:Key="R2">0</CornerRadius>
+    <CornerRadius x:Key="R3">0</CornerRadius>
+    <CornerRadius x:Key="R4">0</CornerRadius>
+    <CornerRadius x:Key="R5">0</CornerRadius>
+    <CornerRadius x:Key="R6">0</CornerRadius>
+    <CornerRadius x:Key="R7">0</CornerRadius>
+    <CornerRadius x:Key="R8">0</CornerRadius>
+    <CornerRadius x:Key="R9">0</CornerRadius>
+    <CornerRadius x:Key="R10">0</CornerRadius>
+    <CornerRadius x:Key="R12">0</CornerRadius>
+    <CornerRadius x:Key="RPlayerBar">0</CornerRadius>
+
+    <!-- Title bar: white with black text (Windows 11 only; Windows 10 keeps its own title bar). -->
+    <Color x:Key="Theme.CaptionColor">#FFFFFFFF</Color>
+    <Color x:Key="Theme.CaptionTextColor">#FF000000</Color>
+
+    <!-- A selected row is solid black, so everything inside it turns white. ThemeService merges every "SelectedRow.X" key into a selected row as key X. -->
+    <SolidColorBrush x:Key="SelectedRow.Ink" Color="#FFFFFFFF" />
+    <SolidColorBrush x:Key="SelectedRow.InkMuted" Color="#FFFFFFFF" />
+    <SolidColorBrush x:Key="SelectedRow.InkFaint" Color="#FFDDDDDD" />
+    <SolidColorBrush x:Key="SelectedRow.Accent" Color="#FFFFFFFF" />
+    <SolidColorBrush x:Key="SelectedRow.Base" Color="#FF000000" />
+    <SolidColorBrush x:Key="SelectedRow.BadgeFill" Color="#FF000000" />
+
+</ResourceDictionary>

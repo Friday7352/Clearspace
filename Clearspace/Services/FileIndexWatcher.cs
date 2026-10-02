@@ -1,98 +1,121 @@
+// Clearspace | File-index change watcher.
+// REWRITTEN (live index): changes now also patch the index itself through FileIndexUpdater
+// (the overlay is still fed for search's "recently added" fallback). File size changes are
+// watched too, and each drive is watched once even if it is rescanned.
+
 using System.Diagnostics;
 using System.IO;
 
 namespace Clearspace.Services;
 
-/// <summary>
-/// Keeps the index honest by watching the volumes it covers.
-///
-/// This is the piece that lets search stop crawling. Without it the index is a
-/// snapshot of whenever it was last walked, so a file created since then would be
-/// missing and search has to walk the disk anyway to be sure. With it, changes
-/// land in the overlay as they happen and the index can be trusted.
-///
-/// Everything solves the same problem with the NTFS USN journal, which is both
-/// better and unavailable without administrator rights. FileSystemWatcher wraps
-/// ReadDirectoryChangesW, which is the same mechanism at a higher level and
-/// carries the same limitation: a burst of changes larger than the buffer is
-/// dropped by the OS, not queued. That case is detectable, and when it happens
-/// the honest answer is to stop claiming the index is current.
-/// </summary>
 internal sealed class FileIndexWatcher : IDisposable
 {
-    // The documented ceiling for a watch that might cross a network path, and
-    // large enough that only genuinely heavy churn - an installer, an unzip, a
-    // build - will overrun it.
     private const int BufferSize = 64 * 1024;
 
-    private readonly List<FileSystemWatcher> _watchers = [];
+    private readonly Dictionary<string, FileSystemWatcher> _watchers = new(StringComparer.OrdinalIgnoreCase);
     private readonly IndexOverlay _overlay;
+    private readonly FileIndexUpdater? _updater;
 
-    public FileIndexWatcher(IndexOverlay overlay) => _overlay = overlay;
+    public FileIndexWatcher(IndexOverlay overlay, FileIndexUpdater? updater = null)
+    {
+        _overlay = overlay;
+        _updater = updater;
+    }
 
-    /// <summary>Raised when changes were lost and the index can no longer be trusted.</summary>
-    public event EventHandler? Desynchronised;
+    // Raised with the drive root whose events were lost (buffer overflow or watcher failure).
+    public event EventHandler<string>? Desynchronised;
+
+    /// <summary>NEW (round 50): stop watching a drive whose index was dropped.</summary>
+    public void Unwatch(string root)
+    {
+        FileSystemWatcher? watcher;
+        lock (_watchers)
+            if (!_watchers.Remove(root, out watcher)) return;
+        try { watcher.EnableRaisingEvents = false; watcher.Dispose(); } catch (Exception) { }
+    }
+
+    public bool IsWatching(string root)
+    {
+        lock (_watchers) return _watchers.ContainsKey(root);
+    }
 
     public void Watch(string root)
     {
-        try
+        // CHANGED (round 50): the watcher is made outside the lock. Making one checks that the folder
+        // exists, which on a share that has gone away waits for the network to give up - and Unwatch,
+        // which can be called from the UI, must never wait behind that.
+        lock (_watchers)
+            if (_watchers.ContainsKey(root)) return; // NEW: rescans no longer add duplicate watchers
         {
-            var watcher = new FileSystemWatcher(root)
+            FileSystemWatcher? watcher = null;
+            try
             {
-                IncludeSubdirectories = true,
-                InternalBufferSize = BufferSize,
-                NotifyFilter = NotifyFilters.FileName | NotifyFilters.DirectoryName
-            };
+                watcher = new FileSystemWatcher(root)
+                {
+                    IncludeSubdirectories = true,
+                    InternalBufferSize = BufferSize,
+                    // CHANGED: Size and LastWrite so growing/shrinking files update live.
+                    NotifyFilter = NotifyFilters.FileName | NotifyFilters.DirectoryName |
+                                   NotifyFilters.Size | NotifyFilters.LastWrite
+                };
 
-            // Only creations, deletions and renames are watched. Size and
-            // timestamp changes are deliberately left out: they do not affect
-            // whether a name matches a search, and including them turns every
-            // file write on the machine into an event this has to process.
-            watcher.Created += (_, e) => _overlay.OnCreated(e.FullPath);
-            watcher.Deleted += (_, e) => _overlay.OnDeleted(e.FullPath);
-            watcher.Renamed += (_, e) => _overlay.OnRenamed(e.OldFullPath, e.FullPath);
-            watcher.Error += OnError;
+                watcher.Created += (_, e) => { _overlay.OnCreated(e.FullPath); _updater?.OnCreated(e.FullPath); };
+                watcher.Deleted += (_, e) => { _overlay.OnDeleted(e.FullPath); _updater?.OnDeleted(e.FullPath); };
+                watcher.Renamed += (_, e) => { _overlay.OnRenamed(e.OldFullPath, e.FullPath); _updater?.OnRenamed(e.OldFullPath, e.FullPath); };
+                watcher.Changed += (_, e) => _updater?.OnChanged(e.FullPath);
+                watcher.Error += (_, e) => OnError(root, watcher, e);
 
-            watcher.EnableRaisingEvents = true;
-            _watchers.Add(watcher);
-        }
-        catch (Exception exception)
-        {
-            // A volume that cannot be watched cannot be trusted either, so this
-            // takes the whole index out of trusted mode rather than leaving a
-            // quiet hole in it.
-            Trace.WriteLine($"Clearspace: cannot watch {root}. {exception.Message}");
-            _overlay.MarkOverflowed();
-            Desynchronised?.Invoke(this, EventArgs.Empty);
+                lock (_watchers)
+                {
+                    if (!_watchers.TryAdd(root, watcher)) { watcher.Dispose(); return; }   // another call got there first
+                }
+                // Register first: an immediate error must be able to remove this watcher.
+                watcher.EnableRaisingEvents = true;
+            }
+            catch (Exception exception)
+            {
+                if (watcher is not null) RemoveFailed(root, watcher);
+                Trace.WriteLine($"Clearspace: cannot watch {root}. {exception.Message}");
+                _overlay.MarkOverflowed(root);
+                Desynchronised?.Invoke(this, root);
+            }
         }
     }
 
-    private void OnError(object sender, ErrorEventArgs e)
+    // An overflow means some changes were missed; the service rescans that drive in the background.
+    private void OnError(string root, FileSystemWatcher watcher, ErrorEventArgs e)
     {
-        // Windows dropped notifications because they arrived faster than the
-        // buffer drained. There is no way to recover what was missed, so the
-        // index is now out of date by an unknown amount and search goes back to
-        // crawling until the next rebuild.
-        Trace.WriteLine($"Clearspace: watcher overflow. {e.GetException()?.Message}");
-        _overlay.MarkOverflowed();
-        Desynchronised?.Invoke(this, EventArgs.Empty);
+        Trace.WriteLine($"Clearspace: watcher overflow on {root}. {e.GetException()?.Message}");
+        RemoveFailed(root, watcher);
+        _overlay.MarkOverflowed(root);
+        Desynchronised?.Invoke(this, root);
+    }
+
+    private void RemoveFailed(string root, FileSystemWatcher watcher)
+    {
+        lock (_watchers)
+            if (_watchers.TryGetValue(root, out var current) && ReferenceEquals(current, watcher))
+                _watchers.Remove(root);
+        try { watcher.Dispose(); } catch (Exception) { }
     }
 
     public void Dispose()
     {
-        foreach (var watcher in _watchers)
+        lock (_watchers)
         {
-            try
+            foreach (var watcher in _watchers.Values)
             {
-                watcher.EnableRaisingEvents = false;
-                watcher.Dispose();
+                try
+                {
+                    watcher.EnableRaisingEvents = false;
+                    watcher.Dispose();
+                }
+                catch (Exception)
+                {
+                }
             }
-            catch (Exception)
-            {
-                // Shutting down.
-            }
-        }
 
-        _watchers.Clear();
+            _watchers.Clear();
+        }
     }
 }

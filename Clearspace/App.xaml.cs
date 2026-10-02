@@ -1,3 +1,5 @@
+// Clearspace | Application startup and error reporting.
+
 using System.Windows;
 using System.Windows.Threading;
 using System.IO;
@@ -10,45 +12,96 @@ public partial class App : Application
     private static string? _lastErrorSignature;
     private static DateTime _lastErrorAt;
 
-    /// <summary>
-    /// The folder named on the command line, if any. An elevated relaunch passes
-    /// the path that was refused, so the new window lands where you were instead
-    /// of making you navigate back through a folder you cannot read.
-    /// </summary>
-    public static string? StartupPath { get; private set; }
+    // CHANGED (Explorer re-lock): LockAgent sets it when "Open in Clearspace" has to create the main window.
+    public static string? StartupPath { get; internal set; }
 
-    /// <summary>
-    /// Starts a self-contained sample workspace. It is intended for screenshots,
-    /// documentation, and trying the UI without exposing a person's files.
-    /// </summary>
-    public static bool IsDemoMode { get; private set; }
+    // NEW (Explorer re-lock): a lock / unlock / remove-lock command from Explorer that this process runs without
+    // a main window (only the password dialog shows).
+    private Services.ShellCommand? _windowlessCommand;
 
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
 
-        // --demo deliberately takes precedence over a path. The demo workspace is
-        // entirely synthetic and therefore never enumerates the user's drives.
-        IsDemoMode = e.Args.Any(argument =>
-            argument.Equals("--demo", StringComparison.OrdinalIgnoreCase) ||
-            argument.Equals("/demo", StringComparison.OrdinalIgnoreCase));
-
-        // One bare path, quoted by the launcher. Anything that is not an existing
-        // directory is ignored rather than reported: a stray argument should not
-        // greet the user with an error dialog.
-        if (!IsDemoMode && e.Args.Length > 0)
+        // NEW (installer): questions and requests from Setup / Uninstall (--lock-count, --remove-all-locks,
+        // --quit). They never open the main window and answer through the exit code, so the process ends
+        // right here instead of going through OnExit (which would open the tag database just to close it).
+        if (Services.InstallerCommands.IsInstallerSwitch(e.Args))
         {
-            var candidate = e.Args.First(argument =>
-                !argument.Equals("--demo", StringComparison.OrdinalIgnoreCase) &&
-                !argument.Equals("/demo", StringComparison.OrdinalIgnoreCase)).Trim('"');
+            ShutdownMode = ShutdownMode.OnExplicitShutdown;
+            // Only --remove-all-locks shows a window (the password dialog); give it the saved theme.
+            if (e.Args[0].Equals(Services.InstallerCommands.RemoveAllLocks, StringComparison.OrdinalIgnoreCase))
+            {
+                try { Services.ThemeService.Initialize(); }
+                catch (Exception) { }
+            }
+            Environment.Exit(Services.InstallerCommands.Run(e.Args[0]));
+            return;
+        }
+
+        // NEW (Explorer integration): installer hooks.
+        if (e.Args.Length == 1 && e.Args[0] is "--register-shell" or "--unregister-shell")
+        {
+            try
+            {
+                if (e.Args[0] == "--register-shell") Services.ShellIntegration.Register(Environment.ProcessPath!);
+                else Services.ShellIntegration.Unregister();
+            }
+            catch (Exception) { }
+            Shutdown(0);
+            return;
+        }
+
+        // REMOVED (Explorer folder gate, reverted): a leftover sign-in entry may still start Clearspace with
+        // --background; do nothing (Register removes that entry the next time Clearspace opens).
+        if (e.Args.Length == 1 && e.Args[0] == "--background")
+        {
+            Shutdown(0);
+            return;
+        }
+
+        // NEW (Explorer integration): a command from Explorer goes to the Clearspace that's already running.
+        if (Services.ShellCommands.Parse(e.Args) is { } command)
+        {
+            if (Services.ShellCommands.TryForward(command))
+            {
+                Shutdown(0);
+                return;
+            }
+            // CHANGED (Explorer re-lock): only "Open in Clearspace" (on a folder) shows the main window; everything
+            // else shows just its dialog.
+            if (command.Verb == Services.ShellVerb.Open && Directory.Exists(command.Path)) StartupPath = command.Path;
+            else _windowlessCommand = command;
+        }
+        else if (e.Args.Length > 0)
+        {
+            var candidate = e.Args[0].Trim('"');
 
             if (Directory.Exists(candidate))
                 StartupPath = candidate;
         }
 
-        // Several handlers in this app are async void (event signatures require it),
-        // so an exception inside one would otherwise tear the process down with no
-        // message at all. Surfacing it keeps failures diagnosable instead of fatal.
+        // NEW (themes): put the saved theme in place before any window or dialog opens (including the
+        // password dialog Explorer can ask for without a main window). A theme problem never stops the app.
+        try { Services.ThemeService.Initialize(); }
+        catch (Exception) { }
+
+        // NEW (logo): every Clearspace window (the main window and each dialog) is given the app icon
+        // directly, so the title bar, the taskbar button and Alt+Tab show the logo at the right size from
+        // Clearspace.ico itself instead of whatever Windows has cached for the .exe. Task Manager, shortcuts
+        // and Explorer read the icon built into Clearspace.exe (ApplicationIcon in Clearspace.csproj), which
+        // is the same file.
+        try
+        {
+            var icon = System.Windows.Media.Imaging.BitmapFrame.Create(new Uri("pack://application:,,,/Assets/Clearspace.ico"));
+            EventManager.RegisterClassHandler(typeof(Window), FrameworkElement.LoadedEvent,
+                new RoutedEventHandler((sender, _) =>
+                {
+                    if (sender is Window { Icon: null } window) window.Icon = icon;
+                }));
+        }
+        catch (Exception) { }
+
         DispatcherUnhandledException += OnDispatcherUnhandledException;
 
         AppDomain.CurrentDomain.UnhandledException += (_, args) =>
@@ -62,14 +115,34 @@ public partial class App : Application
             args.SetObserved();
             Report(args.Exception, "Unobserved task error");
         };
+
+        try { _ = Services.TagService.All; }
+        catch (Exception exception)
+        {
+            MessageBox.Show(exception.Message + "\n\nTag storage: " + Services.TagService.DatabasePath,
+                "Clearspace could not open tags", MessageBoxButton.OK, MessageBoxImage.Warning);
+            Shutdown(1);
+            return; // CHANGED: don't open the window after a failed start
+        }
+
+        // CHANGED (Explorer re-lock): Clearspace may run with no window (after a password prompt from Explorer,
+        // until what it unlocked is locked again), so LockAgent decides when it exits, not the last window.
+        ShutdownMode = ShutdownMode.OnExplicitShutdown;
+        LockAgent.Current.Start();
+        if (_windowlessCommand is { } windowless)
+        {
+            LockAgent.Current.RunLater(windowless);
+            return;
+        }
+
+        // CHANGED (Explorer integration): replaces StartupUri="MainWindow.xaml".
+        new MainWindow().Show();
     }
 
     protected override void OnExit(ExitEventArgs e)
     {
-        // Writing the index on the way out is what makes the next launch instant
-        // instead of a rebuild. Best-effort: a failure here costs one background
-        // rebuild and nothing else.
         Services.FileIndexService.Stop();
+        Services.TagService.Store.Dispose();
 
         base.OnExit(e);
     }
@@ -78,7 +151,6 @@ public partial class App : Application
     {
         Report(e.Exception, "Clearspace hit an error");
 
-        // Keep running. A failed listing or shell call should not end the session.
         e.Handled = true;
     }
 
@@ -90,9 +162,6 @@ public partial class App : Application
             ? aggregate.Flatten().InnerException ?? aggregate
             : exception;
 
-        // Keep a small local record as well as the dialog. Startup failures can
-        // occur before a window exists, in which case the dialog has nowhere
-        // useful to appear. The log is best-effort and never affects browsing.
         try
         {
             var folder = Path.Combine(
@@ -105,11 +174,8 @@ public partial class App : Application
         }
         catch
         {
-            // Reporting must never create a second error.
         }
 
-        // A layout exception can be raised by several queued WPF measure passes.
-        // One dialog is useful; a stack of identical dialogs is not.
         var signature = $"{detail.GetType().FullName}|{detail.Message}";
         lock (ErrorLock)
         {

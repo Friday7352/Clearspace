@@ -1,17 +1,20 @@
+// Clearspace | Navigation history and current location.
+
 using System.IO;
 
 namespace Clearspace.Services;
 
-/// <summary>
-/// Owns back/forward history. Kept apart from the view model so navigation stays
-/// testable and so a future tab or pane can hold its own instance.
-/// </summary>
 public sealed class NavigationService
 {
     private readonly List<string> _history = [];
     private int _index = -1;
 
     public event EventHandler<string>? Navigated;
+
+    // NEW (locked folders): asked before moving to a different location; returning false cancels the
+    // move (e.g. the password prompt for a locked folder was cancelled). Refreshing the current location
+    // is never gated.
+    public Func<string, bool>? CanEnter { get; set; }
 
     public string? CurrentPath => _index >= 0 && _index < _history.Count ? _history[_index] : null;
 
@@ -33,7 +36,8 @@ public sealed class NavigationService
             return;
         }
 
-        // A new destination truncates anything ahead of the cursor.
+        if (CanEnter is not null && !CanEnter(path)) return; // NEW (locked folders)
+
         if (_index < _history.Count - 1)
             _history.RemoveRange(_index + 1, _history.Count - _index - 1);
 
@@ -46,6 +50,7 @@ public sealed class NavigationService
     public void GoBack()
     {
         if (!CanGoBack) return;
+        if (CanEnter is not null && !CanEnter(_history[_index - 1])) return; // NEW (locked folders)
         _index--;
         Navigated?.Invoke(this, _history[_index]);
     }
@@ -53,6 +58,7 @@ public sealed class NavigationService
     public void GoForward()
     {
         if (!CanGoForward) return;
+        if (CanEnter is not null && !CanEnter(_history[_index + 1])) return; // NEW (locked folders)
         _index++;
         Navigated?.Invoke(this, _history[_index]);
     }
@@ -69,7 +75,6 @@ public sealed class NavigationService
     {
         path = path.Trim().Trim('"');
 
-        // Keep the trailing slash on drive roots ("C:\") but strip it elsewhere.
         if (path.Length > 3 && (path.EndsWith('\\') || path.EndsWith('/')))
             path = path.TrimEnd('\\', '/');
 

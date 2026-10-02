@@ -13,3 +13,6 @@ installer/Payload.zip
 *.userosscache
 *.sln.docstates
 .vs/
+
+# Visual Studio test deploy scratch (the kept evidence lives in output/test-results/)
+Clearspace.Tests/TestResults/

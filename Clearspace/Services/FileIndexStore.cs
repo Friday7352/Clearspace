@@ -1,30 +1,19 @@
+// Clearspace | Persistent file-index storage.
+
 using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
 
 namespace Clearspace.Services;
 
-/// <summary>
-/// Reads and writes the index to disk.
-///
-/// This is what makes the slow first build acceptable. Rebuilding a million-file
-/// volume is minutes; reading the same thing back is two large sequential reads
-/// into buffers that are already the right shape, which is well under a second.
-/// The build happens once; every launch after that just loads.
-///
-/// The entry array and the name pool go to disk as raw bytes, since both are
-/// already flat blocks of unmanaged data. The folded pool is not saved: lower
-/// casing the pool on load is faster than reading another forty megabytes.
-/// </summary>
 internal static class FileIndexStore
 {
     private const int Magic = 0x58495343; // 'CSIX'
 
-    /// <summary>Bump this on any layout change; an older file is then rebuilt, not misread.</summary>
-    private const int FormatVersion = 1;
+    // Version 3 invalidates depth-limited indexes. The binary layout is unchanged;
+    // a one-time background rebuild includes descendants beyond the former 32-level limit.
+    private const int FormatVersion = 3;
 
-    // A corrupt or truncated file must not be able to talk us into allocating
-    // gigabytes. Nothing legitimate comes close to these.
     private const int MaxEntries = 40_000_000;
     private const int MaxPool = 800_000_000;
 
@@ -34,15 +23,23 @@ internal static class FileIndexStore
 
     internal static string FilePath => Path.Combine(Directory_, "index.db");
 
-    public static void Save(IReadOnlyList<VolumeIndex> volumes)
+    // NEW: periodic background saves and the save on exit must not write the file at once.
+    private static readonly object SaveGate = new();
+
+    // CHANGED (journal catch-up): reports success, so change-journal positions are only recorded
+    // alongside an index file that was actually written.
+    public static bool Save(IReadOnlyList<VolumeIndex> volumes)
+    {
+        lock (SaveGate)
+            return SaveCore(volumes);
+    }
+
+    private static bool SaveCore(IReadOnlyList<VolumeIndex> volumes)
     {
         try
         {
             System.IO.Directory.CreateDirectory(Directory_);
 
-            // Written beside the real file and moved into place, so a crash
-            // half way through leaves the previous index intact rather than a
-            // truncated one that fails to load.
             var temporary = FilePath + ".tmp";
 
             using (var stream = new FileStream(temporary, FileMode.Create, FileAccess.Write, FileShare.None))
@@ -52,27 +49,40 @@ internal static class FileIndexStore
                 writer.Write(FormatVersion);
                 writer.Write(volumes.Count);
 
-                foreach (var volume in volumes)
+                foreach (var live in volumes)
                 {
-                    writer.Write(volume.Root);
-                    writer.Write(volume.SerialNumber);
-                    writer.Write(volume.BuiltUtc.Ticks);
-                    writer.Write(volume.Count);
-                    writer.Write(volume.PoolLength);
-                    writer.Flush();
+                    // CHANGED (live index): hold the volume's write lock so live updates can't
+                    // change it mid-write, and drop entries removed since the last full scan.
+                    lock (live.WriteGate)
+                    {
+                        // CHANGED (memory): removed entries are skipped while writing, not by copying the index.
+                        if (live.RemovedCount > 0)
+                        {
+                            live.WriteCompactedLocked(writer);
+                            continue;
+                        }
 
-                    stream.Write(MemoryMarshal.AsBytes(volume.Entries.AsSpan(0, volume.Count)));
-                    stream.Write(MemoryMarshal.AsBytes(volume.Names.AsSpan(0, volume.PoolLength)));
+                        writer.Write(live.Root);
+                        writer.Write(live.SerialNumber);
+                        writer.Write(live.BuiltUtc.Ticks);
+                        writer.Write(live.Count);
+                        writer.Write(live.PoolLength);
+                        writer.Flush();
+
+                        stream.Write(MemoryMarshal.AsBytes(live.Entries.AsSpan(0, live.Count)));
+                        stream.Write(MemoryMarshal.AsBytes(live.Names.AsSpan(0, live.PoolLength)));
+                    }
                 }
             }
 
             File.Move(temporary, FilePath, overwrite: true);
+            foreach (var volume in volumes) volume.MarkSaved(); // NEW
+            return true;
         }
         catch (Exception exception)
         {
-            // An index that cannot be saved costs a rebuild next launch, nothing
-            // more. It is never worth failing anything else over.
             Trace.WriteLine($"Clearspace: could not save the file index. {exception.Message}");
+            return false;
         }
     }
 
@@ -113,10 +123,15 @@ internal static class FileIndexStore
                 stream.ReadExactly(MemoryMarshal.AsBytes(entries.AsSpan(0, entryCount)));
                 stream.ReadExactly(MemoryMarshal.AsBytes(names.AsSpan(0, poolLength)));
 
-                // The drive this describes may have been reformatted, or its
-                // letter handed to something else entirely, since it was written.
-                // Serial numbers are how that is noticed rather than assumed.
-                if (FileIndexBuilder.GetSerialNumber(root) != serial)
+                // CHANGED (round 50): a network drive's index is kept while network indexing is on, even
+                // when the share is out of reach right now (its sizes are still worth seeing, and indexing
+                // a NAS again is slow); it is dropped when network indexing is off. Asking an unreachable
+                // server for its serial number could also take a long time, so it is not asked.
+                if (NetworkDrives.IsNetworkRoot(root))
+                {
+                    if (!NetworkDrives.Enabled) continue;
+                }
+                else if (FileIndexBuilder.GetSerialNumber(root) != serial)
                     continue;
 
                 volumes.Add(new VolumeIndex(
@@ -131,8 +146,6 @@ internal static class FileIndexStore
         }
         catch (Exception exception)
         {
-            // Truncated, corrupt, or written by a different build. Start over
-            // rather than refuse to launch.
             Trace.WriteLine($"Clearspace: could not load the file index. {exception.Message}");
             return [];
         }
@@ -149,7 +162,6 @@ internal static class FileIndexStore
         }
         catch (Exception)
         {
-            // Nothing to do about it; the version guard will reject it anyway.
         }
     }
 }

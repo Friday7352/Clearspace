@@ -1,34 +1,15 @@
+// Clearspace | Background file-index builder.
+
 using System.IO;
 using Clearspace.Native;
 
 namespace Clearspace.Services;
 
-/// <summary>
-/// Fills a <see cref="VolumeIndex"/> by walking a volume.
-///
-/// This is the part Everything does by reading the NTFS Master File Table, which
-/// is dramatically faster and needs administrator rights to do. Clearspace runs
-/// as the invoking user by design (see ARCHITECTURE.md), so it walks directories
-/// instead and pays minutes where the MFT would cost seconds. That trade buys
-/// three things worth more than the minutes: no elevation, no service to install,
-/// and an index that works the same on exFAT, FAT32 and network shares as it does
-/// on NTFS.
-///
-/// Since nobody is waiting on it, the build optimises for invisibility rather than
-/// throughput: one thread per volume, in Windows background I/O mode, allocating
-/// as little as possible so it does not provoke collections in the app around it.
-/// </summary>
+// Iterative traversal has no arbitrary depth cap; reparse-point checks prevent link cycles.
 internal static class FileIndexBuilder
 {
-    private const int MaxDepth = 32;
 
-    /// <summary>
-    /// Lowers this thread's CPU *and* disk priority for the duration of a build.
-    ///
-    /// ThreadPriority.Lowest would only do the first, and a directory walk is
-    /// bound by the disk. Without this the index is a background job that still
-    /// makes the machine feel busy, which is the thing it must never do.
-    /// </summary>
+    // Background mode lowers I/O priority as well as CPU priority.
     public static void EnterBackgroundMode()
         => NativeMethods.SetThreadPriority(
             NativeMethods.GetCurrentThread(),
@@ -39,34 +20,26 @@ internal static class FileIndexBuilder
             NativeMethods.GetCurrentThread(),
             NativeMethods.THREAD_MODE_BACKGROUND_END);
 
-    /// <summary>
-    /// Walks a volume and returns its finished index, or null when it would cost
-    /// more memory than <paramref name="maxBytes"/> allows.
-    ///
-    /// Null rather than a truncated index, deliberately. A half-indexed volume is
-    /// worse than an unindexed one: it looks complete, and the moment search starts
-    /// trusting the index instead of crawling, every file past the cut-off would
-    /// silently stop existing as far as the user could tell. Better to say the
-    /// volume is too large and keep crawling it.
-    ///
-    /// Hidden and system files are indexed unconditionally; whether they are shown
-    /// is decided at query time. Filtering them out here would mean rebuilding the
-    /// whole volume every time that setting is toggled.
-    /// </summary>
+
     public static VolumeIndex? Build(
         string root,
         uint serialNumber,
         long maxBytes,
         Action<int>? progress,
-        CancellationToken token)
+        CancellationToken token,
+        Action<VolumeIndex>? started = null)
     {
+        token.ThrowIfCancellationRequested();
         var index = new VolumeIndex(root, serialNumber);
+        var diagnostics = index.ScanDetails = new IndexScanTracker();
 
-        // The root is entry zero, and every path on the volume terminates here.
         var rootIndex = index.Add(-1, root.AsSpan(), 0, 0, 0, FileAttributes.Directory);
+        // NEW: expose the index while it fills, so the disk usage view can show it growing.
+        // Appends publish their count last, so a concurrent reader always sees whole entries.
+        started?.Invoke(index);
 
-        var pending = new Stack<(string Path, int Parent, int Depth)>();
-        pending.Push((root, rootIndex, 0));
+        var pending = new Stack<(string Path, int Parent)>();
+        pending.Push((root, rootIndex));
 
         var sinceReport = 0;
 
@@ -74,11 +47,11 @@ internal static class FileIndexBuilder
         {
             token.ThrowIfCancellationRequested();
 
-            var (directory, parent, depth) = pending.Pop();
-            Scan(index, directory, parent, depth, pending, token);
+            var (directory, parent) = pending.Pop();
+            diagnostics.Visit(directory);
+            Scan(index, directory, parent, pending, token, diagnostics);
+            diagnostics.FinishFolder();
 
-            // Checked per directory rather than per file: overshooting by one
-            // folder is nothing, and this keeps the inner loop clean.
             if (index.EstimatedBytes > maxBytes)
                 return null;
 
@@ -90,17 +63,41 @@ internal static class FileIndexBuilder
         }
 
         index.Compact();
+        diagnostics.Complete();
         progress?.Invoke(index.Count);
         return index;
     }
+
+
+    // NEW (live index): add the contents of a folder that appeared after the last full scan
+    // (created, or renamed/moved into place). The folder's own entry must already exist.
+    // Each directory is enumerated under the index's WriteGate so readers see whole entries.
+    internal static void ScanSubtree(VolumeIndex index, string directory, int folderIndex, CancellationToken token)
+    {
+        var pending = new Stack<(string Path, int Parent)>();
+        pending.Push((directory, folderIndex));
+        while (pending.Count > 0)
+        {
+            token.ThrowIfCancellationRequested();
+            var (path, parent) = pending.Pop();
+            lock (index.WriteGate)
+                Scan(index, path, parent, pending, token);
+        }
+        index.MarkChanged();
+    }
+
+    // NEW: a folder the scanner may enter (plain folder, or a cloud-sync placeholder folder).
+    internal static bool CanDescend(FileAttributes attributes, uint reparseTag)
+        => (attributes & FileAttributes.Directory) != 0 &&
+           ((attributes & FileAttributes.ReparsePoint) == 0 || IsCloudFilesTag(reparseTag));
 
     private static void Scan(
         VolumeIndex index,
         string directory,
         int parent,
-        int depth,
-        Stack<(string Path, int Parent, int Depth)> pending,
-        CancellationToken token)
+        Stack<(string Path, int Parent)> pending,
+        CancellationToken token,
+        IndexScanTracker? diagnostics = null)
     {
         var pattern = directory.EndsWith(Path.DirectorySeparatorChar)
             ? directory + "*"
@@ -114,10 +111,16 @@ internal static class FileIndexBuilder
             IntPtr.Zero,
             NativeMethods.FIND_FIRST_EX_LARGE_FETCH);
 
-        // A walk from a drive root always meets folders this user cannot read.
-        // That is ordinary, not an error, and the rest of the volume still indexes.
         if (handle.IsInvalid)
+        {
+            // Do not publish an empty replacement when a drive disappeared during recovery.
+            var error = System.Runtime.InteropServices.Marshal.GetLastWin32Error();
+            if (parent == 0 && error is not (NativeMethods.ERROR_FILE_NOT_FOUND or NativeMethods.ERROR_NO_MORE_FILES))
+                throw new IOException($"Cannot enumerate {directory}.", new System.ComponentModel.Win32Exception(error));
+            if (error is not (NativeMethods.ERROR_FILE_NOT_FOUND or NativeMethods.ERROR_NO_MORE_FILES))
+                diagnostics?.Skip(directory, new System.ComponentModel.Win32Exception(error).Message);
             return;
+        }
 
         do
         {
@@ -131,9 +134,6 @@ internal static class FileIndexBuilder
             var attributes = data.dwFileAttributes;
             var size = ((long)data.nFileSizeHigh << 32) | data.nFileSizeLow;
 
-            // Raw file times are stored as-is and only turned into DateTime for
-            // results actually displayed. A million conversions during a build
-            // would be a million pieces of work nobody ever looks at.
             var child = index.Add(
                 parent,
                 name.AsSpan(),
@@ -142,27 +142,31 @@ internal static class FileIndexBuilder
                 data.ftCreationTime.ToLong(),
                 attributes);
 
-            if ((attributes & FileAttributes.Directory) != 0 &&
-                depth < MaxDepth &&
-                (attributes & FileAttributes.ReparsePoint) == 0)
+            // CHANGED: OneDrive (and other cloud-sync providers) mark every synced folder as a
+            // reparse point with a "cloud files" tag. Skipping all reparse points hid Desktop,
+            // Documents, etc. whenever they were backed up to OneDrive. Cloud folders are now
+            // scanned; symbolic links, junctions and mount points are still skipped (loops).
+            if (CanDescend(attributes, data.dwReserved0))
             {
-                // Reparse points are skipped for the same reason the search crawl
-                // skips them: junctions and symlinks form cycles.
-                pending.Push((Join(directory, name), child, depth + 1));
+                pending.Push((Join(directory, name), child));
+                diagnostics?.DiscoverFolder();
             }
+            else if ((attributes & FileAttributes.Directory) != 0)
+                diagnostics?.Skip(Join(directory, name), "Folder link not followed (prevents loops)");
         }
         while (NativeMethods.FindNextFileW(handle, out data));
     }
+
+
+    // NEW: IO_REPARSE_TAG_CLOUD and its variants IO_REPARSE_TAG_CLOUD_1..F (0x9000x01A).
+    // For a reparse point, FindFirstFileEx reports the tag in dwReserved0.
+    private static bool IsCloudFilesTag(uint tag) => (tag & 0xFFFF0FFF) == 0x9000001A;
 
     private static string Join(string directory, string name)
         => directory.EndsWith(Path.DirectorySeparatorChar)
             ? directory + name
             : directory + Path.DirectorySeparatorChar + name;
 
-    /// <summary>
-    /// A volume's serial number, or zero when Windows will not say. Stored with a
-    /// saved index so a reformatted drive is rebuilt rather than trusted.
-    /// </summary>
     public static uint GetSerialNumber(string root)
     {
         try

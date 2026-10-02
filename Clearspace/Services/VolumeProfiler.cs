@@ -1,3 +1,5 @@
+// Clearspace | Storage profiling for search concurrency.
+
 using System.Collections.Concurrent;
 using System.IO;
 using System.Runtime.InteropServices;
@@ -15,43 +17,22 @@ public enum VolumeKind
     Network
 }
 
-/// <summary>
-/// Works out what kind of storage a path lives on, so a search can pick a sensible
-/// number of concurrent reads for it.
-///
-/// This matters on a mixed machine. Directory enumeration is dominated by waiting,
-/// not by data volume, so the right amount of concurrency is entirely a property of
-/// the device: an NVMe drive has many hardware queues and wants a deep pipeline, a
-/// spinning disk has one head and gets slower as concurrency rises, and a network
-/// share is pure round-trip latency and benefits most of all.
-///
-/// Windows is asked directly. DriveInfo only reports Fixed, Network or Removable,
-/// which cannot tell an SSD from an HDD.
-/// </summary>
 public static class VolumeProfiler
 {
     private static readonly ConcurrentDictionary<string, VolumeKind> Cache = new(StringComparer.OrdinalIgnoreCase);
 
-    /// <summary>Concurrent directory reads to keep in flight for a path's volume.</summary>
     public static int ConcurrencyFor(string path) => Classify(path) switch
     {
-        // Many hardware queues; the pipeline has to be deep to keep it busy.
         VolumeKind.Nvme => 16,
 
-        // NCQ handles 32 outstanding commands and there is no seek cost.
         VolumeKind.Ssd => 8,
 
-        // Pure latency: every request is a round trip regardless of the disk
-        // behind it, so overlapping them is the whole win.
         VolumeKind.Network => 8,
 
-        // One head. Concurrent random reads make it seek between them, which is
-        // usually slower than simply asking in order.
         VolumeKind.Hdd => 2,
 
         VolumeKind.Removable => 2,
 
-        // Enough to help if it is solid state, not enough to hurt if it is not.
         _ => 4
     };
 
@@ -65,7 +46,6 @@ public static class VolumeProfiler
         return Cache.GetOrAdd(root, Detect);
     }
 
-    /// <summary>The volume key for a path: a drive root, or a UNC server and share.</summary>
     public static string RootOf(string path)
     {
         if (string.IsNullOrWhiteSpace(path))
@@ -75,7 +55,6 @@ public static class VolumeProfiler
         {
             if (path.StartsWith(@"\\", StringComparison.Ordinal))
             {
-                // Treat one share as one device: \\server\share
                 var parts = path.TrimStart('\\').Split('\\', StringSplitOptions.RemoveEmptyEntries);
                 return parts.Length >= 2 ? $@"\\{parts[0]}\{parts[1]}" : path;
             }
@@ -105,7 +84,6 @@ public static class VolumeProfiler
         }
         catch (Exception)
         {
-            // Fall through and ask the device itself.
         }
 
         var letter = root.TrimEnd('\\', '/');
@@ -147,10 +125,6 @@ public static class VolumeProfiler
         }
     }
 
-    /// <summary>
-    /// STORAGE_DEVICE_DESCRIPTOR is variable length with trailing strings, so the
-    /// fixed header is read as raw bytes. BusType sits at offset 28.
-    /// </summary>
     private static int ReadBusType(Microsoft.Win32.SafeHandles.SafeFileHandle handle)
     {
         var buffer = Query(handle, NativeMethods.StorageDeviceProperty, 1024);
@@ -161,10 +135,6 @@ public static class VolumeProfiler
         return BitConverter.ToInt32(buffer, 28);
     }
 
-    /// <summary>
-    /// DEVICE_SEEK_PENALTY_DESCRIPTOR: Version, Size, then the flag at offset 8.
-    /// Null when the device declines to answer, which some USB bridges do.
-    /// </summary>
     private static bool? ReadSeekPenalty(Microsoft.Win32.SafeHandles.SafeFileHandle handle)
     {
         var buffer = Query(handle, NativeMethods.StorageDeviceSeekPenaltyProperty, 16);
@@ -214,7 +184,6 @@ public static class VolumeProfiler
         }
     }
 
-    /// <summary>Human-readable label, used in the search status line.</summary>
     public static string Describe(VolumeKind kind) => kind switch
     {
         VolumeKind.Nvme => "NVMe",

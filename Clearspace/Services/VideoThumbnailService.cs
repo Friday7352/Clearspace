@@ -1,3 +1,5 @@
+// Clearspace | Video-frame thumbnail extraction.
+
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Media;
@@ -5,11 +7,6 @@ using System.Windows.Media.Imaging;
 
 namespace Clearspace.Services;
 
-/// <summary>
-/// Decodes a real video frame with Windows Media Foundation. Shell thumbnail
-/// handlers are optional and some video associations return only a small icon;
-/// this path does not depend on that association at all.
-/// </summary>
 internal static class VideoThumbnailService
 {
     private const int MfVersion = 0x00020070;
@@ -47,14 +44,10 @@ internal static class VideoThumbnailService
             stage = "open source reader";
             ThrowIfFailed(MFCreateSourceReaderFromURL(path, null, out reader));
 
-            // Avoid spending time decoding audio or metadata streams.
             stage = "select video stream";
             ThrowIfFailed(reader.SetStreamSelection(AllStreams, false));
             ThrowIfFailed(reader.SetStreamSelection(FirstVideoStream, true));
 
-            // Read dimensions from the compressed stream. We request NV12—the
-            // decoder's native output—and perform the tiny final RGB conversion
-            // ourselves. This avoids optional Windows thumbnail/color handlers.
             stage = "get native media type";
             ThrowIfFailed(reader.GetNativeMediaType(FirstVideoStream, 0, out nativeType));
             var frameSizeKey = MfMtFrameSize;
@@ -79,8 +72,6 @@ internal static class VideoThumbnailService
             if (width <= 0 || height <= 0 || width > 16384 || height > 16384)
                 return null;
 
-            // Type-change notifications can arrive before the first decoded frame.
-            // A bounded loop protects us from malformed files and broken codecs.
             for (var attempt = 0; attempt < 180; attempt++)
             {
                 IMFSample? sample = null;
@@ -124,12 +115,7 @@ internal static class VideoThumbnailService
         }
         catch (COMException exception)
         {
-            // Unsupported codecs still fall back to the shell icon without ever
-            // taking down the thumbnail worker or the application.
             System.Diagnostics.Trace.WriteLine($"Video thumbnail failed at {stage} for {path}: 0x{exception.HResult:X8} {exception.Message}");
-            // This error is caused by the machine's decoder pipeline, not by an
-            // individual file. Avoid repeating the same failed setup for every
-            // tile in a video-heavy folder.
             if (exception.HResult == unchecked((int)0xC00D36E6))
                 _decoderUnavailable = true;
             return null;
@@ -175,8 +161,6 @@ internal static class VideoThumbnailService
             var pixels = new byte[outputStride * outputSize];
             var uvOffset = sourceStride * height;
 
-            // Convert only the pixels that will be visible in the thumbnail,
-            // avoiding a costly full-resolution 4K RGB allocation.
             for (var y = 0; y < drawHeight; y++)
             {
                 var sourceY = Math.Min(height - 1, y * height / drawHeight);

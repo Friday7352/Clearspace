@@ -1,0 +1,2064 @@
+<!-- Clearspace | Sketchbook (dark) theme (experimental).
+     NEW (dark sketchbook): the Sketchbook theme on black paper - the same spiral binding, paper grain, faint
+     grid, hand-cut corners, handwriting font and crooked sticky notes, drawn in chalk-white pencil instead
+     of graphite. The highlighter is the same yellow, laid on thinner so light text stays readable over it,
+     and the accent is a light blue pencil. Icons are the same pencil sketches with a light outline
+     (ThemeIcons, style Sketch). Same keys as Sketchbook.xaml; only the colours differ. This file is
+     Sketchbook.xaml with every colour remapped, so the long lists of small rectangles are the same textures. -->
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- Surfaces -->
+    <DrawingBrush x:Key="Base" TileMode="Tile" Viewport="0,0,144,144" ViewportUnits="Absolute"
+                  Viewbox="0,0,144,144" ViewboxUnits="Absolute">
+        <DrawingBrush.Drawing>
+            <DrawingGroup>
+                <GeometryDrawing Brush="#FF1D1D21">
+                    <GeometryDrawing.Geometry>
+                        <GeometryGroup>
+                            <RectangleGeometry Rect="0,0,144,144" />
+                        </GeometryGroup>
+                    </GeometryDrawing.Geometry>
+                </GeometryDrawing>
+                <GeometryDrawing Brush="#FF282A31">
+                    <GeometryDrawing.Geometry>
+                        <GeometryGroup>
+                            <RectangleGeometry Rect="0,17,144,1" />
+                            <RectangleGeometry Rect="0,35,144,1" />
+                            <RectangleGeometry Rect="0,53,144,1" />
+                            <RectangleGeometry Rect="0,71,144,1" />
+                            <RectangleGeometry Rect="0,89,144,1" />
+                            <RectangleGeometry Rect="0,107,144,1" />
+                            <RectangleGeometry Rect="0,125,144,1" />
+                            <RectangleGeometry Rect="0,143,144,1" />
+                            <RectangleGeometry Rect="17,0,1,144" />
+                            <RectangleGeometry Rect="35,0,1,144" />
+                            <RectangleGeometry Rect="53,0,1,144" />
+                            <RectangleGeometry Rect="71,0,1,144" />
+                            <RectangleGeometry Rect="89,0,1,144" />
+                            <RectangleGeometry Rect="107,0,1,144" />
+                            <RectangleGeometry Rect="125,0,1,144" />
+                            <RectangleGeometry Rect="143,0,1,144" />
+                        </GeometryGroup>
+                    </GeometryDrawing.Geometry>
+                </GeometryDrawing>
+                <GeometryDrawing Brush="#0AFFFFFF">
+                    <GeometryDrawing.Geometry>
+                        <GeometryGroup>
+                            <RectangleGeometry Rect="51,32,1,1" />
+                            <RectangleGeometry Rect="95,43,1,1" />
+                            <RectangleGeometry Rect="25,75,1,1" />
+                            <RectangleGeometry Rect="76,57,1,1" />
+                            <RectangleGeometry Rect="111,98,1,1" />
+                            <RectangleGeometry Rect="103,117,1,1" />
+                            <RectangleGeometry Rect="47,111,1,1" />
+                            <RectangleGeometry Rect="138,56,1,1" />
+                            <RectangleGeometry Rect="51,47,1,1" />
+                            <RectangleGeometry Rect="67,68,1,1" />
+                            <RectangleGeometry Rect="6,113,1,1" />
+                            <RectangleGeometry Rect="141,93,1,1" />
+                            <RectangleGeometry Rect="21,33,1,1" />
+                            <RectangleGeometry Rect="1,82,1,1" />
+                            <RectangleGeometry Rect="52,100,1,1" />
+                            <RectangleGeometry Rect="97,16,1,1" />
+                            <RectangleGeometry Rect="90,121,1,1" />
+                            <RectangleGeometry Rect="53,39,1,1" />
+                            <RectangleGeometry Rect="103,109,1,1" />
+                            <RectangleGeometry Rect="29,120,1,1" />
+                            <RectangleGeometry Rect="36,130,1,1" />
+                            <RectangleGeometry Rect="142,30,1,1" />
+                            <RectangleGeometry Rect="82,13,1,1" />
+                            <RectangleGeometry Rect="11,79,1,1" />
+                            <RectangleGeometry Rect="10,97,1,1" />
+                            <RectangleGeometry Rect="102,89,1,1" />
+                            <RectangleGeometry Rect="10,104,1,1" />
+                            <RectangleGeometry Rect="106,91,1,1" />
+                            <RectangleGeometry Rect="117,69,1,1" />
+                            <RectangleGeometry Rect="103,81,1,1" />
+                            <RectangleGeometry Rect="133,8,1,1" />
+                            <RectangleGeometry Rect="91,67,1,1" />
+                            <RectangleGeometry Rect="120,78,1,1" />
+                            <RectangleGeometry Rect="66,81,1,1" />
+                            <RectangleGeometry Rect="136,104,1,1" />
+                            <RectangleGeometry Rect="31,93,1,1" />
+                            <RectangleGeometry Rect="27,109,1,1" />
+                            <RectangleGeometry Rect="46,132,1,1" />
+                            <RectangleGeometry Rect="54,102,1,1" />
+                            <RectangleGeometry Rect="95,108,1,1" />
+                            <RectangleGeometry Rect="14,128,1,1" />
+                            <RectangleGeometry Rect="92,18,1,1" />
+                            <RectangleGeometry Rect="39,94,1,1" />
+                            <RectangleGeometry Rect="75,25,1,1" />
+                            <RectangleGeometry Rect="22,67,1,1" />
+                            <RectangleGeometry Rect="42,67,1,1" />
+                            <RectangleGeometry Rect="75,99,1,1" />
+                            <RectangleGeometry Rect="100,91,1,1" />
+                            <RectangleGeometry Rect="96,99,1,1" />
+                            <RectangleGeometry Rect="13,87,1,1" />
+                            <RectangleGeometry Rect="89,1,1,1" />
+                            <RectangleGeometry Rect="32,40,1,1" />
+                            <RectangleGeometry Rect="81,15,1,1" />
+                            <RectangleGeometry Rect="70,111,1,1" />
+                            <RectangleGeometry Rect="123,20,1,1" />
+                            <RectangleGeometry Rect="118,71,1,1" />
+                            <RectangleGeometry Rect="29,53,1,1" />
+                            <RectangleGeometry Rect="134,106,1,1" />
+                            <RectangleGeometry Rect="120,18,1,1" />
+                            <RectangleGeometry Rect="126,120,1,1" />
+                            <RectangleGeometry Rect="2,79,1,1" />
+                            <RectangleGeometry Rect="106,43,1,1" />
+                            <RectangleGeometry Rect="66,43,1,1" />
+                            <RectangleGeometry Rect="27,81,1,1" />
+                            <RectangleGeometry Rect="75,1,1,1" />
+                            <RectangleGeometry Rect="69,95,1,1" />
+                            <RectangleGeometry Rect="51,120,1,1" />
+                            <RectangleGeometry Rect="19,83,1,1" />
+                            <RectangleGeometry Rect="10,38,1,1" />
+                            <RectangleGeometry Rect="21,54,1,1" />
+                            <RectangleGeometry Rect="91,60,1,1" />
+                            <RectangleGeometry Rect="101,70,1,1" />
+                            <RectangleGeometry Rect="23,31,1,1" />
+                            <RectangleGeometry Rect="27,132,1,1" />
+                            <RectangleGeometry Rect="132,115,1,1" />
+                            <RectangleGeometry Rect="47,96,1,1" />
+                            <RectangleGeometry Rect="98,21,1,1" />
+                            <RectangleGeometry Rect="103,3,1,1" />
+                            <RectangleGeometry Rect="66,137,1,1" />
+                            <RectangleGeometry Rect="109,113,1,1" />
+                            <RectangleGeometry Rect="137,141,1,1" />
+                            <RectangleGeometry Rect="20,83,1,1" />
+                            <RectangleGeometry Rect="19,75,1,1" />
+                            <RectangleGeometry Rect="102,53,1,1" />
+                            <RectangleGeometry Rect="116,125,1,1" />
+                            <RectangleGeometry Rect="79,114,1,1" />
+                            <RectangleGeometry Rect="109,117,1,1" />
+                            <RectangleGeometry Rect="43,99,1,1" />
+                            <RectangleGeometry Rect="51,19,1,1" />
+                            <RectangleGeometry Rect="77,108,1,1" />
+                            <RectangleGeometry Rect="107,2,1,1" />
+                            <RectangleGeometry Rect="137,98,1,1" />
+                            <RectangleGeometry Rect="82,17,1,1" />
+                            <RectangleGeometry Rect="119,75,1,1" />
+                            <RectangleGeometry Rect="91,134,1,1" />
+                            <RectangleGeometry Rect="28,74,1,1" />
+                            <RectangleGeometry Rect="86,40,1,1" />
+                            <RectangleGeometry Rect="44,142,1,1" />
+                            <RectangleGeometry Rect="22,91,1,1" />
+                            <RectangleGeometry Rect="7,1,1,1" />
+                            <RectangleGeometry Rect="107,9,1,1" />
+                            <RectangleGeometry Rect="142,6,1,1" />
+                            <RectangleGeometry Rect="135,55,1,1" />
+                            <RectangleGeometry Rect="117,123,1,1" />
+                            <RectangleGeometry Rect="70,94,1,1" />
+                            <RectangleGeometry Rect="44,76,1,1" />
+                            <RectangleGeometry Rect="53,140,1,1" />
+                            <RectangleGeometry Rect="0,110,1,1" />
+                            <RectangleGeometry Rect="43,82,1,1" />
+                            <RectangleGeometry Rect="7,58,1,1" />
+                            <RectangleGeometry Rect="35,62,1,1" />
+                            <RectangleGeometry Rect="116,66,1,1" />
+                            <RectangleGeometry Rect="28,57,1,1" />
+                            <RectangleGeometry Rect="141,133,1,1" />
+                            <RectangleGeometry Rect="83,24,1,1" />
+                            <RectangleGeometry Rect="41,7,1,1" />
+                            <RectangleGeometry Rect="106,39,1,1" />
+                            <RectangleGeometry Rect="78,3,1,1" />
+                            <RectangleGeometry Rect="96,115,1,1" />
+                            <RectangleGeometry Rect="90,33,1,1" />
+                            <RectangleGeometry Rect="105,11,1,1" />
+                            <RectangleGeometry Rect="59,66,1,1" />
+                            <RectangleGeometry Rect="42,50,1,1" />
+                            <RectangleGeometry Rect="36,66,1,1" />
+                            <RectangleGeometry Rect="140,22,1,1" />
+                            <RectangleGeometry Rect="139,60,1,1" />
+                            <RectangleGeometry Rect="70,32,1,1" />
+                            <RectangleGeometry Rect="108,10,1,1" />
+                            <RectangleGeometry Rect="3,104,1,1" />
+                            <RectangleGeometry Rect="122,134,1,1" />
+                            <RectangleGeometry Rect="119,79,1,1" />
+                            <RectangleGeometry Rect="44,3,1,1" />
+                            <RectangleGeometry Rect="82,32,1,1" />
+                            <RectangleGeometry Rect="59,39,1,1" />
+                            <RectangleGeometry Rect="61,112,1,1" />
+                            <RectangleGeometry Rect="73,92,1,1" />
+                            <RectangleGeometry Rect="80,44,1,1" />
+                            <RectangleGeometry Rect="18,6,1,1" />
+                            <RectangleGeometry Rect="44,23,1,1" />
+                            <RectangleGeometry Rect="108,123,1,1" />
+                            <RectangleGeometry Rect="33,48,1,1" />
+                            <RectangleGeometry Rect="9,97,1,1" />
+                            <RectangleGeometry Rect="39,92,1,1" />
+                            <RectangleGeometry Rect="13,140,1,1" />
+                            <RectangleGeometry Rect="88,112,1,1" />
+                            <RectangleGeometry Rect="111,3,1,1" />
+                            <RectangleGeometry Rect="10,17,1,1" />
+                            <RectangleGeometry Rect="8,71,1,1" />
+                            <RectangleGeometry Rect="34,113,1,1" />
+                            <RectangleGeometry Rect="60,87,1,1" />
+                            <RectangleGeometry Rect="96,50,1,1" />
+                            <RectangleGeometry Rect="132,41,1,1" />
+                            <RectangleGeometry Rect="127,27,1,1" />
+                            <RectangleGeometry Rect="133,85,1,1" />
+                            <RectangleGeometry Rect="30,112,1,1" />
+                            <RectangleGeometry Rect="78,93,1,1" />
+                            <RectangleGeometry Rect="23,104,1,1" />
+                            <RectangleGeometry Rect="28,17,1,1" />
+                            <RectangleGeometry Rect="138,36,1,1" />
+                            <RectangleGeometry Rect="39,53,1,1" />
+                            <RectangleGeometry Rect="90,81,1,1" />
+                            <RectangleGeometry Rect="114,142,1,1" />
+                            <RectangleGeometry Rect="15,81,1,1" />
+                            <RectangleGeometry Rect="111,132,1,1" />
+                            <RectangleGeometry Rect="86,80,1,1" />
+                            <RectangleGeometry Rect="125,131,1,1" />
+                            <RectangleGeometry Rect="83,7,1,1" />
+                            <RectangleGeometry Rect="47,129,1,1" />
+                            <RectangleGeometry Rect="10,33,1,1" />
+                            <RectangleGeometry Rect="120,46,1,1" />
+                            <RectangleGeometry Rect="12,7,1,1" />
+                            <RectangleGeometry Rect="54,121,1,1" />
+                            <RectangleGeometry Rect="15,18,1,1" />
+                            <RectangleGeometry Rect="65,72,1,1" />
+                            <RectangleGeometry Rect="3,13,1,1" />
+                            <RectangleGeometry Rect="76,10,1,1" />
+                            <RectangleGeometry Rect="107,110,1,1" />
+                            <RectangleGeometry Rect="90,27,1,1" />
+                            <RectangleGeometry Rect="83,112,1,1" />
+                            <RectangleGeometry Rect="83,28,1,1" />
+                            <RectangleGeometry Rect="50,88,1,1" />
+                            <RectangleGeometry Rect="21,38,1,1" />
+                            <RectangleGeometry Rect="96,35,1,1" />
+                            <RectangleGeometry Rect="125,29,1,1" />
+                            <RectangleGeometry Rect="31,16,1,1" />
+                            <RectangleGeometry Rect="127,142,1,1" />
+                            <RectangleGeometry Rect="33,106,1,1" />
+                            <RectangleGeometry Rect="86,93,1,1" />
+                            <RectangleGeometry Rect="65,128,1,1" />
+                            <RectangleGeometry Rect="100,63,1,1" />
+                            <RectangleGeometry Rect="121,72,1,1" />
+                            <RectangleGeometry Rect="138,114,1,1" />
+                            <RectangleGeometry Rect="101,65,1,1" />
+                            <RectangleGeometry Rect="106,3,1,1" />
+                            <RectangleGeometry Rect="127,78,1,1" />
+                            <RectangleGeometry Rect="119,105,1,1" />
+                            <RectangleGeometry Rect="79,128,1,1" />
+                            <RectangleGeometry Rect="45,59,1,1" />
+                            <RectangleGeometry Rect="71,46,1,1" />
+                            <RectangleGeometry Rect="0,28,1,1" />
+                            <RectangleGeometry Rect="34,16,1,1" />
+                            <RectangleGeometry Rect="34,119,1,1" />
+                            <RectangleGeometry Rect="75,9,1,1" />
+                            <RectangleGeometry Rect="111,90,1,1" />
+                            <RectangleGeometry Rect="72,13,1,1" />
+                            <RectangleGeometry Rect="36,36,1,1" />
+                            <RectangleGeometry Rect="16,93,1,1" />
+                            <RectangleGeometry Rect="41,94,1,1" />
+                            <RectangleGeometry Rect="95,14,1,1" />
+                            <RectangleGeometry Rect="130,91,1,1" />
+                            <RectangleGeometry Rect="12,66,1,1" />
+                            <RectangleGeometry Rect="41,42,1,1" />
+                            <RectangleGeometry Rect="45,53,1,1" />
+                            <RectangleGeometry Rect="132,108,1,1" />
+                            <RectangleGeometry Rect="66,124,1,1" />
+                            <RectangleGeometry Rect="84,18,1,1" />
+                            <RectangleGeometry Rect="20,8,1,1" />
+                            <RectangleGeometry Rect="128,91,1,1" />
+                            <RectangleGeometry Rect="23,118,1,1" />
+                            <RectangleGeometry Rect="56,36,1,1" />
+                            <RectangleGeometry Rect="7,68,1,1" />
+                            <RectangleGeometry Rect="85,62,1,1" />
+                            <RectangleGeometry Rect="78,137,1,1" />
+                            <RectangleGeometry Rect="73,20,1,1" />
+                            <RectangleGeometry Rect="18,46,1,1" />
+                            <RectangleGeometry Rect="54,107,1,1" />
+                            <RectangleGeometry Rect="92,104,1,1" />
+                            <RectangleGeometry Rect="98,44,1,1" />
+                            <RectangleGeometry Rect="106,95,1,1" />
+                            <RectangleGeometry Rect="104,76,1,1" />
+                            <RectangleGeometry Rect="111,63,1,1" />
+                            <RectangleGeometry Rect="106,64,1,1" />
+                            <RectangleGeometry Rect="102,38,1,1" />
+                            <RectangleGeometry Rect="96,108,1,1" />
+                            <RectangleGeometry Rect="14,140,1,1" />
+                            <RectangleGeometry Rect="42,72,1,1" />
+                            <RectangleGeometry Rect="97,87,1,1" />
+                            <RectangleGeometry Rect="48,68,1,1" />
+                            <RectangleGeometry Rect="13,69,1,1" />
+                            <RectangleGeometry Rect="73,43,1,1" />
+                            <RectangleGeometry Rect="122,56,1,1" />
+                            <RectangleGeometry Rect="0,129,1,1" />
+                            <RectangleGeometry Rect="8,118,1,1" />
+                            <RectangleGeometry Rect="115,91,1,1" />
+                            <RectangleGeometry Rect="36,122,1,1" />
+                            <RectangleGeometry Rect="116,58,1,1" />
+                            <RectangleGeometry Rect="116,34,1,1" />
+                            <RectangleGeometry Rect="63,97,1,1" />
+                            <RectangleGeometry Rect="111,17,1,1" />
+                            <RectangleGeometry Rect="71,55,1,1" />
+                            <RectangleGeometry Rect="53,18,1,1" />
+                            <RectangleGeometry Rect="78,80,1,1" />
+                            <RectangleGeometry Rect="30,45,1,1" />
+                            <RectangleGeometry Rect="36,120,1,1" />
+                            <RectangleGeometry Rect="89,96,1,1" />
+                            <RectangleGeometry Rect="135,100,1,1" />
+                            <RectangleGeometry Rect="13,21,1,1" />
+                            <RectangleGeometry Rect="0,57,1,1" />
+                            <RectangleGeometry Rect="62,95,1,1" />
+                            <RectangleGeometry Rect="31,90,1,1" />
+                        </GeometryGroup>
+                    </GeometryDrawing.Geometry>
+                </GeometryDrawing>
+                <GeometryDrawing Brush="#12FFFFFF">
+                    <GeometryDrawing.Geometry>
+                        <GeometryGroup>
+                            <RectangleGeometry Rect="107,141,2,1" />
+                            <RectangleGeometry Rect="38,134,2,1" />
+                            <RectangleGeometry Rect="35,60,2,1" />
+                            <RectangleGeometry Rect="85,33,2,1" />
+                            <RectangleGeometry Rect="130,18,2,1" />
+                            <RectangleGeometry Rect="35,121,2,1" />
+                            <RectangleGeometry Rect="24,31,2,1" />
+                            <RectangleGeometry Rect="92,46,2,1" />
+                            <RectangleGeometry Rect="17,103,2,1" />
+                            <RectangleGeometry Rect="62,61,2,1" />
+                            <RectangleGeometry Rect="77,77,2,1" />
+                            <RectangleGeometry Rect="72,9,2,1" />
+                            <RectangleGeometry Rect="0,101,2,1" />
+                            <RectangleGeometry Rect="128,62,2,1" />
+                            <RectangleGeometry Rect="9,5,2,1" />
+                            <RectangleGeometry Rect="0,104,2,1" />
+                            <RectangleGeometry Rect="69,28,2,1" />
+                            <RectangleGeometry Rect="2,109,2,1" />
+                            <RectangleGeometry Rect="129,54,2,1" />
+                            <RectangleGeometry Rect="121,21,2,1" />
+                            <RectangleGeometry Rect="28,42,2,1" />
+                            <RectangleGeometry Rect="137,105,2,1" />
+                            <RectangleGeometry Rect="58,123,2,1" />
+                            <RectangleGeometry Rect="116,50,2,1" />
+                            <RectangleGeometry Rect="25,24,2,1" />
+                            <RectangleGeometry Rect="41,96,2,1" />
+                            <RectangleGeometry Rect="132,28,2,1" />
+                            <RectangleGeometry Rect="33,95,2,1" />
+                            <RectangleGeometry Rect="83,11,2,1" />
+                            <RectangleGeometry Rect="82,113,2,1" />
+                            <RectangleGeometry Rect="24,1,2,1" />
+                            <RectangleGeometry Rect="22,90,2,1" />
+                            <RectangleGeometry Rect="102,109,2,1" />
+                            <RectangleGeometry Rect="20,118,2,1" />
+                            <RectangleGeometry Rect="64,80,2,1" />
+                            <RectangleGeometry Rect="29,79,2,1" />
+                            <RectangleGeometry Rect="41,30,2,1" />
+                            <RectangleGeometry Rect="119,136,2,1" />
+                            <RectangleGeometry Rect="8,22,2,1" />
+                            <RectangleGeometry Rect="39,51,2,1" />
+                            <RectangleGeometry Rect="111,1,2,1" />
+                            <RectangleGeometry Rect="38,126,2,1" />
+                            <RectangleGeometry Rect="107,7,2,1" />
+                            <RectangleGeometry Rect="75,104,2,1" />
+                            <RectangleGeometry Rect="91,121,2,1" />
+                            <RectangleGeometry Rect="22,52,2,1" />
+                            <RectangleGeometry Rect="129,12,2,1" />
+                            <RectangleGeometry Rect="141,4,2,1" />
+                            <RectangleGeometry Rect="47,62,2,1" />
+                            <RectangleGeometry Rect="114,131,2,1" />
+                            <RectangleGeometry Rect="9,11,2,1" />
+                            <RectangleGeometry Rect="136,44,2,1" />
+                            <RectangleGeometry Rect="118,48,2,1" />
+                            <RectangleGeometry Rect="55,69,2,1" />
+                            <RectangleGeometry Rect="75,90,2,1" />
+                            <RectangleGeometry Rect="30,36,2,1" />
+                            <RectangleGeometry Rect="68,17,2,1" />
+                            <RectangleGeometry Rect="107,49,2,1" />
+                            <RectangleGeometry Rect="121,8,2,1" />
+                            <RectangleGeometry Rect="66,17,2,1" />
+                            <RectangleGeometry Rect="69,83,2,1" />
+                            <RectangleGeometry Rect="73,64,2,1" />
+                            <RectangleGeometry Rect="43,77,2,1" />
+                            <RectangleGeometry Rect="124,107,2,1" />
+                            <RectangleGeometry Rect="104,103,2,1" />
+                            <RectangleGeometry Rect="21,102,2,1" />
+                            <RectangleGeometry Rect="124,71,2,1" />
+                            <RectangleGeometry Rect="18,26,2,1" />
+                            <RectangleGeometry Rect="108,73,2,1" />
+                            <RectangleGeometry Rect="130,47,2,1" />
+                        </GeometryGroup>
+                    </GeometryDrawing.Geometry>
+                </GeometryDrawing>
+                <GeometryDrawing Brush="#0DFFFFFF">
+                    <GeometryDrawing.Geometry>
+                        <GeometryGroup>
+                            <RectangleGeometry Rect="87,38,1,2" />
+                            <RectangleGeometry Rect="64,60,1,2" />
+                            <RectangleGeometry Rect="2,107,1,2" />
+                            <RectangleGeometry Rect="129,119,1,2" />
+                            <RectangleGeometry Rect="28,55,1,2" />
+                            <RectangleGeometry Rect="81,98,1,2" />
+                            <RectangleGeometry Rect="43,68,1,2" />
+                            <RectangleGeometry Rect="109,80,1,2" />
+                            <RectangleGeometry Rect="119,35,1,2" />
+                            <RectangleGeometry Rect="131,82,1,2" />
+                            <RectangleGeometry Rect="51,53,1,2" />
+                            <RectangleGeometry Rect="88,35,1,2" />
+                            <RectangleGeometry Rect="113,139,1,2" />
+                            <RectangleGeometry Rect="91,12,1,2" />
+                            <RectangleGeometry Rect="48,120,1,2" />
+                            <RectangleGeometry Rect="112,63,1,2" />
+                            <RectangleGeometry Rect="49,44,1,2" />
+                            <RectangleGeometry Rect="32,26,1,2" />
+                            <RectangleGeometry Rect="77,104,1,2" />
+                            <RectangleGeometry Rect="23,103,1,2" />
+                            <RectangleGeometry Rect="36,11,1,2" />
+                            <RectangleGeometry Rect="125,9,1,2" />
+                            <RectangleGeometry Rect="125,80,1,2" />
+                            <RectangleGeometry Rect="112,104,1,2" />
+                            <RectangleGeometry Rect="112,103,1,2" />
+                            <RectangleGeometry Rect="65,44,1,2" />
+                            <RectangleGeometry Rect="92,63,1,2" />
+                            <RectangleGeometry Rect="47,2,1,2" />
+                            <RectangleGeometry Rect="52,107,1,2" />
+                            <RectangleGeometry Rect="70,60,1,2" />
+                            <RectangleGeometry Rect="128,111,1,2" />
+                            <RectangleGeometry Rect="129,44,1,2" />
+                            <RectangleGeometry Rect="82,33,1,2" />
+                            <RectangleGeometry Rect="107,107,1,2" />
+                            <RectangleGeometry Rect="102,12,1,2" />
+                            <RectangleGeometry Rect="27,22,1,2" />
+                            <RectangleGeometry Rect="63,134,1,2" />
+                            <RectangleGeometry Rect="28,0,1,2" />
+                            <RectangleGeometry Rect="20,5,1,2" />
+                            <RectangleGeometry Rect="119,28,1,2" />
+                            <RectangleGeometry Rect="91,69,1,2" />
+                            <RectangleGeometry Rect="123,78,1,2" />
+                            <RectangleGeometry Rect="20,98,1,2" />
+                            <RectangleGeometry Rect="111,83,1,2" />
+                            <RectangleGeometry Rect="10,96,1,2" />
+                            <RectangleGeometry Rect="74,122,1,2" />
+                            <RectangleGeometry Rect="65,92,1,2" />
+                            <RectangleGeometry Rect="84,129,1,2" />
+                            <RectangleGeometry Rect="62,69,1,2" />
+                            <RectangleGeometry Rect="72,49,1,2" />
+                        </GeometryGroup>
+                    </GeometryDrawing.Geometry>
+                </GeometryDrawing>
+                <GeometryDrawing Brush="#40000000">
+                    <GeometryDrawing.Geometry>
+                        <GeometryGroup>
+                            <RectangleGeometry Rect="115,49,1,1" />
+                            <RectangleGeometry Rect="46,101,1,1" />
+                            <RectangleGeometry Rect="60,88,1,1" />
+                            <RectangleGeometry Rect="53,99,1,1" />
+                            <RectangleGeometry Rect="124,52,1,1" />
+                            <RectangleGeometry Rect="131,17,1,1" />
+                            <RectangleGeometry Rect="39,42,1,1" />
+                            <RectangleGeometry Rect="89,9,1,1" />
+                            <RectangleGeometry Rect="141,102,1,1" />
+                            <RectangleGeometry Rect="35,96,1,1" />
+                            <RectangleGeometry Rect="10,34,1,1" />
+                            <RectangleGeometry Rect="96,68,1,1" />
+                            <RectangleGeometry Rect="99,95,1,1" />
+                            <RectangleGeometry Rect="107,96,1,1" />
+                            <RectangleGeometry Rect="7,67,1,1" />
+                            <RectangleGeometry Rect="85,44,1,1" />
+                            <RectangleGeometry Rect="0,11,1,1" />
+                            <RectangleGeometry Rect="78,92,1,1" />
+                            <RectangleGeometry Rect="78,126,1,1" />
+                            <RectangleGeometry Rect="87,85,1,1" />
+                            <RectangleGeometry Rect="53,15,1,1" />
+                            <RectangleGeometry Rect="33,9,1,1" />
+                            <RectangleGeometry Rect="118,122,1,1" />
+                            <RectangleGeometry Rect="109,86,1,1" />
+                            <RectangleGeometry Rect="128,9,1,1" />
+                            <RectangleGeometry Rect="126,28,1,1" />
+                            <RectangleGeometry Rect="133,123,1,1" />
+                            <RectangleGeometry Rect="110,51,1,1" />
+                            <RectangleGeometry Rect="137,137,1,1" />
+                            <RectangleGeometry Rect="126,73,1,1" />
+                            <RectangleGeometry Rect="22,15,1,1" />
+                            <RectangleGeometry Rect="68,91,1,1" />
+                            <RectangleGeometry Rect="103,41,1,1" />
+                            <RectangleGeometry Rect="44,107,1,1" />
+                            <RectangleGeometry Rect="65,107,1,1" />
+                            <RectangleGeometry Rect="112,53,1,1" />
+                            <RectangleGeometry Rect="44,115,1,1" />
+                            <RectangleGeometry Rect="86,96,1,1" />
+                            <RectangleGeometry Rect="89,60,1,1" />
+                            <RectangleGeometry Rect="76,66,1,1" />
+                            <RectangleGeometry Rect="74,139,1,1" />
+                            <RectangleGeometry Rect="74,73,1,1" />
+                            <RectangleGeometry Rect="58,53,1,1" />
+                            <RectangleGeometry Rect="75,107,1,1" />
+                            <RectangleGeometry Rect="9,48,1,1" />
+                            <RectangleGeometry Rect="103,36,1,1" />
+                            <RectangleGeometry Rect="129,75,1,1" />
+                            <RectangleGeometry Rect="126,71,1,1" />
+                            <RectangleGeometry Rect="82,96,1,1" />
+                            <RectangleGeometry Rect="81,58,1,1" />
+                            <RectangleGeometry Rect="48,88,1,1" />
+                            <RectangleGeometry Rect="140,131,1,1" />
+                            <RectangleGeometry Rect="66,132,1,1" />
+                            <RectangleGeometry Rect="121,132,1,1" />
+                            <RectangleGeometry Rect="61,103,1,1" />
+                            <RectangleGeometry Rect="89,57,1,1" />
+                            <RectangleGeometry Rect="60,26,1,1" />
+                            <RectangleGeometry Rect="61,138,1,1" />
+                            <RectangleGeometry Rect="25,76,1,1" />
+                            <RectangleGeometry Rect="111,106,1,1" />
+                            <RectangleGeometry Rect="51,63,1,1" />
+                            <RectangleGeometry Rect="37,93,1,1" />
+                            <RectangleGeometry Rect="103,136,1,1" />
+                            <RectangleGeometry Rect="127,87,1,1" />
+                            <RectangleGeometry Rect="91,17,1,1" />
+                            <RectangleGeometry Rect="77,41,1,1" />
+                            <RectangleGeometry Rect="10,126,1,1" />
+                            <RectangleGeometry Rect="16,47,1,1" />
+                            <RectangleGeometry Rect="54,67,1,1" />
+                            <RectangleGeometry Rect="41,119,1,1" />
+                            <RectangleGeometry Rect="50,48,1,1" />
+                            <RectangleGeometry Rect="77,138,1,1" />
+                            <RectangleGeometry Rect="97,140,1,1" />
+                            <RectangleGeometry Rect="102,57,1,1" />
+                            <RectangleGeometry Rect="11,130,1,1" />
+                            <RectangleGeometry Rect="67,103,1,1" />
+                            <RectangleGeometry Rect="58,13,1,1" />
+                            <RectangleGeometry Rect="19,109,1,1" />
+                            <RectangleGeometry Rect="55,47,1,1" />
+                            <RectangleGeometry Rect="2,87,1,1" />
+                            <RectangleGeometry Rect="47,65,1,1" />
+                            <RectangleGeometry Rect="99,49,1,1" />
+                            <RectangleGeometry Rect="70,54,1,1" />
+                            <RectangleGeometry Rect="67,43,1,1" />
+                            <RectangleGeometry Rect="49,97,1,1" />
+                            <RectangleGeometry Rect="118,52,1,1" />
+                            <RectangleGeometry Rect="80,14,1,1" />
+                            <RectangleGeometry Rect="4,134,1,1" />
+                            <RectangleGeometry Rect="79,121,1,1" />
+                            <RectangleGeometry Rect="9,118,1,1" />
+                            <RectangleGeometry Rect="57,36,1,1" />
+                            <RectangleGeometry Rect="119,37,1,1" />
+                            <RectangleGeometry Rect="17,111,1,1" />
+                            <RectangleGeometry Rect="11,60,1,1" />
+                            <RectangleGeometry Rect="92,65,1,1" />
+                            <RectangleGeometry Rect="114,97,1,1" />
+                            <RectangleGeometry Rect="62,101,1,1" />
+                            <RectangleGeometry Rect="114,17,1,1" />
+                            <RectangleGeometry Rect="118,112,1,1" />
+                            <RectangleGeometry Rect="90,2,1,1" />
+                            <RectangleGeometry Rect="25,116,1,1" />
+                            <RectangleGeometry Rect="109,52,1,1" />
+                            <RectangleGeometry Rect="121,94,1,1" />
+                            <RectangleGeometry Rect="93,56,1,1" />
+                            <RectangleGeometry Rect="116,91,1,1" />
+                            <RectangleGeometry Rect="39,32,1,1" />
+                            <RectangleGeometry Rect="82,49,1,1" />
+                            <RectangleGeometry Rect="91,126,1,1" />
+                            <RectangleGeometry Rect="0,120,1,1" />
+                            <RectangleGeometry Rect="55,58,1,1" />
+                            <RectangleGeometry Rect="128,123,1,1" />
+                            <RectangleGeometry Rect="82,106,1,1" />
+                            <RectangleGeometry Rect="47,86,1,1" />
+                            <RectangleGeometry Rect="73,6,1,1" />
+                            <RectangleGeometry Rect="100,91,1,1" />
+                            <RectangleGeometry Rect="0,142,1,1" />
+                            <RectangleGeometry Rect="25,31,1,1" />
+                            <RectangleGeometry Rect="61,47,1,1" />
+                            <RectangleGeometry Rect="58,103,1,1" />
+                            <RectangleGeometry Rect="76,40,1,1" />
+                        </GeometryGroup>
+                    </GeometryDrawing.Geometry>
+                </GeometryDrawing>
+            </DrawingGroup>
+        </DrawingBrush.Drawing>
+    </DrawingBrush>
+    <SolidColorBrush x:Key="Surface"       Color="#B3292930" />
+    <SolidColorBrush x:Key="Overlay"       Color="#FF2B2B31" />
+    <LinearGradientBrush x:Key="Hover" StartPoint="0,0" EndPoint="1,0">
+        <GradientStop Color="#1CFFEB3B" Offset="0.0" />
+        <GradientStop Color="#29FFEB3B" Offset="0.2" />
+        <GradientStop Color="#20FFEB3B" Offset="0.4" />
+        <GradientStop Color="#2EFFEB3B" Offset="0.6" />
+        <GradientStop Color="#24FFEB3B" Offset="0.8" />
+        <GradientStop Color="#1AFFEB3B" Offset="1.0" />
+    </LinearGradientBrush>
+    <SolidColorBrush x:Key="Pressed"       Color="#52FFE94D" />
+    <LinearGradientBrush x:Key="Selected" StartPoint="0,0" EndPoint="1,0">
+        <GradientStop Color="#47FFEB3B" Offset="0.0" />
+        <GradientStop Color="#57FFEB3B" Offset="0.2" />
+        <GradientStop Color="#4CFFEB3B" Offset="0.4" />
+        <GradientStop Color="#5CFFEB3B" Offset="0.6" />
+        <GradientStop Color="#51FFEB3B" Offset="0.8" />
+        <GradientStop Color="#40FFEB3B" Offset="1.0" />
+    </LinearGradientBrush>
+    <DrawingBrush x:Key="Line" TileMode="Tile" Viewport="0,0,29,29" ViewportUnits="Absolute"
+                  Viewbox="0,0,29,29" ViewboxUnits="Absolute">
+        <DrawingBrush.Drawing>
+            <DrawingGroup>
+                <GeometryDrawing Brush="#99C9C6BD">
+                    <GeometryDrawing.Geometry>
+                        <GeometryGroup>
+                            <RectangleGeometry Rect="0,0,29,29" />
+                        </GeometryGroup>
+                    </GeometryDrawing.Geometry>
+                </GeometryDrawing>
+                <GeometryDrawing Brush="#FFE6E3DA">
+                    <GeometryDrawing.Geometry>
+                        <GeometryGroup>
+                            <RectangleGeometry Rect="20,2,3,1" />
+                            <RectangleGeometry Rect="16,4,3,1" />
+                            <RectangleGeometry Rect="7,24,3,1" />
+                            <RectangleGeometry Rect="23,24,3,1" />
+                            <RectangleGeometry Rect="17,4,3,1" />
+                            <RectangleGeometry Rect="25,22,3,1" />
+                            <RectangleGeometry Rect="14,26,3,1" />
+                            <RectangleGeometry Rect="3,17,3,1" />
+                            <RectangleGeometry Rect="17,19,3,1" />
+                            <RectangleGeometry Rect="16,15,3,1" />
+                            <RectangleGeometry Rect="8,17,3,1" />
+                            <RectangleGeometry Rect="3,22,3,1" />
+                            <RectangleGeometry Rect="0,5,3,1" />
+                            <RectangleGeometry Rect="18,26,3,1" />
+                            <RectangleGeometry Rect="4,3,3,1" />
+                            <RectangleGeometry Rect="14,20,3,1" />
+                            <RectangleGeometry Rect="23,19,3,1" />
+                            <RectangleGeometry Rect="12,15,3,1" />
+                            <RectangleGeometry Rect="4,14,3,1" />
+                            <RectangleGeometry Rect="0,15,3,1" />
+                            <RectangleGeometry Rect="20,27,3,1" />
+                            <RectangleGeometry Rect="12,13,3,1" />
+                            <RectangleGeometry Rect="20,4,3,1" />
+                            <RectangleGeometry Rect="23,0,3,1" />
+                            <RectangleGeometry Rect="21,26,3,1" />
+                            <RectangleGeometry Rect="23,16,3,1" />
+                            <RectangleGeometry Rect="19,8,3,1" />
+                            <RectangleGeometry Rect="13,17,3,1" />
+                            <RectangleGeometry Rect="17,26,3,1" />
+                            <RectangleGeometry Rect="21,3,3,1" />
+                            <RectangleGeometry Rect="7,6,3,1" />
+                            <RectangleGeometry Rect="23,3,3,1" />
+                            <RectangleGeometry Rect="10,17,3,1" />
+                            <RectangleGeometry Rect="10,25,3,1" />
+                            <RectangleGeometry Rect="7,17,3,1" />
+                            <RectangleGeometry Rect="2,6,3,1" />
+                            <RectangleGeometry Rect="15,25,3,1" />
+                            <RectangleGeometry Rect="17,11,3,1" />
+                            <RectangleGeometry Rect="4,20,3,1" />
+                            <RectangleGeometry Rect="25,26,3,1" />
+                            <RectangleGeometry Rect="12,21,3,1" />
+                            <RectangleGeometry Rect="16,10,3,1" />
+                            <RectangleGeometry Rect="21,10,3,1" />
+                            <RectangleGeometry Rect="23,1,3,1" />
+                            <RectangleGeometry Rect="10,2,3,1" />
+                            <RectangleGeometry Rect="5,7,3,1" />
+                            <RectangleGeometry Rect="7,10,3,1" />
+                            <RectangleGeometry Rect="19,1,3,1" />
+                            <RectangleGeometry Rect="9,0,3,1" />
+                            <RectangleGeometry Rect="16,25,3,1" />
+                            <RectangleGeometry Rect="8,26,3,1" />
+                            <RectangleGeometry Rect="7,18,3,1" />
+                            <RectangleGeometry Rect="24,22,3,1" />
+                            <RectangleGeometry Rect="6,23,3,1" />
+                            <RectangleGeometry Rect="25,20,3,1" />
+                            <RectangleGeometry Rect="9,3,3,1" />
+                            <RectangleGeometry Rect="17,3,3,1" />
+                            <RectangleGeometry Rect="21,25,3,1" />
+                            <RectangleGeometry Rect="1,5,3,1" />
+                            <RectangleGeometry Rect="9,26,3,1" />
+                            <RectangleGeometry Rect="11,25,3,1" />
+                            <RectangleGeometry Rect="5,13,3,1" />
+                            <RectangleGeometry Rect="25,12,3,1" />
+                            <RectangleGeometry Rect="14,8,3,1" />
+                            <RectangleGeometry Rect="2,20,3,1" />
+                            <RectangleGeometry Rect="11,13,3,1" />
+                            <RectangleGeometry Rect="2,4,3,1" />
+                            <RectangleGeometry Rect="23,22,3,1" />
+                            <RectangleGeometry Rect="4,4,3,1" />
+                            <RectangleGeometry Rect="13,21,3,1" />
+                            <RectangleGeometry Rect="1,15,3,1" />
+                            <RectangleGeometry Rect="9,22,3,1" />
+                            <RectangleGeometry Rect="3,10,3,1" />
+                            <RectangleGeometry Rect="7,23,3,1" />
+                            <RectangleGeometry Rect="5,20,3,1" />
+                            <RectangleGeometry Rect="11,2,3,1" />
+                            <RectangleGeometry Rect="5,3,3,1" />
+                            <RectangleGeometry Rect="10,14,3,1" />
+                            <RectangleGeometry Rect="20,5,3,1" />
+                            <RectangleGeometry Rect="23,17,3,1" />
+                            <RectangleGeometry Rect="24,25,3,1" />
+                            <RectangleGeometry Rect="3,4,3,1" />
+                            <RectangleGeometry Rect="20,24,3,1" />
+                            <RectangleGeometry Rect="24,10,3,1" />
+                            <RectangleGeometry Rect="2,14,3,1" />
+                            <RectangleGeometry Rect="9,23,3,1" />
+                            <RectangleGeometry Rect="12,16,3,1" />
+                            <RectangleGeometry Rect="8,18,3,1" />
+                            <RectangleGeometry Rect="2,15,3,1" />
+                            <RectangleGeometry Rect="14,19,3,1" />
+                            <RectangleGeometry Rect="13,26,3,1" />
+                            <RectangleGeometry Rect="14,27,3,1" />
+                            <RectangleGeometry Rect="15,1,3,1" />
+                            <RectangleGeometry Rect="17,24,3,1" />
+                            <RectangleGeometry Rect="13,13,3,1" />
+                            <RectangleGeometry Rect="5,0,3,1" />
+                            <RectangleGeometry Rect="14,22,3,1" />
+                            <RectangleGeometry Rect="19,15,3,1" />
+                            <RectangleGeometry Rect="11,23,3,1" />
+                            <RectangleGeometry Rect="11,9,3,1" />
+                            <RectangleGeometry Rect="19,11,3,1" />
+                            <RectangleGeometry Rect="2,5,3,1" />
+                            <RectangleGeometry Rect="6,16,3,1" />
+                            <RectangleGeometry Rect="18,7,3,1" />
+                            <RectangleGeometry Rect="1,22,3,1" />
+                            <RectangleGeometry Rect="8,0,3,1" />
+                            <RectangleGeometry Rect="3,11,3,1" />
+                            <RectangleGeometry Rect="6,0,3,1" />
+                            <RectangleGeometry Rect="19,26,3,1" />
+                            <RectangleGeometry Rect="12,4,3,1" />
+                            <RectangleGeometry Rect="16,5,3,1" />
+                            <RectangleGeometry Rect="15,15,3,1" />
+                            <RectangleGeometry Rect="22,21,3,1" />
+                            <RectangleGeometry Rect="25,5,3,1" />
+                            <RectangleGeometry Rect="5,27,3,1" />
+                            <RectangleGeometry Rect="10,18,3,1" />
+                            <RectangleGeometry Rect="11,8,3,1" />
+                            <RectangleGeometry Rect="20,6,3,1" />
+                            <RectangleGeometry Rect="4,6,3,1" />
+                            <RectangleGeometry Rect="2,26,3,1" />
+                            <RectangleGeometry Rect="8,13,3,1" />
+                            <RectangleGeometry Rect="9,8,3,1" />
+                            <RectangleGeometry Rect="7,9,3,1" />
+                            <RectangleGeometry Rect="7,25,3,1" />
+                            <RectangleGeometry Rect="23,4,3,1" />
+                            <RectangleGeometry Rect="10,19,3,1" />
+                            <RectangleGeometry Rect="15,9,3,1" />
+                            <RectangleGeometry Rect="25,4,3,1" />
+                            <RectangleGeometry Rect="12,8,3,1" />
+                            <RectangleGeometry Rect="24,4,3,1" />
+                            <RectangleGeometry Rect="22,15,3,1" />
+                            <RectangleGeometry Rect="2,25,3,1" />
+                            <RectangleGeometry Rect="1,13,3,1" />
+                            <RectangleGeometry Rect="23,11,3,1" />
+                            <RectangleGeometry Rect="16,20,3,1" />
+                            <RectangleGeometry Rect="3,12,3,1" />
+                            <RectangleGeometry Rect="20,3,3,1" />
+                            <RectangleGeometry Rect="0,17,3,1" />
+                            <RectangleGeometry Rect="12,6,3,1" />
+                            <RectangleGeometry Rect="17,22,3,1" />
+                            <RectangleGeometry Rect="2,13,3,1" />
+                            <RectangleGeometry Rect="19,19,3,1" />
+                            <RectangleGeometry Rect="10,24,3,1" />
+                            <RectangleGeometry Rect="14,24,3,1" />
+                            <RectangleGeometry Rect="17,9,3,1" />
+                            <RectangleGeometry Rect="11,11,3,1" />
+                            <RectangleGeometry Rect="20,22,3,1" />
+                            <RectangleGeometry Rect="3,24,3,1" />
+                            <RectangleGeometry Rect="11,20,3,1" />
+                            <RectangleGeometry Rect="25,2,3,1" />
+                            <RectangleGeometry Rect="13,24,1,3" />
+                            <RectangleGeometry Rect="13,18,1,3" />
+                            <RectangleGeometry Rect="5,18,1,3" />
+                            <RectangleGeometry Rect="4,14,1,3" />
+                            <RectangleGeometry Rect="15,7,1,3" />
+                            <RectangleGeometry Rect="15,19,1,3" />
+                            <RectangleGeometry Rect="23,19,1,3" />
+                            <RectangleGeometry Rect="17,1,1,3" />
+                            <RectangleGeometry Rect="13,12,1,3" />
+                            <RectangleGeometry Rect="12,18,1,3" />
+                            <RectangleGeometry Rect="24,3,1,3" />
+                            <RectangleGeometry Rect="16,8,1,3" />
+                            <RectangleGeometry Rect="20,8,1,3" />
+                            <RectangleGeometry Rect="21,11,1,3" />
+                            <RectangleGeometry Rect="4,25,1,3" />
+                            <RectangleGeometry Rect="8,7,1,3" />
+                            <RectangleGeometry Rect="17,3,1,3" />
+                            <RectangleGeometry Rect="11,7,1,3" />
+                            <RectangleGeometry Rect="4,0,1,3" />
+                            <RectangleGeometry Rect="18,15,1,3" />
+                            <RectangleGeometry Rect="0,1,1,3" />
+                            <RectangleGeometry Rect="13,9,1,3" />
+                            <RectangleGeometry Rect="13,7,1,3" />
+                            <RectangleGeometry Rect="5,24,1,3" />
+                            <RectangleGeometry Rect="20,3,1,3" />
+                            <RectangleGeometry Rect="13,21,1,3" />
+                            <RectangleGeometry Rect="16,2,1,3" />
+                            <RectangleGeometry Rect="3,14,1,3" />
+                            <RectangleGeometry Rect="9,2,1,3" />
+                            <RectangleGeometry Rect="20,22,1,3" />
+                            <RectangleGeometry Rect="1,10,1,3" />
+                            <RectangleGeometry Rect="25,14,1,3" />
+                            <RectangleGeometry Rect="14,8,1,3" />
+                            <RectangleGeometry Rect="25,21,1,3" />
+                            <RectangleGeometry Rect="23,0,1,3" />
+                            <RectangleGeometry Rect="12,12,1,3" />
+                            <RectangleGeometry Rect="0,16,1,3" />
+                            <RectangleGeometry Rect="20,13,1,3" />
+                            <RectangleGeometry Rect="7,6,1,3" />
+                            <RectangleGeometry Rect="22,21,1,3" />
+                            <RectangleGeometry Rect="21,17,1,3" />
+                            <RectangleGeometry Rect="24,4,1,3" />
+                            <RectangleGeometry Rect="23,12,1,3" />
+                            <RectangleGeometry Rect="8,15,1,3" />
+                            <RectangleGeometry Rect="6,22,1,3" />
+                            <RectangleGeometry Rect="18,8,1,3" />
+                            <RectangleGeometry Rect="19,8,1,3" />
+                            <RectangleGeometry Rect="18,4,1,3" />
+                            <RectangleGeometry Rect="21,18,1,3" />
+                            <RectangleGeometry Rect="4,16,1,3" />
+                            <RectangleGeometry Rect="27,21,1,3" />
+                            <RectangleGeometry Rect="19,18,1,3" />
+                            <RectangleGeometry Rect="11,25,1,3" />
+                            <RectangleGeometry Rect="0,10,1,3" />
+                            <RectangleGeometry Rect="11,9,1,3" />
+                            <RectangleGeometry Rect="27,15,1,3" />
+                            <RectangleGeometry Rect="0,23,1,3" />
+                            <RectangleGeometry Rect="25,22,1,3" />
+                            <RectangleGeometry Rect="17,2,1,3" />
+                            <RectangleGeometry Rect="26,11,1,3" />
+                            <RectangleGeometry Rect="11,11,1,3" />
+                            <RectangleGeometry Rect="7,5,1,3" />
+                            <RectangleGeometry Rect="21,9,1,3" />
+                            <RectangleGeometry Rect="10,1,1,3" />
+                            <RectangleGeometry Rect="12,0,1,3" />
+                            <RectangleGeometry Rect="26,17,1,3" />
+                            <RectangleGeometry Rect="14,12,1,3" />
+                            <RectangleGeometry Rect="17,16,1,3" />
+                            <RectangleGeometry Rect="11,15,1,3" />
+                            <RectangleGeometry Rect="21,7,1,3" />
+                            <RectangleGeometry Rect="8,23,1,3" />
+                            <RectangleGeometry Rect="14,21,1,3" />
+                            <RectangleGeometry Rect="19,6,1,3" />
+                            <RectangleGeometry Rect="22,19,1,3" />
+                            <RectangleGeometry Rect="5,5,1,3" />
+                            <RectangleGeometry Rect="24,18,1,3" />
+                            <RectangleGeometry Rect="2,23,1,3" />
+                            <RectangleGeometry Rect="22,22,1,3" />
+                            <RectangleGeometry Rect="26,22,1,3" />
+                            <RectangleGeometry Rect="13,17,1,3" />
+                            <RectangleGeometry Rect="7,15,1,3" />
+                            <RectangleGeometry Rect="10,7,1,3" />
+                            <RectangleGeometry Rect="10,2,1,3" />
+                            <RectangleGeometry Rect="11,22,1,3" />
+                            <RectangleGeometry Rect="20,0,1,3" />
+                            <RectangleGeometry Rect="20,17,1,3" />
+                            <RectangleGeometry Rect="24,1,1,3" />
+                            <RectangleGeometry Rect="11,10,1,3" />
+                            <RectangleGeometry Rect="23,22,1,3" />
+                            <RectangleGeometry Rect="4,24,1,3" />
+                            <RectangleGeometry Rect="17,13,1,3" />
+                            <RectangleGeometry Rect="27,11,1,3" />
+                            <RectangleGeometry Rect="10,12,1,3" />
+                            <RectangleGeometry Rect="6,19,1,3" />
+                            <RectangleGeometry Rect="18,6,1,3" />
+                            <RectangleGeometry Rect="19,20,1,3" />
+                            <RectangleGeometry Rect="22,16,1,3" />
+                            <RectangleGeometry Rect="23,8,1,3" />
+                            <RectangleGeometry Rect="8,12,1,3" />
+                            <RectangleGeometry Rect="25,1,1,3" />
+                            <RectangleGeometry Rect="0,20,1,3" />
+                            <RectangleGeometry Rect="6,4,1,3" />
+                            <RectangleGeometry Rect="9,12,1,3" />
+                            <RectangleGeometry Rect="19,3,1,3" />
+                            <RectangleGeometry Rect="23,7,1,3" />
+                            <RectangleGeometry Rect="3,16,1,3" />
+                            <RectangleGeometry Rect="26,15,1,3" />
+                            <RectangleGeometry Rect="19,19,1,3" />
+                            <RectangleGeometry Rect="10,6,1,3" />
+                            <RectangleGeometry Rect="13,2,1,3" />
+                            <RectangleGeometry Rect="20,20,1,3" />
+                            <RectangleGeometry Rect="25,4,1,3" />
+                            <RectangleGeometry Rect="1,25,1,3" />
+                            <RectangleGeometry Rect="18,24,1,3" />
+                            <RectangleGeometry Rect="3,12,1,3" />
+                            <RectangleGeometry Rect="22,9,1,3" />
+                            <RectangleGeometry Rect="18,19,1,3" />
+                            <RectangleGeometry Rect="22,25,1,3" />
+                            <RectangleGeometry Rect="17,15,1,3" />
+                            <RectangleGeometry Rect="16,1,1,3" />
+                            <RectangleGeometry Rect="14,15,1,3" />
+                            <RectangleGeometry Rect="26,7,1,3" />
+                            <RectangleGeometry Rect="18,11,1,3" />
+                            <RectangleGeometry Rect="6,12,1,3" />
+                            <RectangleGeometry Rect="27,6,1,3" />
+                            <RectangleGeometry Rect="1,7,1,3" />
+                            <RectangleGeometry Rect="1,17,1,3" />
+                            <RectangleGeometry Rect="20,11,1,3" />
+                            <RectangleGeometry Rect="14,20,1,3" />
+                            <RectangleGeometry Rect="18,10,1,3" />
+                            <RectangleGeometry Rect="19,13,1,3" />
+                            <RectangleGeometry Rect="2,20,1,3" />
+                            <RectangleGeometry Rect="19,7,1,3" />
+                            <RectangleGeometry Rect="5,0,1,3" />
+                            <RectangleGeometry Rect="5,17,1,3" />
+                            <RectangleGeometry Rect="9,22,1,3" />
+                            <RectangleGeometry Rect="21,23,1,3" />
+                            <RectangleGeometry Rect="22,12,1,3" />
+                            <RectangleGeometry Rect="3,21,1,3" />
+                            <RectangleGeometry Rect="3,23,1,3" />
+                            <RectangleGeometry Rect="11,12,1,3" />
+                            <RectangleGeometry Rect="24,23,1,3" />
+                            <RectangleGeometry Rect="14,9,1,3" />
+                            <RectangleGeometry Rect="12,22,1,3" />
+                            <RectangleGeometry Rect="15,16,1,3" />
+                            <RectangleGeometry Rect="5,25,1,3" />
+                            <RectangleGeometry Rect="3,0,1,3" />
+                            <RectangleGeometry Rect="16,16,1,3" />
+                            <RectangleGeometry Rect="3,2,1,3" />
+                            <RectangleGeometry Rect="27,18,1,3" />
+                        </GeometryGroup>
+                    </GeometryDrawing.Geometry>
+                </GeometryDrawing>
+                <GeometryDrawing Brush="#8C1D1D21">
+                    <GeometryDrawing.Geometry>
+                        <GeometryGroup>
+                            <RectangleGeometry Rect="9,27,2,1" />
+                            <RectangleGeometry Rect="21,5,2,1" />
+                            <RectangleGeometry Rect="13,25,2,1" />
+                            <RectangleGeometry Rect="5,7,2,1" />
+                            <RectangleGeometry Rect="19,19,2,1" />
+                            <RectangleGeometry Rect="16,20,2,1" />
+                            <RectangleGeometry Rect="15,22,2,1" />
+                            <RectangleGeometry Rect="15,5,2,1" />
+                            <RectangleGeometry Rect="7,8,2,1" />
+                            <RectangleGeometry Rect="16,4,2,1" />
+                            <RectangleGeometry Rect="21,14,2,1" />
+                            <RectangleGeometry Rect="0,25,2,1" />
+                            <RectangleGeometry Rect="1,8,2,1" />
+                            <RectangleGeometry Rect="25,6,2,1" />
+                            <RectangleGeometry Rect="9,7,2,1" />
+                            <RectangleGeometry Rect="14,7,2,1" />
+                            <RectangleGeometry Rect="8,25,2,1" />
+                            <RectangleGeometry Rect="24,20,2,1" />
+                            <RectangleGeometry Rect="15,15,2,1" />
+                            <RectangleGeometry Rect="20,8,2,1" />
+                            <RectangleGeometry Rect="15,11,2,1" />
+                            <RectangleGeometry Rect="19,23,2,1" />
+                            <RectangleGeometry Rect="23,8,2,1" />
+                            <RectangleGeometry Rect="11,7,2,1" />
+                            <RectangleGeometry Rect="2,11,2,1" />
+                            <RectangleGeometry Rect="12,6,2,1" />
+                            <RectangleGeometry Rect="26,20,2,1" />
+                            <RectangleGeometry Rect="5,10,2,1" />
+                            <RectangleGeometry Rect="2,2,2,1" />
+                            <RectangleGeometry Rect="2,18,2,1" />
+                            <RectangleGeometry Rect="10,14,2,1" />
+                            <RectangleGeometry Rect="16,23,2,1" />
+                            <RectangleGeometry Rect="16,22,2,1" />
+                            <RectangleGeometry Rect="9,2,2,1" />
+                            <RectangleGeometry Rect="25,1,2,1" />
+                            <RectangleGeometry Rect="9,8,2,1" />
+                            <RectangleGeometry Rect="18,13,2,1" />
+                            <RectangleGeometry Rect="23,5,2,1" />
+                            <RectangleGeometry Rect="0,9,2,1" />
+                            <RectangleGeometry Rect="16,26,2,1" />
+                            <RectangleGeometry Rect="4,25,2,1" />
+                            <RectangleGeometry Rect="6,20,2,1" />
+                            <RectangleGeometry Rect="11,9,2,1" />
+                            <RectangleGeometry Rect="0,17,2,1" />
+                            <RectangleGeometry Rect="2,22,2,1" />
+                            <RectangleGeometry Rect="17,26,2,1" />
+                            <RectangleGeometry Rect="17,11,2,1" />
+                            <RectangleGeometry Rect="8,14,2,1" />
+                            <RectangleGeometry Rect="18,25,2,1" />
+                            <RectangleGeometry Rect="1,2,2,1" />
+                            <RectangleGeometry Rect="15,18,2,1" />
+                            <RectangleGeometry Rect="15,23,2,1" />
+                            <RectangleGeometry Rect="1,19,2,1" />
+                            <RectangleGeometry Rect="3,5,2,1" />
+                            <RectangleGeometry Rect="1,14,2,1" />
+                            <RectangleGeometry Rect="10,21,2,1" />
+                            <RectangleGeometry Rect="24,22,2,1" />
+                            <RectangleGeometry Rect="24,6,2,1" />
+                            <RectangleGeometry Rect="4,7,2,1" />
+                            <RectangleGeometry Rect="14,24,2,1" />
+                            <RectangleGeometry Rect="1,12,1,2" />
+                            <RectangleGeometry Rect="21,8,1,2" />
+                            <RectangleGeometry Rect="26,16,1,2" />
+                            <RectangleGeometry Rect="19,13,1,2" />
+                            <RectangleGeometry Rect="10,26,1,2" />
+                            <RectangleGeometry Rect="22,20,1,2" />
+                            <RectangleGeometry Rect="14,6,1,2" />
+                            <RectangleGeometry Rect="14,13,1,2" />
+                            <RectangleGeometry Rect="2,5,1,2" />
+                            <RectangleGeometry Rect="14,21,1,2" />
+                            <RectangleGeometry Rect="24,10,1,2" />
+                            <RectangleGeometry Rect="15,18,1,2" />
+                            <RectangleGeometry Rect="12,12,1,2" />
+                            <RectangleGeometry Rect="14,1,1,2" />
+                            <RectangleGeometry Rect="13,18,1,2" />
+                            <RectangleGeometry Rect="16,5,1,2" />
+                            <RectangleGeometry Rect="15,10,1,2" />
+                            <RectangleGeometry Rect="27,17,1,2" />
+                            <RectangleGeometry Rect="7,18,1,2" />
+                            <RectangleGeometry Rect="13,4,1,2" />
+                            <RectangleGeometry Rect="5,4,1,2" />
+                            <RectangleGeometry Rect="7,25,1,2" />
+                            <RectangleGeometry Rect="23,20,1,2" />
+                            <RectangleGeometry Rect="21,1,1,2" />
+                            <RectangleGeometry Rect="3,10,1,2" />
+                            <RectangleGeometry Rect="27,11,1,2" />
+                            <RectangleGeometry Rect="20,4,1,2" />
+                            <RectangleGeometry Rect="5,8,1,2" />
+                            <RectangleGeometry Rect="15,4,1,2" />
+                            <RectangleGeometry Rect="23,11,1,2" />
+                            <RectangleGeometry Rect="9,13,1,2" />
+                            <RectangleGeometry Rect="4,5,1,2" />
+                            <RectangleGeometry Rect="12,8,1,2" />
+                            <RectangleGeometry Rect="17,1,1,2" />
+                            <RectangleGeometry Rect="23,22,1,2" />
+                            <RectangleGeometry Rect="22,14,1,2" />
+                            <RectangleGeometry Rect="4,25,1,2" />
+                            <RectangleGeometry Rect="18,20,1,2" />
+                            <RectangleGeometry Rect="24,24,1,2" />
+                            <RectangleGeometry Rect="9,7,1,2" />
+                            <RectangleGeometry Rect="8,20,1,2" />
+                            <RectangleGeometry Rect="12,18,1,2" />
+                            <RectangleGeometry Rect="6,7,1,2" />
+                            <RectangleGeometry Rect="24,9,1,2" />
+                            <RectangleGeometry Rect="24,13,1,2" />
+                            <RectangleGeometry Rect="22,25,1,2" />
+                            <RectangleGeometry Rect="14,17,1,2" />
+                            <RectangleGeometry Rect="2,12,1,2" />
+                            <RectangleGeometry Rect="5,15,1,2" />
+                            <RectangleGeometry Rect="10,2,1,2" />
+                            <RectangleGeometry Rect="10,14,1,2" />
+                            <RectangleGeometry Rect="1,15,1,2" />
+                            <RectangleGeometry Rect="8,17,1,2" />
+                            <RectangleGeometry Rect="14,15,1,2" />
+                            <RectangleGeometry Rect="9,3,1,2" />
+                            <RectangleGeometry Rect="7,16,1,2" />
+                            <RectangleGeometry Rect="11,20,1,2" />
+                            <RectangleGeometry Rect="12,10,1,2" />
+                            <RectangleGeometry Rect="26,8,1,2" />
+                            <RectangleGeometry Rect="25,16,1,2" />
+                        </GeometryGroup>
+                    </GeometryDrawing.Geometry>
+                </GeometryDrawing>
+            </DrawingGroup>
+        </DrawingBrush.Drawing>
+    </DrawingBrush>
+    <SolidColorBrush x:Key="LineFaint"     Color="#FF3A3A41" />
+
+    <!-- Outlines of buttons, menus and cards (EdgeRaised) and of text boxes and the file list (EdgeSunken). -->
+    <DrawingBrush x:Key="EdgeRaised" TileMode="Tile" Viewport="0,0,31,31" ViewportUnits="Absolute"
+                  Viewbox="0,0,31,31" ViewboxUnits="Absolute">
+        <DrawingBrush.Drawing>
+            <DrawingGroup>
+                <GeometryDrawing Brush="#99C9C6BD">
+                    <GeometryDrawing.Geometry>
+                        <GeometryGroup>
+                            <RectangleGeometry Rect="0,0,31,31" />
+                        </GeometryGroup>
+                    </GeometryDrawing.Geometry>
+                </GeometryDrawing>
+                <GeometryDrawing Brush="#FFE6E3DA">
+                    <GeometryDrawing.Geometry>
+                        <GeometryGroup>
+                            <RectangleGeometry Rect="25,23,3,1" />
+                            <RectangleGeometry Rect="6,7,3,1" />
+                            <RectangleGeometry Rect="3,20,3,1" />
+                            <RectangleGeometry Rect="16,3,3,1" />
+                            <RectangleGeometry Rect="14,2,3,1" />
+                            <RectangleGeometry Rect="24,14,3,1" />
+                            <RectangleGeometry Rect="5,12,3,1" />
+                            <RectangleGeometry Rect="9,27,3,1" />
+                            <RectangleGeometry Rect="12,12,3,1" />
+                            <RectangleGeometry Rect="18,20,3,1" />
+                            <RectangleGeometry Rect="12,6,3,1" />
+                            <RectangleGeometry Rect="24,2,3,1" />
+                            <RectangleGeometry Rect="0,8,3,1" />
+                            <RectangleGeometry Rect="12,9,3,1" />
+                            <RectangleGeometry Rect="7,6,3,1" />
+                            <RectangleGeometry Rect="22,14,3,1" />
+                            <RectangleGeometry Rect="17,20,3,1" />
+                            <RectangleGeometry Rect="18,5,3,1" />
+                            <RectangleGeometry Rect="5,17,3,1" />
+                            <RectangleGeometry Rect="25,25,3,1" />
+                            <RectangleGeometry Rect="24,20,3,1" />
+                            <RectangleGeometry Rect="14,13,3,1" />
+                            <RectangleGeometry Rect="23,26,3,1" />
+                            <RectangleGeometry Rect="9,15,3,1" />
+                            <RectangleGeometry Rect="23,23,3,1" />
+                            <RectangleGeometry Rect="16,10,3,1" />
+                            <RectangleGeometry Rect="19,13,3,1" />
+                            <RectangleGeometry Rect="21,5,3,1" />
+                            <RectangleGeometry Rect="4,25,3,1" />
+                            <RectangleGeometry Rect="10,27,3,1" />
+                            <RectangleGeometry Rect="0,29,3,1" />
+                            <RectangleGeometry Rect="17,17,3,1" />
+                            <RectangleGeometry Rect="22,27,3,1" />
+                            <RectangleGeometry Rect="25,22,3,1" />
+                            <RectangleGeometry Rect="2,8,3,1" />
+                            <RectangleGeometry Rect="0,5,3,1" />
+                            <RectangleGeometry Rect="1,18,3,1" />
+                            <RectangleGeometry Rect="16,18,3,1" />
+                            <RectangleGeometry Rect="25,27,3,1" />
+                            <RectangleGeometry Rect="27,29,3,1" />
+                            <RectangleGeometry Rect="25,14,3,1" />
+                            <RectangleGeometry Rect="18,29,3,1" />
+                            <RectangleGeometry Rect="25,24,3,1" />
+                            <RectangleGeometry Rect="8,2,3,1" />
+                            <RectangleGeometry Rect="17,29,3,1" />
+                            <RectangleGeometry Rect="4,17,3,1" />
+                            <RectangleGeometry Rect="4,18,3,1" />
+                            <RectangleGeometry Rect="2,22,3,1" />
+                            <RectangleGeometry Rect="12,27,3,1" />
+                            <RectangleGeometry Rect="22,11,3,1" />
+                            <RectangleGeometry Rect="14,28,3,1" />
+                            <RectangleGeometry Rect="6,11,3,1" />
+                            <RectangleGeometry Rect="0,14,3,1" />
+                            <RectangleGeometry Rect="12,24,3,1" />
+                            <RectangleGeometry Rect="26,3,3,1" />
+                            <RectangleGeometry Rect="27,18,3,1" />
+                            <RectangleGeometry Rect="0,18,3,1" />
+                            <RectangleGeometry Rect="18,12,3,1" />
+                            <RectangleGeometry Rect="9,6,3,1" />
+                            <RectangleGeometry Rect="27,3,3,1" />
+                            <RectangleGeometry Rect="21,19,3,1" />
+                            <RectangleGeometry Rect="17,26,3,1" />
+                            <RectangleGeometry Rect="16,25,3,1" />
+                            <RectangleGeometry Rect="14,25,3,1" />
+                            <RectangleGeometry Rect="7,15,3,1" />
+                            <RectangleGeometry Rect="9,13,3,1" />
+                            <RectangleGeometry Rect="21,6,3,1" />
+                            <RectangleGeometry Rect="6,1,3,1" />
+                            <RectangleGeometry Rect="22,20,3,1" />
+                            <RectangleGeometry Rect="19,18,3,1" />
+                            <RectangleGeometry Rect="22,29,3,1" />
+                            <RectangleGeometry Rect="15,22,3,1" />
+                            <RectangleGeometry Rect="8,12,3,1" />
+                            <RectangleGeometry Rect="12,2,3,1" />
+                            <RectangleGeometry Rect="21,14,3,1" />
+                            <RectangleGeometry Rect="9,14,3,1" />
+                            <RectangleGeometry Rect="10,28,3,1" />
+                            <RectangleGeometry Rect="23,9,3,1" />
+                            <RectangleGeometry Rect="10,11,3,1" />
+                            <RectangleGeometry Rect="26,27,3,1" />
+                            <RectangleGeometry Rect="7,16,3,1" />
+                            <RectangleGeometry Rect="11,22,3,1" />
+                            <RectangleGeometry Rect="12,8,3,1" />
+                            <RectangleGeometry Rect="0,25,3,1" />
+                            <RectangleGeometry Rect="4,4,3,1" />
+                            <RectangleGeometry Rect="4,0,3,1" />
+                            <RectangleGeometry Rect="3,6,3,1" />
+                            <RectangleGeometry Rect="8,8,3,1" />
+                            <RectangleGeometry Rect="21,22,3,1" />
+                            <RectangleGeometry Rect="20,4,3,1" />
+                            <RectangleGeometry Rect="24,11,3,1" />
+                            <RectangleGeometry Rect="24,1,3,1" />
+                            <RectangleGeometry Rect="14,9,3,1" />
+                            <RectangleGeometry Rect="15,27,3,1" />
+                            <RectangleGeometry Rect="20,9,3,1" />
+                            <RectangleGeometry Rect="2,17,3,1" />
+                            <RectangleGeometry Rect="19,0,3,1" />
+                            <RectangleGeometry Rect="5,20,3,1" />
+                            <RectangleGeometry Rect="6,3,3,1" />
+                            <RectangleGeometry Rect="2,7,3,1" />
+                            <RectangleGeometry Rect="24,23,3,1" />
+                            <RectangleGeometry Rect="20,28,3,1" />
+                            <RectangleGeometry Rect="1,0,3,1" />
+                            <RectangleGeometry Rect="14,0,3,1" />
+                            <RectangleGeometry Rect="26,23,3,1" />
+                            <RectangleGeometry Rect="20,26,3,1" />
+                            <RectangleGeometry Rect="17,21,3,1" />
+                            <RectangleGeometry Rect="22,3,3,1" />
+                            <RectangleGeometry Rect="13,14,3,1" />
+                            <RectangleGeometry Rect="11,8,3,1" />
+                            <RectangleGeometry Rect="18,7,3,1" />
+                            <RectangleGeometry Rect="1,11,3,1" />
+                            <RectangleGeometry Rect="5,8,3,1" />
+                            <RectangleGeometry Rect="26,5,3,1" />
+                            <RectangleGeometry Rect="19,11,3,1" />
+                            <RectangleGeometry Rect="17,22,3,1" />
+                            <RectangleGeometry Rect="21,10,3,1" />
+                            <RectangleGeometry Rect="0,3,3,1" />
+                            <RectangleGeometry Rect="22,22,3,1" />
+                            <RectangleGeometry Rect="23,29,3,1" />
+                            <RectangleGeometry Rect="25,5,3,1" />
+                            <RectangleGeometry Rect="26,1,3,1" />
+                            <RectangleGeometry Rect="0,11,3,1" />
+                            <RectangleGeometry Rect="6,8,3,1" />
+                            <RectangleGeometry Rect="10,16,3,1" />
+                            <RectangleGeometry Rect="2,13,3,1" />
+                            <RectangleGeometry Rect="27,27,3,1" />
+                            <RectangleGeometry Rect="20,21,3,1" />
+                            <RectangleGeometry Rect="4,12,3,1" />
+                            <RectangleGeometry Rect="25,10,3,1" />
+                            <RectangleGeometry Rect="22,21,3,1" />
+                            <RectangleGeometry Rect="9,21,3,1" />
+                            <RectangleGeometry Rect="11,18,3,1" />
+                            <RectangleGeometry Rect="25,15,3,1" />
+                            <RectangleGeometry Rect="2,0,3,1" />
+                            <RectangleGeometry Rect="15,19,3,1" />
+                            <RectangleGeometry Rect="16,13,3,1" />
+                            <RectangleGeometry Rect="20,19,3,1" />
+                            <RectangleGeometry Rect="19,29,3,1" />
+                            <RectangleGeometry Rect="22,12,3,1" />
+                            <RectangleGeometry Rect="22,7,3,1" />
+                            <RectangleGeometry Rect="11,1,3,1" />
+                            <RectangleGeometry Rect="10,7,3,1" />
+                            <RectangleGeometry Rect="14,18,3,1" />
+                            <RectangleGeometry Rect="10,12,3,1" />
+                            <RectangleGeometry Rect="18,6,3,1" />
+                            <RectangleGeometry Rect="8,28,3,1" />
+                            <RectangleGeometry Rect="5,6,3,1" />
+                            <RectangleGeometry Rect="27,5,3,1" />
+                            <RectangleGeometry Rect="3,24,3,1" />
+                            <RectangleGeometry Rect="2,20,1,3" />
+                            <RectangleGeometry Rect="12,19,1,3" />
+                            <RectangleGeometry Rect="8,27,1,3" />
+                            <RectangleGeometry Rect="21,7,1,3" />
+                            <RectangleGeometry Rect="21,4,1,3" />
+                            <RectangleGeometry Rect="29,9,1,3" />
+                            <RectangleGeometry Rect="17,15,1,3" />
+                            <RectangleGeometry Rect="24,11,1,3" />
+                            <RectangleGeometry Rect="5,22,1,3" />
+                            <RectangleGeometry Rect="19,18,1,3" />
+                            <RectangleGeometry Rect="5,18,1,3" />
+                            <RectangleGeometry Rect="7,5,1,3" />
+                            <RectangleGeometry Rect="21,14,1,3" />
+                            <RectangleGeometry Rect="8,6,1,3" />
+                            <RectangleGeometry Rect="15,27,1,3" />
+                            <RectangleGeometry Rect="9,12,1,3" />
+                            <RectangleGeometry Rect="11,11,1,3" />
+                            <RectangleGeometry Rect="28,13,1,3" />
+                            <RectangleGeometry Rect="23,0,1,3" />
+                            <RectangleGeometry Rect="5,12,1,3" />
+                            <RectangleGeometry Rect="22,15,1,3" />
+                            <RectangleGeometry Rect="3,1,1,3" />
+                            <RectangleGeometry Rect="24,8,1,3" />
+                            <RectangleGeometry Rect="24,27,1,3" />
+                            <RectangleGeometry Rect="29,20,1,3" />
+                            <RectangleGeometry Rect="17,24,1,3" />
+                            <RectangleGeometry Rect="20,20,1,3" />
+                            <RectangleGeometry Rect="4,0,1,3" />
+                            <RectangleGeometry Rect="21,11,1,3" />
+                            <RectangleGeometry Rect="4,10,1,3" />
+                            <RectangleGeometry Rect="15,11,1,3" />
+                            <RectangleGeometry Rect="26,26,1,3" />
+                            <RectangleGeometry Rect="5,14,1,3" />
+                            <RectangleGeometry Rect="6,26,1,3" />
+                            <RectangleGeometry Rect="14,26,1,3" />
+                            <RectangleGeometry Rect="1,21,1,3" />
+                            <RectangleGeometry Rect="7,10,1,3" />
+                            <RectangleGeometry Rect="24,3,1,3" />
+                            <RectangleGeometry Rect="20,6,1,3" />
+                            <RectangleGeometry Rect="6,14,1,3" />
+                            <RectangleGeometry Rect="3,17,1,3" />
+                            <RectangleGeometry Rect="1,25,1,3" />
+                            <RectangleGeometry Rect="13,18,1,3" />
+                            <RectangleGeometry Rect="23,20,1,3" />
+                            <RectangleGeometry Rect="12,11,1,3" />
+                            <RectangleGeometry Rect="19,8,1,3" />
+                            <RectangleGeometry Rect="7,16,1,3" />
+                            <RectangleGeometry Rect="1,11,1,3" />
+                            <RectangleGeometry Rect="19,10,1,3" />
+                            <RectangleGeometry Rect="11,0,1,3" />
+                            <RectangleGeometry Rect="0,20,1,3" />
+                            <RectangleGeometry Rect="1,13,1,3" />
+                            <RectangleGeometry Rect="1,14,1,3" />
+                            <RectangleGeometry Rect="27,21,1,3" />
+                            <RectangleGeometry Rect="25,9,1,3" />
+                            <RectangleGeometry Rect="7,3,1,3" />
+                            <RectangleGeometry Rect="5,5,1,3" />
+                            <RectangleGeometry Rect="6,8,1,3" />
+                            <RectangleGeometry Rect="24,26,1,3" />
+                            <RectangleGeometry Rect="1,10,1,3" />
+                            <RectangleGeometry Rect="10,24,1,3" />
+                            <RectangleGeometry Rect="17,12,1,3" />
+                            <RectangleGeometry Rect="7,11,1,3" />
+                            <RectangleGeometry Rect="2,22,1,3" />
+                            <RectangleGeometry Rect="2,10,1,3" />
+                            <RectangleGeometry Rect="23,24,1,3" />
+                            <RectangleGeometry Rect="16,21,1,3" />
+                            <RectangleGeometry Rect="29,2,1,3" />
+                            <RectangleGeometry Rect="7,9,1,3" />
+                            <RectangleGeometry Rect="4,13,1,3" />
+                            <RectangleGeometry Rect="14,12,1,3" />
+                            <RectangleGeometry Rect="22,6,1,3" />
+                            <RectangleGeometry Rect="19,6,1,3" />
+                            <RectangleGeometry Rect="22,17,1,3" />
+                            <RectangleGeometry Rect="3,25,1,3" />
+                            <RectangleGeometry Rect="28,6,1,3" />
+                            <RectangleGeometry Rect="27,12,1,3" />
+                            <RectangleGeometry Rect="19,3,1,3" />
+                            <RectangleGeometry Rect="27,22,1,3" />
+                            <RectangleGeometry Rect="16,12,1,3" />
+                            <RectangleGeometry Rect="14,0,1,3" />
+                            <RectangleGeometry Rect="29,12,1,3" />
+                            <RectangleGeometry Rect="19,22,1,3" />
+                            <RectangleGeometry Rect="10,20,1,3" />
+                            <RectangleGeometry Rect="25,7,1,3" />
+                            <RectangleGeometry Rect="13,21,1,3" />
+                            <RectangleGeometry Rect="18,7,1,3" />
+                            <RectangleGeometry Rect="16,23,1,3" />
+                            <RectangleGeometry Rect="0,6,1,3" />
+                            <RectangleGeometry Rect="9,18,1,3" />
+                            <RectangleGeometry Rect="27,10,1,3" />
+                            <RectangleGeometry Rect="3,11,1,3" />
+                            <RectangleGeometry Rect="22,8,1,3" />
+                            <RectangleGeometry Rect="23,25,1,3" />
+                            <RectangleGeometry Rect="17,8,1,3" />
+                            <RectangleGeometry Rect="26,19,1,3" />
+                            <RectangleGeometry Rect="7,2,1,3" />
+                            <RectangleGeometry Rect="17,14,1,3" />
+                            <RectangleGeometry Rect="2,9,1,3" />
+                            <RectangleGeometry Rect="6,2,1,3" />
+                            <RectangleGeometry Rect="12,6,1,3" />
+                            <RectangleGeometry Rect="2,27,1,3" />
+                            <RectangleGeometry Rect="22,23,1,3" />
+                            <RectangleGeometry Rect="29,27,1,3" />
+                            <RectangleGeometry Rect="8,25,1,3" />
+                            <RectangleGeometry Rect="7,19,1,3" />
+                            <RectangleGeometry Rect="3,0,1,3" />
+                            <RectangleGeometry Rect="16,26,1,3" />
+                            <RectangleGeometry Rect="20,9,1,3" />
+                            <RectangleGeometry Rect="21,20,1,3" />
+                            <RectangleGeometry Rect="10,8,1,3" />
+                            <RectangleGeometry Rect="23,12,1,3" />
+                            <RectangleGeometry Rect="8,21,1,3" />
+                            <RectangleGeometry Rect="16,0,1,3" />
+                            <RectangleGeometry Rect="12,8,1,3" />
+                            <RectangleGeometry Rect="19,4,1,3" />
+                            <RectangleGeometry Rect="1,6,1,3" />
+                            <RectangleGeometry Rect="23,14,1,3" />
+                            <RectangleGeometry Rect="14,22,1,3" />
+                            <RectangleGeometry Rect="5,0,1,3" />
+                            <RectangleGeometry Rect="6,18,1,3" />
+                            <RectangleGeometry Rect="5,20,1,3" />
+                            <RectangleGeometry Rect="17,0,1,3" />
+                            <RectangleGeometry Rect="15,25,1,3" />
+                            <RectangleGeometry Rect="26,7,1,3" />
+                            <RectangleGeometry Rect="24,12,1,3" />
+                            <RectangleGeometry Rect="26,6,1,3" />
+                            <RectangleGeometry Rect="18,0,1,3" />
+                            <RectangleGeometry Rect="14,23,1,3" />
+                            <RectangleGeometry Rect="27,18,1,3" />
+                            <RectangleGeometry Rect="22,2,1,3" />
+                            <RectangleGeometry Rect="12,22,1,3" />
+                            <RectangleGeometry Rect="4,19,1,3" />
+                            <RectangleGeometry Rect="7,22,1,3" />
+                            <RectangleGeometry Rect="23,4,1,3" />
+                            <RectangleGeometry Rect="28,21,1,3" />
+                            <RectangleGeometry Rect="16,17,1,3" />
+                            <RectangleGeometry Rect="8,14,1,3" />
+                            <RectangleGeometry Rect="1,15,1,3" />
+                            <RectangleGeometry Rect="13,7,1,3" />
+                            <RectangleGeometry Rect="5,10,1,3" />
+                            <RectangleGeometry Rect="29,18,1,3" />
+                            <RectangleGeometry Rect="3,14,1,3" />
+                            <RectangleGeometry Rect="21,15,1,3" />
+                            <RectangleGeometry Rect="21,5,1,3" />
+                            <RectangleGeometry Rect="17,21,1,3" />
+                            <RectangleGeometry Rect="11,3,1,3" />
+                            <RectangleGeometry Rect="7,20,1,3" />
+                            <RectangleGeometry Rect="25,19,1,3" />
+                            <RectangleGeometry Rect="22,19,1,3" />
+                        </GeometryGroup>
+                    </GeometryDrawing.Geometry>
+                </GeometryDrawing>
+                <GeometryDrawing Brush="#8C1D1D21">
+                    <GeometryDrawing.Geometry>
+                        <GeometryGroup>
+                            <RectangleGeometry Rect="15,6,2,1" />
+                            <RectangleGeometry Rect="20,1,2,1" />
+                            <RectangleGeometry Rect="4,15,2,1" />
+                            <RectangleGeometry Rect="5,4,2,1" />
+                            <RectangleGeometry Rect="18,5,2,1" />
+                            <RectangleGeometry Rect="10,27,2,1" />
+                            <RectangleGeometry Rect="25,3,2,1" />
+                            <RectangleGeometry Rect="9,23,2,1" />
+                            <RectangleGeometry Rect="12,29,2,1" />
+                            <RectangleGeometry Rect="2,12,2,1" />
+                            <RectangleGeometry Rect="14,10,2,1" />
+                            <RectangleGeometry Rect="20,17,2,1" />
+                            <RectangleGeometry Rect="3,24,2,1" />
+                            <RectangleGeometry Rect="0,19,2,1" />
+                            <RectangleGeometry Rect="14,9,2,1" />
+                            <RectangleGeometry Rect="28,5,2,1" />
+                            <RectangleGeometry Rect="16,11,2,1" />
+                            <RectangleGeometry Rect="27,3,2,1" />
+                            <RectangleGeometry Rect="2,18,2,1" />
+                            <RectangleGeometry Rect="1,6,2,1" />
+                            <RectangleGeometry Rect="18,13,2,1" />
+                            <RectangleGeometry Rect="26,17,2,1" />
+                            <RectangleGeometry Rect="5,18,2,1" />
+                            <RectangleGeometry Rect="23,24,2,1" />
+                            <RectangleGeometry Rect="25,20,2,1" />
+                            <RectangleGeometry Rect="15,0,2,1" />
+                            <RectangleGeometry Rect="24,22,2,1" />
+                            <RectangleGeometry Rect="25,8,2,1" />
+                            <RectangleGeometry Rect="26,29,2,1" />
+                            <RectangleGeometry Rect="24,21,2,1" />
+                            <RectangleGeometry Rect="14,26,2,1" />
+                            <RectangleGeometry Rect="23,17,2,1" />
+                            <RectangleGeometry Rect="11,7,2,1" />
+                            <RectangleGeometry Rect="1,27,2,1" />
+                            <RectangleGeometry Rect="21,12,2,1" />
+                            <RectangleGeometry Rect="16,29,2,1" />
+                            <RectangleGeometry Rect="17,22,2,1" />
+                            <RectangleGeometry Rect="22,14,2,1" />
+                            <RectangleGeometry Rect="27,8,2,1" />
+                            <RectangleGeometry Rect="8,12,2,1" />
+                            <RectangleGeometry Rect="16,25,2,1" />
+                            <RectangleGeometry Rect="26,8,2,1" />
+                            <RectangleGeometry Rect="18,29,2,1" />
+                            <RectangleGeometry Rect="18,24,2,1" />
+                            <RectangleGeometry Rect="27,10,2,1" />
+                            <RectangleGeometry Rect="16,10,2,1" />
+                            <RectangleGeometry Rect="6,3,2,1" />
+                            <RectangleGeometry Rect="11,14,2,1" />
+                            <RectangleGeometry Rect="19,28,2,1" />
+                            <RectangleGeometry Rect="20,0,2,1" />
+                            <RectangleGeometry Rect="2,25,2,1" />
+                            <RectangleGeometry Rect="21,29,2,1" />
+                            <RectangleGeometry Rect="5,17,2,1" />
+                            <RectangleGeometry Rect="2,27,2,1" />
+                            <RectangleGeometry Rect="22,24,2,1" />
+                            <RectangleGeometry Rect="22,7,2,1" />
+                            <RectangleGeometry Rect="25,23,2,1" />
+                            <RectangleGeometry Rect="11,17,2,1" />
+                            <RectangleGeometry Rect="16,17,2,1" />
+                            <RectangleGeometry Rect="3,5,2,1" />
+                            <RectangleGeometry Rect="12,14,1,2" />
+                            <RectangleGeometry Rect="10,3,1,2" />
+                            <RectangleGeometry Rect="7,7,1,2" />
+                            <RectangleGeometry Rect="17,18,1,2" />
+                            <RectangleGeometry Rect="23,7,1,2" />
+                            <RectangleGeometry Rect="0,16,1,2" />
+                            <RectangleGeometry Rect="1,8,1,2" />
+                            <RectangleGeometry Rect="22,26,1,2" />
+                            <RectangleGeometry Rect="23,14,1,2" />
+                            <RectangleGeometry Rect="3,11,1,2" />
+                            <RectangleGeometry Rect="17,20,1,2" />
+                            <RectangleGeometry Rect="8,15,1,2" />
+                            <RectangleGeometry Rect="20,13,1,2" />
+                            <RectangleGeometry Rect="29,9,1,2" />
+                            <RectangleGeometry Rect="18,12,1,2" />
+                            <RectangleGeometry Rect="21,10,1,2" />
+                            <RectangleGeometry Rect="5,14,1,2" />
+                            <RectangleGeometry Rect="20,0,1,2" />
+                            <RectangleGeometry Rect="14,28,1,2" />
+                            <RectangleGeometry Rect="27,6,1,2" />
+                            <RectangleGeometry Rect="10,9,1,2" />
+                            <RectangleGeometry Rect="10,22,1,2" />
+                            <RectangleGeometry Rect="14,6,1,2" />
+                            <RectangleGeometry Rect="24,4,1,2" />
+                            <RectangleGeometry Rect="17,13,1,2" />
+                            <RectangleGeometry Rect="4,19,1,2" />
+                            <RectangleGeometry Rect="27,0,1,2" />
+                            <RectangleGeometry Rect="22,16,1,2" />
+                            <RectangleGeometry Rect="7,28,1,2" />
+                            <RectangleGeometry Rect="9,14,1,2" />
+                            <RectangleGeometry Rect="1,21,1,2" />
+                            <RectangleGeometry Rect="0,27,1,2" />
+                            <RectangleGeometry Rect="8,19,1,2" />
+                            <RectangleGeometry Rect="7,10,1,2" />
+                            <RectangleGeometry Rect="2,11,1,2" />
+                            <RectangleGeometry Rect="26,1,1,2" />
+                            <RectangleGeometry Rect="3,19,1,2" />
+                            <RectangleGeometry Rect="29,8,1,2" />
+                            <RectangleGeometry Rect="7,3,1,2" />
+                            <RectangleGeometry Rect="1,26,1,2" />
+                            <RectangleGeometry Rect="1,16,1,2" />
+                            <RectangleGeometry Rect="3,13,1,2" />
+                            <RectangleGeometry Rect="0,23,1,2" />
+                            <RectangleGeometry Rect="6,11,1,2" />
+                            <RectangleGeometry Rect="16,16,1,2" />
+                            <RectangleGeometry Rect="19,14,1,2" />
+                            <RectangleGeometry Rect="2,2,1,2" />
+                            <RectangleGeometry Rect="8,18,1,2" />
+                            <RectangleGeometry Rect="16,24,1,2" />
+                            <RectangleGeometry Rect="19,25,1,2" />
+                            <RectangleGeometry Rect="2,14,1,2" />
+                            <RectangleGeometry Rect="4,10,1,2" />
+                            <RectangleGeometry Rect="20,1,1,2" />
+                            <RectangleGeometry Rect="14,19,1,2" />
+                            <RectangleGeometry Rect="19,9,1,2" />
+                            <RectangleGeometry Rect="13,26,1,2" />
+                            <RectangleGeometry Rect="12,7,1,2" />
+                            <RectangleGeometry Rect="13,23,1,2" />
+                            <RectangleGeometry Rect="10,2,1,2" />
+                            <RectangleGeometry Rect="20,28,1,2" />
+                        </GeometryGroup>
+                    </GeometryDrawing.Geometry>
+                </GeometryDrawing>
+            </DrawingGroup>
+        </DrawingBrush.Drawing>
+    </DrawingBrush>
+    <DrawingBrush x:Key="EdgeSunken" TileMode="Tile" Viewport="0,0,37,37" ViewportUnits="Absolute"
+                  Viewbox="0,0,37,37" ViewboxUnits="Absolute">
+        <DrawingBrush.Drawing>
+            <DrawingGroup>
+                <GeometryDrawing Brush="#99C9C6BD">
+                    <GeometryDrawing.Geometry>
+                        <GeometryGroup>
+                            <RectangleGeometry Rect="0,0,37,37" />
+                        </GeometryGroup>
+                    </GeometryDrawing.Geometry>
+                </GeometryDrawing>
+                <GeometryDrawing Brush="#FFE6E3DA">
+                    <GeometryDrawing.Geometry>
+                        <GeometryGroup>
+                            <RectangleGeometry Rect="7,11,3,1" />
+                            <RectangleGeometry Rect="33,6,3,1" />
+                            <RectangleGeometry Rect="5,7,3,1" />
+                            <RectangleGeometry Rect="27,20,3,1" />
+                            <RectangleGeometry Rect="5,4,3,1" />
+                            <RectangleGeometry Rect="15,32,3,1" />
+                            <RectangleGeometry Rect="8,35,3,1" />
+                            <RectangleGeometry Rect="16,11,3,1" />
+                            <RectangleGeometry Rect="8,5,3,1" />
+                            <RectangleGeometry Rect="11,16,3,1" />
+                            <RectangleGeometry Rect="29,9,3,1" />
+                            <RectangleGeometry Rect="31,30,3,1" />
+                            <RectangleGeometry Rect="4,30,3,1" />
+                            <RectangleGeometry Rect="7,21,3,1" />
+                            <RectangleGeometry Rect="20,29,3,1" />
+                            <RectangleGeometry Rect="13,13,3,1" />
+                            <RectangleGeometry Rect="22,28,3,1" />
+                            <RectangleGeometry Rect="22,29,3,1" />
+                            <RectangleGeometry Rect="30,25,3,1" />
+                            <RectangleGeometry Rect="24,7,3,1" />
+                            <RectangleGeometry Rect="24,20,3,1" />
+                            <RectangleGeometry Rect="33,11,3,1" />
+                            <RectangleGeometry Rect="13,10,3,1" />
+                            <RectangleGeometry Rect="5,16,3,1" />
+                            <RectangleGeometry Rect="23,2,3,1" />
+                            <RectangleGeometry Rect="26,30,3,1" />
+                            <RectangleGeometry Rect="3,27,3,1" />
+                            <RectangleGeometry Rect="25,18,3,1" />
+                            <RectangleGeometry Rect="28,16,3,1" />
+                            <RectangleGeometry Rect="16,34,3,1" />
+                            <RectangleGeometry Rect="28,14,3,1" />
+                            <RectangleGeometry Rect="9,11,3,1" />
+                            <RectangleGeometry Rect="16,10,3,1" />
+                            <RectangleGeometry Rect="25,16,3,1" />
+                            <RectangleGeometry Rect="3,4,3,1" />
+                            <RectangleGeometry Rect="2,34,3,1" />
+                            <RectangleGeometry Rect="1,9,3,1" />
+                            <RectangleGeometry Rect="13,25,3,1" />
+                            <RectangleGeometry Rect="20,14,3,1" />
+                            <RectangleGeometry Rect="9,8,3,1" />
+                            <RectangleGeometry Rect="28,27,3,1" />
+                            <RectangleGeometry Rect="9,9,3,1" />
+                            <RectangleGeometry Rect="8,17,3,1" />
+                            <RectangleGeometry Rect="7,32,3,1" />
+                            <RectangleGeometry Rect="7,0,3,1" />
+                            <RectangleGeometry Rect="20,25,3,1" />
+                            <RectangleGeometry Rect="20,35,3,1" />
+                            <RectangleGeometry Rect="28,0,3,1" />
+                            <RectangleGeometry Rect="1,23,3,1" />
+                            <RectangleGeometry Rect="22,19,3,1" />
+                            <RectangleGeometry Rect="32,31,3,1" />
+                            <RectangleGeometry Rect="3,34,3,1" />
+                            <RectangleGeometry Rect="23,18,3,1" />
+                            <RectangleGeometry Rect="6,26,3,1" />
+                            <RectangleGeometry Rect="10,9,3,1" />
+                            <RectangleGeometry Rect="18,27,3,1" />
+                            <RectangleGeometry Rect="1,20,3,1" />
+                            <RectangleGeometry Rect="33,23,3,1" />
+                            <RectangleGeometry Rect="18,24,3,1" />
+                            <RectangleGeometry Rect="12,33,3,1" />
+                            <RectangleGeometry Rect="23,23,3,1" />
+                            <RectangleGeometry Rect="14,3,3,1" />
+                            <RectangleGeometry Rect="11,30,3,1" />
+                            <RectangleGeometry Rect="11,15,3,1" />
+                            <RectangleGeometry Rect="16,18,3,1" />
+                            <RectangleGeometry Rect="33,14,3,1" />
+                            <RectangleGeometry Rect="21,19,3,1" />
+                            <RectangleGeometry Rect="9,5,3,1" />
+                            <RectangleGeometry Rect="0,24,3,1" />
+                            <RectangleGeometry Rect="1,31,3,1" />
+                            <RectangleGeometry Rect="7,16,3,1" />
+                            <RectangleGeometry Rect="29,0,3,1" />
+                            <RectangleGeometry Rect="25,17,3,1" />
+                            <RectangleGeometry Rect="33,15,3,1" />
+                            <RectangleGeometry Rect="17,26,3,1" />
+                            <RectangleGeometry Rect="8,15,3,1" />
+                            <RectangleGeometry Rect="7,26,3,1" />
+                            <RectangleGeometry Rect="14,21,3,1" />
+                            <RectangleGeometry Rect="4,31,3,1" />
+                            <RectangleGeometry Rect="1,29,3,1" />
+                            <RectangleGeometry Rect="3,19,3,1" />
+                            <RectangleGeometry Rect="8,33,3,1" />
+                            <RectangleGeometry Rect="19,28,3,1" />
+                            <RectangleGeometry Rect="29,30,3,1" />
+                            <RectangleGeometry Rect="9,22,3,1" />
+                            <RectangleGeometry Rect="30,23,3,1" />
+                            <RectangleGeometry Rect="6,1,3,1" />
+                            <RectangleGeometry Rect="26,3,3,1" />
+                            <RectangleGeometry Rect="21,17,3,1" />
+                            <RectangleGeometry Rect="33,22,3,1" />
+                            <RectangleGeometry Rect="7,12,3,1" />
+                            <RectangleGeometry Rect="23,32,3,1" />
+                            <RectangleGeometry Rect="8,0,3,1" />
+                            <RectangleGeometry Rect="7,14,3,1" />
+                            <RectangleGeometry Rect="27,5,3,1" />
+                            <RectangleGeometry Rect="15,3,3,1" />
+                            <RectangleGeometry Rect="23,14,3,1" />
+                            <RectangleGeometry Rect="25,22,3,1" />
+                            <RectangleGeometry Rect="26,20,3,1" />
+                            <RectangleGeometry Rect="33,5,3,1" />
+                            <RectangleGeometry Rect="23,33,3,1" />
+                            <RectangleGeometry Rect="33,27,3,1" />
+                            <RectangleGeometry Rect="25,33,3,1" />
+                            <RectangleGeometry Rect="19,20,3,1" />
+                            <RectangleGeometry Rect="28,20,3,1" />
+                            <RectangleGeometry Rect="23,10,3,1" />
+                            <RectangleGeometry Rect="0,26,3,1" />
+                            <RectangleGeometry Rect="28,11,3,1" />
+                            <RectangleGeometry Rect="16,22,3,1" />
+                            <RectangleGeometry Rect="14,28,3,1" />
+                            <RectangleGeometry Rect="24,17,3,1" />
+                            <RectangleGeometry Rect="14,31,3,1" />
+                            <RectangleGeometry Rect="1,28,3,1" />
+                            <RectangleGeometry Rect="24,11,3,1" />
+                            <RectangleGeometry Rect="21,25,3,1" />
+                            <RectangleGeometry Rect="15,6,3,1" />
+                            <RectangleGeometry Rect="24,16,3,1" />
+                            <RectangleGeometry Rect="9,6,3,1" />
+                            <RectangleGeometry Rect="9,34,3,1" />
+                            <RectangleGeometry Rect="32,8,3,1" />
+                            <RectangleGeometry Rect="15,19,3,1" />
+                            <RectangleGeometry Rect="0,30,3,1" />
+                            <RectangleGeometry Rect="21,28,3,1" />
+                            <RectangleGeometry Rect="12,20,3,1" />
+                            <RectangleGeometry Rect="5,34,3,1" />
+                            <RectangleGeometry Rect="26,7,3,1" />
+                            <RectangleGeometry Rect="33,34,3,1" />
+                            <RectangleGeometry Rect="30,7,3,1" />
+                            <RectangleGeometry Rect="9,28,3,1" />
+                            <RectangleGeometry Rect="7,10,3,1" />
+                            <RectangleGeometry Rect="13,24,3,1" />
+                            <RectangleGeometry Rect="29,25,3,1" />
+                            <RectangleGeometry Rect="4,26,3,1" />
+                            <RectangleGeometry Rect="32,4,3,1" />
+                            <RectangleGeometry Rect="24,0,3,1" />
+                            <RectangleGeometry Rect="13,9,3,1" />
+                            <RectangleGeometry Rect="29,21,3,1" />
+                            <RectangleGeometry Rect="26,8,3,1" />
+                            <RectangleGeometry Rect="29,6,3,1" />
+                            <RectangleGeometry Rect="27,16,3,1" />
+                            <RectangleGeometry Rect="17,31,3,1" />
+                            <RectangleGeometry Rect="22,21,3,1" />
+                            <RectangleGeometry Rect="4,34,3,1" />
+                            <RectangleGeometry Rect="14,23,3,1" />
+                            <RectangleGeometry Rect="31,25,3,1" />
+                            <RectangleGeometry Rect="3,20,3,1" />
+                            <RectangleGeometry Rect="19,35,3,1" />
+                            <RectangleGeometry Rect="21,21,3,1" />
+                            <RectangleGeometry Rect="28,33,3,1" />
+                            <RectangleGeometry Rect="12,28,3,1" />
+                            <RectangleGeometry Rect="30,25,1,3" />
+                            <RectangleGeometry Rect="1,2,1,3" />
+                            <RectangleGeometry Rect="14,9,1,3" />
+                            <RectangleGeometry Rect="35,9,1,3" />
+                            <RectangleGeometry Rect="31,2,1,3" />
+                            <RectangleGeometry Rect="22,21,1,3" />
+                            <RectangleGeometry Rect="19,23,1,3" />
+                            <RectangleGeometry Rect="3,30,1,3" />
+                            <RectangleGeometry Rect="33,2,1,3" />
+                            <RectangleGeometry Rect="30,15,1,3" />
+                            <RectangleGeometry Rect="4,28,1,3" />
+                            <RectangleGeometry Rect="6,30,1,3" />
+                            <RectangleGeometry Rect="15,22,1,3" />
+                            <RectangleGeometry Rect="12,16,1,3" />
+                            <RectangleGeometry Rect="2,11,1,3" />
+                            <RectangleGeometry Rect="5,29,1,3" />
+                            <RectangleGeometry Rect="20,30,1,3" />
+                            <RectangleGeometry Rect="20,0,1,3" />
+                            <RectangleGeometry Rect="27,8,1,3" />
+                            <RectangleGeometry Rect="19,15,1,3" />
+                            <RectangleGeometry Rect="33,17,1,3" />
+                            <RectangleGeometry Rect="32,21,1,3" />
+                            <RectangleGeometry Rect="31,15,1,3" />
+                            <RectangleGeometry Rect="11,17,1,3" />
+                            <RectangleGeometry Rect="8,12,1,3" />
+                            <RectangleGeometry Rect="13,4,1,3" />
+                            <RectangleGeometry Rect="16,32,1,3" />
+                            <RectangleGeometry Rect="1,6,1,3" />
+                            <RectangleGeometry Rect="32,3,1,3" />
+                            <RectangleGeometry Rect="6,3,1,3" />
+                            <RectangleGeometry Rect="21,4,1,3" />
+                            <RectangleGeometry Rect="32,33,1,3" />
+                            <RectangleGeometry Rect="23,4,1,3" />
+                            <RectangleGeometry Rect="23,6,1,3" />
+                            <RectangleGeometry Rect="22,12,1,3" />
+                            <RectangleGeometry Rect="3,2,1,3" />
+                            <RectangleGeometry Rect="9,28,1,3" />
+                            <RectangleGeometry Rect="15,2,1,3" />
+                            <RectangleGeometry Rect="4,6,1,3" />
+                            <RectangleGeometry Rect="12,5,1,3" />
+                            <RectangleGeometry Rect="35,26,1,3" />
+                            <RectangleGeometry Rect="14,31,1,3" />
+                            <RectangleGeometry Rect="0,30,1,3" />
+                            <RectangleGeometry Rect="18,18,1,3" />
+                            <RectangleGeometry Rect="5,21,1,3" />
+                            <RectangleGeometry Rect="32,2,1,3" />
+                            <RectangleGeometry Rect="5,30,1,3" />
+                            <RectangleGeometry Rect="12,28,1,3" />
+                            <RectangleGeometry Rect="7,31,1,3" />
+                            <RectangleGeometry Rect="0,20,1,3" />
+                            <RectangleGeometry Rect="28,18,1,3" />
+                            <RectangleGeometry Rect="19,3,1,3" />
+                            <RectangleGeometry Rect="15,10,1,3" />
+                            <RectangleGeometry Rect="8,16,1,3" />
+                            <RectangleGeometry Rect="1,29,1,3" />
+                            <RectangleGeometry Rect="30,22,1,3" />
+                            <RectangleGeometry Rect="12,8,1,3" />
+                            <RectangleGeometry Rect="26,2,1,3" />
+                            <RectangleGeometry Rect="10,23,1,3" />
+                            <RectangleGeometry Rect="17,3,1,3" />
+                            <RectangleGeometry Rect="5,2,1,3" />
+                            <RectangleGeometry Rect="24,12,1,3" />
+                            <RectangleGeometry Rect="33,10,1,3" />
+                            <RectangleGeometry Rect="13,28,1,3" />
+                            <RectangleGeometry Rect="31,3,1,3" />
+                            <RectangleGeometry Rect="31,18,1,3" />
+                            <RectangleGeometry Rect="35,8,1,3" />
+                            <RectangleGeometry Rect="2,25,1,3" />
+                            <RectangleGeometry Rect="6,5,1,3" />
+                            <RectangleGeometry Rect="14,26,1,3" />
+                            <RectangleGeometry Rect="30,31,1,3" />
+                            <RectangleGeometry Rect="9,14,1,3" />
+                            <RectangleGeometry Rect="0,23,1,3" />
+                            <RectangleGeometry Rect="22,2,1,3" />
+                            <RectangleGeometry Rect="20,16,1,3" />
+                            <RectangleGeometry Rect="20,9,1,3" />
+                            <RectangleGeometry Rect="8,19,1,3" />
+                            <RectangleGeometry Rect="31,27,1,3" />
+                            <RectangleGeometry Rect="9,1,1,3" />
+                            <RectangleGeometry Rect="6,26,1,3" />
+                            <RectangleGeometry Rect="29,20,1,3" />
+                            <RectangleGeometry Rect="28,13,1,3" />
+                            <RectangleGeometry Rect="9,32,1,3" />
+                            <RectangleGeometry Rect="23,28,1,3" />
+                            <RectangleGeometry Rect="5,19,1,3" />
+                            <RectangleGeometry Rect="2,15,1,3" />
+                            <RectangleGeometry Rect="35,25,1,3" />
+                            <RectangleGeometry Rect="4,2,1,3" />
+                            <RectangleGeometry Rect="13,2,1,3" />
+                            <RectangleGeometry Rect="21,11,1,3" />
+                            <RectangleGeometry Rect="11,31,1,3" />
+                            <RectangleGeometry Rect="12,10,1,3" />
+                            <RectangleGeometry Rect="2,0,1,3" />
+                            <RectangleGeometry Rect="7,18,1,3" />
+                            <RectangleGeometry Rect="11,27,1,3" />
+                            <RectangleGeometry Rect="25,30,1,3" />
+                            <RectangleGeometry Rect="0,3,1,3" />
+                            <RectangleGeometry Rect="33,28,1,3" />
+                            <RectangleGeometry Rect="14,25,1,3" />
+                            <RectangleGeometry Rect="7,7,1,3" />
+                            <RectangleGeometry Rect="4,31,1,3" />
+                            <RectangleGeometry Rect="21,10,1,3" />
+                            <RectangleGeometry Rect="9,9,1,3" />
+                            <RectangleGeometry Rect="18,32,1,3" />
+                            <RectangleGeometry Rect="4,13,1,3" />
+                            <RectangleGeometry Rect="15,18,1,3" />
+                            <RectangleGeometry Rect="30,18,1,3" />
+                            <RectangleGeometry Rect="13,5,1,3" />
+                            <RectangleGeometry Rect="12,17,1,3" />
+                            <RectangleGeometry Rect="17,5,1,3" />
+                            <RectangleGeometry Rect="19,14,1,3" />
+                            <RectangleGeometry Rect="20,23,1,3" />
+                            <RectangleGeometry Rect="16,5,1,3" />
+                            <RectangleGeometry Rect="17,20,1,3" />
+                            <RectangleGeometry Rect="15,24,1,3" />
+                            <RectangleGeometry Rect="29,11,1,3" />
+                            <RectangleGeometry Rect="1,13,1,3" />
+                            <RectangleGeometry Rect="0,26,1,3" />
+                            <RectangleGeometry Rect="25,3,1,3" />
+                            <RectangleGeometry Rect="35,3,1,3" />
+                            <RectangleGeometry Rect="10,22,1,3" />
+                            <RectangleGeometry Rect="27,27,1,3" />
+                            <RectangleGeometry Rect="12,29,1,3" />
+                            <RectangleGeometry Rect="16,27,1,3" />
+                            <RectangleGeometry Rect="16,4,1,3" />
+                            <RectangleGeometry Rect="21,32,1,3" />
+                            <RectangleGeometry Rect="21,20,1,3" />
+                            <RectangleGeometry Rect="18,20,1,3" />
+                            <RectangleGeometry Rect="4,7,1,3" />
+                            <RectangleGeometry Rect="2,19,1,3" />
+                            <RectangleGeometry Rect="24,3,1,3" />
+                            <RectangleGeometry Rect="16,8,1,3" />
+                            <RectangleGeometry Rect="5,3,1,3" />
+                            <RectangleGeometry Rect="26,13,1,3" />
+                            <RectangleGeometry Rect="0,7,1,3" />
+                            <RectangleGeometry Rect="1,0,1,3" />
+                            <RectangleGeometry Rect="26,1,1,3" />
+                            <RectangleGeometry Rect="9,16,1,3" />
+                            <RectangleGeometry Rect="32,11,1,3" />
+                            <RectangleGeometry Rect="16,0,1,3" />
+                            <RectangleGeometry Rect="12,21,1,3" />
+                            <RectangleGeometry Rect="3,6,1,3" />
+                            <RectangleGeometry Rect="26,8,1,3" />
+                            <RectangleGeometry Rect="24,23,1,3" />
+                            <RectangleGeometry Rect="13,17,1,3" />
+                            <RectangleGeometry Rect="25,10,1,3" />
+                            <RectangleGeometry Rect="24,5,1,3" />
+                            <RectangleGeometry Rect="6,10,1,3" />
+                            <RectangleGeometry Rect="12,13,1,3" />
+                            <RectangleGeometry Rect="5,17,1,3" />
+                        </GeometryGroup>
+                    </GeometryDrawing.Geometry>
+                </GeometryDrawing>
+                <GeometryDrawing Brush="#8C1D1D21">
+                    <GeometryDrawing.Geometry>
+                        <GeometryGroup>
+                            <RectangleGeometry Rect="16,27,2,1" />
+                            <RectangleGeometry Rect="7,11,2,1" />
+                            <RectangleGeometry Rect="18,18,2,1" />
+                            <RectangleGeometry Rect="1,21,2,1" />
+                            <RectangleGeometry Rect="30,6,2,1" />
+                            <RectangleGeometry Rect="33,32,2,1" />
+                            <RectangleGeometry Rect="28,24,2,1" />
+                            <RectangleGeometry Rect="0,13,2,1" />
+                            <RectangleGeometry Rect="32,32,2,1" />
+                            <RectangleGeometry Rect="30,2,2,1" />
+                            <RectangleGeometry Rect="17,21,2,1" />
+                            <RectangleGeometry Rect="6,3,2,1" />
+                            <RectangleGeometry Rect="9,16,2,1" />
+                            <RectangleGeometry Rect="29,20,2,1" />
+                            <RectangleGeometry Rect="14,29,2,1" />
+                            <RectangleGeometry Rect="2,12,2,1" />
+                            <RectangleGeometry Rect="3,8,2,1" />
+                            <RectangleGeometry Rect="28,35,2,1" />
+                            <RectangleGeometry Rect="16,26,2,1" />
+                            <RectangleGeometry Rect="27,8,2,1" />
+                            <RectangleGeometry Rect="11,33,2,1" />
+                            <RectangleGeometry Rect="23,12,2,1" />
+                            <RectangleGeometry Rect="3,25,2,1" />
+                            <RectangleGeometry Rect="32,6,2,1" />
+                            <RectangleGeometry Rect="0,8,2,1" />
+                            <RectangleGeometry Rect="12,30,2,1" />
+                            <RectangleGeometry Rect="14,20,2,1" />
+                            <RectangleGeometry Rect="11,23,2,1" />
+                            <RectangleGeometry Rect="7,10,2,1" />
+                            <RectangleGeometry Rect="5,18,2,1" />
+                            <RectangleGeometry Rect="18,10,2,1" />
+                            <RectangleGeometry Rect="20,7,2,1" />
+                            <RectangleGeometry Rect="23,5,2,1" />
+                            <RectangleGeometry Rect="20,27,2,1" />
+                            <RectangleGeometry Rect="18,6,2,1" />
+                            <RectangleGeometry Rect="25,8,2,1" />
+                            <RectangleGeometry Rect="14,30,2,1" />
+                            <RectangleGeometry Rect="28,34,2,1" />
+                            <RectangleGeometry Rect="3,13,2,1" />
+                            <RectangleGeometry Rect="29,8,2,1" />
+                            <RectangleGeometry Rect="17,26,2,1" />
+                            <RectangleGeometry Rect="30,22,2,1" />
+                            <RectangleGeometry Rect="27,3,2,1" />
+                            <RectangleGeometry Rect="0,17,2,1" />
+                            <RectangleGeometry Rect="33,24,2,1" />
+                            <RectangleGeometry Rect="12,24,2,1" />
+                            <RectangleGeometry Rect="33,4,2,1" />
+                            <RectangleGeometry Rect="12,0,2,1" />
+                            <RectangleGeometry Rect="2,10,2,1" />
+                            <RectangleGeometry Rect="14,31,2,1" />
+                            <RectangleGeometry Rect="11,2,2,1" />
+                            <RectangleGeometry Rect="0,35,2,1" />
+                            <RectangleGeometry Rect="11,27,2,1" />
+                            <RectangleGeometry Rect="15,35,2,1" />
+                            <RectangleGeometry Rect="7,20,2,1" />
+                            <RectangleGeometry Rect="1,3,2,1" />
+                            <RectangleGeometry Rect="8,30,2,1" />
+                            <RectangleGeometry Rect="2,15,2,1" />
+                            <RectangleGeometry Rect="14,32,2,1" />
+                            <RectangleGeometry Rect="7,14,2,1" />
+                            <RectangleGeometry Rect="28,12,1,2" />
+                            <RectangleGeometry Rect="30,15,1,2" />
+                            <RectangleGeometry Rect="5,6,1,2" />
+                            <RectangleGeometry Rect="28,1,1,2" />
+                            <RectangleGeometry Rect="30,23,1,2" />
+                            <RectangleGeometry Rect="22,11,1,2" />
+                            <RectangleGeometry Rect="5,29,1,2" />
+                            <RectangleGeometry Rect="14,5,1,2" />
+                            <RectangleGeometry Rect="28,29,1,2" />
+                            <RectangleGeometry Rect="9,15,1,2" />
+                            <RectangleGeometry Rect="15,28,1,2" />
+                            <RectangleGeometry Rect="10,23,1,2" />
+                            <RectangleGeometry Rect="28,9,1,2" />
+                            <RectangleGeometry Rect="8,7,1,2" />
+                            <RectangleGeometry Rect="7,18,1,2" />
+                            <RectangleGeometry Rect="20,31,1,2" />
+                            <RectangleGeometry Rect="11,7,1,2" />
+                            <RectangleGeometry Rect="0,15,1,2" />
+                            <RectangleGeometry Rect="19,0,1,2" />
+                            <RectangleGeometry Rect="34,9,1,2" />
+                            <RectangleGeometry Rect="13,24,1,2" />
+                            <RectangleGeometry Rect="14,18,1,2" />
+                            <RectangleGeometry Rect="28,10,1,2" />
+                            <RectangleGeometry Rect="34,32,1,2" />
+                            <RectangleGeometry Rect="13,7,1,2" />
+                            <RectangleGeometry Rect="21,14,1,2" />
+                            <RectangleGeometry Rect="23,2,1,2" />
+                            <RectangleGeometry Rect="35,25,1,2" />
+                            <RectangleGeometry Rect="2,1,1,2" />
+                            <RectangleGeometry Rect="33,4,1,2" />
+                            <RectangleGeometry Rect="7,30,1,2" />
+                            <RectangleGeometry Rect="30,5,1,2" />
+                            <RectangleGeometry Rect="24,20,1,2" />
+                            <RectangleGeometry Rect="2,32,1,2" />
+                            <RectangleGeometry Rect="18,2,1,2" />
+                            <RectangleGeometry Rect="30,7,1,2" />
+                            <RectangleGeometry Rect="21,29,1,2" />
+                            <RectangleGeometry Rect="17,20,1,2" />
+                            <RectangleGeometry Rect="5,14,1,2" />
+                            <RectangleGeometry Rect="17,19,1,2" />
+                            <RectangleGeometry Rect="21,19,1,2" />
+                            <RectangleGeometry Rect="12,20,1,2" />
+                            <RectangleGeometry Rect="27,32,1,2" />
+                            <RectangleGeometry Rect="24,11,1,2" />
+                            <RectangleGeometry Rect="22,32,1,2" />
+                            <RectangleGeometry Rect="4,12,1,2" />
+                            <RectangleGeometry Rect="10,9,1,2" />
+                            <RectangleGeometry Rect="21,8,1,2" />
+                            <RectangleGeometry Rect="25,10,1,2" />
+                            <RectangleGeometry Rect="5,16,1,2" />
+                            <RectangleGeometry Rect="31,16,1,2" />
+                            <RectangleGeometry Rect="20,32,1,2" />
+                            <RectangleGeometry Rect="26,28,1,2" />
+                            <RectangleGeometry Rect="7,0,1,2" />
+                            <RectangleGeometry Rect="8,27,1,2" />
+                            <RectangleGeometry Rect="3,34,1,2" />
+                            <RectangleGeometry Rect="16,12,1,2" />
+                            <RectangleGeometry Rect="29,22,1,2" />
+                            <RectangleGeometry Rect="8,29,1,2" />
+                            <RectangleGeometry Rect="26,1,1,2" />
+                        </GeometryGroup>
+                    </GeometryDrawing.Geometry>
+                </GeometryDrawing>
+            </DrawingGroup>
+        </DrawingBrush.Drawing>
+    </DrawingBrush>
+
+    <!-- Text -->
+    <SolidColorBrush x:Key="Ink"           Color="#FFEDEAE0" />
+    <SolidColorBrush x:Key="InkMuted"      Color="#FFB4B1AA" />
+    <SolidColorBrush x:Key="InkFaint"      Color="#FF8E8C88" />
+    <SolidColorBrush x:Key="InkDisabled"   Color="#FF5F5E62" />
+
+    <!-- Accent -->
+    <SolidColorBrush x:Key="Accent"        Color="#FF8FB4FF" />
+    <SolidColorBrush x:Key="AccentSoft"    Color="#338FB4FF" />
+    <SolidColorBrush x:Key="AccentWash"    Color="#1F8FB4FF" />
+    <SolidColorBrush x:Key="AccentInk"     Color="#FF14161C" />   <!-- text on a solid accent fill -->
+
+    <!-- Status -->
+    <SolidColorBrush x:Key="Danger"        Color="#FFFF8A80" />
+    <SolidColorBrush x:Key="Good"          Color="#FF8BD48E" />
+    <SolidColorBrush x:Key="Warn"          Color="#FFFFC46B" />
+    <SolidColorBrush x:Key="Bad"           Color="#FFFF8A80" />
+    <SolidColorBrush x:Key="Quiet"         Color="#FFB4B1AA" />
+
+    <!-- Small fills -->
+    <SolidColorBrush x:Key="ThumbRest"     Color="#40FFFFFF" />   <!-- scroll bar -->
+    <SolidColorBrush x:Key="ThumbHover"    Color="#66FFFFFF" />
+    <SolidColorBrush x:Key="Tint"          Color="#14FFFFFF" />   <!-- status bar chips -->
+    <LinearGradientBrush x:Key="ChipHover" StartPoint="0,0" EndPoint="1,0">
+        <GradientStop Color="#2EFFEB3B" Offset="0.0" />
+        <GradientStop Color="#3FFFEB3B" Offset="0.25" />
+        <GradientStop Color="#34FFEB3B" Offset="0.5" />
+        <GradientStop Color="#45FFEB3B" Offset="0.75" />
+        <GradientStop Color="#3AFFEB3B" Offset="1.0" />
+    </LinearGradientBrush>   <!-- a project-strip chip under the pointer -->
+    <SolidColorBrush x:Key="Divider"       Color="#4D9A9A9A" />   <!-- menu separators -->
+    <SolidColorBrush x:Key="RowAlt"        Color="#08FFFFFF" />   <!-- every other row in Music folders -->
+    <SolidColorBrush x:Key="Track"         Color="#24FFFFFF" />   <!-- drive usage bar background -->
+    <SolidColorBrush x:Key="SliderRail"    Color="#40FFFFFF" />
+    <SolidColorBrush x:Key="Well"          Color="#0FFFFFFF" />   <!-- behind a tile's picture -->
+    <SolidColorBrush x:Key="BadgeFill"     Color="#E61D1D21" />   <!-- badges drawn over a tile's picture -->
+    <SolidColorBrush x:Key="NavFill"       Color="#CC2B2B31" />   <!-- previous / next in the photo viewer -->
+    <SolidColorBrush x:Key="Scrim"         Color="#F5141417" />   <!-- photo viewer backdrop -->
+    <SolidColorBrush x:Key="CardFill"      Color="#FF3B3721" />   <!-- tooltips and hover cards -->
+    <SolidColorBrush x:Key="CardEdge"      Color="#FF7A6F33" />
+    <SolidColorBrush x:Key="Ground3D"      Color="#FF27272C" />   <!-- floor of the 3D disk usage views -->
+
+    <!-- The highlighted row of a menu -->
+    <LinearGradientBrush x:Key="MenuHover" StartPoint="0,0" EndPoint="1,0">
+        <GradientStop Color="#34FFEB3B" Offset="0.0" />
+        <GradientStop Color="#45FFEB3B" Offset="0.25" />
+        <GradientStop Color="#3AFFEB3B" Offset="0.5" />
+        <GradientStop Color="#4BFFEB3B" Offset="0.75" />
+        <GradientStop Color="#3FFFEB3B" Offset="1.0" />
+    </LinearGradientBrush>
+    <SolidColorBrush x:Key="MenuHoverInk"    Color="#FFEDEAE0" />
+    <SolidColorBrush x:Key="MenuHoverMuted"  Color="#FFDAD7CE" />
+    <SolidColorBrush x:Key="MenuHoverFaint"  Color="#FFC4C1B9" />
+    <SolidColorBrush x:Key="MenuHoverAccent" Color="#FFC6D9FF" />
+
+    <!-- Fonts -->
+    <FontFamily x:Key="UIFont">Ink Free, Segoe Print, Comic Sans MS, Segoe UI</FontFamily>
+    <FontFamily x:Key="SerifFont">Ink Free, Segoe Print, Comic Sans MS, Segoe UI</FontFamily>
+    <FontFamily x:Key="DisplayFont">Ink Free, Segoe Print, Comic Sans MS, Segoe UI</FontFamily>
+    <FontFamily x:Key="MonoFont">Cascadia Mono, Consolas</FontFamily>
+
+    <!-- Corner sizes (R8 = "what used to be an 8px corner") -->
+    <CornerRadius x:Key="R2">2</CornerRadius>
+    <CornerRadius x:Key="R3">3,2,4,2</CornerRadius>
+    <CornerRadius x:Key="R4">5,3,4,2</CornerRadius>
+    <CornerRadius x:Key="R5">6,3,5,4</CornerRadius>
+    <CornerRadius x:Key="R6">7,4,8,5</CornerRadius>
+    <CornerRadius x:Key="R7">8,5,9,4</CornerRadius>
+    <CornerRadius x:Key="R8">10,5,12,6</CornerRadius>
+    <CornerRadius x:Key="R9">11,6,9,7</CornerRadius>
+    <CornerRadius x:Key="R10">12,7,13,6</CornerRadius>
+    <CornerRadius x:Key="R12">14,8,16,7</CornerRadius>
+    <CornerRadius x:Key="RPlayerBar">0,0,15,6</CornerRadius>
+
+    <!-- Title bar: the paper colour (Windows 11 only; Windows 10 keeps its own title bar). -->
+    <Color x:Key="Theme.CaptionColor">#FF1D1D21</Color>
+    <Color x:Key="Theme.CaptionTextColor">#FFEDEAE0</Color>
+
+    <!-- The window background is a pattern, so this is the one flat colour code uses where it needs one. -->
+    <Color x:Key="Theme.BaseColor">#FF1D1D21</Color>
+
+    <!-- The spiral binding down the left edge of the main window, and the room the page leaves for it
+         (both off in Defaults.xaml). -->
+    <DrawingBrush x:Key="BindingFill" TileMode="Tile" Viewport="0,0,30,30" ViewportUnits="Absolute"
+                  Viewbox="0,0,30,30" ViewboxUnits="Absolute">
+        <DrawingBrush.Drawing>
+            <DrawingGroup>
+                <!-- the shadow where the page meets the binding -->
+                <GeometryDrawing Brush="#59000000">
+                    <GeometryDrawing.Geometry>
+                        <RectangleGeometry Rect="0,0,3,30" />
+                    </GeometryDrawing.Geometry>
+                </GeometryDrawing>
+                <!-- a punched hole -->
+                <GeometryDrawing Brush="#FF09090B">
+                    <GeometryDrawing.Geometry>
+                        <EllipseGeometry Center="17,15" RadiusX="4.5" RadiusY="4.5" />
+                    </GeometryDrawing.Geometry>
+                </GeometryDrawing>
+                <!-- the wire coming round the edge into the hole, with a highlight along its top -->
+                <GeometryDrawing>
+                    <GeometryDrawing.Pen>
+                        <Pen Brush="#FF7D818B" Thickness="4.2" StartLineCap="Round" EndLineCap="Round" />
+                    </GeometryDrawing.Pen>
+                    <GeometryDrawing.Geometry>
+                        <LineGeometry StartPoint="-4,10.5" EndPoint="16,14" />
+                    </GeometryDrawing.Geometry>
+                </GeometryDrawing>
+                <GeometryDrawing>
+                    <GeometryDrawing.Pen>
+                        <Pen Brush="#FFDCDFE5" Thickness="1.2" StartLineCap="Round" EndLineCap="Round" />
+                    </GeometryDrawing.Pen>
+                    <GeometryDrawing.Geometry>
+                        <LineGeometry StartPoint="-4,9.4" EndPoint="15,12.8" />
+                    </GeometryDrawing.Geometry>
+                </GeometryDrawing>
+            </DrawingGroup>
+        </DrawingBrush.Drawing>
+    </DrawingBrush>
+    <Visibility x:Key="BindingVisibility">Visible</Visibility>
+    <Thickness x:Key="PageInset">30,0,0,0</Thickness>
+
+    <!-- Sticky-note tooltips sit a little crooked (straight in Defaults.xaml). -->
+    <RotateTransform x:Key="NoteTilt" Angle="-1.3" />
+
+    <!-- Highlighter over black paper is a dull gold, so the quieter text inside a selected row is lifted to
+         stay readable. ThemeService merges every "SelectedRow.X" key into a selected row as key X. -->
+    <SolidColorBrush x:Key="SelectedRow.InkMuted"   Color="#FFE2DFD6" />
+    <SolidColorBrush x:Key="SelectedRow.InkFaint"   Color="#FFCDCAC2" />
+    <SolidColorBrush x:Key="SelectedRow.Accent"     Color="#FFCFE0FF" />
+
+</ResourceDictionary>

@@ -1,3 +1,5 @@
+// Clearspace | Sorting for file and folder items.
+
 using Clearspace.Native;
 
 namespace Clearspace.Models;
@@ -16,10 +18,6 @@ public enum SortColumn
     Track
 }
 
-/// <summary>
-/// Explorer-compatible ordering: folders first, then natural ("logical") name order
-/// so file10 sorts after file9 rather than after file1.
-/// </summary>
 public sealed class ItemComparer : IComparer<FileSystemItem>
 {
     private readonly SortColumn _column;
@@ -53,13 +51,10 @@ public sealed class ItemComparer : IComparer<FileSystemItem>
             SortColumn.Duration => x.Duration.CompareTo(y.Duration),
             SortColumn.Track => x.TrackNumber.CompareTo(y.TrackNumber),
 
-            // Album sorts by album then track, because an album listed out of
-            // track order is not really sorted by album at all.
             SortColumn.Album => AlbumThenTrack(x, y),
             _ => 0
         };
 
-        // Fall back to name so equal keys still produce a stable, readable order.
         if (result == 0)
             result = NativeMethods.StrCmpLogicalW(x.Name, y.Name);
 

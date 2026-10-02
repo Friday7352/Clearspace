@@ -1,9 +1,12 @@
+// Clearspace | Main window interaction handlers.
+
 using System.IO;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
+using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
@@ -17,7 +20,66 @@ namespace Clearspace;
 
 public partial class MainWindow : Window
 {
-    private readonly MainViewModel _viewModel = new(App.IsDemoMode);
+    private readonly MainViewModel _viewModel = new();
+    private DiskUsageView? _diskUsageView;
+    private IndexingView? _indexingView;
+
+    // MOVED (locked folders): the lock / unlock handlers now live in MainWindow.FileLocks.cs.
+
+    private void OnIndexing(object? sender, RoutedEventArgs e)
+    {
+        if (_indexingView is not null) return;
+        _indexingView = new IndexingView();
+        _indexingView.CloseRequested += (_, _) => CloseIndexing();
+        _indexingView.WindowsIndexingRequested += (_, _) => _viewModel.OpenIndexingOptions();
+        IndexingHost.Content = _indexingView;
+        ExplorerShell.Visibility = DiskUsageHost.Visibility = Visibility.Collapsed;
+        IndexingHost.Visibility = Visibility.Visible;
+        FlashPage(); // NEW (e-reader)
+        _indexingView.Focus();
+    }
+
+    private void CloseIndexing()
+    {
+        _indexingView?.Dispose();
+        _indexingView = null;
+        IndexingHost.Content = null;
+        IndexingHost.Visibility = Visibility.Collapsed;
+        FlashPage(); // NEW (e-reader)
+        if (_diskUsageView is not null) DiskUsageHost.Visibility = Visibility.Visible;
+        else ExplorerShell.Visibility = Visibility.Visible;
+    }
+
+    private void OnDiskUsage(object sender, RoutedEventArgs e)
+    {
+        if (_diskUsageView is not null) return;
+        // CHANGED: the toolbar button always opens the folder you're in. Only the file-list
+        // context menu ("Disk usage…" on a folder) targets the selected folder.
+        var selected = _viewModel.Context.SelectedItems;
+        var path = sender is MenuItem && selected.Count == 1 && selected[0].IsFolder
+            ? selected[0].FullPath
+            : _viewModel.CurrentPath;
+        // Virtual locations (Home, search results, etc.) have no folder to open.
+        if (string.IsNullOrWhiteSpace(path) || path.StartsWith("clearspace://", StringComparison.OrdinalIgnoreCase))
+            path = null;
+        _diskUsageView = new DiskUsageView(path);
+        _diskUsageView.IndexingRequested += (_, _) => OnIndexing(this, new RoutedEventArgs());
+        _diskUsageView.FileOperationCompleted += (_, _) => _ = _viewModel.RefreshAsync();
+        _diskUsageView.CloseRequested += (_, _) =>
+        {
+            _diskUsageView?.Dispose();
+            DiskUsageHost.Content = null;
+            DiskUsageHost.Visibility = Visibility.Collapsed;
+            ExplorerShell.Visibility = Visibility.Visible;
+            _diskUsageView = null;
+            FileList.Focus();
+            FlashPage(); // NEW (e-reader)
+        };
+        DiskUsageHost.Content = _diskUsageView;
+        ExplorerShell.Visibility = Visibility.Collapsed;
+        DiskUsageHost.Visibility = Visibility.Visible;
+        FlashPage(); // NEW (e-reader)
+    }
     private FileSystemItem? _renameTarget;
     private SidebarEntry? _sidebarDragEntry;
     private Button? _sidebarDragSource;
@@ -41,18 +103,28 @@ public partial class MainWindow : Window
         InitializeComponent();
         DataContext = _viewModel;
 
-        // An elevated instance says so in the title bar. Two Clearspace windows
-        // with different rights are otherwise indistinguishable on the taskbar.
-        Title = App.IsDemoMode ? "Clearspace — Demo" : _viewModel.WindowTitle;
+        Title = _viewModel.WindowTitle;
 
-        // The view supplies the few behaviours actions cannot reach on their own.
         _viewModel.Context.SelectAll = () => FileList.SelectAll();
         _viewModel.Context.ClearSelection = () => FileList.UnselectAll();
         _viewModel.Context.InvertSelection = InvertSelection;
         _viewModel.Context.FocusAddressBar = ShowAddressEditor;
         _viewModel.Context.BeginRename = BeginRename;
+        InitializeFileLocks(); // CHANGED (locked folders): wires OpenLockedFile, the folder password gate and re-locking
 
         Loaded += OnLoaded;
+        // CHANGED (themes): also stops listening for theme switches when the window closes.
+        ThemeService.Changed += OnThemeChanged;
+        // NEW (e-reader): refresh the "page" when the folder changes or the photo viewer opens or closes.
+        _viewModel.PropertyChanged += (_, e) => { if (e.PropertyName == nameof(MainViewModel.CurrentPath)) TurnPage(); };   // CHANGED (e-ink): a page turn
+        _viewModel.Viewer.PropertyChanged += (_, e) => { if (e.PropertyName == nameof(PhotoViewerViewModel.IsOpen)) FlashPage(); };
+        InitializeUpdates(); // NEW (updates): the quiet update check and the status bar's "Update available" chip
+        InitializeBackgroundMenu(); // NEW (empty-area menu): remembers the files-and-folders menu, reads the "New" templates
+        // NEW (experimental themes): keeps the Zen theme's fading toolbar in step with the pointer and keyboard.
+        ToolbarRow.MouseEnter += (_, _) => UpdateToolbarFade();
+        ToolbarRow.MouseLeave += (_, _) => UpdateToolbarFade();
+        ToolbarRow.IsKeyboardFocusWithinChanged += (_, _) => UpdateToolbarFade();
+        Closed += (_, _) => { ThemeService.Changed -= OnThemeChanged; _indexingView?.Dispose(); _diskUsageView?.Dispose(); _viewModel.Dispose(); };
         PreviewKeyDown += OnPreviewKeyDown;
         PreviewMouseDown += OnWindowMouseDown;
         PreviewMouseMove += OnSidebarMouseMove;
@@ -62,32 +134,30 @@ public partial class MainWindow : Window
         _viewModel.Viewer.ZoomChanged += OnViewerZoomChanged;
         _viewModel.Viewer.FileChanged += (_, _) => _ = _viewModel.RefreshAsync();
         SizeChanged += (_, _) => UpdateViewerSize();
+        // NEW (e-ink): the picture of the previous page no longer fits a resized window, so drop its ghost.
+        SizeChanged += (_, _) => { if (EInkScreen.Main is { } screen) { screen.BeginAnimation(EInkEffect.GhostAmountProperty, null); screen.GhostAmount = 0; } };
 
-        // The style trigger swaps View between the details GridView and null for
-        // tiles. DetailsView is x:Shared="False", so coming back from tiles builds
-        // a brand new empty GridView; without this the list would render column-less
-        // rows that are invisible but still selectable.
         DependencyPropertyDescriptor
             .FromProperty(ListView.ViewProperty, typeof(ListView))
             .AddValueChanged(FileList, (_, _) => ApplyColumns());
 
-        // GridView supports a real resize thumb but not Explorer-style column
-        // reordering. These handlers supply both, while saving only after the user
-        // has finished the resize or drop gesture.
+        // NEW (folder types, step 2): date groups (Screenshots) follow the list and the view model.
+        DependencyPropertyDescriptor
+            .FromProperty(ItemsControl.ItemsSourceProperty, typeof(ListView))
+            .AddValueChanged(FileList, (_, _) => ApplyGrouping());
+        _viewModel.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(MainViewModel.ListGrouping))
+                ApplyGrouping();
+        };
+
         FileList.AddHandler(Thumb.DragCompletedEvent, new DragCompletedEventHandler(OnColumnResizeCompleted), true);
         FileList.AddHandler(UIElement.PreviewMouseLeftButtonDownEvent, new MouseButtonEventHandler(OnColumnHeaderMouseDown), true);
         FileList.AddHandler(UIElement.PreviewMouseMoveEvent, new MouseEventHandler(OnColumnHeaderMouseMove), true);
         FileList.AddHandler(UIElement.PreviewMouseLeftButtonUpEvent, new MouseButtonEventHandler(OnColumnHeaderMouseUp), true);
     }
 
-    // ---------- Columns ----------
 
-    /// <summary>
-    /// Rebuilds the details columns from the user's choice for this folder type.
-    /// GridViewColumn is a real element with a parent, so the columns are pulled
-    /// fresh from the resource dictionary (all marked x:Shared="False") rather than
-    /// reused, which would throw once a column had been added to a second view.
-    /// </summary>
     private void ApplyColumns()
     {
         if (FileList.View is not GridView view)
@@ -205,7 +275,6 @@ public partial class MainWindow : Window
 
     private void OnResetColumns(object sender, RoutedEventArgs e) => _viewModel.ResetColumns();
 
-    // ---------- Elevation and cloud files ----------
 
     private void OnOpenElevated(object sender, RoutedEventArgs e) => _viewModel.OpenCurrentElevated();
 
@@ -217,21 +286,12 @@ public partial class MainWindow : Window
 
     private void OnOpenIndexingOptions(object sender, RoutedEventArgs e) => _viewModel.OpenIndexingOptions();
 
-    // ---------- Tags ----------
 
-    /// <summary>
-    /// Rebuilds the Tags submenu each time it opens: the tag list, then the commands
-    /// that act on it. Check state has to be recomputed anyway, since it reflects
-    /// the current selection rather than the tag itself.
-    /// </summary>
     private void OnTagsSubmenuOpened(object sender, RoutedEventArgs e)
     {
         if (sender is not MenuItem menu)
             return;
 
-        // SubmenuOpened bubbles, so opening the nested Delete tag list raises it
-        // again on this item. Without this guard the rebuild below would clear the
-        // very submenu that was opening and collapse the whole menu.
         if (!ReferenceEquals(e.OriginalSource, menu))
             return;
 
@@ -244,7 +304,6 @@ public partial class MainWindow : Window
                 Header = option.Name,
                 IsCheckable = true,
                 IsChecked = option.IsApplied,
-                // Stay open so several tags can be set in one visit.
                 StaysOpenOnClick = true,
                 DataContext = option
             };
@@ -287,7 +346,8 @@ public partial class MainWindow : Window
         if (sender is not MenuItem { DataContext: TagOption option })
             return;
 
-        var confirm = MessageBox.Show(
+        var confirm = MessageDialog.Show( // CHANGED (themes): themed dialog instead of the Windows message box
+            this,
             $"Delete the {option.Name} tag?\n\nIt will be removed from everything currently tagged with it. Files themselves are not affected.",
             "Delete tag",
             MessageBoxButton.OKCancel,
@@ -299,6 +359,7 @@ public partial class MainWindow : Window
 
     private void OnCreateTag(object sender, RoutedEventArgs e)
     {
+        _isNamingFolderType = false; // NEW
         _editingCategoryId = null;
         CategoryPanelTitle.Text = "New tag";
         CategoryBox.Text = string.Empty;
@@ -309,10 +370,6 @@ public partial class MainWindow : Window
 
     private void OnClearTags(object sender, RoutedEventArgs e) => _viewModel.ClearTagsOnSelection();
 
-    /// <summary>
-    /// The name panel is shared between categories and tags, so this flag decides
-    /// which one a confirmed name creates.
-    /// </summary>
     private bool _isNamingTag;
 
     private void OnLoaded(object sender, RoutedEventArgs e)
@@ -321,7 +378,9 @@ public partial class MainWindow : Window
         _viewModel.Context.OwnerHandle = handle;
         _viewModel.Viewer.OwnerHandle = handle;
 
-        ApplyDarkTitleBar(handle);
+        ThemeService.ApplyTitleBar(this); // CHANGED (themes): was ApplyDarkTitleBar; the title bar (and text edges) follow the theme
+        UpdateToolbarFade(); // NEW (experimental themes)
+        ApplyScreenEffect(); // NEW (e-ink)
         HookColumnHeaders();
         ApplyColumns();
 
@@ -329,27 +388,90 @@ public partial class MainWindow : Window
         FileList.Focus();
     }
 
-    private static void ApplyDarkTitleBar(IntPtr handle)
-    {
-        var enabled = 1;
-        // Newer builds use attribute 20; older ones used 19. Both are ignored when
-        // unsupported, so setting each is safe.
-        NativeMethods.DwmSetWindowAttribute(handle, NativeMethods.DWMWA_USE_IMMERSIVE_DARK_MODE, ref enabled, sizeof(int));
-        NativeMethods.DwmSetWindowAttribute(handle, NativeMethods.DWMWA_USE_IMMERSIVE_DARK_MODE_LEGACY, ref enabled, sizeof(int));
+    // REMOVED (themes): ApplyDarkTitleBar. ThemeService.ApplyTitleBar now sets the dark or light title bar,
+    // the corner style and (Windows 11) the caption colours for whichever theme is active.
 
-        // Windows 11 rounds the window itself; Windows 10 ignores this and stays square.
-        var round = NativeMethods.DWMWCP_ROUND;
-        NativeMethods.DwmSetWindowAttribute(handle, NativeMethods.DWMWA_WINDOW_CORNER_PREFERENCE, ref round, sizeof(int));
+    // NEW (themes): the Settings menu ticks the theme in use each time it opens.
+    private void OnSettingsMenuOpened(object sender, RoutedEventArgs e)
+    {
+        if (sender is not ContextMenu menu)
+            return;
+
+        TickCurrentTheme(menu);
     }
 
-    // ---------- Key bindings ----------
+    // CHANGED (experimental themes): also looks inside submenus (the experimental themes have their own).
+    private static void TickCurrentTheme(ItemsControl menu)
+    {
+        foreach (var item in menu.Items.OfType<MenuItem>())
+        {
+            if (item.Tag is string theme)
+                item.IsChecked = string.Equals(theme, ThemeService.Current, StringComparison.OrdinalIgnoreCase);
+            if (item.HasItems)
+                TickCurrentTheme(item);
+        }
+    }
 
-    /// <summary>
-    /// Every action declares its own chord, so this one handler is the entire
-    /// keyboard layer. New actions get their shortcut with no change here.
-    /// </summary>
+    // NEW (themes): a theme was picked in the Settings menu. Switched once the menu has closed, so the
+    // menu is not repainted in the new colours halfway through fading out.
+    private void OnThemePicked(object sender, RoutedEventArgs e)
+    {
+        if (sender is MenuItem { Tag: string theme })
+            Dispatcher.BeginInvoke(new Action(() => ThemeService.Apply(theme)));
+    }
+
+    // NEW (themes): colours in XAML repaint by themselves. The status colours in the file list (cloud, Git,
+    // drive space) are handed out by each file's row data, so the visible rows are rebuilt to ask again.
+    // CHANGED (experimental themes): when the switch changes the icon set, every row needs a new icon, so
+    // the remembered folder listings and tile pictures are dropped and the current folder is read again.
+    private void OnThemeChanged()
+    {
+        UpdateToolbarFade();
+        ApplyScreenEffect(); // NEW (e-ink)
+
+        if (ThemeService.IconsChanged)
+        {
+            ThumbnailService.Clear();
+            FolderSnapshotCache.Clear();
+            _ = _viewModel.RefreshAsync();
+            return;
+        }
+
+        FileList.Items.Refresh();
+    }
+
+    // CHANGED (e-ink): the dimming sheet this used to animate is gone, and so is the full refresh that replaced
+    // it. Changing the whole view (photo viewer, Disk usage, Indexing) is a page turn like any other; see
+    // MainWindow.EInk.cs.
+    private void FlashPage() => TurnPage();
+
+    // NEW (experimental themes): in a theme that asks for it (Zen), the toolbar fades back while the pointer
+    // is elsewhere and nothing in it has the keyboard, and returns as soon as either comes back.
+    private void UpdateToolbarFade()
+    {
+        if (!ThemeService.FadeToolbar && ToolbarRow.Opacity >= 1)
+            return; // nothing to do in the themes that never fade it
+
+        var rest = ThemeService.FadeToolbar && !ToolbarRow.IsMouseOver && !ToolbarRow.IsKeyboardFocusWithin;
+        var animation = new System.Windows.Media.Animation.DoubleAnimation(rest ? 0.2 : 1, TimeSpan.FromMilliseconds(rest ? 450 : 120));
+        ToolbarRow.BeginAnimation(OpacityProperty, animation);
+    }
+
+
     private void OnPreviewKeyDown(object sender, KeyEventArgs e)
     {
+        if (_indexingView is not null)
+        {
+            if (e.Key == Key.Escape) { CloseIndexing(); e.Handled = true; }
+            return;
+        }
+        // CHANGED: while the disk view is open, F3 toggles its performance readout even if
+        // keyboard focus is still somewhere outside it.
+        if (_diskUsageView is not null)
+        {
+            if (e.Key == Key.F3) { _diskUsageView.ToggleMapStats(); e.Handled = true; }
+            return;
+        }
         if (e.Key == Key.F && (Keyboard.Modifiers & ModifierKeys.Control) != 0)
         {
             SearchBox.Focus();
@@ -358,12 +480,9 @@ public partial class MainWindow : Window
             return;
         }
 
-        // Let text entry keep its own keys.
         if (Keyboard.FocusedElement is TextBox)
             return;
 
-        // The viewer owns the keyboard while it is up, so Delete and F2 cannot
-        // fire against a list the user cannot currently see.
         if (_viewModel.Viewer.IsOpen)
         {
             var viewer = _viewModel.Viewer;
@@ -417,8 +536,6 @@ public partial class MainWindow : Window
             return;
         }
 
-        // Space is play/pause whenever something is loaded, which is the one
-        // shortcut people expect a player to own.
         if (e.Key == Key.Space && _viewModel.Player.IsActive)
         {
             _viewModel.Player.TogglePlay();
@@ -452,12 +569,14 @@ public partial class MainWindow : Window
         SearchBox.Focus();
     }
 
-    /// <summary>
-    /// Standard mouse side buttons mirror Explorer navigation. In the photo reel
-    /// they move between photos instead, keeping the viewer open and useful.
-    /// </summary>
     private void OnWindowMouseDown(object sender, MouseButtonEventArgs e)
     {
+        if (_indexingView is not null)
+        {
+            if (e.ChangedButton == MouseButton.XButton1) { CloseIndexing(); e.Handled = true; }
+            return;
+        }
+        if (_diskUsageView is not null) return;
         if (e.ChangedButton is not (MouseButton.XButton1 or MouseButton.XButton2))
             return;
 
@@ -485,7 +604,6 @@ public partial class MainWindow : Window
         e.Handled = true;
     }
 
-    // ---------- Navigation ----------
 
     private void OnSidebarClick(object sender, RoutedEventArgs e)
     {
@@ -515,11 +633,6 @@ public partial class MainWindow : Window
             _viewModel.ToggleSidebarSection(entry.SectionId);
     }
 
-    /// <summary>
-    /// Points a sidebar entry at a folder of the user's choosing. Known folders
-    /// already resolve to their real location, so this is for the cases Windows
-    /// does not model: a second Downloads folder, a project root, a network share.
-    /// </summary>
     private void OnChangeSidebarLocation(object sender, RoutedEventArgs e)
     {
         if (sender is not MenuItem { DataContext: SidebarEntry entry })
@@ -557,7 +670,6 @@ public partial class MainWindow : Window
             _viewModel.PinDirectory(selected.FullPath);
     }
 
-    // ---------- Sidebar categories and drag/drop ----------
 
     private void OnCreateCategory(object sender, RoutedEventArgs e) => BeginCategoryEdit(null, string.Empty);
 
@@ -583,6 +695,7 @@ public partial class MainWindow : Window
     private void BeginCategoryEdit(string? categoryId, string name)
     {
         _isNamingTag = false;
+        _isNamingFolderType = false; // NEW
         _editingCategoryId = categoryId;
         CategoryPanelTitle.Text = categoryId is null ? "New category" : "Rename category";
         CategoryBox.Text = name;
@@ -611,7 +724,9 @@ public partial class MainWindow : Window
             return;
         }
 
-        if (_isNamingTag)
+        if (_isNamingFolderType)
+            _viewModel.SaveViewAsFolderType(name); // NEW (folder types)
+        else if (_isNamingTag)
             _viewModel.CreateTagForSelection(name);
         else if (string.IsNullOrWhiteSpace(_editingCategoryId))
             _viewModel.CreatePinnedCategory(name);
@@ -626,6 +741,7 @@ public partial class MainWindow : Window
         CategoryPanel.Visibility = Visibility.Collapsed;
         _editingCategoryId = null;
         _isNamingTag = false;
+        _isNamingFolderType = false; // NEW
         FileList.Focus();
     }
 
@@ -704,9 +820,6 @@ public partial class MainWindow : Window
         if (sender is not Button button)
             return;
 
-        // Dragging real files onto a pinned or known-folder row means "put these
-        // there" - the same thing dropping them onto that folder in the file list
-        // would mean, just reached from the sidebar instead of by navigating first.
         if (IsFileDropOnSidebar(e, button, out var targetFolder))
         {
             ClearSidebarDropTarget(button);
@@ -716,14 +829,18 @@ public partial class MainWindow : Window
             var moveWithinSameDrive = sourcePaths.All(path =>
                 string.Equals(Path.GetPathRoot(path), Path.GetPathRoot(targetFolder), StringComparison.OrdinalIgnoreCase));
 
-            var succeeded = (e.KeyStates & DragDropKeyStates.ControlKey) != 0 || !moveWithinSameDrive
+            var copying = (e.KeyStates & DragDropKeyStates.ControlKey) != 0 || !moveWithinSameDrive;
+            var result = copying
                 ? FileOperationService.Copy(sourcePaths, targetFolder!, owner)
                 : FileOperationService.Move(sourcePaths, targetFolder!, owner);
 
-            if (succeeded && targetFolder!.Equals(_viewModel.CurrentPath, StringComparison.OrdinalIgnoreCase))
-                _ = _viewModel.RefreshAsync();
+            _viewModel.Context.ReportFileOperation(result);
+            // A canceled/failed batch may still have moved some source items.
+            _ = _viewModel.RefreshAsync();
 
-            e.Effects = DragDropEffects.Move;
+            e.Effects = result.Succeeded
+                ? (copying ? DragDropEffects.Copy : DragDropEffects.Move)
+                : DragDropEffects.None;
             e.Handled = true;
             return;
         }
@@ -759,11 +876,6 @@ public partial class MainWindow : Window
         }
     }
 
-    /// <summary>
-    /// True when the drag carries real files (not a sidebar reorder) and the
-    /// hovered row is a real, currently reachable folder rather than a section
-    /// header, a category, or the "Pinned" placeholder row.
-    /// </summary>
     private static bool IsFileDropOnSidebar(DragEventArgs e, Button targetButton, out string? targetFolder)
     {
         targetFolder = null;
@@ -805,8 +917,9 @@ public partial class MainWindow : Window
     private static void ShowSidebarDropTarget(Button button, DragEventArgs e)
     {
         var placeAfter = e.GetPosition(button).Y >= button.ActualHeight / 2;
-        button.Background = new SolidColorBrush(Color.FromArgb(30, 211, 161, 95));
-        button.BorderBrush = new SolidColorBrush(Color.FromRgb(211, 161, 95));
+        // CHANGED (themes): the theme's accent instead of a fixed amber.
+        button.Background = ThemeService.AccentWash;
+        button.BorderBrush = ThemeService.Accent;
         button.BorderThickness = placeAfter ? new Thickness(0, 0, 0, 2) : new Thickness(0, 2, 0, 0);
     }
 
@@ -828,18 +941,123 @@ public partial class MainWindow : Window
         menu.IsOpen = true;
     }
 
+    // CHANGED (folder types): menus list every type (built-in and custom) from FolderTypes.
+    private static string MenuName(FolderType type) => type.Id == FolderTypes.General.Id ? "General files" : type.Name;
+
+    private static void AddTypeItems(ItemsControl menu, string currentId, RoutedEventHandler onClick)
+    {
+        menu.Items.Clear();
+        var custom = FolderTypes.Custom;
+
+        foreach (var type in FolderTypes.BuiltIn)
+        {
+            // NEW (folder types, step 2): the step-2 types start their own group.
+            if (type.Base == DirectoryViewProfile.Screenshots) menu.Items.Add(new Separator());
+
+            menu.Items.Add(new MenuItem
+            {
+                Header = MenuName(type),
+                Tag = type.Id,
+                IsCheckable = true,
+                IsChecked = type.Id.Equals(currentId, StringComparison.OrdinalIgnoreCase),
+                ToolTip = string.IsNullOrEmpty(type.Description) ? null : type.Description // NEW (step 2)
+            });
+            ((MenuItem)menu.Items[^1]).Click += onClick;
+            if (type.Id == FolderTypes.General.Id) menu.Items.Add(new Separator());
+        }
+
+        if (custom.Count > 0)
+            menu.Items.Add(new Separator());
+
+        foreach (var type in custom)
+        {
+            var item = new MenuItem
+            {
+                Header = type.Name,
+                Tag = type.Id,
+                IsCheckable = true,
+                IsChecked = type.Id.Equals(currentId, StringComparison.OrdinalIgnoreCase),
+                ToolTip = $"Custom type based on {type.Base}"
+            };
+            item.Click += onClick;
+            menu.Items.Add(item);
+        }
+    }
+
+    private void OnFolderTypeMenuOpened(object sender, RoutedEventArgs e)
+    {
+        if (sender is not ContextMenu menu) return;
+
+        var path = _viewModel.CurrentPath;
+        var assigned = FolderTypes.AssignedTo(path);
+        AddTypeItems(menu, assigned.Id, OnFolderProfileSelected);
+
+        menu.Items.Add(new Separator());
+
+        if (_viewModel.FolderTypeInheritedFrom is { } from)
+            menu.Items.Add(new MenuItem { Header = $"{_viewModel.FolderType.Name} comes from {from}", IsEnabled = false });
+
+        var subfolders = new MenuItem
+        {
+            Header = "Apply to subfolders",
+            IsCheckable = true,
+            IsChecked = _viewModel.FolderTypeAppliesToSubfolders,
+            IsEnabled = !assigned.IsAutomatic,
+            ToolTip = "Use this folder type for every folder inside this one, unless a folder has its own type"
+        };
+        subfolders.Click += (_, _) => _viewModel.SetFolderTypeAppliesToSubfolders(subfolders.IsChecked);
+        menu.Items.Add(subfolders);
+
+        var save = new MenuItem { Header = "Save this view as a folder type…", ToolTip = "Keeps the current layout and columns under a name you choose, like School" };
+        save.Click += (_, _) => BeginNamingFolderType();
+        menu.Items.Add(save);
+
+        if (assigned.IsCustom)
+        {
+            var delete = new MenuItem { Header = $"Delete the \"{assigned.Name}\" folder type" };
+            delete.Click += (_, _) =>
+            {
+                var confirm = MessageDialog.Show( // CHANGED (themes): themed dialog instead of the Windows message box
+                    this,
+                    $"Delete the {assigned.Name} folder type?\n\nFolders using it go back to Automatic. Files are not affected.",
+                    "Delete folder type", MessageBoxButton.OKCancel, MessageBoxImage.Question);
+                if (confirm == MessageBoxResult.OK) _viewModel.DeleteFolderType(assigned);
+            };
+            menu.Items.Add(delete);
+        }
+    }
+
+    private void OnSetFolderTypeSubmenuOpened(object sender, RoutedEventArgs e)
+    {
+        if (sender is MenuItem menu && ReferenceEquals(e.OriginalSource, menu))
+            AddTypeItems(menu, "", OnSelectedFolderProfile);
+    }
+
     private void OnFolderProfileSelected(object sender, RoutedEventArgs e)
     {
-        if (sender is MenuItem { Tag: string value } &&
-            Enum.TryParse<DirectoryViewProfile>(value, out var profile))
-            _viewModel.SetFolderProfile(profile);
+        if (sender is MenuItem { Tag: string value } && FolderTypes.Find(value) is { } type)
+            _viewModel.SetFolderType(type);
     }
 
     private void OnSelectedFolderProfile(object sender, RoutedEventArgs e)
     {
-        if (sender is MenuItem { Tag: string value } &&
-            Enum.TryParse<DirectoryViewProfile>(value, out var profile))
-            _viewModel.SetFolderProfilesForSelection(profile);
+        if (sender is MenuItem { Tag: string value } && FolderTypes.Find(value) is { } type)
+            _viewModel.SetFolderTypeForSelection(type);
+    }
+
+    // NEW (folder types): the small naming panel used for tags and categories also names folder types.
+    private bool _isNamingFolderType;
+
+    private void BeginNamingFolderType()
+    {
+        _editingCategoryId = null;
+        _isNamingTag = false;
+        _isNamingFolderType = true;
+        CategoryPanelTitle.Text = "Save this view as a folder type";
+        CategoryBox.Text = _viewModel.FolderType.IsCustom ? _viewModel.FolderType.Name : string.Empty;
+        CategoryPanel.Visibility = Visibility.Visible;
+        CategoryBox.Focus();
+        CategoryBox.SelectAll();
     }
 
     private void OnZoomIn(object sender, RoutedEventArgs e) => _viewModel.AdjustTileScale(0.15);
@@ -855,18 +1073,9 @@ public partial class MainWindow : Window
         e.Handled = true;
     }
 
-    // ---------- Drag and drop, to and from Clearspace ----------
-    //
-    // Dragging out uses CF_HDROP (DataFormats.FileDrop), the one format every
-    // Windows app - Explorer, Outlook, a browser upload dialog - already knows
-    // how to accept. Dropping in reads the same format, so a drag from Explorer
-    // and a drag from Clearspace's own list land in exactly the same handler.
 
     private void OnFileListPreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
-        // Only arm a drag when the press actually lands on a row. A click on the
-        // empty area below the last item is the start of a rubber-band selection,
-        // not a drag, and must be left alone.
         _isFileDragPending = FindAncestor<ListViewItem>(e.OriginalSource as DependencyObject) is not null;
         _fileDragStart = e.GetPosition(FileList);
     }
@@ -913,24 +1122,23 @@ public partial class MainWindow : Window
         e.Handled = true;
 
         if (effects == DragDropEffects.None || targetFolder is null)
+        {
+            e.Effects = DragDropEffects.None;
             return;
+        }
 
         var sourcePaths = (string[])e.Data.GetData(DataFormats.FileDrop)!;
         var owner = _viewModel.Context.OwnerHandle;
 
-        var succeeded = effects == DragDropEffects.Copy
+        var result = effects == DragDropEffects.Copy
             ? FileOperationService.Copy(sourcePaths, targetFolder, owner)
             : FileOperationService.Move(sourcePaths, targetFolder, owner);
 
-        if (succeeded)
-            _ = _viewModel.RefreshAsync();
+        _viewModel.Context.ReportFileOperation(result);
+        e.Effects = result.Succeeded ? effects : DragDropEffects.None;
+        _ = _viewModel.RefreshAsync();
     }
 
-    /// <summary>
-    /// Where a drop would land, and what it would do. Shared by DragOver (to show
-    /// the right cursor and highlight) and Drop (to actually act), so the two can
-    /// never disagree about whether a drop is allowed.
-    /// </summary>
     private DragDropEffects ResolveFileDropEffects(DragEventArgs e, out string? targetFolder, out ListViewItem? targetRow)
     {
         targetFolder = null;
@@ -953,17 +1161,11 @@ public partial class MainWindow : Window
         if (targetFolder is null)
             return DragDropEffects.None;
 
-        // A local copy, because an out parameter cannot be captured by the
-        // lambdas below.
         var destination = targetFolder;
 
-        // Refuse a folder dropped onto itself or one of its own descendants -
-        // the shell would refuse it too, but silently, after the drop already
-        // looked accepted.
         if (sourcePaths.Any(path => IsSameOrAncestorOf(path, destination)))
             return DragDropEffects.None;
 
-        // Nothing to do if every source item already lives in the target folder.
         if (sourcePaths.All(path =>
                 string.Equals(Path.GetDirectoryName(path), destination, StringComparison.OrdinalIgnoreCase)))
             return DragDropEffects.None;
@@ -974,9 +1176,6 @@ public partial class MainWindow : Window
         if ((e.KeyStates & DragDropKeyStates.ControlKey) != 0)
             return DragDropEffects.Copy;
 
-        // No modifier held: match Explorer's own default - move within the same
-        // drive (cheap, a directory entry update), copy across drives (the source
-        // would otherwise vanish from a location the user may still want it).
         var sameDrive = sourcePaths.All(path =>
             string.Equals(Path.GetPathRoot(path), Path.GetPathRoot(destination), StringComparison.OrdinalIgnoreCase));
 
@@ -1008,8 +1207,9 @@ public partial class MainWindow : Window
 
         ClearFileDropHighlight();
         _fileDropTarget = row;
-        row.Background = new SolidColorBrush(Color.FromArgb(45, 211, 161, 95));
-        row.BorderBrush = new SolidColorBrush(Color.FromRgb(211, 161, 95));
+        // CHANGED (themes): the theme's accent instead of a fixed amber.
+        row.Background = ThemeService.AccentSoft;
+        row.BorderBrush = ThemeService.Accent;
         row.BorderThickness = new Thickness(1);
     }
 
@@ -1024,30 +1224,25 @@ public partial class MainWindow : Window
         _fileDropTarget = null;
     }
 
-    /// <summary>
-    /// Fires when a recycled tile is handed a new item, which is the moment that
-    /// tile becomes visible. Requesting here means only on-screen files ever have
-    /// a thumbnail extracted.
-    /// </summary>
     private void OnTileDataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
     {
         if (e.NewValue is FileSystemItem item)
+        {
             ThumbnailService.Request(item, ThumbnailSize);
+            if (item.IsVideoFile) MediaPropertyService.Request(item); // NEW (folder types, step 3): length badge
+        }
     }
 
-    // An inherited DataContext can already be present by the time the template's
-    // DataContextChanged handler is attached. Loaded guarantees the first item is
-    // requested too; the service deduplicates it if both events fire.
     private void OnTileLoaded(object sender, RoutedEventArgs e)
     {
         if (sender is FrameworkElement { DataContext: FileSystemItem item })
         {
             ThumbnailService.Request(item, ThumbnailSize);
+            if (item.IsVideoFile) MediaPropertyService.Request(item); // NEW (folder types, step 3): length badge
         }
     }
 
-    // This is the source resolution, not the on-screen size. Request enough
-    // pixels for the largest supported zoom level so previews remain sharp.
+    // Decode enough source pixels for the largest tile size.
     private const int ThumbnailSize = 512;
 
     private void OnBreadcrumbClick(object sender, RoutedEventArgs e)
@@ -1058,12 +1253,9 @@ public partial class MainWindow : Window
 
     private void OnItemDoubleClick(object sender, MouseButtonEventArgs e)
     {
-        // Ignore double-clicks on the header or empty space below the rows.
         if (FindAncestor<ListViewItem>(e.OriginalSource as DependencyObject) is null)
             return;
 
-        // Always the normal thing: folders navigate, files go to their default app.
-        // In-app playback and viewing are opt-in through their own buttons.
         _viewModel.OpenCommand.Execute(null);
     }
 
@@ -1072,13 +1264,11 @@ public partial class MainWindow : Window
         if (sender is not FrameworkElement { DataContext: FileSystemItem item })
             return;
 
-        // If this row is already the one loaded, treat the button as play/pause.
         if (ReferenceEquals(_viewModel.Player.Current, item))
             _viewModel.Player.TogglePlay();
         else
             _viewModel.PlayTrack(item);
 
-        // Otherwise the click would also select the row underneath.
         e.Handled = true;
     }
 
@@ -1090,19 +1280,96 @@ public partial class MainWindow : Window
         e.Handled = true;
     }
 
-    // ---------- Music ----------
+
+    // ------------------------------------------------------------------ NEW (folder types, step 2)
+
+    private void ApplyGrouping()
+    {
+        if (FileList.ItemsSource is null)
+            return;
+
+        var view = CollectionViewSource.GetDefaultView(FileList.ItemsSource);
+        if (view is null || !view.CanGroup)
+            return;
+
+        // CHANGED (folder types, step 3): date groups or kind groups (Desktop).
+        var want = _viewModel.ListGrouping;
+        var have = view.GroupDescriptions.Count > 0 ? (view.GroupDescriptions[0] as PropertyGroupDescription)?.PropertyName : null;
+        if (want == have)
+            return;
+
+        using (view.DeferRefresh())
+        {
+            view.GroupDescriptions.Clear();
+            if (want is not null)
+                view.GroupDescriptions.Add(new PropertyGroupDescription(want));
+        }
+    }
+
+    private void OnDimensionsCellLoaded(object sender, RoutedEventArgs e)
+    {
+        if (sender is FrameworkElement { DataContext: FileSystemItem item })
+            MediaPropertyService.RequestDimensions(item);
+    }
+
+    private void OnDimensionsCellDataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
+    {
+        if (e.NewValue is FileSystemItem item && sender is FrameworkElement { IsLoaded: true })
+            MediaPropertyService.RequestDimensions(item);
+    }
+
+    // NEW (folder types, step 3): Source column (Downloads).
+    private void OnSourceCellLoaded(object sender, RoutedEventArgs e)
+    {
+        if (sender is FrameworkElement { DataContext: FileSystemItem item })
+            MediaPropertyService.RequestSource(item);
+    }
+
+    private void OnSourceCellDataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
+    {
+        if (e.NewValue is FileSystemItem item && sender is FrameworkElement { IsLoaded: true })
+            MediaPropertyService.RequestSource(item);
+    }
+
+    private void OnPinToProject(object sender, RoutedEventArgs e) => _viewModel.PinSelectionToProject(pin: true);
+
+    private void OnUnpinFromProject(object sender, RoutedEventArgs e) => _viewModel.PinSelectionToProject(pin: false);
+
+    private void OnProjectItemClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is FrameworkElement { DataContext: ProjectStripItem item })
+            _viewModel.OpenProjectItem(item);
+    }
+
+    private void OnProjectItemOpen(object sender, RoutedEventArgs e)
+    {
+        if (sender is FrameworkElement { DataContext: ProjectStripItem item })
+            _viewModel.OpenProjectItem(item);
+    }
+
+    private void OnProjectItemShowInFolder(object sender, RoutedEventArgs e)
+    {
+        if (sender is FrameworkElement { DataContext: ProjectStripItem item })
+            _viewModel.ShowProjectItemInFolder(item);
+    }
+
+    private void OnProjectItemUnpin(object sender, RoutedEventArgs e)
+    {
+        if (sender is FrameworkElement { DataContext: ProjectStripItem item })
+            _viewModel.UnpinFromProject(item);
+    }
 
     private void OnMusicRowDataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
     {
-        // Only Music folders pay for tag reads; elsewhere the columns would never
-        // show the result anyway.
-        if (_viewModel.IsMusicProfile && e.NewValue is FileSystemItem item)
+        // CHANGED (folder types, step 3): whenever a visible column needs file properties (Music, Videos,
+        // Documents, Research), not only in Music folders.
+        if (_viewModel.NeedsFileProperties && e.NewValue is FileSystemItem item)
             MediaPropertyService.Request(item);
     }
 
     private void OnMusicRowLoaded(object sender, RoutedEventArgs e)
     {
-        if (_viewModel.IsMusicProfile && sender is FrameworkElement { DataContext: FileSystemItem item })
+        if (_viewModel.NeedsFileProperties && sender is FrameworkElement { DataContext: FileSystemItem item })
             MediaPropertyService.Request(item);
     }
 
@@ -1114,22 +1381,14 @@ public partial class MainWindow : Window
 
     private void OnPlayerStop(object sender, RoutedEventArgs e) => _viewModel.Player.Stop();
 
-    // While the thumb is held the ticker must not overwrite the value under the
-    // user's cursor; the seek is committed on release.
     private void OnSeekStart(object sender, MouseButtonEventArgs e) => _viewModel.Player.BeginScrub();
 
     private void OnSeekEnd(object sender, MouseButtonEventArgs e) => _viewModel.Player.EndScrub();
 
-    // ---------- Photo viewer ----------
 
     private Point _cropOrigin;
     private bool _isDraggingCrop;
 
-    /// <summary>
-    /// Sizes the image explicitly rather than letting Stretch do it, because the
-    /// crop overlay has to sit exactly on the pixels and map back to source
-    /// coordinates. Fit mode computes the scale that just fits the viewport.
-    /// </summary>
     private void UpdateViewerSize()
     {
         var viewer = _viewModel.Viewer;
@@ -1147,7 +1406,6 @@ public partial class MainWindow : Window
 
             scale = Math.Min(availableWidth / image.PixelWidth, availableHeight / image.PixelHeight);
 
-            // Never blow a small photo up just to fill the window.
             scale = Math.Min(scale, 1);
             viewer.SeedZoom(scale);
         }
@@ -1175,8 +1433,6 @@ public partial class MainWindow : Window
         if (viewer.Image is null)
             return;
 
-        // Which point of the image is under the cursor, as a 0..1 fraction. This
-        // survives the resize; pixel offsets would not.
         var onImage = e.GetPosition(ViewerImage);
         var fractionX = ViewerImage.ActualWidth > 0
             ? Math.Clamp(onImage.X / ViewerImage.ActualWidth, 0, 1)
@@ -1185,17 +1441,13 @@ public partial class MainWindow : Window
             ? Math.Clamp(onImage.Y / ViewerImage.ActualHeight, 0, 1)
             : 0.5;
 
-        // Where that point currently sits in the viewport, so it can be put back.
         var inViewport = e.GetPosition(ViewerScroll);
 
         viewer.ZoomBy(e.Delta > 0 ? 1.15 : 1 / 1.15);
 
-        // Resize and lay out now rather than waiting for the queued pass, because
-        // the offsets below have to be measured against the new size.
         UpdateViewerSize();
         ViewerScroll.UpdateLayout();
 
-        // The stage's margin offsets the image inside the scrollable content.
         var originX = ViewerStage.Margin.Left;
         var originY = ViewerStage.Margin.Top;
 
@@ -1203,21 +1455,10 @@ public partial class MainWindow : Window
         ViewerScroll.ScrollToVerticalOffset(fractionY * ViewerImage.ActualHeight + originY - inViewport.Y);
     }
 
-    /// <summary>
-    /// A click on the empty space around the photo dismisses the viewer, the same
-    /// as the close button. Clicks that land on the photo itself only take focus,
-    /// so the keyboard shortcuts keep working after using a toolbar button.
-    ///
-    /// This is a tunnelling handler on purpose. ScrollViewer has a class handler
-    /// for MouseLeftButtonDown that focuses itself and marks the event handled,
-    /// and class handlers run before instance ones, so a bubbling handler here
-    /// would never be called.
-    /// </summary>
     private void OnViewerSurfaceDown(object sender, MouseButtonEventArgs e)
     {
         ViewerScroll.Focus();
 
-        // Mid-crop the backdrop is part of the tool, not a way out.
         if (_viewModel.Viewer.IsCropping)
             return;
 
@@ -1237,11 +1478,6 @@ public partial class MainWindow : Window
         e.Handled = true;
     }
 
-    /// <summary>
-    /// Middle-mouse drag pans the viewer directly. It uses the ScrollViewer's
-    /// native offsets, so it remains smooth for very large images and does not
-    /// create another render layer or duplicate the bitmap.
-    /// </summary>
     private void OnViewerSurfaceMouseDown(object sender, MouseButtonEventArgs e)
     {
         if (e.ChangedButton != MouseButton.Middle ||
@@ -1313,7 +1549,6 @@ public partial class MainWindow : Window
 
     private void OnViewerDelete(object sender, RoutedEventArgs e) => _viewModel.Viewer.DeleteCurrent();
 
-    // ---------- Crop ----------
 
     private void OnViewerCrop(object sender, RoutedEventArgs e)
     {
@@ -1361,7 +1596,6 @@ public partial class MainWindow : Window
         CommitCropSelection();
     }
 
-    /// <summary>Converts the on-screen rectangle into source pixels.</summary>
     private void CommitCropSelection()
     {
         var image = _viewModel.Viewer.Image;
@@ -1419,13 +1653,32 @@ public partial class MainWindow : Window
 
     private void OnViewerPrevious(object sender, RoutedEventArgs e) => _viewModel.Viewer.Previous();
 
+    // CHANGED (empty-area menu): decides which right-click menu the list shows. On a file or folder: the usual
+    // one. On empty space inside a real folder: the selection is cleared (as Explorer does) and the empty-area
+    // menu from MainWindow.BackgroundMenu.cs is shown. Column headers, scroll bars and places that are not
+    // folders (This PC, hubs) keep the usual menu.
     private void OnFileListRightClick(object sender, MouseButtonEventArgs e)
     {
-        if (FindAncestor<ListViewItem>(e.OriginalSource as DependencyObject) is not { DataContext: FileSystemItem item })
-            return;
+        var source = e.OriginalSource as DependencyObject;
 
-        if (!FileList.SelectedItems.Contains(item))
-            FileList.SelectedItem = item;
+        if (FindAncestor<ListViewItem>(source) is { DataContext: FileSystemItem item })
+        {
+            FileList.ContextMenu = _itemMenu;
+            if (!FileList.SelectedItems.Contains(item))
+                FileList.SelectedItem = item;
+            return;
+        }
+
+        if (FindAncestor<GridViewColumnHeader>(source) is not null
+            || FindAncestor<ScrollBar>(source) is not null
+            || !Directory.Exists(_viewModel.CurrentPath))
+        {
+            FileList.ContextMenu = _itemMenu;
+            return;
+        }
+
+        FileList.UnselectAll();
+        FileList.ContextMenu = BuildBackgroundMenu();
     }
 
     private void OnSelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -1447,7 +1700,6 @@ public partial class MainWindow : Window
         }
     }
 
-    // ---------- Address bar ----------
 
     private void OnAddressActivate(object sender, MouseButtonEventArgs e) => ShowAddressEditor();
 
@@ -1492,7 +1744,6 @@ public partial class MainWindow : Window
                 }
                 catch (Exception)
                 {
-                    // No association for this file type.
                 }
             }
             else
@@ -1514,7 +1765,6 @@ public partial class MainWindow : Window
 
     private static void SystemSounds_Beep() => System.Media.SystemSounds.Beep.Play();
 
-    // ---------- Rename ----------
 
     private void BeginRename(FileSystemItem? item)
     {
@@ -1526,7 +1776,6 @@ public partial class MainWindow : Window
         RenamePanel.Visibility = Visibility.Visible;
         RenameBox.Focus();
 
-        // Preselect the stem so the extension is easy to keep.
         var stemLength = item.IsFolder
             ? item.Name.Length
             : item.Name.Length - Path.GetExtension(item.Name).Length;
@@ -1571,16 +1820,13 @@ public partial class MainWindow : Window
         }
 
         var destination = Path.Combine(directory, newName);
-        var succeeded = FileOperationService.Rename(item.FullPath, destination, _viewModel.Context.OwnerHandle);
+        var result = FileOperationService.Rename(item.FullPath, destination, _viewModel.Context.OwnerHandle);
         CancelRename();
+        _viewModel.Context.ReportFileOperation(result);
 
-        if (succeeded)
-            // Updates the one row that changed instead of re-walking the whole
-            // folder - the difference that matters once it holds a lot of files.
+        if (result.Succeeded)
             _viewModel.ApplyRename(item, destination);
         else
-            // The shell may have refused (name collision, a locked file); make sure
-            // the list still matches disk rather than showing a rename that failed.
             _ = _viewModel.RefreshAsync();
     }
 
@@ -1591,15 +1837,12 @@ public partial class MainWindow : Window
         FileList.Focus();
     }
 
-    // ---------- Column sorting ----------
 
     private void HookColumnHeaders()
         => FileList.AddHandler(GridViewColumnHeader.ClickEvent, new RoutedEventHandler(OnColumnHeaderClick));
 
     private void OnColumnHeaderClick(object sender, RoutedEventArgs e)
     {
-        // Releasing a dragged header also raises Click. A reorder must never turn
-        // into an unexpected sort immediately afterwards.
         if (_suppressColumnSort)
         {
             _suppressColumnSort = false;

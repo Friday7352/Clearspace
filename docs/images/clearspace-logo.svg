@@ -1,0 +1,10 @@
+<!-- Clearspace | The app logo: a folder on a transparent background with a C on its front (a dark ring that is
+     open on the right) and a teal dot in the opening. This is the drawing to edit; installer/make-icons.py
+     uses the same numbers to build Clearspace.ico and the installer's pictures. (At 24 px and smaller the
+     script draws the C a little bigger and heavier so it stays readable.) -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="256" height="256">
+  <path d="M8 25a9 9 0 0 1 9-9h28.5l13.5 13.5h44a9 9 0 0 1 9 9v52.5a9 9 0 0 1-9 9H17a9 9 0 0 1-9-9z" fill="#A87A41"/>
+  <rect x="8" y="38" width="104" height="66" rx="9" fill="#D3A15F"/>
+  <path d="M72.97 82.7A19 19 0 1 1 72.97 59.3" fill="none" stroke="#1A1917" stroke-width="9.5" stroke-linecap="round"/>
+  <circle cx="80.5" cy="71" r="6.2" fill="#5BC4B0"/>
+</svg>

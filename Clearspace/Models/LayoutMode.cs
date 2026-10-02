@@ -1,20 +1,16 @@
+// Clearspace | Folder layout and view profiles.
+
 using System.IO;
 
 namespace Clearspace.Models;
 
 public enum LayoutMode
 {
-    /// <summary>Sortable columns. The default for ordinary folders.</summary>
     Details,
 
-    /// <summary>Thumbnail tiles. The default for folders that are mostly images.</summary>
     Grid
 }
 
-/// <summary>
-/// A saved semantic role for a directory. Unlike Details/Grid, this describes
-/// what the folder contains so Clearspace can choose a useful presentation.
-/// </summary>
 public enum DirectoryViewProfile
 {
     Automatic,
@@ -24,7 +20,14 @@ public enum DirectoryViewProfile
     Downloads,
     Photos,
     Music,
-    Videos
+    Videos,
+    // NEW (folder types, step 2): families with their own behavior. Names are saved IDs; keep them stable.
+    Screenshots,
+    Code,
+    Projects,
+    Research,
+    Design,
+    Archives
 }
 
 public static class MediaTypes
@@ -50,8 +53,17 @@ public static class MediaTypes
     private static readonly HashSet<string> PreviewDocument = new(StringComparer.OrdinalIgnoreCase)
     {
         ".pdn", ".psd", ".psb", ".xcf", ".kra", ".ora", ".clip",
-        ".pdf", ".ai", ".eps", ".blend", ".3mf"
+        ".pdf", ".ai", ".eps", ".blend", ".3mf",
+        // NEW (folder types, step 3): 3D models (Design & 3D). Windows draws these when 3D Viewer or a
+        // slicer is installed; otherwise the tile keeps the file's icon.
+        ".stl", ".obj", ".fbx", ".glb", ".gltf", ".ply", ".3ds", ".skp", ".afdesign", ".afphoto"
     };
+
+    // NEW (search relevance): the search index tests extensions straight from name spans, so it needs
+    // the sets themselves (span lookups) rather than the string-only helpers below. Read-only by convention.
+    internal static HashSet<string> ImageExtensions => Image;
+    internal static HashSet<string> VideoExtensions => Video;
+    internal static HashSet<string> AudioExtensions => Audio;
 
     public static bool IsImage(string extension) => Image.Contains(extension);
 
@@ -64,11 +76,6 @@ public static class MediaTypes
 
     public static bool IsVisual(string extension) => Image.Contains(extension) || Video.Contains(extension);
 
-    /// <summary>
-    /// Explorer calls this folder type discovery. A folder counts as visual when
-    /// most of its files are images or video, which is the case that actually
-    /// benefits from tiles.
-    /// </summary>
     public static bool LooksVisual(IReadOnlyList<FileSystemItem> items)
     {
         var files = 0;
@@ -85,7 +92,6 @@ public static class MediaTypes
                 visual++;
         }
 
-        // Needs a meaningful sample; three holiday photos in a code folder don't count.
         return files >= 4 && visual * 2 > files;
     }
 }

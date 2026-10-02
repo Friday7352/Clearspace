@@ -1,0 +1,99 @@
+<!-- Clearspace | Retro theme.
+     NEW (themes): the classic 1998 desktop - grey chrome, white lists, navy highlights with white text,
+     plain black outlines, square corners and the old system font. Same keys as Dark.xaml, plus two extras at the
+     bottom that only this theme needs. -->
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- Surfaces -->
+    <SolidColorBrush x:Key="Base"          Color="#FFC0C0C0" />
+    <SolidColorBrush x:Key="Surface"       Color="#FFFFFFFF" />
+    <SolidColorBrush x:Key="Overlay"       Color="#FFC0C0C0" />
+    <SolidColorBrush x:Key="Hover"         Color="#26000080" />
+    <SolidColorBrush x:Key="Pressed"       Color="#47000080" />
+    <SolidColorBrush x:Key="Selected"      Color="#FF000080" />
+    <SolidColorBrush x:Key="Line"          Color="#FF808080" />
+    <SolidColorBrush x:Key="LineFaint"     Color="#FFC0C0C0" />
+
+    <!-- Outlines of buttons, menus and cards (EdgeRaised) and of text boxes and the file list (EdgeSunken).
+         CHANGED (themes): a plain black outline. These were two-tone 3D edges, which looked odd. -->
+    <SolidColorBrush x:Key="EdgeRaised"    Color="#FF000000" />
+    <SolidColorBrush x:Key="EdgeSunken"    Color="#FF000000" />
+
+    <!-- Text -->
+    <SolidColorBrush x:Key="Ink"           Color="#FF000000" />
+    <SolidColorBrush x:Key="InkMuted"      Color="#FF3C3C3C" />
+    <SolidColorBrush x:Key="InkFaint"      Color="#FF585858" />
+    <SolidColorBrush x:Key="InkDisabled"   Color="#FF808080" />
+
+    <!-- Accent -->
+    <SolidColorBrush x:Key="Accent"        Color="#FF000080" />
+    <SolidColorBrush x:Key="AccentSoft"    Color="#33000080" />
+    <SolidColorBrush x:Key="AccentWash"    Color="#20000080" />
+    <SolidColorBrush x:Key="AccentInk"     Color="#FFFFFFFF" />
+
+    <!-- Status: the old 16-colour palette. These four also have to read on a navy selected row. -->
+    <SolidColorBrush x:Key="Danger"        Color="#FFA00000" />
+    <SolidColorBrush x:Key="Good"          Color="#FF008000" />
+    <SolidColorBrush x:Key="Warn"          Color="#FF808000" />
+    <SolidColorBrush x:Key="Bad"           Color="#FFFF0000" />
+    <SolidColorBrush x:Key="Quiet"         Color="#FF808080" />
+
+    <!-- Small fills -->
+    <SolidColorBrush x:Key="ThumbRest"     Color="#FF9A9A9A" />
+    <SolidColorBrush x:Key="ThumbHover"    Color="#FF707070" />
+    <SolidColorBrush x:Key="Tint"          Color="#14000000" />
+    <SolidColorBrush x:Key="ChipHover"     Color="#FFD4D4E4" />
+    <SolidColorBrush x:Key="Divider"       Color="#FF808080" />
+    <SolidColorBrush x:Key="RowAlt"        Color="#0A000080" />
+    <SolidColorBrush x:Key="Track"         Color="#33000000" />
+    <SolidColorBrush x:Key="SliderRail"    Color="#FF808080" />
+    <SolidColorBrush x:Key="Well"          Color="#0A000000" />
+    <SolidColorBrush x:Key="BadgeFill"     Color="#FFFFFFE1" />
+    <SolidColorBrush x:Key="NavFill"       Color="#FFC0C0C0" />
+    <SolidColorBrush x:Key="Scrim"         Color="#F5C0C0C0" />
+    <SolidColorBrush x:Key="CardFill"      Color="#FFFFFFE1" />   <!-- the pale yellow of old tooltips -->
+    <SolidColorBrush x:Key="CardEdge"      Color="#FF000000" />
+    <SolidColorBrush x:Key="Ground3D"      Color="#FF808080" />
+
+    <!-- The highlighted row of a menu: solid navy, white text -->
+    <SolidColorBrush x:Key="MenuHover"       Color="#FF000080" />
+    <SolidColorBrush x:Key="MenuHoverInk"    Color="#FFFFFFFF" />
+    <SolidColorBrush x:Key="MenuHoverMuted"  Color="#FFFFFFFF" />
+    <SolidColorBrush x:Key="MenuHoverFaint"  Color="#FFC8C8E8" />
+    <SolidColorBrush x:Key="MenuHoverAccent" Color="#FFFFFFFF" />
+
+    <!-- Fonts: one plain system face everywhere, as it was -->
+    <FontFamily x:Key="UIFont">Microsoft Sans Serif, Tahoma, Segoe UI</FontFamily>
+    <FontFamily x:Key="SerifFont">Microsoft Sans Serif, Tahoma, Segoe UI</FontFamily>
+    <FontFamily x:Key="DisplayFont">Tahoma, Microsoft Sans Serif, Segoe UI</FontFamily>
+    <FontFamily x:Key="MonoFont">Lucida Console, Consolas</FontFamily>
+
+    <!-- Corner sizes: all square -->
+    <CornerRadius x:Key="R2">0</CornerRadius>
+    <CornerRadius x:Key="R3">0</CornerRadius>
+    <CornerRadius x:Key="R4">0</CornerRadius>
+    <CornerRadius x:Key="R5">0</CornerRadius>
+    <CornerRadius x:Key="R6">0</CornerRadius>
+    <CornerRadius x:Key="R7">0</CornerRadius>
+    <CornerRadius x:Key="R8">0</CornerRadius>
+    <CornerRadius x:Key="R9">0</CornerRadius>
+    <CornerRadius x:Key="R10">0</CornerRadius>
+    <CornerRadius x:Key="R12">0</CornerRadius>
+    <CornerRadius x:Key="RPlayerBar">0</CornerRadius>
+
+    <!-- Title bar: navy with white text (Windows 11 only; Windows 10 keeps its own title bar). -->
+    <Color x:Key="Theme.CaptionColor">#FF000080</Color>
+    <Color x:Key="Theme.CaptionTextColor">#FFFFFFFF</Color>
+
+    <!-- Selected rows are solid navy, so the text inside them has to flip to light. ThemeService gathers
+         every "SelectedRow.X" key into a small dictionary and merges it into each selected row; everything
+         in the row that asks for key X then gets the value below instead of the normal one. -->
+    <SolidColorBrush x:Key="SelectedRow.Ink"        Color="#FFFFFFFF" />
+    <SolidColorBrush x:Key="SelectedRow.InkMuted"   Color="#FFDCDCF0" />
+    <SolidColorBrush x:Key="SelectedRow.InkFaint"   Color="#FFB4B4DC" />
+    <SolidColorBrush x:Key="SelectedRow.Accent"     Color="#FFFFFFFF" />
+    <SolidColorBrush x:Key="SelectedRow.Base"       Color="#FF000080" />
+    <SolidColorBrush x:Key="SelectedRow.BadgeFill"  Color="#FF000080" />
+
+</ResourceDictionary>

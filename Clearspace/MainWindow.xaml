@@ -1,3 +1,7 @@
+<!-- Clearspace | Main window layout and templates.
+     CHANGED (themes): colours, fonts and corner sizes are DynamicResource references into the active theme
+     (Themes/*.xaml) and the colours that used to be written out here have theme keys. The theme picker is
+     in the Settings menu. -->
 <Window x:Class="Clearspace.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -5,9 +9,9 @@
         Height="800" Width="1280"
         MinHeight="500" MinWidth="860"
         WindowStartupLocation="CenterScreen"
-        Background="{StaticResource Base}"
-        Foreground="{StaticResource Ink}"
-        FontFamily="{StaticResource UIFont}"
+        Background="{DynamicResource Base}"
+        Foreground="{DynamicResource Ink}"
+        FontFamily="{DynamicResource UIFont}"
         FontSize="12.5"
         UseLayoutRounding="True"
         SnapsToDevicePixels="True"
@@ -16,25 +20,37 @@
 
     <Window.Resources>
 
-        <!-- Columns are assembled at runtime from the user's choice, so the view
-             starts empty and MainWindow fills it. Each column below is a keyed
-             resource marked x:Shared="False", so every rebuild gets fresh instances
-             rather than re-parenting ones already in use. -->
         <GridView x:Key="DetailsView" x:Shared="False" ColumnHeaderContainerStyle="{StaticResource ColumnHeader}" />
 
-        <!-- Name carries the per-row tag request, which is why it cannot be hidden. -->
         <GridViewColumn x:Key="Col.Name" x:Shared="False" Width="400" Header="Name">
                 <GridViewColumn.CellTemplate>
                     <DataTemplate>
                         <StackPanel Orientation="Horizontal"
                                     Loaded="OnMusicRowLoaded"
                                     DataContextChanged="OnMusicRowDataContextChanged">
-                            <Image Source="{Binding Icon}"
-                                   Width="16" Height="16"
-                                   Margin="6,0,11,0"
-                                   RenderOptions.BitmapScalingMode="HighQuality" />
+                            <!-- NEW (lock icons): small lock badge over the icon of a locked file or folder. -->
+                            <Grid Margin="6,0,11,0">
+                                <Image Source="{Binding Icon}"
+                                       Width="16" Height="16"
+                                       RenderOptions.BitmapScalingMode="HighQuality" />
+                                <Border HorizontalAlignment="Right"
+                                        VerticalAlignment="Bottom"
+                                        Margin="0,0,-5,-4"
+                                        Width="11" Height="11"
+                                        CornerRadius="5.5"
+                                        Background="{DynamicResource Base}"
+                                        ToolTip="{Binding LockToolTip}"
+                                        Visibility="{Binding HasLockBadge, Converter={StaticResource BoolToVisible}}">
+                                    <TextBlock Text="{Binding LockGlyph}"
+                                               FontFamily="{StaticResource IconFont}"
+                                               FontSize="8"
+                                               Foreground="{DynamicResource Accent}"
+                                               HorizontalAlignment="Center"
+                                               VerticalAlignment="Center" />
+                                </Border>
+                            </Grid>
                             <TextBlock Text="{Binding Name}"
-                                       FontFamily="{StaticResource SerifFont}"
+                                       FontFamily="{DynamicResource SerifFont}"
                                        FontSize="13"
                                        VerticalAlignment="Center"
                                        TextTrimming="CharacterEllipsis" />
@@ -47,7 +63,7 @@
                 <GridViewColumn.CellTemplate>
                     <DataTemplate>
                         <TextBlock Text="{Binding DateModifiedText}"
-                                   Foreground="{StaticResource InkMuted}"
+                                   Foreground="{DynamicResource InkMuted}"
                                    Margin="10,0,0,0"
                                    VerticalAlignment="Center"
                                    Typography.NumeralAlignment="Tabular" />
@@ -55,8 +71,6 @@
                 </GridViewColumn.CellTemplate>
             </GridViewColumn>
 
-        <!-- Sync state stays compact in the list; hovering the icon reveals the
-             wording without spending a whole column on repeated OneDrive text. -->
         <GridViewColumn x:Key="Col.Status" x:Shared="False" Width="52" Header="Status">
             <GridViewColumn.CellTemplate>
                 <DataTemplate>
@@ -78,7 +92,7 @@
                 <GridViewColumn.CellTemplate>
                     <DataTemplate>
                         <TextBlock Text="{Binding TypeName}"
-                                   Foreground="{StaticResource InkMuted}"
+                                   Foreground="{DynamicResource InkMuted}"
                                    Margin="10,0,0,0"
                                    VerticalAlignment="Center"
                                    TextTrimming="CharacterEllipsis" />
@@ -90,7 +104,7 @@
                 <GridViewColumn.CellTemplate>
                     <DataTemplate>
                         <TextBlock Text="{Binding SizeText}"
-                                   Foreground="{StaticResource InkMuted}"
+                                   Foreground="{DynamicResource InkMuted}"
                                    Margin="0,0,14,0"
                                    HorizontalAlignment="Right"
                                    VerticalAlignment="Center"
@@ -105,13 +119,10 @@
                         <Grid Margin="6,0,0,0"
                               Loaded="OnMusicRowLoaded"
                               DataContextChanged="OnMusicRowDataContextChanged">
-                            <!-- Track number until you hover, then the play button.
-                                 Folders get neither, which is part of telling them
-                                 apart at a glance. -->
                             <TextBlock Text="{Binding TrackNumberText}"
                                        HorizontalAlignment="Center"
                                        VerticalAlignment="Center"
-                                       Foreground="{StaticResource InkFaint}"
+                                       Foreground="{DynamicResource InkFaint}"
                                        Typography.NumeralAlignment="Tabular">
                                 <TextBlock.Style>
                                     <Style TargetType="TextBlock">
@@ -151,17 +162,15 @@
                                                     <Condition Binding="{Binding IsNowPlaying}" Value="True" />
                                                 </MultiDataTrigger.Conditions>
                                                 <Setter Property="Visibility" Value="Visible" />
-                                                <Setter Property="Foreground" Value="{StaticResource Accent}" />
+                                                <Setter Property="Foreground" Value="{DynamicResource Accent}" />
                                             </MultiDataTrigger>
-                                            <!-- Declared last so it wins: the loaded
-                                                 track's button is a pause button. -->
                                             <MultiDataTrigger>
                                                 <MultiDataTrigger.Conditions>
                                                     <Condition Binding="{Binding IsNowPlaying}" Value="True" />
                                                     <Condition Binding="{Binding DataContext.Player.IsPlaying, RelativeSource={RelativeSource AncestorType={x:Type ListView}}}" Value="True" />
                                                 </MultiDataTrigger.Conditions>
                                                 <Setter Property="Visibility" Value="Visible" />
-                                                <Setter Property="Foreground" Value="{StaticResource Accent}" />
+                                                <Setter Property="Foreground" Value="{DynamicResource Accent}" />
                                                 <Setter Property="Content" Value="&#xE769;" />
                                             </MultiDataTrigger>
                                         </Style.Triggers>
@@ -177,23 +186,38 @@
                 <GridViewColumn.CellTemplate>
                     <DataTemplate>
                         <StackPanel Orientation="Horizontal">
-                            <!-- The icon is what separates an album folder from a
-                                 track. Without it every row reads the same. -->
-                            <Image Source="{Binding Icon}"
-                                   Width="16" Height="16"
-                                   Margin="2,0,10,0"
-                                   RenderOptions.BitmapScalingMode="HighQuality" />
+                            <!-- NEW (lock icons): small lock badge over the icon of a locked file or folder. -->
+                            <Grid Margin="2,0,10,0">
+                                <Image Source="{Binding Icon}"
+                                       Width="16" Height="16"
+                                       RenderOptions.BitmapScalingMode="HighQuality" />
+                                <Border HorizontalAlignment="Right"
+                                        VerticalAlignment="Bottom"
+                                        Margin="0,0,-5,-4"
+                                        Width="11" Height="11"
+                                        CornerRadius="5.5"
+                                        Background="{DynamicResource Base}"
+                                        ToolTip="{Binding LockToolTip}"
+                                        Visibility="{Binding HasLockBadge, Converter={StaticResource BoolToVisible}}">
+                                    <TextBlock Text="{Binding LockGlyph}"
+                                               FontFamily="{StaticResource IconFont}"
+                                               FontSize="8"
+                                               Foreground="{DynamicResource Accent}"
+                                               HorizontalAlignment="Center"
+                                               VerticalAlignment="Center" />
+                                </Border>
+                            </Grid>
                             <TextBlock Text="{Binding DisplayTitle}"
-                                       FontFamily="{StaticResource SerifFont}"
+                                       FontFamily="{DynamicResource SerifFont}"
                                        FontSize="13"
                                        VerticalAlignment="Center"
                                        TextTrimming="CharacterEllipsis">
                                 <TextBlock.Style>
                                     <Style TargetType="TextBlock">
-                                        <Setter Property="Foreground" Value="{StaticResource Ink}" />
+                                        <Setter Property="Foreground" Value="{DynamicResource Ink}" />
                                         <Style.Triggers>
                                             <DataTrigger Binding="{Binding IsNowPlaying}" Value="True">
-                                                <Setter Property="Foreground" Value="{StaticResource Accent}" />
+                                                <Setter Property="Foreground" Value="{DynamicResource Accent}" />
                                             </DataTrigger>
                                         </Style.Triggers>
                                     </Style>
@@ -208,7 +232,7 @@
                 <GridViewColumn.CellTemplate>
                     <DataTemplate>
                         <TextBlock Text="{Binding Artist}"
-                                   Foreground="{StaticResource InkMuted}"
+                                   Foreground="{DynamicResource InkMuted}"
                                    Margin="10,0,0,0"
                                    VerticalAlignment="Center"
                                    TextTrimming="CharacterEllipsis" />
@@ -219,9 +243,7 @@
         <GridViewColumn x:Key="Col.Album" x:Shared="False" Width="200" Header="Album">
                 <GridViewColumn.CellTemplate>
                     <DataTemplate>
-                        <!-- Folders say so plainly here, so an album folder is never
-                             mistaken for an untagged track with a blank album. -->
-                        <TextBlock Foreground="{StaticResource InkMuted}"
+                        <TextBlock Foreground="{DynamicResource InkMuted}"
                                    Margin="10,0,0,0"
                                    VerticalAlignment="Center"
                                    TextTrimming="CharacterEllipsis">
@@ -231,7 +253,7 @@
                                     <Style.Triggers>
                                         <DataTrigger Binding="{Binding IsFolder}" Value="True">
                                             <Setter Property="Text" Value="Folder" />
-                                            <Setter Property="Foreground" Value="{StaticResource InkFaint}" />
+                                            <Setter Property="Foreground" Value="{DynamicResource InkFaint}" />
                                         </DataTrigger>
                                     </Style.Triggers>
                                 </Style>
@@ -245,7 +267,7 @@
                 <GridViewColumn.CellTemplate>
                     <DataTemplate>
                         <TextBlock Text="{Binding DurationText}"
-                                   Foreground="{StaticResource InkMuted}"
+                                   Foreground="{DynamicResource InkMuted}"
                                    Margin="0,0,14,0"
                                    HorizontalAlignment="Right"
                                    VerticalAlignment="Center"
@@ -258,7 +280,7 @@
             <GridViewColumn.CellTemplate>
                 <DataTemplate>
                     <TextBlock Text="{Binding TrackNumberText}"
-                               Foreground="{StaticResource InkMuted}"
+                               Foreground="{DynamicResource InkMuted}"
                                Margin="0,0,14,0"
                                HorizontalAlignment="Right"
                                VerticalAlignment="Center"
@@ -271,7 +293,7 @@
             <GridViewColumn.CellTemplate>
                 <DataTemplate>
                     <TextBlock Text="{Binding DateCreatedText}"
-                               Foreground="{StaticResource InkMuted}"
+                               Foreground="{DynamicResource InkMuted}"
                                Margin="10,0,0,0"
                                VerticalAlignment="Center"
                                Typography.NumeralAlignment="Tabular" />
@@ -293,7 +315,7 @@
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
                                 <Border Background="{Binding Brush}"
-                                        CornerRadius="4"
+                                        CornerRadius="{DynamicResource R4}"
                                         Padding="6,1"
                                         Margin="0,0,4,0">
                                     <TextBlock Text="{Binding Name}"
@@ -307,8 +329,105 @@
             </GridViewColumn.CellTemplate>
         </GridViewColumn>
 
-        <!-- Tile. DataContextChanged, not Loaded: containers are recycled during
-             virtualisation, so the item changes without the visual reloading. -->
+        <!-- NEW (folder types, step 2): Git status of a file, or "Changes inside" for a folder (Code). -->
+        <GridViewColumn x:Key="Col.Git" x:Shared="False" Width="120" Header="Git">
+            <GridViewColumn.CellTemplate>
+                <DataTemplate>
+                    <TextBlock Text="{Binding GitStatusText}"
+                               Foreground="{Binding GitStatusBrush}"
+                               Margin="10,0,0,0"
+                               VerticalAlignment="Center"
+                               TextTrimming="CharacterEllipsis" />
+                </DataTemplate>
+            </GridViewColumn.CellTemplate>
+        </GridViewColumn>
+
+        <!-- NEW (folder types, step 2): pixel size of images and videos, read when the row is shown. -->
+        <GridViewColumn x:Key="Col.Dimensions" x:Shared="False" Width="120" Header="Dimensions">
+            <GridViewColumn.CellTemplate>
+                <DataTemplate>
+                    <TextBlock Text="{Binding DimensionsText}"
+                               Foreground="{DynamicResource InkMuted}"
+                               Margin="0,0,14,0"
+                               HorizontalAlignment="Right"
+                               VerticalAlignment="Center"
+                               Typography.NumeralAlignment="Tabular"
+                               Loaded="OnDimensionsCellLoaded"
+                               DataContextChanged="OnDimensionsCellDataContextChanged" />
+                </DataTemplate>
+            </GridViewColumn.CellTemplate>
+        </GridViewColumn>
+
+        <!-- NEW (folder types, step 3): document authors and pages (Documents, Research). -->
+        <GridViewColumn x:Key="Col.Authors" x:Shared="False" Width="200" Header="Authors">
+            <GridViewColumn.CellTemplate>
+                <DataTemplate>
+                    <TextBlock Text="{Binding Authors}"
+                               Foreground="{DynamicResource InkMuted}"
+                               Margin="10,0,0,0"
+                               VerticalAlignment="Center"
+                               TextTrimming="CharacterEllipsis"
+                               ToolTip="{Binding Authors}" />
+                </DataTemplate>
+            </GridViewColumn.CellTemplate>
+        </GridViewColumn>
+
+        <GridViewColumn x:Key="Col.Pages" x:Shared="False" Width="70" Header="Pages">
+            <GridViewColumn.CellTemplate>
+                <DataTemplate>
+                    <TextBlock Text="{Binding PageCountText}"
+                               Foreground="{DynamicResource InkMuted}"
+                               Margin="0,0,14,0"
+                               HorizontalAlignment="Right"
+                               VerticalAlignment="Center"
+                               Typography.NumeralAlignment="Tabular" />
+                </DataTemplate>
+            </GridViewColumn.CellTemplate>
+        </GridViewColumn>
+
+        <!-- NEW (folder types, step 3): the site a download came from (Downloads). -->
+        <GridViewColumn x:Key="Col.Source" x:Shared="False" Width="170" Header="Source">
+            <GridViewColumn.CellTemplate>
+                <DataTemplate>
+                    <TextBlock Text="{Binding SourceText}"
+                               Foreground="{DynamicResource InkMuted}"
+                               Margin="10,0,0,0"
+                               VerticalAlignment="Center"
+                               TextTrimming="CharacterEllipsis"
+                               Loaded="OnSourceCellLoaded"
+                               DataContextChanged="OnSourceCellDataContextChanged" />
+                </DataTemplate>
+            </GridViewColumn.CellTemplate>
+        </GridViewColumn>
+
+        <!-- NEW (folder types, step 2): a pinned or recent file in the project strip. -->
+        <Style x:Key="ProjectChip" TargetType="Button">
+            <Setter Property="Foreground" Value="{DynamicResource Ink}" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Root"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{DynamicResource EdgeRaised}"
+                                BorderThickness="1"
+                                CornerRadius="{DynamicResource R8}"
+                                Padding="10,6">
+                            <ContentPresenter />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <!-- CHANGED (themes): own key; "Selected" is solid navy in Retro and would hide the text. -->
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Root" Property="Background" Value="{DynamicResource ChipHover}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <DataTemplate x:Key="TileTemplate">
             <Grid Margin="6,10"
                   Loaded="OnTileLoaded"
@@ -319,7 +438,7 @@
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
 
-                <Border Grid.Row="0" Background="#14000000" CornerRadius="7">
+                <Border Grid.Row="0" Background="{DynamicResource Well}" CornerRadius="{DynamicResource R7}">
                     <Grid>
                         <Image Source="{Binding GridImage}"
                                Width="{Binding DataContext.TilePreviewSize, RelativeSource={RelativeSource AncestorType={x:Type ListView}}}"
@@ -330,16 +449,27 @@
                                Margin="4"
                                RenderOptions.BitmapScalingMode="HighQuality" />
 
-                        <!-- Sync badge, bottom left so it never collides with the
-                             photo button opposite. An online-only tile also has no
-                             real preview behind it, which is the point: the pixels
-                             are not on this machine either. -->
+                        <!-- NEW (lock icons): lock badge in the tile's top-left corner. -->
+                        <Border HorizontalAlignment="Left"
+                                VerticalAlignment="Top"
+                                Margin="6"
+                                Padding="5,3"
+                                CornerRadius="{DynamicResource R5}"
+                                Background="{DynamicResource BadgeFill}"
+                                ToolTip="{Binding LockToolTip}"
+                                Visibility="{Binding HasLockBadge, Converter={StaticResource BoolToVisible}}">
+                            <TextBlock Text="{Binding LockGlyph}"
+                                       FontFamily="{StaticResource IconFont}"
+                                       FontSize="11"
+                                       Foreground="{DynamicResource Accent}" />
+                        </Border>
+
                         <Border HorizontalAlignment="Left"
                                 VerticalAlignment="Bottom"
                                 Margin="6"
                                 Padding="5,2"
-                                CornerRadius="5"
-                                Background="#B3141312"
+                                CornerRadius="{DynamicResource R5}"
+                                Background="{DynamicResource BadgeFill}"
                                 ToolTip="{Binding CloudStatusText}"
                                 Visibility="{Binding IsCloudItem, Converter={StaticResource BoolToVisible}}">
                             <TextBlock Text="{Binding CloudStatusGlyph}"
@@ -348,8 +478,20 @@
                                        Foreground="{Binding CloudStatusBrush}" />
                         </Border>
 
-                        <!-- The Photos folder type's one affordance: open the reel
-                             without giving up ordinary double-click behaviour. -->
+                        <!-- NEW (folder types, step 3): a video's length on its tile. -->
+                        <Border HorizontalAlignment="Right"
+                                VerticalAlignment="Bottom"
+                                Margin="6"
+                                Padding="5,1"
+                                CornerRadius="{DynamicResource R5}"
+                                Background="{DynamicResource BadgeFill}"
+                                Visibility="{Binding HasDuration, Converter={StaticResource BoolToVisible}}">
+                            <TextBlock Text="{Binding DurationText}"
+                                       FontSize="10"
+                                       Foreground="{DynamicResource Ink}"
+                                       Typography.NumeralAlignment="Tabular" />
+                        </Border>
+
                         <Button Click="OnViewPhotoClick"
                                 Content="&#xE8B3;"
                                 ToolTip="View in Clearspace"
@@ -361,7 +503,7 @@
                                     <Setter Property="Width" Value="28" />
                                     <Setter Property="Height" Value="28" />
                                     <Setter Property="FontSize" Value="12" />
-                                    <Setter Property="Background" Value="#B3141312" />
+                                    <Setter Property="Background" Value="{DynamicResource BadgeFill}" />
                                     <Setter Property="Visibility" Value="Collapsed" />
                                     <Style.Triggers>
                                         <MultiDataTrigger>
@@ -381,14 +523,14 @@
 
                 <TextBlock Grid.Row="1"
                            Text="{Binding Name}"
-                           FontFamily="{StaticResource SerifFont}"
+                           FontFamily="{DynamicResource SerifFont}"
                            FontSize="12"
                            Margin="2,8,2,0"
                            MaxHeight="34"
                            TextAlignment="Center"
                            TextWrapping="Wrap"
                            TextTrimming="CharacterEllipsis"
-                           Foreground="{StaticResource Ink}" />
+                           Foreground="{DynamicResource Ink}" />
 
                 <StackPanel Grid.Row="2"
                             Margin="4,2,4,1"
@@ -402,22 +544,67 @@
                                Margin="0,5,0,0"
                                FontSize="9.5"
                                TextAlignment="Center"
-                               Foreground="{StaticResource InkMuted}"
+                               Foreground="{DynamicResource InkMuted}"
                                TextTrimming="CharacterEllipsis" />
                 </StackPanel>
             </Grid>
         </DataTemplate>
 
+        <!-- NEW (experimental themes): one entry of the DOS Commander function-key bar. Tag is the key,
+             Content the action. -->
+        <Style x:Key="FunctionKey" TargetType="Button">
+            <Setter Property="Margin" Value="0,0,10,0" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="FontFamily" Value="{DynamicResource UIFont}" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="{Binding Tag, RelativeSource={RelativeSource TemplatedParent}}"
+                                       Foreground="{DynamicResource InkMuted}"
+                                       Margin="0,0,3,0"
+                                       VerticalAlignment="Center" />
+                            <Border x:Name="Label" Background="{DynamicResource MenuHover}" Padding="5,1">
+                                <ContentPresenter TextElement.Foreground="{DynamicResource MenuHoverInk}" />
+                            </Border>
+                        </StackPanel>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Label" Property="Background" Value="{DynamicResource Accent}" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.5" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
     </Window.Resources>
 
-    <Grid>
+    <!-- NEW (e-ink): everything in the window sits in this frame so one effect can be laid over all of it (the
+         E-reader theme's panel look, set from MainWindow.EInk.cs). The frame paints the window background
+         itself, so the effect sees it too. ScreenContent is what gets photographed as "the previous page". -->
+    <!-- FIXED (e-ink): both are clipped to their own size. When the toolbar is wider than the window, it runs
+         off the right-hand edge; without the clip, the effect treated that overhang as part of the picture
+         while the photograph of the previous page did not include it, so during a page turn the old page was
+         shown stretched to a different width ("the window changes size for a second"). -->
+    <Border x:Name="ScreenFrame" Background="{DynamicResource Base}" ClipToBounds="True">
+    <Grid x:Name="ScreenContent" ClipToBounds="True">
+    <!-- CHANGED (sketchbook, round 2): PageInset is 0 except in themes that put something down the left edge. -->
+    <Grid x:Name="ExplorerShell" Margin="{DynamicResource PageInset}">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />   <!-- NEW (experimental themes): the function-key bar -->
         </Grid.RowDefinitions>
 
-        <!-- ===== Toolbar ===== -->
-        <Grid Grid.Row="0" Margin="10,10,14,8">
+        <!-- CHANGED (experimental themes): named, and given a see-through background so the whole strip (not
+             just its buttons) counts as "pointer over the toolbar" for the Zen theme's fading toolbar. -->
+        <Grid x:Name="ToolbarRow" Grid.Row="0" Margin="10,10,14,8" Background="Transparent">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="*" />
@@ -437,10 +624,10 @@
 
             <Border x:Name="AddressPill"
                     Grid.Column="1"
-                    Background="{StaticResource Surface}"
-                    BorderBrush="{StaticResource Line}"
+                    Background="{DynamicResource Surface}"
+                    BorderBrush="{DynamicResource EdgeSunken}"
                     BorderThickness="1"
-                    CornerRadius="9"
+                    CornerRadius="{DynamicResource R9}"
                     Margin="10,0"
                     Height="32">
                 <Grid>
@@ -464,7 +651,7 @@
                                                FontFamily="{StaticResource IconFont}"
                                                FontSize="8"
                                                VerticalAlignment="Center"
-                                               Foreground="{StaticResource InkDisabled}" />
+                                               Foreground="{DynamicResource InkDisabled}" />
                                 </StackPanel>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
@@ -489,16 +676,16 @@
                 <Border Width="228"
                         Height="32"
                         Margin="0,0,9,0"
-                        Background="{StaticResource Surface}"
-                        BorderBrush="{StaticResource Line}"
+                        Background="{DynamicResource Surface}"
+                        BorderBrush="{DynamicResource EdgeSunken}"
                         BorderThickness="1"
-                        CornerRadius="9">
+                        CornerRadius="{DynamicResource R9}">
                     <Grid>
                         <TextBlock Text="Search name, tag, or type"
                                    Margin="11,0,34,0"
                                    VerticalAlignment="Center"
                                    IsHitTestVisible="False"
-                                   Foreground="{StaticResource InkFaint}">
+                                   Foreground="{DynamicResource InkFaint}">
                             <TextBlock.Style>
                                 <Style TargetType="TextBlock">
                                     <Setter Property="Visibility" Value="Visible" />
@@ -549,56 +736,53 @@
                               IsChecked="{Binding SearchFileContents}"
                               IsEnabled="{Binding IsWindowsIndexAvailable}"
                               ToolTip="Search inside files. On, this also finds documents that mention the word; off, it matches file and folder names only, which is faster. Contents are read from the Windows Search index, so it only covers locations Windows has indexed." />
+                <!-- REMOVED (toolbar tidy): the "Indexing" text button. The index status chip at the bottom right of
+                     the file list opens the same page. -->
                 <Button Style="{StaticResource IconButton}"
-                        Content="&#xE713;"
-                        Margin="0,0,7,0"
-                        Click="OnOpenIndexingOptions"
-                        ToolTip="Open Windows indexing options" />
+                        Content="&#xE9F9;" Margin="0,0,7,0"
+                        Click="OnDiskUsage" ToolTip="Disk usage · explore indexed file and folder sizes"
+                        AutomationProperties.Name="Disk usage" />
+                <!-- NEW (folder types, step 2): Git branch and changed-file count in Code folders. -->
+                <TextBlock Text="{Binding FolderContextText}"
+                           Margin="0,0,9,0"
+                           VerticalAlignment="Center"
+                           FontSize="11.5"
+                           Foreground="{DynamicResource InkMuted}"
+                           ToolTip="Git branch and the number of changed files in this repository"
+                           Visibility="{Binding HasFolderContext, Converter={StaticResource BoolToVisible}}" />
                 <Button x:Name="FolderProfileButton"
                         Click="OnFolderProfileButtonClick"
-                        ToolTip="Choose a saved view for this folder"
+                        ToolTip="{Binding FolderTypeTooltip}"
                         AutomationProperties.Name="{Binding FolderProfileLabel}"
                         Visibility="{Binding CanSetFolderProfile, Converter={StaticResource BoolToVisible}}">
                     <Button.Style>
                         <Style TargetType="Button" BasedOn="{StaticResource IconButton}">
-                            <Setter Property="Width" Value="96" />
+                            <!-- CHANGED (folder types, step 3): fits "Auto (Screenshots)" instead of cutting it off. -->
+                            <Setter Property="Width" Value="Auto" />
+                            <Setter Property="MinWidth" Value="96" />
                         </Style>
                     </Button.Style>
-                    <StackPanel Orientation="Horizontal">
+                    <StackPanel Orientation="Horizontal" Margin="9,0">
                         <TextBlock Text="&#xE8EC;"
                                    FontFamily="{StaticResource IconFont}"
                                    FontSize="13"
                                    Margin="0,0,7,0"
                                    VerticalAlignment="Center"
-                                   Foreground="{StaticResource Accent}" />
+                                   Foreground="{DynamicResource Accent}" />
                         <TextBlock Text="{Binding FolderProfileLabel}"
-                                   FontFamily="{StaticResource UIFont}"
+                                   FontFamily="{DynamicResource UIFont}"
                                    FontSize="11.5"
                                    VerticalAlignment="Center" />
                     </StackPanel>
                     <Button.ContextMenu>
-                        <ContextMenu DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}">
-                            <MenuItem Header="Automatic" Tag="Automatic" Click="OnFolderProfileSelected" />
-                            <MenuItem Header="General files" Tag="General" Click="OnFolderProfileSelected" />
-                            <Separator />
-                            <MenuItem Header="Photos" Tag="Photos" Click="OnFolderProfileSelected" />
-                            <MenuItem Header="Music" Tag="Music" Click="OnFolderProfileSelected" />
-                        </ContextMenu>
+                        <!-- CHANGED (folder types): filled from the folder type definitions each time it opens. -->
+                        <ContextMenu DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}"
+                                     Opened="OnFolderTypeMenuOpened" />
                     </Button.ContextMenu>
                 </Button>
-                <StackPanel Orientation="Horizontal" Margin="0,0,7,0"
-                            Visibility="{Binding IsGrid, Converter={StaticResource BoolToVisible}}">
-                    <Button Style="{StaticResource IconButton}" Content="&#xE71F;"
-                            Click="OnZoomOut" ToolTip="Smaller tiles  ·  Ctrl+mouse wheel" />
-                    <TextBlock Text="{Binding TileZoomText}"
-                               Width="42"
-                               VerticalAlignment="Center"
-                               TextAlignment="Center"
-                               FontSize="10.5"
-                               Foreground="{StaticResource InkMuted}" />
-                    <Button Style="{StaticResource IconButton}" Content="&#xE710;"
-                            Click="OnZoomIn" ToolTip="Larger tiles  ·  Ctrl+mouse wheel" />
-                </StackPanel>
+                <!-- REMOVED (toolbar): the tile size control (- 100% +) that appeared here in tile view. It made the
+                     toolbar wider in Pictures and Videos folders, which squeezed the address bar and search box.
+                     It now sits in the status bar at the bottom right, where there is room for it. -->
                 <Button x:Name="ColumnsButton"
                         Style="{StaticResource IconButton}"
                         Content="&#xE71D;"
@@ -613,7 +797,6 @@
                                     <Setter Property="IsCheckable" Value="True" />
                                     <Setter Property="IsChecked" Value="{Binding IsVisible, Mode=TwoWay}" />
                                     <Setter Property="IsEnabled" Value="{Binding CanToggle}" />
-                                    <!-- Stay open so several can be ticked at once. -->
                                     <Setter Property="StaysOpenOnClick" Value="True" />
                                 </Style>
                             </ContextMenu.ItemContainerStyle>
@@ -629,7 +812,7 @@
                             <Style.Triggers>
                                 <DataTrigger Binding="{Binding IsGrid}" Value="True">
                                     <Setter Property="Content" Value="&#xE8A9;" />
-                                    <Setter Property="Foreground" Value="{StaticResource Accent}" />
+                                    <Setter Property="Foreground" Value="{DynamicResource Accent}" />
                                 </DataTrigger>
                             </Style.Triggers>
                         </Style>
@@ -643,10 +826,57 @@
                               Content="&#xE7B3;"
                               IsChecked="{Binding ShowHiddenItems}"
                               ToolTip="Show hidden items" />
+                <!-- NEW (unlock vs remove lock): settings menu; file locking is its first section. -->
+                <Button x:Name="SettingsButton"
+                        Style="{StaticResource IconButton}"
+                        Content="&#xE713;"
+                        Margin="6,0,0,0"
+                        Click="OnColumnsButtonClick"
+                        ToolTip="Settings"
+                        AutomationProperties.Name="Settings">
+                    <Button.ContextMenu>
+                        <ContextMenu Opened="OnSettingsMenuOpened">
+                            <!-- NEW (themes): pick the look. Applies at once to every window and is remembered.
+                                 Each item's Tag is a name from ThemeService.Names. -->
+                            <MenuItem Header="Theme" IsEnabled="False" />
+                            <MenuItem Header="Dark" Tag="Dark" IsCheckable="True" Click="OnThemePicked" />
+                            <MenuItem Header="OLED Black" Tag="OLED" IsCheckable="True" Click="OnThemePicked" />
+                            <MenuItem Header="Light" Tag="Light" IsCheckable="True" Click="OnThemePicked" />
+                            <MenuItem Header="Blueprint" Tag="Blueprint" IsCheckable="True" Click="OnThemePicked" />
+                            <MenuItem Header="Terminal" Tag="Terminal" IsCheckable="True" Click="OnThemePicked" />
+                            <MenuItem Header="Retro" Tag="Retro" IsCheckable="True" Click="OnThemePicked" />
+                            <!-- NEW (experimental themes): these change the icons too, and some add or move things. -->
+                            <MenuItem Header="Experimental themes">
+                                <MenuItem Header="Pixel" Tag="Pixel" IsCheckable="True" Click="OnThemePicked" />
+                                <MenuItem Header="DOS Commander" Tag="DosCommander" IsCheckable="True" Click="OnThemePicked" />
+                                <MenuItem Header="Wireframe" Tag="Wireframe" IsCheckable="True" Click="OnThemePicked" />
+                                <MenuItem Header="Neon HUD" Tag="NeonHud" IsCheckable="True" Click="OnThemePicked" />
+                                <MenuItem Header="Glass" Tag="Glass" IsCheckable="True" Click="OnThemePicked" />
+                                <MenuItem Header="Sketchbook" Tag="Sketchbook" IsCheckable="True" Click="OnThemePicked" />
+                                <!-- NEW (dark sketchbook) -->
+                                <MenuItem Header="Sketchbook (dark)" Tag="SketchbookDark" IsCheckable="True" Click="OnThemePicked" />
+                                <MenuItem Header="Type tiles" Tag="TypeTiles" IsCheckable="True" Click="OnThemePicked" />
+                                <MenuItem Header="Zen" Tag="Zen" IsCheckable="True" Click="OnThemePicked" />
+                                <MenuItem Header="1-bit Mac" Tag="Mac1Bit" IsCheckable="True" Click="OnThemePicked" />
+                                <MenuItem Header="1-bit Mac (dark)" Tag="Mac1BitDark" IsCheckable="True" Click="OnThemePicked" />
+                                <!-- CHANGED (e-reader): Paper moved here from the normal themes and renamed. -->
+                                <MenuItem Header="E-reader" Tag="Paper" IsCheckable="True" Click="OnThemePicked" />
+                            </MenuItem>
+                            <Separator />
+                            <MenuItem Header="File locking" IsEnabled="False" />
+                            <MenuItem Header="Remove all locks and reset password…" Click="OnRemoveAllLocks" />
+                            <!-- NEW (updates): check now. CHANGED (about): the version number and the "check
+                                 automatically" switch moved into the About window (AboutWindow.cs), which also has
+                                 the same check as a button. See MainWindow.Updates.cs. -->
+                            <Separator />
+                            <MenuItem Header="Check for updates…" Click="OnCheckForUpdates" />
+                            <MenuItem Header="About Clearspace…" Click="OnAbout" />
+                        </ContextMenu>
+                    </Button.ContextMenu>
+                </Button>
             </StackPanel>
         </Grid>
 
-        <!-- ===== Body ===== -->
         <Grid Grid.Row="1">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="228" MinWidth="170" MaxWidth="400" />
@@ -779,11 +1009,6 @@
                                         DragLeave="OnSidebarDragLeave"
                                         DragOver="OnSidebarDragOver"
                                         Drop="OnSidebarDrop">
-                                    <!-- Name and sync mark together. Known Folder
-                                         Move puts Desktop and Documents inside
-                                         OneDrive while leaving them looking exactly
-                                         like the local folders they replaced, so
-                                         the row is the only place that can say so. -->
                                     <Button.Content>
                                         <StackPanel Orientation="Horizontal">
                                             <TextBlock Text="{Binding DisplayName}"
@@ -866,10 +1091,10 @@
                           FocusVisualStyle="{x:Null}" />
 
             <Border Grid.Column="2"
-                    Background="{StaticResource Surface}"
-                    BorderBrush="{StaticResource Line}"
+                    Background="{DynamicResource Surface}"
+                    BorderBrush="{DynamicResource EdgeSunken}"
                     BorderThickness="1"
-                    CornerRadius="12"
+                    CornerRadius="{DynamicResource R12}"
                     Margin="0,0,14,14">
                 <Grid>
                     <Grid.RowDefinitions>
@@ -882,10 +1107,10 @@
                     <Border Grid.Row="0"
                             Margin="14,14,14,6"
                             Padding="18,14"
-                            Background="{StaticResource Base}"
-                            BorderBrush="{StaticResource Line}"
+                            Background="{DynamicResource Base}"
+                            BorderBrush="{DynamicResource EdgeRaised}"
                             BorderThickness="1"
-                            CornerRadius="10"
+                            CornerRadius="{DynamicResource R10}"
                             Visibility="{Binding IsHub, Converter={StaticResource BoolToVisible}}">
                         <Grid>
                             <Grid.ColumnDefinitions>
@@ -894,24 +1119,106 @@
                             </Grid.ColumnDefinitions>
                             <StackPanel>
                                 <TextBlock Text="{Binding HubTitle}"
-                                           FontFamily="{StaticResource DisplayFont}"
+                                           FontFamily="{DynamicResource DisplayFont}"
                                            FontSize="23"
-                                           Foreground="{StaticResource Ink}" />
+                                           Foreground="{DynamicResource Ink}" />
                                 <TextBlock Text="{Binding HubDescription}"
                                            Margin="0,4,0,0"
                                            FontSize="12"
-                                           Foreground="{StaticResource InkMuted}" />
+                                           Foreground="{DynamicResource InkMuted}" />
                             </StackPanel>
                             <TextBlock Grid.Column="1"
                                        Text="{Binding HubSummary}"
                                        MaxWidth="330"
                                        Margin="18,4,0,0"
-                                       FontFamily="{StaticResource SerifFont}"
+                                       FontFamily="{DynamicResource SerifFont}"
                                        FontSize="13"
                                        TextAlignment="Right"
                                        TextWrapping="Wrap"
-                                       Foreground="{StaticResource Accent}" />
+                                       Foreground="{DynamicResource Accent}" />
                         </Grid>
+                    </Border>
+
+                    <!-- NEW (folder types, step 2): project strip - pinned files and recent work anywhere in the project.
+                         Shares row 0 with the hub banner; the two never show together (hubs are not real folders). -->
+                    <Border Grid.Row="0"
+                            Margin="14,12,14,4"
+                            Padding="14,10,14,4"
+                            Background="{DynamicResource Base}"
+                            BorderBrush="{DynamicResource EdgeRaised}"
+                            BorderThickness="1"
+                            CornerRadius="{DynamicResource R10}"
+                            Visibility="{Binding ShowsProjectStrip, Converter={StaticResource BoolToVisible}}">
+                        <StackPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                <TextBlock Text="{Binding ProjectTitle}"
+                                           FontFamily="{DynamicResource SerifFont}"
+                                           FontSize="14"
+                                           Foreground="{DynamicResource Ink}" />
+                                <TextBlock Text="Pinned and recently changed"
+                                           Margin="10,2,0,0"
+                                           FontSize="11"
+                                           VerticalAlignment="Center"
+                                           Foreground="{DynamicResource InkMuted}" />
+                            </StackPanel>
+                            <TextBlock Text="{Binding ProjectStripHint}"
+                                       Margin="0,0,0,6"
+                                       FontSize="11.5"
+                                       Foreground="{DynamicResource InkMuted}">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Style.Triggers>
+                                            <Trigger Property="Text" Value="">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                            </Trigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                            <ItemsControl ItemsSource="{Binding ProjectStrip}" MaxHeight="96">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <WrapPanel />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Button Style="{StaticResource ProjectChip}"
+                                                Margin="0,0,6,6"
+                                                MaxWidth="260"
+                                                ToolTip="{Binding FullPath}"
+                                                Click="OnProjectItemClick">
+                                            <Button.ContextMenu>
+                                                <ContextMenu DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}">
+                                                    <MenuItem Header="Open" Click="OnProjectItemOpen" />
+                                                    <MenuItem Header="Show in folder" Click="OnProjectItemShowInFolder" />
+                                                    <MenuItem Header="Unpin from project"
+                                                              Click="OnProjectItemUnpin"
+                                                              Visibility="{Binding IsPinned, Converter={StaticResource BoolToVisible}}" />
+                                                </ContextMenu>
+                                            </Button.ContextMenu>
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Text="{Binding Glyph}"
+                                                           FontFamily="{StaticResource IconFont}"
+                                                           FontSize="11"
+                                                           Margin="0,1,8,0"
+                                                           VerticalAlignment="Top"
+                                                           Foreground="{DynamicResource Accent}" />
+                                                <StackPanel>
+                                                    <TextBlock Text="{Binding Name}"
+                                                               FontSize="12"
+                                                               TextTrimming="CharacterEllipsis" />
+                                                    <TextBlock Text="{Binding Detail}"
+                                                               FontSize="10.5"
+                                                               Foreground="{DynamicResource InkMuted}"
+                                                               TextTrimming="CharacterEllipsis" />
+                                                </StackPanel>
+                                            </StackPanel>
+                                        </Button>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
                     </Border>
 
                     <ListView x:Name="FileList"
@@ -919,7 +1226,7 @@
                               ItemsSource="{Binding Items}"
                               Background="Transparent"
                               BorderThickness="0"
-                              Foreground="{StaticResource Ink}"
+                              Foreground="{DynamicResource Ink}"
                               SelectionMode="Extended"
                               FocusVisualStyle="{x:Null}"
                               SelectionChanged="OnSelectionChanged"
@@ -934,6 +1241,7 @@
                               DragLeave="OnFileListDragLeave"
                               Drop="OnFileListDrop"
                               VirtualizingPanel.IsVirtualizing="True"
+                              VirtualizingPanel.IsVirtualizingWhenGrouping="True"
                               VirtualizingPanel.VirtualizationMode="Recycling"
                               VirtualizingPanel.ScrollUnit="Pixel"
                               ScrollViewer.CanContentScroll="True"
@@ -945,9 +1253,6 @@
                                 <Setter Property="ItemContainerStyle" Value="{StaticResource FileRow}" />
                                 <Style.Triggers>
                                     <DataTrigger Binding="{Binding IsMusicProfile}" Value="True">
-                                        <!-- Banding, not different columns: the column
-                                             set is now assembled in code from the
-                                             user's choice for this folder type. -->
                                         <Setter Property="AlternationCount" Value="2" />
                                         <Setter Property="ItemContainerStyle" Value="{StaticResource MusicRow}" />
                                     </DataTrigger>
@@ -961,9 +1266,22 @@
                             </Style>
                         </ListView.Style>
 
+                        <!-- NEW (folder types, step 2): date headers (Screenshots). Only used while the view is grouped. -->
+                        <ListView.GroupStyle>
+                            <GroupStyle>
+                                <GroupStyle.HeaderTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding Name}"
+                                                   Margin="16,12,0,4"
+                                                   FontSize="11.5"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource InkMuted}" />
+                                    </DataTemplate>
+                                </GroupStyle.HeaderTemplate>
+                            </GroupStyle>
+                        </ListView.GroupStyle>
+
                         <ListView.ContextMenu>
-                            <!-- Context menus live in a separate popup window in WPF.
-                                 Bind back to the list so its selection state stays live. -->
                             <ContextMenu DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}">
                                 <MenuItem Header="Open" Command="{Binding OpenCommand}" />
                                 <Separator />
@@ -974,7 +1292,26 @@
                                 <MenuItem Header="Rename" Command="{Binding RenameCommand}" InputGestureText="F2" />
                                 <MenuItem Header="Delete" Command="{Binding DeleteCommand}" InputGestureText="Del" />
                                 <Separator />
+                                <!-- CHANGED (folder locking): works on a single file or folder, so the labels no longer say "file". -->
+                                <!-- CHANGED (unlock vs remove lock): Unlock = until you leave this folder; Remove lock = for good,
+                                     and works on several selected files and folders at once. -->
+                                <MenuItem Header="Lock with password…" Click="OnLockFile" IsEnabled="{Binding Context.HasSingleSelection}" />
+                                <MenuItem Header="Unlock…" Click="OnUnlockFile" IsEnabled="{Binding Context.HasSingleSelection}" />
+                                <MenuItem Header="Remove lock…" Click="OnRemoveLock" IsEnabled="{Binding Context.HasSelection}" />
+                                <!-- NEW (change password): switch locked files to your current password. -->
+                                <MenuItem Header="Change password…" Click="OnChangeLockPassword" IsEnabled="{Binding Context.HasSelection}" />
+                                <Separator />
                                 <MenuItem Header="Pin to sidebar" Click="OnPinDirectory" />
+                                <!-- NEW (folder types, step 2): Projects folders -->
+                                <MenuItem Header="Pin to project"
+                                          Click="OnPinToProject"
+                                          IsEnabled="{Binding CanPinToProject}"
+                                          Visibility="{Binding IsProjectFolder, Converter={StaticResource BoolToVisible}}" />
+                                <MenuItem Header="Unpin from project"
+                                          Click="OnUnpinFromProject"
+                                          IsEnabled="{Binding CanPinToProject}"
+                                          Visibility="{Binding IsProjectFolder, Converter={StaticResource BoolToVisible}}" />
+                                <MenuItem Header="Disk usage…" Click="OnDiskUsage" />
                                 <MenuItem Header="Always keep on this device"
                                           IsEnabled="{Binding HasCloudSelection}"
                                           Visibility="{Binding IsCloudFolder, Converter={StaticResource BoolToVisible}}"
@@ -983,28 +1320,14 @@
                                           IsEnabled="{Binding HasCloudSelection}"
                                           Visibility="{Binding IsCloudFolder, Converter={StaticResource BoolToVisible}}"
                                           Click="OnFreeUpSpace" />
-                                <!-- Built on open in code-behind. A submenu that mixes
-                                     the live tag list with commands cannot be driven by
-                                     ItemsSource, which owns the whole item collection.
-                                     The placeholder gives it something to open. -->
                                 <MenuItem Header="Tags" SubmenuOpened="OnTagsSubmenuOpened">
                                     <MenuItem Header="" />
                                 </MenuItem>
+                                <!-- CHANGED (folder types): filled from the folder type definitions when opened. -->
                                 <MenuItem Header="Set folder type"
-                                          IsEnabled="{Binding HasSelectedFolders}">
-                                    <MenuItem Header="Automatic"
-                                              Tag="Automatic"
-                                              Click="OnSelectedFolderProfile" />
-                                    <MenuItem Header="General files"
-                                              Tag="General"
-                                              Click="OnSelectedFolderProfile" />
-                                    <Separator />
-                                    <MenuItem Header="Photos"
-                                              Tag="Photos"
-                                              Click="OnSelectedFolderProfile" />
-                                    <MenuItem Header="Music"
-                                              Tag="Music"
-                                              Click="OnSelectedFolderProfile" />
+                                          IsEnabled="{Binding HasSelectedFolders}"
+                                          SubmenuOpened="OnSetFolderTypeSubmenuOpened">
+                                    <MenuItem Header="" />
                                 </MenuItem>
                                 <MenuItem Header="Reset columns" Click="OnResetColumns" />
                                 <MenuItem Header="Copy path" Command="{Binding CopyPathCommand}" InputGestureText="Ctrl+Shift+C" />
@@ -1013,15 +1336,11 @@
                         </ListView.ContextMenu>
                     </ListView>
 
-                    <!-- Access refused. This sits over the list rather than in the
-                         status bar because an empty list plus one grey line reads as
-                         an empty folder, which is exactly the confusion that made
-                         protected folders look broken. -->
                     <Border Grid.Row="1"
-                            Background="{StaticResource Base}"
-                            BorderBrush="{StaticResource Line}"
+                            Background="{DynamicResource Base}"
+                            BorderBrush="{DynamicResource EdgeRaised}"
                             BorderThickness="1"
-                            CornerRadius="12"
+                            CornerRadius="{DynamicResource R12}"
                             Padding="30,26"
                             MaxWidth="430"
                             HorizontalAlignment="Center"
@@ -1032,28 +1351,28 @@
                                        FontFamily="{StaticResource IconFont}"
                                        FontSize="20"
                                        HorizontalAlignment="Center"
-                                       Foreground="{StaticResource Accent}" />
+                                       Foreground="{DynamicResource Accent}" />
 
                             <TextBlock Text="This folder is protected"
                                        Margin="0,14,0,0"
-                                       FontFamily="{StaticResource DisplayFont}"
+                                       FontFamily="{DynamicResource DisplayFont}"
                                        FontSize="19"
                                        HorizontalAlignment="Center"
-                                       Foreground="{StaticResource Ink}" />
+                                       Foreground="{DynamicResource Ink}" />
 
                             <TextBlock Text="{Binding AccessDeniedPath}"
                                        Margin="0,8,0,0"
-                                       FontFamily="{StaticResource MonoFont}"
+                                       FontFamily="{DynamicResource MonoFont}"
                                        FontSize="11"
                                        TextAlignment="Center"
                                        TextWrapping="Wrap"
-                                       Foreground="{StaticResource InkFaint}" />
+                                       Foreground="{DynamicResource InkFaint}" />
 
                             <TextBlock Margin="0,12,0,0"
                                        FontSize="11.5"
                                        TextAlignment="Center"
                                        TextWrapping="Wrap"
-                                       Foreground="{StaticResource InkMuted}"
+                                       Foreground="{DynamicResource InkMuted}"
                                        Text="Windows refused to list its contents. Opening a second window with administrator rights will usually work; a few system paths stay closed to every account." />
 
                             <Button Content="Open as administrator"
@@ -1066,28 +1385,65 @@
                     </Border>
 
                     <Border Grid.Row="2"
-                            BorderBrush="{StaticResource LineFaint}"
+                            BorderBrush="{DynamicResource LineFaint}"
                             BorderThickness="0,1,0,0"
                             Padding="16,8">
                         <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+                            <!-- CHANGED (toolbar): the status text and the chips on the right now have a column
+                                 each, so the text is cut short where the chips begin instead of running under
+                                 them (it used to keep a fixed 110 px clear, which the chips can exceed). -->
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Row="1" Grid.ColumnSpan="2"
+                                       Text="{Binding Context.LastFileOperation.Message}"
+                                       ToolTip="{Binding Context.LastFileOperation.Message}"
+                                       Visibility="{Binding Context.HasFileOperationResult, Converter={StaticResource BoolToVisible}}"
+                                       Margin="0,6,0,0"
+                                       TextWrapping="Wrap"
+                                       FontSize="11.5"
+                                       Foreground="{DynamicResource InkMuted}" />
                             <TextBlock Text="{Binding StatusText}"
-                                       Margin="0,0,110,0"
-                                       Foreground="{StaticResource InkMuted}"
+                                       Margin="0,0,14,0"
+                                       Foreground="{DynamicResource InkMuted}"
                                        FontSize="11.5"
                                        VerticalAlignment="Center"
                                        TextTrimming="CharacterEllipsis" />
 
-                            <StackPanel Orientation="Horizontal"
+                            <StackPanel Grid.Column="1"
+                                        Orientation="Horizontal"
                                         HorizontalAlignment="Right"
                                         VerticalAlignment="Center">
 
-                                <!-- Which account is behind this folder. Worth
-                                     naming rather than implying: a machine can hold
-                                     a personal account and a work tenant at once,
-                                     and a redirected Documents looks identical to
-                                     the local one it replaced. -->
-                                <Border Background="#14FFFFFF"
-                                        CornerRadius="5"
+                                <!-- NEW (toolbar): tile size, moved here from the toolbar. Only in tile view. The
+                                     buttons are the toolbar's icon buttons made small enough for this bar. -->
+                                <Border Background="{DynamicResource Tint}" CornerRadius="{DynamicResource R5}"
+                                        Margin="0,0,8,0"
+                                        Visibility="{Binding IsGrid, Converter={StaticResource BoolToVisible}}">
+                                    <StackPanel Orientation="Horizontal">
+                                        <Button Style="{StaticResource IconButton}" Content="&#xE71F;"
+                                                Width="24" Height="20" Margin="0" FontSize="10"
+                                                Click="OnZoomOut" ToolTip="Smaller tiles  ·  Ctrl+mouse wheel"
+                                                AutomationProperties.Name="Smaller tiles" />
+                                        <TextBlock Text="{Binding TileZoomText}"
+                                                   Width="36"
+                                                   VerticalAlignment="Center"
+                                                   TextAlignment="Center"
+                                                   FontSize="10.5"
+                                                   Foreground="{DynamicResource InkMuted}" />
+                                        <Button Style="{StaticResource IconButton}" Content="&#xE710;"
+                                                Width="24" Height="20" Margin="0" FontSize="10"
+                                                Click="OnZoomIn" ToolTip="Larger tiles  ·  Ctrl+mouse wheel"
+                                                AutomationProperties.Name="Larger tiles" />
+                                    </StackPanel>
+                                </Border>
+
+                                <Border Background="{DynamicResource Tint}" CornerRadius="{DynamicResource R5}"
                                         Padding="9,3"
                                         Margin="0,0,8,0"
                                         ToolTip="This folder is kept in sync"
@@ -1097,44 +1453,58 @@
                                                    FontFamily="{StaticResource IconFont}"
                                                    FontSize="10"
                                                    VerticalAlignment="Center"
-                                                   Foreground="{StaticResource InkMuted}" />
+                                                   Foreground="{DynamicResource InkMuted}" />
                                         <TextBlock Text="{Binding CloudRootName}"
                                                    Margin="6,0,0,0"
                                                    FontSize="10.5"
                                                    VerticalAlignment="Center"
-                                                   Foreground="{StaticResource InkMuted}" />
+                                                   Foreground="{DynamicResource InkMuted}" />
                                     </StackPanel>
                                 </Border>
 
-                                <!-- The index is a background job that deliberately
-                                     announces itself nowhere else, so this badge is
-                                     the whole of its user interface: what it is doing
-                                     now, how much it holds, and - on hover - which
-                                     build is running and where the file lives. -->
-                                <Border Background="#14FFFFFF"
-                                        CornerRadius="5"
+                                <!-- NEW (updates): only there when a newer Clearspace has been released (and not
+                                     skipped). Opens the update dialog. -->
+                                <Button x:Name="UpdateChip"
+                                        Style="{StaticResource ViewerTextButton}" Background="{DynamicResource AccentSoft}"
                                         Padding="9,3"
                                         Margin="0,0,8,0"
-                                        ToolTip="{Binding IndexTooltip}">
+                                        Visibility="Collapsed"
+                                        Click="OnUpdateChip" AutomationProperties.Name="Update available" ToolTip="A newer Clearspace is ready to install">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="&#xE896;"
+                                                   FontFamily="{StaticResource IconFont}"
+                                                   FontSize="10"
+                                                   VerticalAlignment="Center"
+                                                   Foreground="{DynamicResource Accent}" />
+                                        <TextBlock x:Name="UpdateChipText"
+                                                   Text="Update available"
+                                                   Margin="6,0,0,0"
+                                                   FontSize="10.5"
+                                                   VerticalAlignment="Center"
+                                                   Foreground="{DynamicResource Accent}" />
+                                    </StackPanel>
+                                </Button>
+
+                                <Button Style="{StaticResource ViewerTextButton}" Background="{DynamicResource Tint}"
+                                        Padding="9,3"
+                                        Margin="0,0,8,0"
+                                        Click="OnIndexing" AutomationProperties.Name="View indexing details" ToolTip="View indexed locations, progress and storage">
                                     <StackPanel Orientation="Horizontal">
                                         <TextBlock Text="&#xE8F1;"
                                                    FontFamily="{StaticResource IconFont}"
                                                    FontSize="10"
                                                    VerticalAlignment="Center"
-                                                   Foreground="{StaticResource InkMuted}" />
+                                                   Foreground="{DynamicResource InkMuted}" />
                                         <TextBlock Text="{Binding IndexStatusText}"
                                                    Margin="6,0,0,0"
                                                    FontSize="10.5"
                                                    VerticalAlignment="Center"
-                                                   Foreground="{StaticResource InkMuted}" />
+                                                   Foreground="{DynamicResource InkMuted}" />
                                     </StackPanel>
-                                </Border>
+                                </Button>
 
-                                <!-- Stays put while the walk runs, so there is a steady
-                                     signal that more results are still arriving even as
-                                     the count on the left keeps changing. -->
-                                <Border Background="{StaticResource AccentSoft}"
-                                        CornerRadius="5"
+                                <Border Background="{DynamicResource AccentSoft}"
+                                        CornerRadius="{DynamicResource R5}"
                                         Padding="9,3"
                                         Visibility="{Binding IsSearchingTree, Converter={StaticResource BoolToVisible}}">
                                     <StackPanel Orientation="Horizontal">
@@ -1142,24 +1512,23 @@
                                                    FontFamily="{StaticResource IconFont}"
                                                    FontSize="10"
                                                    VerticalAlignment="Center"
-                                                   Foreground="{StaticResource Accent}" />
+                                                   Foreground="{DynamicResource Accent}" />
                                         <TextBlock Text="Searching…"
                                                    Margin="6,0,0,0"
                                                    FontSize="10.5"
                                                    VerticalAlignment="Center"
-                                                   Foreground="{StaticResource Accent}" />
+                                                   Foreground="{DynamicResource Accent}" />
                                     </StackPanel>
                                 </Border>
                             </StackPanel>
                         </Grid>
                     </Border>
 
-                    <!-- ===== Now playing ===== -->
                     <Border Grid.Row="3"
-                            Background="{StaticResource Base}"
-                            BorderBrush="{StaticResource Line}"
+                            Background="{DynamicResource Base}"
+                            BorderBrush="{DynamicResource Line}"
                             BorderThickness="0,1,0,0"
-                            CornerRadius="0,0,11,11"
+                            CornerRadius="{DynamicResource RPlayerBar}"
                             Padding="14,10"
                             Visibility="{Binding Player.IsActive, Converter={StaticResource BoolToVisible}}">
                         <Grid>
@@ -1187,14 +1556,14 @@
 
                             <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="14,0">
                                 <TextBlock Text="{Binding Player.TrackTitle}"
-                                           FontFamily="{StaticResource SerifFont}"
+                                           FontFamily="{DynamicResource SerifFont}"
                                            FontSize="13"
-                                           Foreground="{StaticResource Ink}"
+                                           Foreground="{DynamicResource Ink}"
                                            TextTrimming="CharacterEllipsis" />
                                 <TextBlock Text="{Binding Player.TrackSubtitle}"
                                            FontSize="11"
                                            Margin="0,2,0,0"
-                                           Foreground="{StaticResource InkMuted}"
+                                           Foreground="{DynamicResource InkMuted}"
                                            TextTrimming="CharacterEllipsis" />
                             </StackPanel>
 
@@ -1207,10 +1576,10 @@
 
                                 <TextBlock Grid.Column="0"
                                            Text="{Binding Player.PositionText}"
-                                           FontFamily="{StaticResource MonoFont}"
+                                           FontFamily="{DynamicResource MonoFont}"
                                            FontSize="10.5"
                                            VerticalAlignment="Center"
-                                           Foreground="{StaticResource InkFaint}" />
+                                           Foreground="{DynamicResource InkFaint}" />
 
                                 <Slider Grid.Column="1"
                                         Style="{StaticResource MediaSlider}"
@@ -1222,10 +1591,10 @@
 
                                 <TextBlock Grid.Column="2"
                                            Text="{Binding Player.DurationText}"
-                                           FontFamily="{StaticResource MonoFont}"
+                                           FontFamily="{DynamicResource MonoFont}"
                                            FontSize="10.5"
                                            VerticalAlignment="Center"
-                                           Foreground="{StaticResource InkFaint}" />
+                                           Foreground="{DynamicResource InkFaint}" />
                             </Grid>
 
                             <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center" Margin="16,0,0,0">
@@ -1233,7 +1602,7 @@
                                            FontFamily="{StaticResource IconFont}"
                                            FontSize="12"
                                            VerticalAlignment="Center"
-                                           Foreground="{StaticResource InkFaint}" />
+                                           Foreground="{DynamicResource InkFaint}" />
                                 <Slider Style="{StaticResource MediaSlider}"
                                         Width="84"
                                         Margin="8,0,4,0"
@@ -1252,30 +1621,30 @@
             <Border x:Name="RenamePanel"
                     Grid.Column="2"
                     Visibility="Collapsed"
-                    Background="{StaticResource Overlay}"
-                    BorderBrush="{StaticResource Accent}"
+                    Background="{DynamicResource Overlay}"
+                    BorderBrush="{DynamicResource Accent}"
                     BorderThickness="1"
-                    CornerRadius="12"
+                    CornerRadius="{DynamicResource R12}"
                     Padding="18"
                     Width="440"
                     HorizontalAlignment="Center"
                     VerticalAlignment="Center">
                 <StackPanel>
                     <TextBlock Text="Rename"
-                               FontFamily="{StaticResource DisplayFont}"
+                               FontFamily="{DynamicResource DisplayFont}"
                                FontSize="16"
                                Margin="0,0,0,12" />
-                    <Border Background="{StaticResource Base}"
-                            BorderBrush="{StaticResource Line}"
+                    <Border Background="{DynamicResource Base}"
+                            BorderBrush="{DynamicResource EdgeSunken}"
                             BorderThickness="1"
-                            CornerRadius="8"
+                            CornerRadius="{DynamicResource R8}"
                             Padding="10,8">
                         <TextBox x:Name="RenameBox"
                                  Style="{StaticResource PlainTextBox}"
                                  KeyDown="OnRenameKeyDown" />
                     </Border>
                     <TextBlock Text="Enter to confirm, Esc to cancel"
-                               Foreground="{StaticResource InkFaint}"
+                               Foreground="{DynamicResource InkFaint}"
                                FontSize="11"
                                Margin="2,10,0,0" />
                 </StackPanel>
@@ -1284,10 +1653,10 @@
             <Border x:Name="CategoryPanel"
                     Grid.Column="2"
                     Visibility="Collapsed"
-                    Background="{StaticResource Overlay}"
-                    BorderBrush="{StaticResource Accent}"
+                    Background="{DynamicResource Overlay}"
+                    BorderBrush="{DynamicResource Accent}"
                     BorderThickness="1"
-                    CornerRadius="12"
+                    CornerRadius="{DynamicResource R12}"
                     Padding="18"
                     Width="440"
                     HorizontalAlignment="Center"
@@ -1295,32 +1664,47 @@
                 <StackPanel>
                     <TextBlock x:Name="CategoryPanelTitle"
                                Text="New category"
-                               FontFamily="{StaticResource DisplayFont}"
+                               FontFamily="{DynamicResource DisplayFont}"
                                FontSize="16"
                                Margin="0,0,0,12" />
-                    <Border Background="{StaticResource Base}"
-                            BorderBrush="{StaticResource Line}"
+                    <Border Background="{DynamicResource Base}"
+                            BorderBrush="{DynamicResource EdgeSunken}"
                             BorderThickness="1"
-                            CornerRadius="8"
+                            CornerRadius="{DynamicResource R8}"
                             Padding="10,8">
                         <TextBox x:Name="CategoryBox"
                                  Style="{StaticResource PlainTextBox}"
                                  KeyDown="OnCategoryKeyDown" />
                     </Border>
                     <TextBlock Text="Enter to save, Esc to cancel"
-                               Foreground="{StaticResource InkFaint}"
+                               Foreground="{DynamicResource InkFaint}"
                                FontSize="11"
                                Margin="2,10,0,0" />
                 </StackPanel>
             </Border>
         </Grid>
 
-        <!-- ===== Photo viewer ===== -->
-        <!-- Spans both rows so it covers the toolbar too: viewing a photo should
-             be the only thing on screen. -->
+        <!-- NEW (experimental themes): the function-key bar of the DOS Commander theme; hidden in every other
+             theme. The keys shown are Clearspace's real shortcuts (^ = Ctrl). -->
+        <Border Grid.Row="2"
+                Background="{DynamicResource BadgeFill}"
+                Padding="8,3"
+                Visibility="{DynamicResource FunctionKeysVisibility}">
+            <StackPanel Orientation="Horizontal">
+                <Button Style="{StaticResource FunctionKey}" Tag="F2" Content="Rename" Command="{Binding RenameCommand}" />
+                <Button Style="{StaticResource FunctionKey}" Tag="F5" Content="Refresh" Command="{Binding RefreshCommand}" />
+                <Button Style="{StaticResource FunctionKey}" Tag="^C" Content="Copy" Command="{Binding CopyCommand}" />
+                <Button Style="{StaticResource FunctionKey}" Tag="^X" Content="Cut" Command="{Binding CutCommand}" />
+                <Button Style="{StaticResource FunctionKey}" Tag="^V" Content="Paste" Command="{Binding PasteCommand}" />
+                <Button Style="{StaticResource FunctionKey}" Tag="^&#x21E7;N" Content="MkDir" Command="{Binding NewFolderCommand}" />
+                <Button Style="{StaticResource FunctionKey}" Tag="Del" Content="Delete" Command="{Binding DeleteCommand}" />
+                <Button Style="{StaticResource FunctionKey}" Tag="^`" Content="Shell" Command="{Binding TerminalCommand}" />
+            </StackPanel>
+        </Border>
+
         <Border Grid.Row="0"
-                Grid.RowSpan="2"
-                Background="#F2141312"
+                Grid.RowSpan="3"
+                Background="{DynamicResource Scrim}"
                 Focusable="True"
                 Visibility="{Binding Viewer.IsOpen, Converter={StaticResource BoolToVisible}}">
             <Grid>
@@ -1330,7 +1714,6 @@
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
 
-                <!-- Header -->
                 <Grid Grid.Row="0" Margin="20,14,16,10">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
@@ -1339,14 +1722,14 @@
 
                     <StackPanel VerticalAlignment="Center">
                         <TextBlock Text="{Binding Viewer.Title}"
-                                   FontFamily="{StaticResource SerifFont}"
+                                   FontFamily="{DynamicResource SerifFont}"
                                    FontSize="15"
-                                   Foreground="{StaticResource Ink}"
+                                   Foreground="{DynamicResource Ink}"
                                    TextTrimming="CharacterEllipsis" />
                         <TextBlock Text="{Binding Viewer.Subtitle}"
                                    FontSize="11"
                                    Margin="0,3,0,0"
-                                   Foreground="{StaticResource InkMuted}" />
+                                   Foreground="{DynamicResource InkMuted}" />
                     </StackPanel>
 
                     <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
@@ -1356,30 +1739,27 @@
                                 Click="OnViewerRotateRight" ToolTip="Rotate right  ·  saves immediately" />
                         <Button Style="{StaticResource ViewerButton}" Content="&#xE7A8;"
                                 Click="OnViewerCrop" ToolTip="Crop" />
-                        <Border Width="1" Margin="8,10" Background="{StaticResource Line}" />
+                        <Border Width="1" Margin="8,10" Background="{DynamicResource Line}" />
                         <Button Style="{StaticResource ViewerButton}" Content="&#xE71F;"
                                 Click="OnViewerZoomOut" ToolTip="Zoom out  ·  &#8722;" />
                         <TextBlock Text="{Binding Viewer.ZoomText}"
                                    MinWidth="46"
                                    VerticalAlignment="Center"
                                    TextAlignment="Center"
-                                   FontFamily="{StaticResource MonoFont}"
+                                   FontFamily="{DynamicResource MonoFont}"
                                    FontSize="11"
-                                   Foreground="{StaticResource InkMuted}" />
+                                   Foreground="{DynamicResource InkMuted}" />
                         <Button Style="{StaticResource ViewerButton}" Content="&#xE8A3;"
                                 Click="OnViewerZoomIn" ToolTip="Zoom in  ·  +" />
                         <Button Style="{StaticResource ViewerButton}" Content="&#xE9A6;"
                                 Click="OnViewerFit" ToolTip="Fit to window  ·  0" />
-                        <Border Width="1" Margin="8,10" Background="{StaticResource Line}" />
+                        <Border Width="1" Margin="8,10" Background="{DynamicResource Line}" />
                         <Button Style="{StaticResource ViewerButton}" Content="&#xE711;"
                                 Click="OnViewerClose" ToolTip="Close  ·  Esc" />
                     </StackPanel>
                 </Grid>
 
-                <!-- Image surface -->
                 <Grid Grid.Row="1">
-                    <!-- Property elements must come before or after the content, never
-                         between children, so the menu is declared first. -->
                     <Grid.ContextMenu>
                         <ContextMenu>
                             <MenuItem Header="Copy image" Click="OnViewerCopyImage" InputGestureText="Ctrl+C" />
@@ -1410,8 +1790,6 @@
                                   PreviewMouseUp="OnViewerSurfaceMouseUp"
                                   LostMouseCapture="OnViewerSurfaceLostMouseCapture"
                                   PreviewMouseLeftButtonDown="OnViewerSurfaceDown">
-                        <!-- The image sizes itself explicitly so the crop overlay can
-                             sit exactly on top of it and map 1:1 to source pixels. -->
                         <Grid x:Name="ViewerStage"
                               HorizontalAlignment="Center"
                               VerticalAlignment="Center"
@@ -1429,9 +1807,9 @@
                                     MouseMove="OnCropMove"
                                     MouseLeftButtonUp="OnCropUp">
                                 <Border x:Name="CropRectangle"
-                                        BorderBrush="{StaticResource Accent}"
+                                        BorderBrush="{DynamicResource Accent}"
                                         BorderThickness="2"
-                                        Background="#20D3A15F"
+                                        Background="{DynamicResource AccentWash}"
                                         Visibility="Collapsed" />
                             </Canvas>
                         </Grid>
@@ -1460,16 +1838,15 @@
                                VerticalAlignment="Bottom"
                                Margin="0,0,0,14"
                                FontSize="11"
-                               Foreground="{StaticResource InkFaint}"
+                               Foreground="{DynamicResource InkFaint}"
                                Visibility="{Binding Viewer.IsLoading, Converter={StaticResource BoolToVisible}}" />
                 </Grid>
 
-                <!-- Footer: crop confirmation, or the last status message -->
                 <Grid Grid.Row="2" Margin="20,8,20,16">
                     <TextBlock Text="{Binding Viewer.Status}"
                                VerticalAlignment="Center"
                                FontSize="11.5"
-                               Foreground="{StaticResource InkMuted}"
+                               Foreground="{DynamicResource InkMuted}"
                                Visibility="{Binding Viewer.HasStatus, Converter={StaticResource BoolToVisible}}" />
 
                     <StackPanel Orientation="Horizontal"
@@ -1491,4 +1868,19 @@
             </Grid>
         </Border>
     </Grid>
+        <ContentControl x:Name="DiskUsageHost" Visibility="Collapsed" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch" Margin="{DynamicResource PageInset}"/>
+        <ContentControl x:Name="IndexingHost" Visibility="Collapsed" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch" Margin="{DynamicResource PageInset}"/>
+        <!-- NEW (sketchbook, round 2): the binding strip (Sketchbook's spiral wire). Hidden in every other theme. -->
+        <Rectangle Width="30"
+                   HorizontalAlignment="Left"
+                   Fill="{DynamicResource BindingFill}"
+                   Visibility="{DynamicResource BindingVisibility}"
+                   IsHitTestVisible="False" />
+        <!-- NEW (experimental themes): a see-through pattern over the whole window (Neon HUD's scanlines).
+             Clicks pass straight through it; hidden in every other theme. -->
+        <Rectangle Fill="{DynamicResource OverlayFill}"
+                   Visibility="{DynamicResource OverlayVisibility}"
+                   IsHitTestVisible="False" />
+    </Grid>
+    </Border>
 </Window>
