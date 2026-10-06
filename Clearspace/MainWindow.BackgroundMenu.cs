@@ -97,7 +97,15 @@ public partial class MainWindow
         menu.Items.Add(create);
         menu.Items.Add(new Separator());
 
+        // NEW (downloads): in a Downloads folder, the strip's switch and the installers list.
+        if (_viewModel.IsDownloadsFolder)
+        {
+            AddDownloadsEntries(menu);
+            menu.Items.Add(new Separator());
+        }
+
         menu.Items.Add(Entry("Disk usage…", "\uE9F9", () => OnDiskUsage(this, new RoutedEventArgs())));
+        menu.Items.Add(Entry("Find duplicates…", "\uE8C8", () => OnFindDuplicates(this, new RoutedEventArgs()))); // NEW (duplicates)
         menu.Items.Add(Entry("Properties", "\uE946", () => _viewModel.PropertiesCommand.Execute(null), "Alt+Enter"));
         return menu;
     }

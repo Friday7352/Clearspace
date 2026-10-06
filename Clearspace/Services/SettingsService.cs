@@ -33,6 +33,20 @@ public sealed class SettingsData
     public bool CheckForUpdates { get; set; } = true;
     public string? SkippedUpdate { get; set; }
 
+    // NEW (preview pane): whether the pane beside the file list is shown, and how wide it was left.
+    public bool ShowPreviewPane { get; set; }
+    public double PreviewPaneWidth { get; set; } = 320;
+
+    // NEW (downloads): the "Just arrived" strip at the top of Downloads folders.
+    public bool ShowJustArrived { get; set; } = true;
+
+    // NEW (downloads): where downloaded files were moved to, to offer the same folder again. Counts of
+    // moves per destination folder, kept per site and per kind of file. See Services/FilingMemory.cs.
+    public Dictionary<string, Dictionary<string, int>> FilingHabits { get; set; } = new(StringComparer.Ordinal);
+
+    // NEW (duplicates): whether Find duplicates also looks in the folders inside the folder.
+    public bool DuplicatesIncludeSubfolders { get; set; } = true;
+
     // NEW (round 18): disk map performance options. GPU acceleration draws the blocks through
     // Direct3D; turning it off uses the CPU rasterizer, which is the right choice on machines whose
     // display driver is unhappy with a shared surface. Low detail mode draws only the folder you are
@@ -122,13 +136,49 @@ public static class SettingsService
 
     public static string SettingsFilePath => FilePath;
 
+    // FIXED (pre-release review): settings are no longer lost when settings.json is damaged.
+    // Save used to write straight over settings.json. A crash, a power cut or a full disk in the middle of
+    // that write left half a file, the next start could not read it, quietly started from defaults, and the
+    // first change after that saved the defaults over what was left: every pin, folder type, column layout
+    // and filing habit gone. Now:
+    //  - Save writes a new file beside it and swaps the two in one step (see Save), keeping the version
+    //    before as settings.json.bak;
+    //  - if what is in settings.json can't be understood, the file is set aside as settings.json.corrupt
+    //    (so it can be looked at, and so the next Save does not push it over the good backup) and the
+    //    backup is used instead. A file that could not even be opened just now (another program has it)
+    //    is left where it is, and the backup is used for this run.
+    // A settings.json that is simply not there still means a fresh start, as before.
+    private static readonly string BackupPath = FilePath + ".bak";
+
     private static SettingsData Load()
     {
+        if (!File.Exists(FilePath))
+            return new SettingsData();
+
+        if (Read(FilePath, out var damaged) is { } settings)
+            return settings;
+
+        if (damaged)
+        {
+            try { File.Move(FilePath, FilePath + ".corrupt", overwrite: true); }
+            catch (Exception) { }
+        }
+
+        return Read(BackupPath, out _) ?? new SettingsData();
+    }
+
+    // The settings in a file, or null. damaged: the file was read from the disk, but what is in it is not
+    // settings (cut short, empty, or not JSON).
+    private static SettingsData? Read(string path, out bool damaged)
+    {
+        damaged = false;
+
         try
         {
-            if (File.Exists(FilePath))
+            if (File.Exists(path))
             {
-                var json = File.ReadAllText(FilePath);
+                var json = File.ReadAllText(path);
+                damaged = true; // until what was read has been understood
                 var loaded = JsonSerializer.Deserialize<SettingsData>(json, Options);
 
                 if (loaded is not null)
@@ -150,16 +200,19 @@ public static class SettingsService
                     loaded.SidebarOverrides = new Dictionary<string, string>(loaded.SidebarOverrides, StringComparer.OrdinalIgnoreCase);
                     loaded.PinnedDirectories = new Dictionary<string, string>(loaded.PinnedDirectories, StringComparer.OrdinalIgnoreCase);
                     loaded.LibraryFolders ??= []; // NEW (your files)
+                    loaded.FilingHabits = new Dictionary<string, Dictionary<string, int>>(   // NEW (downloads)
+                        (loaded.FilingHabits ?? []).Where(pair => pair.Value is { Count: > 0 }), StringComparer.Ordinal);
                     loaded.PinnedCategories ??= [];
                     loaded.PinnedDirectoryCategories = new Dictionary<string, string>(loaded.PinnedDirectoryCategories ?? [], StringComparer.OrdinalIgnoreCase);
                     loaded.PinnedDirectoryOrder ??= [];
                     loaded.SidebarSections ??= [];
                     loaded.SidebarSectionOrder ??= [];
-                    foreach (var path in loaded.PinnedDirectories.Keys)
+                    foreach (var pinned in loaded.PinnedDirectories.Keys)
                     {
-                        if (!loaded.PinnedDirectoryOrder.Contains(path, StringComparer.OrdinalIgnoreCase))
-                            loaded.PinnedDirectoryOrder.Add(path);
+                        if (!loaded.PinnedDirectoryOrder.Contains(pinned, StringComparer.OrdinalIgnoreCase))
+                            loaded.PinnedDirectoryOrder.Add(pinned);
                     }
+                    damaged = false;
                     return loaded;
                 }
             }
@@ -168,15 +221,40 @@ public static class SettingsService
         {
         }
 
-        return new SettingsData();
+        return null;
     }
 
+    private static readonly object SaveGate = new();
+
+    // CHANGED (pre-release review): the new settings are written to settings.json.tmp and then swapped in
+    // (File.Replace is one step for Windows, and keeps the file it replaces as settings.json.bak), so
+    // settings.json is at every moment either the old settings or the new ones, never part of a file.
     public static void Save()
     {
         try
         {
-            System.IO.Directory.CreateDirectory(Directory_);
-            File.WriteAllText(FilePath, JsonSerializer.Serialize(Current, Options));
+            var json = JsonSerializer.Serialize(Current, Options);
+
+            lock (SaveGate)
+            {
+                System.IO.Directory.CreateDirectory(Directory_);
+                var temp = FilePath + ".tmp";
+                File.WriteAllText(temp, json);
+
+                try
+                {
+                    if (File.Exists(FilePath))
+                        File.Replace(temp, FilePath, BackupPath, ignoreMetadataErrors: true);
+                    else
+                        File.Move(temp, FilePath);
+                }
+                catch (Exception error) when (error is IOException or UnauthorizedAccessException or PlatformNotSupportedException)
+                {
+                    // Some network and cloud-synced folders refuse the swap. The new file is complete by
+                    // now, so moving it over the old one is the next best thing.
+                    File.Move(temp, FilePath, overwrite: true);
+                }
+            }
         }
         catch (Exception)
         {
@@ -412,6 +490,61 @@ public static class SettingsService
             return;
 
         Current.CheckForUpdates = value;
+        Save();
+    }
+
+    // NEW (preview pane)
+    public static bool GetShowPreviewPane() => Current.ShowPreviewPane;
+
+    public static void SetShowPreviewPane(bool value)
+    {
+        if (Current.ShowPreviewPane == value)
+            return;
+
+        Current.ShowPreviewPane = value;
+        Save();
+    }
+
+    // The width the pane was dragged to, kept within what the window can sensibly show.
+    public static double GetPreviewPaneWidth()
+    {
+        var width = Current.PreviewPaneWidth;
+        return double.IsFinite(width) ? Math.Clamp(width, 220, 900) : 320;
+    }
+
+    public static void SetPreviewPaneWidth(double value)
+    {
+        if (!double.IsFinite(value) || Math.Abs(Current.PreviewPaneWidth - value) < 1)
+            return;
+
+        Current.PreviewPaneWidth = Math.Clamp(value, 220, 900);
+        Save();
+    }
+
+    // NEW (downloads)
+    public static bool GetShowJustArrived() => Current.ShowJustArrived;
+
+    public static void SetShowJustArrived(bool value)
+    {
+        if (Current.ShowJustArrived == value)
+            return;
+
+        Current.ShowJustArrived = value;
+        Save();
+    }
+
+    // The live notes; FilingMemory changes them and calls Save.
+    internal static Dictionary<string, Dictionary<string, int>> GetFilingHabits() => Current.FilingHabits;
+
+    // NEW (duplicates)
+    public static bool GetDuplicatesIncludeSubfolders() => Current.DuplicatesIncludeSubfolders;
+
+    public static void SetDuplicatesIncludeSubfolders(bool value)
+    {
+        if (Current.DuplicatesIncludeSubfolders == value)
+            return;
+
+        Current.DuplicatesIncludeSubfolders = value;
         Save();
     }
 

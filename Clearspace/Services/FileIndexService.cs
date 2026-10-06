@@ -21,6 +21,8 @@ public static class FileIndexService
     {
         Overlay.LostChanges += root =>
         {
+            // NEW (search trace): until it is caught up again, searches crawl this drive from the disk.
+            SearchTrace.Write($"{root} dropped out of the live index: {Overlay.WhyLost(root)}");
             // CHANGED (journal catch-up): the request is answered from the change journal when possible.
             RequestRescan(root);
             Report($"{root} index needs updating · other drives remain available");
@@ -380,6 +382,7 @@ public static class FileIndexService
             // CHANGED: the watcher now patches the index live through the updater.
             _updater = new FileIndexUpdater(() => _volumes);
             _updater.Failed += Overlay.MarkOverflowed;
+            _updater.Handled += Overlay.Settle; // NEW (search fix): the overlay keeps only what the index has not reached yet
             _updater.Applied += paths =>
             {
                 try { LiveChanged?.Invoke(paths); } catch (Exception) { }
@@ -612,6 +615,8 @@ public static class FileIndexService
             IndexActivity.CatchUpFailed(root, "More changes were missed while catching up; trying again.");
             return false;
         }
+
+        SearchTrace.Write($"{root} is live again after {started.ElapsedMilliseconds} ms (caught up from the change journal)");
 
         lock (RescanRequests) RescanRequests.Remove(root);
         lock (Cursors)
@@ -996,6 +1001,7 @@ public static class FileIndexService
 
             if (_watcher?.IsWatching(root) == true && Overlay.TryRecover(root, recoveryGeneration))
             {
+                SearchTrace.Write($"{root} is live again (full scan)");
                 recovered.Add(root);
                 lock (RescanRequests)
                 {
@@ -1110,6 +1116,7 @@ public static class FileIndexService
         if (volumes.Length == 0 || limit <= 0 || query.IsEmpty)
             return [];
 
+        var clock = Stopwatch.StartNew(); // NEW (search trace)
         var ranked = new List<(int Score, VolumeIndex Volume, int Index)>();
 
         foreach (var volume in volumes)
@@ -1134,6 +1141,8 @@ public static class FileIndexService
         }
 
         ranked.Sort((left, right) => right.Score.CompareTo(left.Score));
+        var scanMs = clock.ElapsedMilliseconds;
+        clock.Restart();
 
         var results = new List<FileSystemItem>(Math.Min(limit, ranked.Count));
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -1154,19 +1163,31 @@ public static class FileIndexService
                 results.Add(item);
         }
 
-        // Entries created since the last full scan. The coordinator ranks everything together.
+        var rowsMs = clock.ElapsedMilliseconds;
+        clock.Restart();
+        var waiting = 0;
+        var looked = 0;
+
+        // Entries created in the last moment, which the index has not reached yet (IndexOverlay.Settle
+        // drops them once it has). The coordinator ranks everything together.
+        // CHANGED (search fix): at most MaxNewLookups of them are looked up on the disk. Each lookup is a
+        // disk access, this runs on every key press, and anything passed over here is in the index a
+        // fraction of a second later.
         if (!token.IsCancellationRequested)
         {
             var added = 0;
+            var waitingPaths = Overlay.AddedPaths();
+            waiting = waitingPaths.Length;
 
-            foreach (var path in Overlay.AddedPaths())
+            foreach (var path in waitingPaths)
             {
-                if (added >= limit || token.IsCancellationRequested)
+                if (added >= limit || looked >= MaxNewLookups || token.IsCancellationRequested)
                     break;
 
                 if (seen.Contains(path) || !IsUnderAnyRoot(path, roots) || !query.MightMatchPath(path))
                     continue;
 
+                looked++;
                 var item = FileSystemItem.FromLocation(path);
 
                 if (item is null || (!showHidden && (item.IsHidden || (item.Attributes & FileAttributes.System) != 0)))
@@ -1180,15 +1201,60 @@ public static class FileIndexService
             }
         }
 
+        LastSearchDetail = $"scan {scanMs} ms over {volumes.Length} drives, rows {rowsMs} ms, new files {looked} looked up of {waiting} waiting in {clock.ElapsedMilliseconds} ms";
         return results;
     }
 
-    public static IReadOnlyList<FileSystemItem> PruneMissing(IReadOnlyList<FileSystemItem> items)
+    private const int MaxNewLookups = 500;
+
+    // NEW (search trace): what the last index search spent its time on. Read by SearchSources for the trace.
+    internal static volatile string? LastSearchDetail;
+
+    // The most results checked on the disk for one search, on drives whose index is behind. They arrive
+    // best first, so these are the ones at the top of the list.
+    internal const int MaxExistenceChecks = 1000;
+
+    // Drops results that are no longer on the disk.
+    // CHANGED (search fix): only results on a drive whose index is NOT being kept up to date are checked.
+    // This used to ask the disk about every result of every search - up to 10,000 of them, after each key
+    // press, and without stopping when the next key replaced the search. The trace of a real search showed
+    // the index scan taking 46 ms and the stage these checks are in taking 50,659 ms (about 5 ms a result,
+    // which is what a seek on a hard disk costs). With a backlog of seeks the whole drive waits, and so
+    // does anything in the window that touches it.
+    // A drive that is live does not need them: the watcher removes a deleted file from the index within a
+    // moment, and IndexOverlay.IsRemoved hides it in between. The checks are for the other case, a drive
+    // still being caught up, whose results come from an older snapshot; there the top MaxExistenceChecks
+    // results are checked. It also stops as soon as the search has been replaced.
+    public static IReadOnlyList<FileSystemItem> PruneMissing(IReadOnlyList<FileSystemItem> items, CancellationToken token = default)
+        => PruneMissing(items, IsRootLive, token, out _);
+
+    // `gone` is told about each missing result; left out, the shared overlay is (so the result stays
+    // hidden until the index has caught up). Tests pass their own so they leave the overlay alone.
+    internal static IReadOnlyList<FileSystemItem> PruneMissing(IReadOnlyList<FileSystemItem> items,
+        Func<string, bool> isLive, CancellationToken token, out int checkedOnDisk, Action<string>? gone = null)
     {
+        gone ??= Overlay.OnDeleted;
         var missing = new List<FileSystemItem>();
+        var live = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
+        checkedOnDisk = 0;
 
         foreach (var item in items)
         {
+            token.ThrowIfCancellationRequested();
+
+            if (item.FullPath.Length >= 3)
+            {
+                var root = item.FullPath[..3];
+                if (!live.TryGetValue(root, out var upToDate))
+                    live[root] = upToDate = isLive(root);
+                if (upToDate)
+                    continue;
+            }
+
+            if (checkedOnDisk >= MaxExistenceChecks)
+                continue;
+            checkedOnDisk++;
+
             // NEW (round 50): on a network drive "not found" is also what a slow or dropped connection
             // says, and marking every hit deleted would hide them until the next rescan. The watcher and
             // rescans keep a network drive's index honest instead.
@@ -1205,7 +1271,7 @@ public static class FileIndexService
             }
 
             missing.Add(item);
-            Overlay.OnDeleted(item.FullPath);
+            gone(item.FullPath);
         }
 
         return missing;

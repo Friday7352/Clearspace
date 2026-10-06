@@ -25,6 +25,26 @@ public sealed class TagAndQueryTests
         Assert.AreEqual(1, tags.TagIdsFor(@"C:\FILE.txt").Count);
     }
 
+    // NEW (search fix): a list of rows reads the tags once (Lookup) instead of asking the database per row.
+    [TestMethod]
+    public void OneLookupAnswersForManyPathsAsTheTagsWereWhenItWasTaken()
+    {
+        var tags = Tags();
+        tags.Assign("one", "work"); tags.Assign("one", "personal"); tags.Assign("two", "work");
+
+        var lookup = tags.Lookup();
+        CollectionAssert.AreEqual(tags.TagsFor("one").Select(tag => tag.Id).ToArray(), lookup.TagsFor("one").Select(tag => tag.Id).ToArray());
+        CollectionAssert.AreEqual(new[] { "work" }, lookup.TagsFor("TWO").Select(tag => tag.Id).ToArray(), "paths match whatever their capitals");
+        Assert.AreEqual(0, lookup.TagsFor("three").Count);
+
+        // A change made afterwards is seen by the store, and by a lookup taken afterwards; the earlier one
+        // keeps answering for the moment it was taken, which is all a list being filled needs.
+        tags.Assign("three", "work");
+        Assert.AreEqual(0, lookup.TagsFor("three").Count);
+        Assert.AreEqual(1, tags.TagsFor("three").Count);
+        Assert.AreEqual(1, tags.Lookup().TagsFor("three").Count);
+    }
+
     [TestMethod]
     public void DeleteRemovesAssignmentsWithoutRemovingOtherTags()
     {
@@ -55,6 +75,55 @@ public sealed class TagAndQueryTests
         tags.MovePath("old", "new");
         Assert.AreEqual(0, tags.TagIdsFor("old").Count);
         Assert.AreEqual(2, tags.TagIdsFor("new").Count);
+    }
+
+    // NEW (pre-release review): several renames at once (batch rename), and a renamed folder.
+    [TestMethod]
+    public void MovePathsKeepsEachItemsOwnTagsWhenNamesShiftAlongOrSwap()
+    {
+        var tags = Tags();
+        tags.Assign("1", "work"); tags.Assign("2", "personal"); tags.Assign("3", "todo");
+
+        tags.MovePaths([("1", "2"), ("2", "3"), ("3", "4")]);
+        Assert.AreEqual(0, tags.TagIdsFor("1").Count);
+        CollectionAssert.AreEqual(new[] { "work" }, tags.TagIdsFor("2").ToArray());
+        CollectionAssert.AreEqual(new[] { "personal" }, tags.TagIdsFor("3").ToArray());
+        CollectionAssert.AreEqual(new[] { "todo" }, tags.TagIdsFor("4").ToArray());
+
+        tags.MovePaths([("2", "3"), ("3", "2")]);
+        CollectionAssert.AreEqual(new[] { "personal" }, tags.TagIdsFor("2").ToArray());
+        CollectionAssert.AreEqual(new[] { "work" }, tags.TagIdsFor("3").ToArray());
+        CollectionAssert.AreEqual(new[] { "todo" }, tags.TagIdsFor("4").ToArray(), "an item that was not renamed keeps its tags");
+    }
+
+    [TestMethod]
+    public void MovePathsCarriesTheTagsOfEverythingInsideARenamedFolder()
+    {
+        var tags = Tags();
+        tags.Assign(@"C:\Old", "work");
+        tags.Assign(@"C:\Old\a.txt", "personal");
+        tags.Assign(@"C:\Old\Sub\b.txt", "todo");
+        tags.Assign(@"C:\Older\c.txt", "work"); // only begins with the same letters; it is not inside C:\Old
+
+        tags.MovePaths([(@"C:\old", @"C:\New")]);
+
+        Assert.IsTrue(tags.HasTag(@"C:\New", "work"));
+        Assert.IsTrue(tags.HasTag(@"C:\New\a.txt", "personal"));
+        Assert.IsTrue(tags.HasTag(@"C:\New\Sub\b.txt", "todo"));
+        Assert.IsTrue(tags.HasTag(@"C:\Older\c.txt", "work"));
+        Assert.AreEqual(0, tags.TagIdsFor(@"C:\Old").Count);
+        Assert.AreEqual(0, tags.TagIdsFor(@"C:\Old\a.txt").Count);
+        Assert.AreEqual(0, tags.TagIdsFor(@"C:\Old\Sub\b.txt").Count);
+    }
+
+    [TestMethod]
+    public void MovePathsLeavesTagsAloneWhenOnlyTheCapitalsOfANameChange()
+    {
+        var tags = Tags();
+        tags.Assign(@"C:\notes.txt", "work");
+        tags.MovePaths([(@"C:\notes.txt", @"C:\Notes.TXT")]);
+        Assert.IsTrue(tags.HasTag(@"C:\Notes.TXT", "work"));
+        Assert.AreEqual(1, tags.Assignments.Count());
     }
 
     [TestMethod]

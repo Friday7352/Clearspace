@@ -16,6 +16,7 @@ namespace Clearspace.Services;
 internal static class IndexSearch
 {
     private const int ChunkSize = 4096;
+    internal static readonly int ScanThreads = Math.Max(1, Environment.ProcessorCount - 2);
     private const int MaxTagTerms = 32;       // 2 bits per word in a ulong
     private const int MaxExplicitTags = 32;   // 1 bit per tag: filter in a uint
     private const int MaxCachedFolders = 65_536;
@@ -226,7 +227,10 @@ internal static class IndexSearch
             {
                 var chunks = (count + ChunkSize - 1) / ChunkSize;
 
-                Parallel.For(0, chunks, new ParallelOptions { CancellationToken = token },
+                // CHANGED (search fix): two cores are left alone. A scan runs on every key press over
+                // every indexed entry (millions); taking all the cores made the window compete with it
+                // for the processor, and held up the thread pool's timers, while you were still typing.
+                Parallel.For(0, chunks, new ParallelOptions { CancellationToken = token, MaxDegreeOfParallelism = ScanThreads },
                     () => new Dictionary<int, FolderInfo>(),
                     (chunk, _, cache) =>
                     {

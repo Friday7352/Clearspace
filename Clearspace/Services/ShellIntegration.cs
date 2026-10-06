@@ -6,6 +6,8 @@
 //    always points at the Clearspace that ran last; nothing is written when it is already correct.
 //  - Folder icon: a locked folder gets a desktop.ini that gives it the locked-folder icon in Explorer.
 //    Any desktop.ini that was already there is kept and restored when the folder is unlocked.
+//  - NEW (folder opener): "Open folders with Clearspace" (Settings menu) makes Clearspace the program
+//    Windows starts for a folder or a drive, and for Win+E. See SetFolderOpener.
 using System.IO;
 using System.Reflection;
 using System.Runtime.InteropServices;
@@ -110,6 +112,11 @@ internal static class ShellIntegration
 
         if (changed) SHChangeNotify(SHCNE_ASSOCCHANGED, SHCNF_IDLIST, IntPtr.Zero, IntPtr.Zero);
 
+        // NEW (folder opener): if "Open folders with Clearspace" is on, keep it pointing at this Clearspace
+        // (it may have been installed somewhere else since). Nothing is written when it already does.
+        if (IsFolderOpener() && !FolderOpenerIsCurrent(exePath))
+            SetFolderOpener(true, exePath);
+
         // REMOVED (Explorer folder gate, reverted): clean up the sign-in entry that build may have added.
         using var run = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Run", writable: true);
         run?.DeleteValue("Clearspace locked folders", throwOnMissingValue: false);
@@ -144,6 +151,10 @@ internal static class ShellIntegration
 
     internal static void Unregister()
     {
+        // NEW (folder opener): removing Clearspace hands folders back to File Explorer.
+        try { SetFolderOpener(false, string.Empty); }
+        catch (Exception) { }
+
         using (var classes = Registry.CurrentUser.OpenSubKey(@"Software\Classes", writable: true))
         {
             if (classes is null) return;
@@ -155,6 +166,137 @@ internal static class ShellIntegration
             classes.DeleteSubKeyTree(@"Directory\shell\Clearspace", throwOnMissingSubKey: false);
         }
         SHChangeNotify(SHCNE_ASSOCCHANGED, SHCNF_IDLIST, IntPtr.Zero, IntPtr.Zero);
+    }
+
+    // ---- NEW (folder opener): Clearspace as the program Windows opens folders with ----
+    //
+    // Windows decides what opens a folder from the "default verb" of the Directory and Drive classes. With
+    // the setting on, both name a verb of ours whose command is the same "--open" Explorer's "Open in
+    // Clearspace" entry uses, so the folder opens in a tab of the Clearspace that is already running (or
+    // starts one). Win+E and the taskbar's File Explorer button go through a class of their own, which gets
+    // the same command pointed at your user folder.
+    //
+    // Everything is written under HKEY_CURRENT_USER (this Windows account only, no administrator rights),
+    // and what was there before is put back when the setting is turned off or Clearspace is uninstalled.
+    // File Explorer itself is not changed or removed: its own windows, the desktop and the file pickers
+    // inside other programs keep working, and "Show in folder" in programs that ask Explorer by name
+    // still opens Explorer.
+
+    private const string OpenerVerb = "Clearspace.OpenFolder";
+    private const string PreviousDefault = "ClearspacePreviousDefault";
+    private const string ExplorerLauncher = @"CLSID\{52205fd8-5dfb-447d-801a-d0b52f2e83e1}";
+    private const string ExplorerLauncherVerb = ExplorerLauncher + @"\shell\opennewwindow";
+    private const string OpenerMarker = "Clearspace";
+    private static readonly string[] OpenerClasses = ["Directory", "Drive"];
+
+    private static string FolderOpenerCommand(string exePath) => $"\"{exePath}\" --open \"%1\"";
+
+    private static string LauncherCommand(string exePath) =>
+        $"\"{exePath}\" --open \"{Environment.GetFolderPath(Environment.SpecialFolder.UserProfile)}\"";
+
+    // True when folders open in Clearspace (the tick in the Settings menu).
+    internal static bool IsFolderOpener()
+    {
+        using var shell = Registry.CurrentUser.OpenSubKey(@"Software\Classes\Directory\shell");
+        return string.Equals(shell?.GetValue(null) as string, OpenerVerb, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool FolderOpenerIsCurrent(string exePath)
+    {
+        foreach (var name in OpenerClasses)
+        {
+            using var command = Registry.CurrentUser.OpenSubKey($@"Software\Classes\{name}\shell\{OpenerVerb}\command");
+            if (command?.GetValue(null) as string != FolderOpenerCommand(exePath))
+                return false;
+        }
+
+        using var launcher = Registry.CurrentUser.OpenSubKey(@"Software\Classes\" + ExplorerLauncherVerb + @"\command");
+        return launcher?.GetValue(null) as string == LauncherCommand(exePath);
+    }
+
+    internal static void SetFolderOpener(bool on, string exePath)
+    {
+        using var classes = Registry.CurrentUser.CreateSubKey(@"Software\Classes", writable: true);
+
+        foreach (var name in OpenerClasses)
+        {
+            // Turning it off only looks at what is there; it never makes a key just to find it empty.
+            using var shell = on
+                ? classes.CreateSubKey(name + @"\shell", writable: true)
+                : classes.OpenSubKey(name + @"\shell", writable: true);
+            if (shell is null)
+                continue;
+
+            var current = shell.GetValue(null) as string;
+            var isOurs = string.Equals(current, OpenerVerb, StringComparison.OrdinalIgnoreCase);
+
+            if (on)
+            {
+                using (var verb = shell.CreateSubKey(OpenerVerb, writable: true))
+                {
+                    verb.SetValue(string.Empty, "Open in Clearspace");
+                    verb.SetValue("Icon", exePath);
+                    // Remember what was the default before (another file manager's verb, usually nothing).
+                    if (!isOurs)
+                    {
+                        if (string.IsNullOrEmpty(current)) verb.DeleteValue(PreviousDefault, throwOnMissingValue: false);
+                        else verb.SetValue(PreviousDefault, current);
+                    }
+                    using var command = verb.CreateSubKey("command", writable: true);
+                    command.SetValue(string.Empty, FolderOpenerCommand(exePath));
+                }
+                shell.SetValue(string.Empty, OpenerVerb);
+            }
+            else
+            {
+                string? previous;
+                using (var verb = shell.OpenSubKey(OpenerVerb)) previous = verb?.GetValue(PreviousDefault) as string;
+                if (isOurs)
+                {
+                    if (string.IsNullOrEmpty(previous)) shell.DeleteValue(string.Empty, throwOnMissingValue: false);
+                    else shell.SetValue(string.Empty, previous);
+                }
+                shell.DeleteSubKeyTree(OpenerVerb, throwOnMissingSubKey: false);
+            }
+        }
+
+        if (!on)
+        {
+            // "Drive" had nothing of Clearspace's before; leave no empty keys behind.
+            DeleteIfEmpty(classes, @"Drive\shell");
+            DeleteIfEmpty(classes, "Drive");
+        }
+
+        // Win+E and the taskbar's File Explorer button.
+        if (on)
+        {
+            using var command = classes.CreateSubKey(ExplorerLauncherVerb + @"\command", writable: true);
+            command.SetValue(string.Empty, LauncherCommand(exePath));
+            command.SetValue("DelegateExecute", string.Empty); // without this Windows ignores the command above
+            command.SetValue(OpenerMarker, "1");               // so turning it off only removes what Clearspace wrote
+        }
+        else
+        {
+            bool ours;
+            using (var command = classes.OpenSubKey(ExplorerLauncherVerb + @"\command"))
+                ours = command?.GetValue(OpenerMarker) is not null;
+
+            if (ours)
+            {
+                classes.DeleteSubKeyTree(ExplorerLauncherVerb, throwOnMissingSubKey: false);
+                DeleteIfEmpty(classes, ExplorerLauncher + @"\shell");
+                DeleteIfEmpty(classes, ExplorerLauncher);
+            }
+        }
+
+        SHChangeNotify(SHCNE_ASSOCCHANGED, SHCNF_IDLIST, IntPtr.Zero, IntPtr.Zero);
+    }
+
+    private static void DeleteIfEmpty(RegistryKey parent, string name)
+    {
+        using (var key = parent.OpenSubKey(name))
+            if (key is null || key.SubKeyCount > 0 || key.ValueCount > 0) return;
+        parent.DeleteSubKey(name, throwOnMissingSubKey: false);
     }
 
     // ---- Locked-folder icon (desktop.ini) ----

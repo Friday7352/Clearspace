@@ -113,6 +113,11 @@ Root: HKCU; Subkey: "Software\Classes\.cslock"; Flags: uninsdeletekey dontcreate
 Root: HKCU; Subkey: "Software\Classes\Clearspace.LockedFile"; Flags: uninsdeletekey dontcreatekey
 Root: HKCU; Subkey: "Software\Classes\*\shell\Clearspace.Lock"; Flags: uninsdeletekey dontcreatekey
 Root: HKCU; Subkey: "Software\Classes\Directory\shell\Clearspace"; Flags: uninsdeletekey dontcreatekey
+; NEW (folder opener): "Open folders with Clearspace". The uninstaller runs "Clearspace.exe --unregister-shell"
+; first (CurUninstallStepChanged), which puts back what Windows did with folders before; these two lines
+; only make sure the verb's own keys are gone even when that step could not run.
+Root: HKCU; Subkey: "Software\Classes\Directory\shell\Clearspace.OpenFolder"; Flags: uninsdeletekey dontcreatekey
+Root: HKCU; Subkey: "Software\Classes\Drive\shell\Clearspace.OpenFolder"; Flags: uninsdeletekey dontcreatekey
 
 [Icons]
 Name: "{autoprograms}\Clearspace"; Filename: "{app}\Clearspace.exe"; WorkingDir: "{app}"; Comment: "Clearspace file explorer"
@@ -507,6 +512,47 @@ begin
   end;
 end;
 
+{ NEW (pre-release review): a safety net for "Open folders with Clearspace".
+  "Clearspace.exe --unregister-shell" (run just before this) hands folders back to File Explorer. If it could
+  not run (Clearspace.exe damaged or already gone), Windows would be left starting a program that no longer
+  exists for Win+E and the taskbar's File Explorer button, and naming a missing entry as the way to open a
+  folder. This does the same undoing from here, and only touches what Clearspace wrote: the default entry
+  when it still names Clearspace's, and the Win+E command when it carries Clearspace's marker. When
+  --unregister-shell did its work there is nothing left for this to find. Keep the names in step with
+  Clearspace\Services\ShellIntegration.cs (SetFolderOpener). }
+procedure RestoreFolderOpenerDefault(const ClassName: String);
+var
+  ShellKey, Current, Previous: String;
+begin
+  ShellKey := 'Software\Classes\' + ClassName + '\shell';
+  if RegQueryStringValue(HKCU, ShellKey, '', Current) and (CompareText(Current, 'Clearspace.OpenFolder') = 0) then
+  begin
+    if RegQueryStringValue(HKCU, ShellKey + '\Clearspace.OpenFolder', 'ClearspacePreviousDefault', Previous) and (Previous <> '') then
+      RegWriteStringValue(HKCU, ShellKey, '', Previous)
+    else
+      RegDeleteValue(HKCU, ShellKey, '');
+  end;
+  RegDeleteKeyIncludingSubkeys(HKCU, ShellKey + '\Clearspace.OpenFolder');
+end;
+
+procedure RemoveFolderOpenerLeftovers;
+var
+  Launcher: String;
+begin
+  RestoreFolderOpenerDefault('Directory');
+  RestoreFolderOpenerDefault('Drive');
+  RegDeleteKeyIfEmpty(HKCU, 'Software\Classes\Drive\shell');
+  RegDeleteKeyIfEmpty(HKCU, 'Software\Classes\Drive');
+
+  Launcher := 'Software\Classes\CLSID\{52205fd8-5dfb-447d-801a-d0b52f2e83e1}';
+  if RegValueExists(HKCU, Launcher + '\shell\opennewwindow\command', 'Clearspace') then
+  begin
+    RegDeleteKeyIncludingSubkeys(HKCU, Launcher + '\shell\opennewwindow');
+    RegDeleteKeyIfEmpty(HKCU, Launcher + '\shell');
+    RegDeleteKeyIfEmpty(HKCU, Launcher);
+  end;
+end;
+
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
 var
   ResultCode: Integer;
@@ -517,6 +563,7 @@ begin
     { Before the files go: close Clearspace, then take its entries out of Explorer. }
     RunClearspace('--quit', SW_HIDE);
     RunClearspace('--unregister-shell', SW_HIDE);
+    RemoveFolderOpenerLeftovers; { NEW (pre-release review): in case the line above could not run }
     RegDeleteValue(HKCU, 'Software\Microsoft\Windows\CurrentVersion\Run', 'Clearspace locked folders');
 
     { NEW (journal catch-up): removing Clearspace also removes the index helper service, if it was

@@ -249,10 +249,79 @@ public static class ThumbnailService
                     System.Windows.Threading.DispatcherPriority.Background,
                     () => request.Item.Thumbnail = source);
             }
+            catch (Exception)
+            {
+                // FIXED (pre-release review): one picture that can't be made must not stop the worker. This
+                // loop had no catch, and Extract calls into Windows' thumbnail providers, the video frame
+                // reader and the drawing code; anything unexpected thrown from there ended this thread, and
+                // an exception that ends a background thread closes the whole program. The tile keeps its
+                // icon instead. (MediaPropertyService's worker already did this.)
+            }
             finally
             {
                 Pending.TryRemove(request.CacheKey, out _);
             }
+        }
+    }
+
+    // NEW (preview pane): one large picture of an item for the preview pane: the photo itself, a video's
+    // frame, the page Windows draws for a document, or the item's icon. The same rules as a tile (Extract),
+    // including never downloading a cloud file just to draw it. It runs on a short-lived thread of its
+    // own (Windows' thumbnail interfaces want a single-threaded one), so the tile queue is not held up,
+    // and the picture is not kept in the tile cache.
+    internal static Task<ImageSource?> PreviewAsync(FileSystemItem item, int size)
+    {
+        var done = new TaskCompletionSource<ImageSource?>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var thread = new Thread(() =>
+        {
+            try
+            {
+                ImageSource? picture = null;
+                if (!item.IsFolder && !item.IsOnlineOnly && MediaTypes.IsImage(item.Extension))
+                    picture = LoadPreviewImage(item.FullPath, size);
+                done.SetResult(picture ?? Extract(item, size));
+            }
+            catch (Exception) { done.SetResult(null); }
+        })
+        {
+            IsBackground = true,
+            Name = "Clearspace preview"
+        };
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+        return done.Task;
+    }
+
+    // A picture at its own size, or scaled down to `size` when it is wider. (A tile is always scaled to the
+    // tile's width, which would blow a small picture up into a blur in the preview pane.) Null when Windows
+    // has no decoder for the format; the caller then falls back to what a tile would show.
+    private static BitmapSource? LoadPreviewImage(string path, int size)
+    {
+        try
+        {
+            int width;
+            using (var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete))
+            {
+                var frame = BitmapFrame.Create(stream,
+                    BitmapCreateOptions.DelayCreation | BitmapCreateOptions.IgnoreColorProfile, BitmapCacheOption.None);
+                width = frame.PixelWidth;
+            }
+
+            var image = new BitmapImage();
+            image.BeginInit();
+            image.UriSource = new Uri(path, UriKind.Absolute);
+            if (width > size)
+                image.DecodePixelWidth = size;
+            image.CacheOption = BitmapCacheOption.OnLoad;
+            image.CreateOptions = BitmapCreateOptions.IgnoreColorProfile |
+                                  BitmapCreateOptions.IgnoreImageCache;
+            image.EndInit();
+            image.Freeze();
+            return image;
+        }
+        catch (Exception)
+        {
+            return null;
         }
     }
 

@@ -64,6 +64,12 @@ public sealed class CommandManager
         Add(new NewWindowAction(context));
         Add(new OpenInNewWindowAction(context));
 
+        // NEW (preview pane)
+        Add(new TogglePreviewPaneAction(context));
+
+        // NEW (map network drive)
+        Add(new MapNetworkDriveAction(context));
+
         void Add(IAction action) => _commands[action.Code] = new RichCommand(action, context);
     }
 

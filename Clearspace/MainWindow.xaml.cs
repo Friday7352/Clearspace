@@ -135,12 +135,21 @@ public partial class MainWindow : Window
         InitializeBackgroundMenu(); // NEW (empty-area menu): remembers the files-and-folders menu, reads the "New" templates
         InitializeTabs(); // NEW (tabs): the tab strip's mouse and keyboard handling, and each tab's scroll position and selection
         InitializeWindows(); // NEW (new window): "Open in new window" and Ctrl+N
+        InitializeBatchRename(); // NEW (batch rename): Rename with several items selected
+        InitializePreview(); // NEW (preview pane): Alt+P, the pane beside the file list
+        InitializeDuplicates(); // NEW (duplicates): the Find duplicates page, and selecting a file it sends you to
+        InitializeNetworkDrives(); // NEW (map network drive): "Map network drive…" and "Disconnect"
+        InitializeDownloads(); // NEW (downloads): the "Just arrived" strip of Downloads folders
+        InitializeDragScroll(); // NEW (scroll while dragging): the edges of a list and the mouse wheel, during a drag
+        InitializeBandSelect(); // NEW (drag to select): a rectangle dragged over the file list selects what it touches
+        SearchTrace.WatchWindow(Dispatcher); // NEW (search trace): records when the window stops responding, and during what
         _viewModel.Context.NewLibraryFolder = CreateLibraryFolder; // NEW (your files): New folder on the Your files page
         // NEW (experimental themes): keeps the Zen theme's fading toolbar in step with the pointer and keyboard.
         ToolbarRow.MouseEnter += (_, _) => UpdateToolbarFade();
         ToolbarRow.MouseLeave += (_, _) => UpdateToolbarFade();
         ToolbarRow.IsKeyboardFocusWithinChanged += (_, _) => UpdateToolbarFade();
-        Closed += (_, _) => { ThemeService.Changed -= OnThemeChanged; _indexingView?.Dispose(); _diskUsageView?.Dispose(); _viewModel.Dispose(); };
+        // CHANGED (duplicates): also stops a duplicate search that is still running.
+        Closed += (_, _) => { ThemeService.Changed -= OnThemeChanged; _indexingView?.Dispose(); _diskUsageView?.Dispose(); _duplicatesView?.Dispose(); _viewModel.Dispose(); };
         PreviewKeyDown += OnPreviewKeyDown;
         PreviewMouseDown += OnWindowMouseDown;
         PreviewMouseMove += OnSidebarMouseMove;
@@ -159,9 +168,27 @@ public partial class MainWindow : Window
             .AddValueChanged(FileList, (_, _) => ApplyColumns());
 
         // NEW (folder types, step 2): date groups (Screenshots) follow the list and the view model.
+        // CHANGED (search fix): also notes the moment, so the time until the list has been laid out again
+        // can be written to the search trace (SearchTrace.ListDrawn). Giving the list new contents makes
+        // it build every row on screen again; that time is what typing waits for.
         DependencyPropertyDescriptor
             .FromProperty(ItemsControl.ItemsSourceProperty, typeof(ListView))
-            .AddValueChanged(FileList, (_, _) => ApplyGrouping());
+            .AddValueChanged(FileList, (_, _) =>
+            {
+                EndBand(keep: true); // NEW (drag to select): a rectangle being dragged belongs to the old list
+                _listReplacedAt = System.Diagnostics.Stopwatch.GetTimestamp();
+                ApplyGrouping();
+            });
+        FileList.LayoutUpdated += (_, _) =>
+        {
+            if (_listReplacedAt == 0)
+                return;
+
+            var took = System.Diagnostics.Stopwatch.GetElapsedTime(_listReplacedAt).TotalMilliseconds;
+            _listReplacedAt = 0;
+            SearchTrace.ListDrawn(took, FileList.Items.Count,
+                FileList.View is null ? "tiles" : FileList.Items.GroupDescriptions.Count > 0 ? "details in groups" : "details");
+        };
         _viewModel.PropertyChanged += (_, e) =>
         {
             if (e.PropertyName == nameof(MainViewModel.ListGrouping))
@@ -416,6 +443,7 @@ public partial class MainWindow : Window
             return;
 
         TickCurrentTheme(menu);
+        TickFolderOpener(); // NEW (folder opener): ticked while Windows opens folders with Clearspace
     }
 
     // CHANGED (experimental themes): also looks inside submenus (the experimental themes have their own).
@@ -478,6 +506,16 @@ public partial class MainWindow : Window
 
     private void OnPreviewKeyDown(object sender, KeyEventArgs e)
     {
+        // NEW (drag to select): Esc while a selection rectangle is out puts the selection back as it was.
+        // Every other key is swallowed until the button is let go: the arrow keys, Space or Ctrl+A would
+        // change the selection under the rectangle while it is keeping its own count of it.
+        if (_bandActive)
+        {
+            if (e.Key == Key.Escape) EndBand(keep: false);
+            e.Handled = true;
+            return;
+        }
+
         if (_indexingView is not null)
         {
             if (e.Key == Key.Escape) { CloseIndexing(); e.Handled = true; }
@@ -488,6 +526,12 @@ public partial class MainWindow : Window
         if (_diskUsageView is not null)
         {
             if (e.Key == Key.F3) { _diskUsageView.ToggleMapStats(); e.Handled = true; }
+            return;
+        }
+        // NEW (duplicates): Esc goes back to the files; the explorer's own shortcuts are off meanwhile.
+        if (_duplicatesView is not null)
+        {
+            if (e.Key == Key.Escape) { CloseDuplicates(); e.Handled = true; }
             return;
         }
         // NEW (tabs): Ctrl+T, Ctrl+W, Ctrl+Tab ... work wherever the keyboard is, including the search and
@@ -601,6 +645,12 @@ public partial class MainWindow : Window
             return;
         }
         if (_diskUsageView is not null) return;
+        // NEW (duplicates): the mouse's back button leaves the page, like Esc.
+        if (_duplicatesView is not null)
+        {
+            if (e.ChangedButton == MouseButton.XButton1) { CloseDuplicates(); e.Handled = true; }
+            return;
+        }
         if (e.ChangedButton is not (MouseButton.XButton1 or MouseButton.XButton2))
             return;
 
@@ -798,7 +848,10 @@ public partial class MainWindow : Window
         _sidebarDragEntry = null;
         var sourceButton = _sidebarDragSource;
         _sidebarDragSource = null;
-        DragDrop.DoDragDrop(sourceButton, new DataObject(typeof(SidebarEntry), source), DragDropEffects.Move);
+        // CHANGED (scroll while dragging): the wheel is listened for while the drag lasts.
+        BeginDragScroll();
+        try { DragDrop.DoDragDrop(sourceButton, new DataObject(typeof(SidebarEntry), source), DragDropEffects.Move); }
+        finally { EndDragScroll(); }
     }
 
     private void OnSidebarMouseUp(object sender, MouseButtonEventArgs e)
@@ -1098,15 +1151,41 @@ public partial class MainWindow : Window
     }
 
 
+    // CHANGED (drag to select): a drag moves the file only when it starts on the file itself: its icon or
+    // text in the details view, anywhere on its tile in the tile view. From the blank part of a row (the
+    // row's own background) or from empty space, a drag draws a selection rectangle instead; see
+    // MainWindow.BandSelect.cs. A plain click on the blank part of a row still selects the row.
     private void OnFileListPreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
-        _isFileDragPending = FindAncestor<ListViewItem>(e.OriginalSource as DependencyObject) is not null;
+        var source = e.OriginalSource as DependencyObject;
+        var row = FindAncestor<ListViewItem>(source);
+        var onBlankOfRow = FileList.View is not null && source is Border { TemplatedParent: ListViewItem };
+
+        _isFileDragPending = row is not null && !onBlankOfRow;
         _fileDragStart = e.GetPosition(FileList);
+        NoteBandPress(e, row, _isFileDragPending);
     }
 
     private void OnFileListPreviewMouseMove(object sender, MouseEventArgs e)
     {
-        if (!_isFileDragPending || e.LeftButton != MouseButtonState.Pressed)
+        // NEW (drag to select)
+        if (e.LeftButton != MouseButtonState.Pressed)
+        {
+            _bandPending = false;
+            return;
+        }
+
+        if (_bandActive)
+        {
+            // The rectangle's own layer normally hears the mouse; this is for when it could not take it.
+            if (BandArea is { } area) { _bandPointer = e.GetPosition(area); _bandDirty = true; }
+            return;
+        }
+
+        if (TryBeginBand(e))
+            return;
+
+        if (!_isFileDragPending)
             return;
 
         var point = e.GetPosition(FileList);
@@ -1126,7 +1205,10 @@ public partial class MainWindow : Window
             return;
 
         var data = new DataObject(DataFormats.FileDrop, paths);
-        DragDrop.DoDragDrop(FileList, data, DragDropEffects.Copy | DragDropEffects.Move);
+        // CHANGED (scroll while dragging): the wheel is listened for while the drag lasts.
+        BeginDragScroll();
+        try { DragDrop.DoDragDrop(FileList, data, DragDropEffects.Copy | DragDropEffects.Move); }
+        finally { EndDragScroll(); }
     }
 
     private void OnFileListDragOver(object sender, DragEventArgs e)
@@ -1314,6 +1396,8 @@ public partial class MainWindow : Window
 
     // ------------------------------------------------------------------ NEW (folder types, step 2)
 
+    private long _listReplacedAt; // NEW (search fix): when the list last got new contents; 0 once that has been laid out
+
     private void ApplyGrouping()
     {
         if (FileList.ItemsSource is null)
@@ -1329,6 +1413,7 @@ public partial class MainWindow : Window
         if (want == have)
             return;
 
+        using (SearchTrace.During("changing how the list is grouped")) // NEW (search fix): named in the search trace
         using (view.DeferRefresh())
         {
             view.GroupDescriptions.Clear();
@@ -1711,6 +1796,14 @@ public partial class MainWindow : Window
             return;
         }
 
+        // NEW (map network drive): so does empty space on the This PC and Network pages (Map network drive, Refresh).
+        if (!onHeaderOrScrollBar && _viewModel.IsDrivesPage)
+        {
+            FileList.UnselectAll();
+            FileList.ContextMenu = BuildDrivesPageMenu();
+            return;
+        }
+
         if (onHeaderOrScrollBar || !Directory.Exists(_viewModel.CurrentPath))
         {
             FileList.ContextMenu = _itemMenu;
@@ -1723,21 +1816,29 @@ public partial class MainWindow : Window
 
     private void OnSelectionChanged(object sender, SelectionChangedEventArgs e)
     {
+        // NEW (drag to select): while a selection rectangle is being dragged, rows go in and out of the
+        // selection many times a second. The rest of the window is told a few times a second and once at
+        // the end (PushBandSelection), not for every row.
+        if (_bandQuiet)
+        {
+            _bandChanged = true;
+            return;
+        }
+
         _viewModel.Context.SelectedItems = FileList.SelectedItems
             .Cast<FileSystemItem>()
             .ToList();
     }
 
+    // FIXED (pre-release review): the new selection is set in one step (SetSelection, in MainWindow.BandSelect.cs).
+    // It used to be cleared and then built up one row at a time. Each row added made the list look through
+    // its selection and told the rest of the window (status line, toolbar, tags, preview) about a selection
+    // one row larger, so the work grew with the square of the folder's size: in a folder of twenty thousand
+    // files the window stopped responding for a long while.
     private void InvertSelection()
     {
         var selected = FileList.SelectedItems.Cast<FileSystemItem>().ToHashSet();
-
-        FileList.SelectedItems.Clear();
-        foreach (var item in _viewModel.Items)
-        {
-            if (!selected.Contains(item))
-                FileList.SelectedItems.Add(item);
-        }
+        SetSelection([.. _viewModel.Items.Where(item => !selected.Contains(item))]);
     }
 
 

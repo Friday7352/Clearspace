@@ -51,6 +51,58 @@ public sealed class NavigationAndSidebarTests
         Assert.AreEqual(1, prepared);
     }
 
+    // NEW (date order): a list sorted and grouped by date (Downloads) puts the newest thing first whether
+    // it is a file or a folder. Everywhere else folders still come before files.
+    [TestMethod]
+    public async Task DateGroupedFoldersListFilesAndFoldersTogetherNewestFirst()
+    {
+        var oldFolder = new FileSystemItem
+        {
+            Name = "Old game", FullPath = @"D:\Downloads\Old game",
+            Attributes = FileAttributes.Directory, DateModified = new DateTime(2026, 9, 19, 14, 13, 0)
+        };
+        var todaysFile = new FileSystemItem
+        {
+            Name = "Setup.exe", FullPath = @"D:\Downloads\Setup.exe",
+            Attributes = FileAttributes.Archive, DateModified = new DateTime(2026, 10, 2, 9, 17, 0)
+        };
+        var newerFolder = new FileSystemItem
+        {
+            Name = "Unpacked today", FullPath = @"D:\Downloads\Unpacked today",
+            Attributes = FileAttributes.Directory, DateModified = new DateTime(2026, 10, 2, 9, 30, 0)
+        };
+
+        using var coordinator = new NavigationCoordinator((_, _, _) => [oldFolder, todaysFile, newerFolder], (_, _) => { });
+        var quiet = new InlineProgress<IReadOnlyList<FileSystemItem>>(_ => { });
+
+        using (var load = coordinator.BeginLoad())
+        {
+            var together = await coordinator.LoadDirectoryAsync(load, @"D:\Downloads",
+                new(false, SortColumn.DateModified, true, false, false, FoldersFirst: false), quiet);
+            CollectionAssert.AreEqual(new[] { "Unpacked today", "Setup.exe", "Old game" }, together.Select(item => item.Name).ToArray(),
+                "today's download is not hidden behind an older folder");
+        }
+
+        using (var load = coordinator.BeginLoad())
+        {
+            var foldersFirst = await coordinator.LoadDirectoryAsync(load, @"D:\Downloads",
+                new(false, SortColumn.DateModified, true, false, false), quiet);
+            CollectionAssert.AreEqual(new[] { "Unpacked today", "Old game", "Setup.exe" }, foldersFirst.Select(item => item.Name).ToArray(),
+                "the usual order: folders, then files, each newest first");
+        }
+
+        // A change merged into the list later lands by the same rule.
+        var arrived = new FileSystemItem
+        {
+            Name = "Newest.zip", FullPath = @"D:\Downloads\Newest.zip",
+            Attributes = FileAttributes.Archive, DateModified = new DateTime(2026, 10, 2, 11, 0, 0)
+        };
+        using var later = new NavigationCoordinator((_, _, _) => [oldFolder, todaysFile, newerFolder, arrived], (_, _) => { });
+        var changes = await later.ReadChangesAsync(@"D:\Downloads", [newerFolder, todaysFile, oldFolder],
+            new(false, SortColumn.DateModified, true, false, false, FoldersFirst: false), CancellationToken.None);
+        CollectionAssert.AreEqual(new[] { "Newest.zip", "Unpacked today", "Setup.exe", "Old game" }, changes.Items.Select(item => item.Name).ToArray());
+    }
+
     [TestMethod]
     public async Task PermissionFailureRemainsDistinctForUserFeedback()
     {

@@ -69,6 +69,13 @@ public sealed class ExplorerContext : ObservableObject
 
     public Action<FileSystemItem?>? BeginRename { get; set; }
 
+    // NEW (batch rename): Rename with several items selected opens the batch rename dialog instead of the
+    // single-name box. Set by the main window (the dialog is the window's).
+    public Action<IReadOnlyList<FileSystemItem>>? BeginBatchRename { get; set; }
+
+    // NEW (preview pane): shows or hides the preview pane beside the file list. Set by the main window.
+    public Action? TogglePreviewPane { get; set; }
+
     public Func<string, Task<bool>>? OpenLockedFile { get; set; }
 
     public Action? SelectAll { get; set; }
@@ -87,6 +94,10 @@ public sealed class ExplorerContext : ObservableObject
     // NEW (your files): makes a new folder of your own on the Your files page and starts renaming it.
     // Set by the main window (the renaming box is the window's).
     public Action? NewLibraryFolder { get; set; }
+
+    // NEW (map network drive): opens the Map network drive dialog. Set by the main window (the dialog is
+    // the window's).
+    public Action? MapNetworkDrive { get; set; }
 
     public string[] SelectedPaths => SelectedItems.Select(item => item.FullPath).ToArray();
 }

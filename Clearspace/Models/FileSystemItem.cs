@@ -126,9 +126,11 @@ public sealed class FileSystemItem : ObservableObject
 
     // CHANGED (lock icons): every place that refreshes a row's tags (folder loads, search results, renames)
     // now also refreshes its lock badge.
-    internal void RefreshTags()
+    // CHANGED (search fix): a caller with many rows passes one TagService.Lookup() for all of them, so the
+    // tag database is asked once for the list and not once per row.
+    internal void RefreshTags(TagStore.TagLookup? tags = null)
     {
-        Tags = TagService.TagsFor(FullPath);
+        Tags = tags is null ? TagService.TagsFor(FullPath) : tags.TagsFor(FullPath);
         RefreshLock();
     }
 

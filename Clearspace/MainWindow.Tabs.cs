@@ -425,7 +425,8 @@ public partial class MainWindow
     {
         // The photo viewer pans with the middle button, and the other views have no tabs.
         if (e.ChangedButton != MouseButton.Middle ||
-            _indexingView is not null || _diskUsageView is not null || _viewModel.Viewer.IsOpen)
+            _indexingView is not null || _diskUsageView is not null || _duplicatesView is not null || // CHANGED (duplicates)
+            _viewModel.Viewer.IsOpen)
             return;
 
         if (e.OriginalSource is not Visual source)

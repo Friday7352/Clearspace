@@ -57,6 +57,10 @@ internal static class DriveHardwareProbe
 {
     private static readonly ConcurrentDictionary<string, DriveHardware> Known = new(StringComparer.OrdinalIgnoreCase);
 
+    // NEW (map network drive): a letter that was just mapped or disconnected may be another server next
+    // time, so what was remembered for it is dropped (called from NetworkMapping).
+    public static void Forget(string root) => Known.TryRemove(root, out _);
+
     /// <summary>What a drive is. Talks to the device (or, for a network drive, only to Windows' own table of
     /// mapped drives), so call it off the UI thread.</summary>
     public static DriveHardware For(string root, bool network)

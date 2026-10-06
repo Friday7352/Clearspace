@@ -19,7 +19,10 @@ internal sealed class SearchSources : ISearchSources
         {
             try
             {
-                if (!drive.IsReady || drive.DriveType == DriveType.Network) continue;
+                // CHANGED (search fix): the kind of drive is asked first. It is known without touching the
+                // drive, whereas IsReady asks the drive itself - for a network drive that is a round trip to
+                // the server, on the UI thread, at the start of every search.
+                if (drive.DriveType == DriveType.Network || !drive.IsReady) continue;
                 var root = drive.RootDirectory.FullName;
                 if (!roots.Contains(root, StringComparer.OrdinalIgnoreCase)) roots.Add(root);
             }
@@ -43,13 +46,31 @@ internal sealed class SearchSources : ISearchSources
         bool hidden, int limit, CancellationToken token)
         => Task.Run<IReadOnlyList<FileSystemItem>>(() => FileIndexService.Search(query, roots, hidden, limit, token), token);
 
+    // CHANGED (search fix): stops as soon as the search has been replaced by a newer one. Each key press
+    // starts a search, and a broad one has up to 10,000 results to give icons to and to check on the disk;
+    // those jobs used to run to the end one after another behind the search you were waiting for.
     public Task<IReadOnlyList<FileSystemItem>> FinishIndexAsync(IReadOnlyList<FileSystemItem> items, CancellationToken token)
         => Task.Run<IReadOnlyList<FileSystemItem>>(() =>
         {
-            token.ThrowIfCancellationRequested();
-            Populate(items);
-            return FileIndexService.PruneMissing(items);
+            var clock = System.Diagnostics.Stopwatch.StartNew();
+            var rows = items as FileSystemItem[] ?? [.. items];
+            var tags = TagService.Lookup();
+            for (var start = 0; start < rows.Length; start += 256)
+            {
+                token.ThrowIfCancellationRequested();
+                Populate(new ArraySegment<FileSystemItem>(rows, start, Math.Min(256, rows.Length - start)), tags);
+            }
+
+            var dressedMs = clock.ElapsedMilliseconds;
+            clock.Restart();
+            var missing = FileIndexService.PruneMissing(items, token);
+            _finishDetail = $"icons, types and tags for {rows.Length:N0} rows {dressedMs} ms, on-disk checks {clock.ElapsedMilliseconds} ms, {missing.Count:N0} gone";
+            return missing;
         }, token);
+
+    private volatile string? _finishDetail;
+    public string? IndexDetail => FileIndexService.LastSearchDetail; // NEW (search trace)
+    public string? FinishDetail => _finishDetail;                    // NEW (search trace)
 
     public Task<IReadOnlyList<FileSystemItem>> WindowsAsync(SearchQuery query, IReadOnlyList<string> roots,
         bool contents, bool hidden, int limit, CancellationToken token)
@@ -78,10 +99,12 @@ internal sealed class SearchSources : ISearchSources
                 progress.Report(batch);
             }), limit, token), token);
 
-    private static void Populate(IReadOnlyList<FileSystemItem> items)
+    // CHANGED (search fix): one read of the tags for the whole list (it was one database round trip per row).
+    private static void Populate(IReadOnlyList<FileSystemItem> items, TagStore.TagLookup? tags = null)
     {
         IconService.Populate(items);
         IconService.PopulateTypeNames(items);
-        foreach (var item in items) item.RefreshTags();
+        tags ??= TagService.Lookup();
+        foreach (var item in items) item.RefreshTags(tags);
     }
 }

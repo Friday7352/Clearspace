@@ -35,6 +35,11 @@ internal sealed class FileIndexUpdater : IDisposable
     public event Action<IReadOnlyList<string>>? Applied;
     public event Action<string>? Failed;
 
+    // NEW (search fix): raised on the updater thread with every path of a batch that was dealt with,
+    // whether or not the index changed (a temporary file that was created and deleted again changes
+    // nothing, but it has been dealt with). IndexOverlay forgets these paths.
+    public event Action<IReadOnlyList<string>>? Handled;
+
     // NEW (checkpoint fix): how many changes were queued and how many have been applied, so a journal
     // position is only saved once every change from before it has actually reached the index.
     private long _enqueued, _applied;
@@ -135,6 +140,7 @@ internal sealed class FileIndexUpdater : IDisposable
     private void ApplyBatch(List<(ChangeKind Kind, string Path)> batch, CancellationToken token)
     {
         var applied = new List<string>();
+        var handled = new List<string>(); // NEW (search fix)
         foreach (var (kind, path) in Coalesce(batch))
         {
             VolumeIndex? volume = null;
@@ -145,6 +151,7 @@ internal sealed class FileIndexUpdater : IDisposable
                     volume = Array.Find(_volumes(), v => path.StartsWith(v.Root, StringComparison.OrdinalIgnoreCase));
                     if (volume is not null && Apply(volume, kind, path, token)) applied.Add(path);
                 }
+                handled.Add(path);
             }
             catch (OperationCanceledException) { throw; }
             catch (Exception exception)
@@ -152,6 +159,10 @@ internal sealed class FileIndexUpdater : IDisposable
                 Trace.WriteLine($"Clearspace: could not apply a change to the index for {path}. {exception.Message}");
                 if (volume is not null) Failed?.Invoke(volume.Root);
             }
+        }
+        if (handled.Count > 0)
+        {
+            try { Handled?.Invoke(handled); } catch (Exception) { }
         }
         if (applied.Count > 0) Applied?.Invoke(applied);
     }

@@ -23,14 +23,42 @@ public static class FileOperationService
         return Run(FileOperationKind.Delete, paths, null, flags, owner);
     }
 
-    public static FileOperationResult Copy(IReadOnlyList<string> paths, string destinationFolder, IntPtr owner)
-        => Run(FileOperationKind.Copy, paths, destinationFolder, NativeMethods.FOF_ALLOWUNDO, owner);
+    // CHANGED (pre-release review): keepBoth gives a copy a new name ("name - Copy") when something with its
+    // name is already in the destination, instead of asking or refusing. Paste uses it for copying files
+    // into the folder they are already in, which Windows otherwise refuses outright.
+    public static FileOperationResult Copy(IReadOnlyList<string> paths, string destinationFolder, IntPtr owner, bool keepBoth = false)
+        => Run(FileOperationKind.Copy, paths, destinationFolder,
+            keepBoth ? (ushort)(NativeMethods.FOF_ALLOWUNDO | NativeMethods.FOF_RENAMEONCOLLISION) : NativeMethods.FOF_ALLOWUNDO, owner);
 
+    // CHANGED (downloads): a move out of a Downloads folder is noted, so the same folder can be offered for
+    // the next file like it (Services/FilingMemory.cs). The move itself is as before.
     public static FileOperationResult Move(IReadOnlyList<string> paths, string destinationFolder, IntPtr owner)
-        => Run(FileOperationKind.Move, paths, destinationFolder, NativeMethods.FOF_ALLOWUNDO, owner);
+    {
+        var filing = FilingMemory.Watch(paths, destinationFolder);
+        var result = Run(FileOperationKind.Move, paths, destinationFolder, NativeMethods.FOF_ALLOWUNDO, owner);
+        filing?.Moved(); // counts only the files that really left, so a move stopped halfway is handled too
+        return result;
+    }
 
     public static FileOperationResult Rename(string path, string newFullPath, IntPtr owner)
         => Run(FileOperationKind.Rename, [path], newFullPath, NativeMethods.FOF_ALLOWUNDO, owner);
+
+    // NEW (duplicates): whether a deleted file from this path can be expected to land in the Recycle Bin.
+    // Fixed drives have one; network folders do not, and removable drives may not. Windows asks before
+    // deleting for good either way (FOF_WANTNUKEWARNING); this is for wording the app's own question.
+    internal static bool HasRecycleBin(string path)
+    {
+        try
+        {
+            var root = Path.GetPathRoot(path);
+            return !string.IsNullOrEmpty(root) && !root.StartsWith(@"\\", StringComparison.Ordinal) &&
+                   new DriveInfo(root).DriveType == DriveType.Fixed;
+        }
+        catch (Exception error) when (error is ArgumentException or IOException or UnauthorizedAccessException)
+        {
+            return false;
+        }
+    }
 
     internal delegate int ShellOperation(ref NativeMethods.SHFILEOPSTRUCT operation);
 

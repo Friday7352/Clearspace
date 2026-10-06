@@ -28,12 +28,23 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     // window brings its own); null for an ordinary new window.
     public MainViewModel(NavigationHistory? history = null)
     {
+        // CHANGED (search trace): a search that takes 1.5 seconds or more leaves a line in search-trace.log.
+        // CHANGED (search fix): the search hands over the same list again when its rows have not changed, and
+        // Items then stays as it is (SetProperty sees the same object), so the window does not rebuild its
+        // rows. Each real replacement is counted and labelled for the search trace.
         _search = new SearchCoordinator(new SearchSources(), update =>
         {
-            Items = update.Items;
-            IsSearchingTree = update.IsSearching;
-            if (update.Status is not null) StatusText = update.Status;
-        });
+            if (!ReferenceEquals(_items, update.Items))
+                SearchTrace.ListReplaced();
+
+            using (SearchTrace.During("replacing the list with search results"))
+            {
+                Items = update.Items;
+                IsSearchingTree = update.IsSearching;
+                if (update.Status is not null) StatusText = update.Status;
+            }
+        }, trace: SearchTrace.Write);
+        _folderWatcher = new FolderWatcher(OnFolderChangedOnDisk); // NEW (live folder): made here, on the UI thread, so its calls come back to it
         Navigation = new NavigationService(history); // CHANGED (tab to new window): was new NavigationService()
         Context = new ExplorerContext { Navigation = Navigation };
         Commands = new CommandManager(Context);
@@ -255,6 +266,8 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     public RichCommand NewTabCommand => Commands[CommandCode.NewTab];             // NEW (tabs)
     public RichCommand OpenInNewTabCommand => Commands[CommandCode.OpenInNewTab]; // NEW (tabs)
     public RichCommand OpenInNewWindowCommand => Commands[CommandCode.OpenInNewWindow]; // NEW (new window)
+    public RichCommand PreviewPaneCommand => Commands[CommandCode.TogglePreviewPane];   // NEW (preview pane)
+    public RichCommand MapNetworkDriveCommand => Commands[CommandCode.MapNetworkDrive]; // NEW (map network drive)
 
     private IReadOnlyList<FileSystemItem> _items = [];
     public IReadOnlyList<FileSystemItem> Items
@@ -274,10 +287,21 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             if (!SetProperty(ref _searchText, value))
                 return;
 
-            OnPropertyChanged(nameof(HasSearch));
-            OnPropertyChanged(nameof(ListGrouping));   // NEW (folder types, step 2)
-            OnPropertyChanged(nameof(ShowsProjectStrip)); // NEW (folder types, step 2)
-            ApplySearchFilter(updateStatus: true);
+            // CHANGED (search fix): labelled for the search trace, and the list's grouping is no longer
+            // changed here. Announcing ListGrouping on every letter took the date or kind groups off the
+            // folder's list as the first letter was typed (rebuilding every row), a moment before the
+            // results replaced that list anyway. The window sets the grouping whenever the list itself is
+            // replaced (MainWindow.ApplyGrouping), which covers both starting and clearing a search.
+            using (SearchTrace.During("the search box: its text changed"))
+            {
+                OnPropertyChanged(nameof(HasSearch));
+                OnPropertyChanged(nameof(ShowsProjectStrip)); // NEW (folder types, step 2)
+                ApplySearchFilter(updateStatus: true);
+
+                // NEW (live folder): the folder changed on the disk while a search was showing; catch up now.
+                if (!HasSearch && _changedDuringSearch)
+                    OnFolderChangedOnDisk();
+            }
         }
     }
 
@@ -402,13 +426,15 @@ public sealed class MainViewModel : ObservableObject, IDisposable
 
     private void RefreshVisibleTags()
     {
+        // CHANGED (search fix): one read of the tags for the whole list (it was one per row).
+        var tags = TagService.Lookup();
         foreach (var item in _directoryItems)
-            item.RefreshTags();
+            item.RefreshTags(tags);
 
         if (!ReferenceEquals(Items, _directoryItems))
         {
             foreach (var item in Items)
-                item.RefreshTags();
+                item.RefreshTags(tags);
         }
     }
 
@@ -424,6 +450,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
                 OnPropertyChanged(nameof(Breadcrumbs));
                 OnPropertyChanged(nameof(IsYourFilesHub));          // NEW (your files)
                 OnPropertyChanged(nameof(CanRemoveFromYourFiles));  // NEW (your files)
+                OnPropertyChanged(nameof(IsNetworkHub));            // NEW (map network drive)
 
                 OnPropertyChanged(nameof(FolderProfileLabel));
             }
@@ -800,6 +827,9 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     private string _statusText = "Ready";
     internal void ReportFileLock(string message) => StatusText = message;
 
+    // NEW (archives): the same, for anything else the window wants to say in the status bar ("Made Photos.zip.").
+    internal void ReportStatus(string message) => StatusText = message;
+
     public string StatusText
     {
         get => _statusText;
@@ -1051,7 +1081,8 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     private void ResortDirectoryItems()
     {
         var sorted = _directoryItems.ToList();
-        sorted.Sort(new ItemComparer(SortColumn, SortDescending));
+        _sortedFoldersFirst = FoldersFirst; // CHANGED (date order)
+        sorted.Sort(new ItemComparer(SortColumn, SortDescending, _sortedFoldersFirst));
         SetDirectoryItems(sorted);
         if (!string.IsNullOrWhiteSpace(CurrentPath))
             FolderSnapshotCache.Set(CurrentPath, sorted);
@@ -1083,8 +1114,22 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         }
 
         OnPropertyChanged(nameof(ListGrouping));
-        return column != SortColumn || descending != SortDescending;
+        // CHANGED (date order): also when only "folders first" changes (a date-sorted General folder
+        // becoming a Downloads folder keeps its column and direction but mixes folders in).
+        return column != SortColumn || descending != SortDescending || _sortedFoldersFirst != FoldersFirst;
     }
+
+    // ------------------------------------------------------------------ NEW (date order)
+    // Folders are listed before files, whatever the sort. That is wrong for the one kind of list whose
+    // point is "what arrived last": a folder type that sorts by date and groups by day (Downloads,
+    // Screenshots, Archives & Backups). There, 400 old folders stood in front of today's download, and the
+    // "Today" group came after every group a folder belonged to. In those lists folders and files are
+    // sorted together, so the newest thing is first, whatever it is. Sorting such a folder by another
+    // column (Name, Size ...) puts folders first again, as everywhere else.
+    private bool FoldersFirst => !(_resolvedType.Grouping == FolderGrouping.Date && SortColumn == SortColumn.DateModified);
+
+    // How the list on screen was sorted, so a row renamed or merged in later lands by the same rule.
+    private bool _sortedFoldersFirst = true;
 
     // NEW (folder types, step 3): re-resolve an Automatic folder after its contents were seen.
     private void ReapplyDetectedType(string path)
@@ -1151,6 +1196,11 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     // Projects: the folder the Projects type is assigned to (this one, or the one it is inherited from).
     public bool IsProjectFolder => _resolvedType.ShowProjectStrip && CanSetFolderProfile;
     public bool ShowsProjectStrip => IsProjectFolder && !HasSearch;
+
+    // NEW (downloads): a folder whose type is Downloads (or a type of your own based on it) gets the "Just
+    // arrived" strip, learned filing and the installers list. See MainWindow.Downloads.cs.
+    public bool IsDownloadsFolder => _resolvedType.Base == DirectoryViewProfile.Downloads && CanSetFolderProfile;
+    public bool ShowsJustArrived => IsDownloadsFolder && !HasSearch && !IsAccessDenied;
     public string? ProjectRoot => IsProjectFolder ? _folderTypeInheritedFrom ?? CurrentPath : null;
     public string ProjectTitle => ProjectRoot is { } root ? Path.GetFileName(root.TrimEnd('\\')) : string.Empty;
 
@@ -1278,6 +1328,11 @@ public sealed class MainViewModel : ObservableObject, IDisposable
 
     public bool IsYourFilesHub => CurrentPath.Equals(YourFilesPath, StringComparison.OrdinalIgnoreCase);
 
+    // NEW (map network drive): the Network page has a "Map network drive…" button in its banner, and the
+    // empty part of the This PC and Network pages has a menu with the same entry (MainWindow.NetworkDrives.cs).
+    public bool IsNetworkHub => CurrentPath.Equals(NetworkPath, StringComparison.OrdinalIgnoreCase);
+    public bool IsDrivesPage => IsNetworkHub || CurrentPath.Equals(MyPcPath, StringComparison.OrdinalIgnoreCase);
+
     // Where a new folder of yours is made: the user folder, where Windows keeps the six by default.
     public static string LibraryRoot => KnownFolders.Profile;
 
@@ -1345,13 +1400,15 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             return;
         }
 
-        TagService.MovePath(item.FullPath, newFullPath);
+        // CHANGED (pre-release review): was MovePath. MovePaths also carries the tags of everything inside a
+        // renamed folder to its new place; they used to be left behind under the old name.
+        TagService.MovePaths([(item.FullPath, newFullPath)]);
         item.ApplyRename(newFullPath);
 
         var reordered = _directoryItems.ToList();
         reordered.RemoveAt(index);
 
-        var comparer = new ItemComparer(SortColumn, SortDescending);
+        var comparer = new ItemComparer(SortColumn, SortDescending, _sortedFoldersFirst); // CHANGED (date order)
         // CHANGED (your files): a hub's list is in its own order (Windows' six, then yours), not sorted,
         // so a renamed entry stays where it is there instead of jumping to its alphabetical place.
         var insertAt = IsHub ? index : reordered.FindIndex(existing => comparer.Compare(item, existing) < 0);
@@ -1365,6 +1422,179 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             FolderSnapshotCache.Set(CurrentPath, reordered);
 
         UpdateStatus();
+    }
+
+    // NEW (batch rename): several items were renamed on disk by the batch rename dialog. Their tags and
+    // their places in Your files follow them, as in ApplyRename, and the folder is read again (many rows
+    // moved, so splicing each one into place would be more work than a fresh listing).
+    public async Task ApplyBatchRenameAsync(IReadOnlyList<(string From, string To)> renamed)
+    {
+        if (renamed.Count == 0)
+            return;
+
+        var tagsFollowed = true;
+        try
+        {
+            foreach (var (from, to) in renamed)
+                SidebarState.RenameLibraryFolder(from, to);
+
+            // FIXED (pre-release review): one call for the whole batch (was MovePath for each item). Done
+            // one at a time, a batch whose names shift along (1, 2, 3 becoming 2, 3, 4) or swap piled every
+            // item's tags onto the next one. It is also one database transaction instead of one per item.
+            TagService.MovePaths(renamed);
+        }
+        catch (Exception)
+        {
+            tagsFollowed = false; // the files are renamed either way; say so below rather than stop here
+        }
+
+        await RefreshAsync();
+        var count = renamed.Count == 1 ? "1 item" : $"{renamed.Count:N0} items";
+        StatusText = tagsFollowed ? $"Renamed {count}." : $"Renamed {count}, but their tags could not be carried over.";
+    }
+
+    // ------------------------------------------------------------------ NEW (live folder)
+    // The folder on screen is watched (Services/FolderWatcher.cs). When another program adds, removes,
+    // renames or changes something in it, the folder is read again in the background and the difference
+    // is merged into the list (Services/FolderMerge.cs): rows that did not change stay the same objects,
+    // so the selection, the scroll position and the tile pictures are left alone.
+    //  - Only real folders are watched, and only the one this window is showing. A tab in the background
+    //    is read again anyway when you come back to it.
+    //  - While a search is showing, the list is search results, not the folder; the change is remembered
+    //    and merged when the search is cleared.
+    //  - A change that arrives during a load waits for the load to finish (the watcher is asked to call again).
+    private readonly FolderWatcher _folderWatcher;
+    private CancellationTokenSource? _mergeCancel;
+    private long _watchOrder;
+    private bool _merging;
+    private bool _changedWhileMerging;
+    private bool _changedDuringSearch;
+    private bool _liveFolderClosed;
+
+    private void WatchFolderOnScreen(string path)
+    {
+        _mergeCancel?.Cancel();     // a merge in progress was for the list being replaced
+        _changedDuringSearch = false;
+
+        var folder = Path.IsPathFullyQualified(path) ? path : null; // not This PC, a hub or another page
+        var order = ++_watchOrder;
+        // Off the UI thread: starting a watch on a network folder that is slow to answer must not hold
+        // the window up. `order` keeps a slow start for an earlier folder from replacing a later one.
+        _ = Task.Run(() => _folderWatcher.Watch(folder, order));
+    }
+
+    // Called on the UI thread, a moment after the folder on screen changed on the disk.
+    private void OnFolderChangedOnDisk()
+    {
+        if (_liveFolderClosed)
+            return;
+
+        if (HasSearch)
+        {
+            _changedDuringSearch = true;
+            return;
+        }
+
+        if (IsLoading)
+        {
+            _folderWatcher.Nudge(); // the load may have read the folder before this change; look again after it
+            return;
+        }
+
+        if (_merging)
+        {
+            _changedWhileMerging = true;
+            return;
+        }
+
+        _ = MergeFolderChangesAsync();
+    }
+
+    private async Task MergeFolderChangesAsync()
+    {
+        _merging = true;
+        _changedDuringSearch = false;
+        try
+        {
+            do
+            {
+                _changedWhileMerging = false;
+
+                var path = CurrentPath;
+                var current = _directoryItems;
+                if (!Path.IsPathFullyQualified(path))
+                    return;
+
+                var cancel = new CancellationTokenSource();
+                _mergeCancel = cancel;
+                var options = new FolderLoadOptions(ShowHiddenItems, SortColumn, SortDescending,
+                    ResolveLayout(path, []) == LayoutMode.Grid, ShowPartial: false, _sortedFoldersFirst);
+
+                FolderChanges changes;
+                try
+                {
+                    changes = await _navigationLoads.ReadChangesAsync(path, current, options, cancel.Token);
+                }
+                catch (OperationCanceledException)
+                {
+                    return; // the window moved on to another folder, or closed
+                }
+                catch (DirectoryNotFoundException)
+                {
+                    // The folder itself was deleted or renamed by another program: load it the ordinary
+                    // way, which says so ("That folder no longer exists").
+                    if (!_liveFolderClosed && !IsLoading && path.Equals(CurrentPath, StringComparison.OrdinalIgnoreCase))
+                        await RefreshAsync();
+                    return;
+                }
+                catch (Exception error) when (error is IOException or UnauthorizedAccessException)
+                {
+                    return; // could not be read just now; the list stays as it is until the next change or F5
+                }
+
+                if (_liveFolderClosed || IsLoading || !path.Equals(CurrentPath, StringComparison.OrdinalIgnoreCase))
+                    return; // a load took over; it reads the folder itself
+
+                if (HasSearch)
+                {
+                    _changedDuringSearch = true;
+                    return;
+                }
+
+                // The list was sorted, or a row renamed, while the folder was being read: compare again.
+                if (!ReferenceEquals(current, _directoryItems))
+                {
+                    _changedWhileMerging = true;
+                    continue;
+                }
+
+                if (!changes.Any)
+                    continue;
+
+                SetDirectoryItems(changes.Items);
+                FolderSnapshotCache.Set(path, changes.Items);
+
+                if (Context.SelectedItems.Count == 0)
+                    StatusText = SearchCoordinator.DescribeBrowsing(path, changes.Items);
+
+                // Git status and the project strip are per row or per folder; the new rows need theirs.
+                if ((_resolvedType.Base == DirectoryViewProfile.Code && CanSetFolderProfile) || ProjectRoot is not null)
+                    _ = RefreshFolderExtrasAsync(path);
+            }
+            while (_changedWhileMerging);
+        }
+        finally
+        {
+            _merging = false;
+
+            // Windows drops a watch when it loses track or the folder goes away for a moment; start it again.
+            if (!_liveFolderClosed && !_folderWatcher.IsWatching && Path.IsPathFullyQualified(CurrentPath))
+            {
+                var folder = CurrentPath;
+                var order = _watchOrder;
+                _ = Task.Run(() => _folderWatcher.Watch(folder, order));
+            }
+        }
     }
 
     private void SetDirectoryItems(IReadOnlyList<FileSystemItem> items)
@@ -1432,6 +1662,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         }
 
         CurrentPath = path;
+        WatchFolderOnScreen(path); // NEW (live folder): the listing follows changes other programs make here
         RestoreFolderProfile(path);
         RestoreTileScale(path);
         ApplyTypeSort();                       // NEW (folder types, step 2): before the load captures the sort
@@ -1485,6 +1716,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             var showHidden = ShowHiddenItems;
             var column = SortColumn;
             var descending = SortDescending;
+            var foldersFirst = _sortedFoldersFirst = FoldersFirst; // NEW (date order)
             var gridFastPath = ResolveLayout(path, []) == LayoutMode.Grid;
             var showPartial = !hasSnapshot && !keepCurrentItems;
             IProgress<IReadOnlyList<FileSystemItem>> partialProgress = new Progress<IReadOnlyList<FileSystemItem>>(batch =>
@@ -1506,7 +1738,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             });
 
             var items = await _navigationLoads.LoadDirectoryAsync(load, path,
-                new FolderLoadOptions(showHidden, column, descending, gridFastPath, showPartial), partialProgress);
+                new FolderLoadOptions(showHidden, column, descending, gridFastPath, showPartial, foldersFirst), partialProgress);
 
             if (token.IsCancellationRequested)
                 return;
@@ -1762,6 +1994,9 @@ public sealed class MainViewModel : ObservableObject, IDisposable
 
     public void Dispose()
     {
+        _liveFolderClosed = true;    // NEW (live folder)
+        _folderWatcher.Dispose();
+        _mergeCancel?.Cancel();
         _search.Dispose();
         _navigationLoads.Dispose();
         _fileOperationTimer?.Stop(); // NEW (status line)

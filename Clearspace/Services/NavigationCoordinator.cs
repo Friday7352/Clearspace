@@ -5,8 +5,10 @@ using Clearspace.Native;
 
 namespace Clearspace.Services;
 
+// CHANGED (date order): + FoldersFirst. False for a list that is sorted and grouped by date (Downloads,
+// Screenshots, Archives & Backups), where folders and files are listed together, newest first.
 internal sealed record FolderLoadOptions(bool ShowHidden, SortColumn Column, bool Descending,
-    bool GridFastPath, bool ShowPartial);
+    bool GridFastPath, bool ShowPartial, bool FoldersFirst = true);
 
 internal sealed class NavigationCoordinator : IDisposable
 {
@@ -47,18 +49,43 @@ internal sealed class NavigationCoordinator : IDisposable
                     (list.Count >= 256 || firstBatchWatch.ElapsedMilliseconds >= 25))
                 {
                     var firstBatch = list.ToList();
-                    firstBatch.Sort(new ItemComparer(options.Column, options.Descending));
+                    firstBatch.Sort(new ItemComparer(options.Column, options.Descending, options.FoldersFirst));
                     _prepare(firstBatch, options.GridFastPath);
                     token.ThrowIfCancellationRequested();
                     partialProgress.Report(firstBatch);
                     firstBatchReported = true;
                 }
             }
-            list.Sort(new ItemComparer(options.Column, options.Descending));
+            list.Sort(new ItemComparer(options.Column, options.Descending, options.FoldersFirst));
             _prepare(list, options.GridFastPath);
             token.ThrowIfCancellationRequested();
             return list;
         }, load.Token);
+
+    // NEW (live folder): reads the folder again and works out what changed since `current` was listed
+    // (FolderMerge). Rows that have not changed are kept as they are; only the new ones are given their
+    // icons and tags. Runs off the UI thread like a load, but is not a load: it does not cancel the one in
+    // progress and shows nothing by itself. Sorting and ShowHidden come from `options`, as for a load.
+    public Task<FolderChanges> ReadChangesAsync(string path, IReadOnlyList<FileSystemItem> current,
+        FolderLoadOptions options, CancellationToken token)
+        => Task.Run(() =>
+        {
+            token.ThrowIfCancellationRequested();
+            var fresh = new List<FileSystemItem>(current.Count + 16);
+            foreach (var item in _enumerate(path, options.ShowHidden, token))
+            {
+                token.ThrowIfCancellationRequested();
+                fresh.Add(item);
+            }
+
+            var changes = FolderMerge.Merge(current, fresh,
+                new ItemComparer(options.Column, options.Descending, options.FoldersFirst), out var newcomers);
+            if (newcomers.Count > 0)
+                _prepare(newcomers, options.GridFastPath);
+
+            token.ThrowIfCancellationRequested();
+            return changes;
+        }, token);
 
     private static void Prepare(IReadOnlyList<FileSystemItem> items, bool gridFastPath)
     {
@@ -68,7 +95,9 @@ internal sealed class NavigationCoordinator : IDisposable
             IconService.PopulateTypeNames(items);
         }
         ScalableIconService.PopulateGridPlaceholders(items);
-        foreach (var item in items) item.RefreshTags();
+        // CHANGED (search fix): one read of the tags for the whole folder (it was one per row).
+        var tags = TagService.Lookup();
+        foreach (var item in items) item.RefreshTags(tags);
     }
 
     public void Dispose()

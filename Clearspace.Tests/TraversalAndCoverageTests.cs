@@ -160,6 +160,55 @@ public sealed class TraversalAndCoverageTests
         CollectionAssert.AreEqual(new[] { @"C:\", @"C:\" }, requests);
     }
 
+    // NEW (search fix): the list of changes "waiting to reach the index" used to keep every created and
+    // deleted path for as long as Clearspace was open. 256 deletions were enough to declare a drive lost,
+    // after which searches crawled it from the disk.
+    [TestMethod]
+    public void RoutineChurnNoLongerDropsADriveOnceTheIndexHasDealtWithIt()
+    {
+        var overlay = new IndexOverlay();
+        var lost = new List<string>();
+        overlay.LostChanges += lost.Add;
+
+        // Thousands of temporary files come and go; the updater reports each batch as dealt with.
+        for (var i = 0; i < 5_000; i++)
+        {
+            var path = $@"C:\Temp\scratch{i}.tmp";
+            overlay.OnCreated(path);
+            overlay.OnDeleted(path);
+            overlay.Settle([path]);
+        }
+
+        Assert.IsTrue(overlay.IsHealthy(@"C:\"), "the drive is still answered from the index");
+        Assert.AreEqual(0, lost.Count);
+        Assert.AreEqual(0, overlay.Count);
+        Assert.AreEqual(0, overlay.AddedPaths().Length, "nothing is left for a search to look up on the disk");
+
+        // Changes the index has NOT dealt with still count, and still protect against a real loss.
+        for (var i = 0; i < 300; i++)
+            overlay.OnDeleted($@"C:\Temp\never-applied{i}.tmp");
+        Assert.IsFalse(overlay.IsHealthy(@"C:\"));
+        Assert.AreEqual(1, lost.Count);
+        StringAssert.Contains(overlay.WhyLost(@"C:\"), "deletions were waiting");
+    }
+
+    [TestMethod]
+    public void OnlyThePathsDealtWithAreForgotten()
+    {
+        var overlay = new IndexOverlay();
+        overlay.OnCreated(@"C:\Work\applied.txt");
+        overlay.OnCreated(@"C:\Work\still waiting.txt");
+        overlay.OnDeleted(@"C:\Work\Old folder");
+        overlay.OnDeleted(@"C:\Work\Other folder");
+
+        overlay.Settle([@"C:\Work\applied.txt", @"C:\Work\Old folder", @"C:\Work\never seen.txt"]);
+
+        CollectionAssert.AreEqual(new[] { @"C:\Work\still waiting.txt" }, overlay.AddedPaths());
+        Assert.IsFalse(overlay.IsRemoved(@"C:\Work\Old folder\child.txt"), "the index has removed that folder itself");
+        Assert.IsTrue(overlay.IsRemoved(@"C:\Work\Other folder\child.txt"), "this deletion has not reached the index yet");
+        Assert.AreEqual(2, overlay.Count);
+    }
+
     [TestMethod]
     public void OverlayCapacityFailureOnlyDisablesTheOffendingDrive()
     {

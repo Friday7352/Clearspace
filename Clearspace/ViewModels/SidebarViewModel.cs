@@ -13,6 +13,10 @@ public sealed class SidebarViewModel : IDisposable
 {
     private static event Action? SettingsChanged; // NEW (new window)
 
+    // NEW (map network drive): a network drive was mapped or disconnected in Clearspace. The drives are
+    // read once when a window starts, so every open window's sidebar reads them again.
+    private static event Action? DrivesChanged;
+
     private List<SidebarEntry> _driveEntries = [];
     public ObservableCollection<SidebarEntry> Sidebar { get; } = [];
 
@@ -20,12 +24,23 @@ public sealed class SidebarViewModel : IDisposable
     {
         RebuildSidebar();
         SettingsChanged += RebuildSidebar;
+        DrivesChanged += ReloadDrives; // NEW (map network drive)
     }
 
     // NEW (new window): a closed window's sidebar stops listening (called from MainViewModel.Dispose).
-    public void Dispose() => SettingsChanged -= RebuildSidebar;
+    // CHANGED (map network drive): to both kinds of news.
+    public void Dispose()
+    {
+        SettingsChanged -= RebuildSidebar;
+        DrivesChanged -= ReloadDrives;
+    }
 
     private static void RebuildEverySidebar() => SettingsChanged?.Invoke();
+
+    // NEW (map network drive): call on the UI thread, after mapping or disconnecting a drive.
+    public static void ReloadDrivesEverywhere() => DrivesChanged?.Invoke();
+
+    private void ReloadDrives() => _ = LoadDrivesAsync();
 
     public async Task LoadDrivesAsync()
     {

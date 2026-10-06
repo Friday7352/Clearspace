@@ -28,6 +28,10 @@ public sealed class VirtualizingWrapPanel : VirtualizingPanel, IScrollInfo
     private Point _offset;
     private int _columns = 1;
 
+    // NEW (drag to select): how many tiles there are to a row, as last laid out. A selection rectangle
+    // works out which tiles it touches from this and the tile size (MainWindow.BandSelect.cs).
+    internal int Columns => _columns;
+
     public double ItemWidth
     {
         get => (double)GetValue(ItemWidthProperty);

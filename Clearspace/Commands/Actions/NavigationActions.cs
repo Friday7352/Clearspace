@@ -153,3 +153,20 @@ public sealed class OpenTerminalAction(ExplorerContext context) : IAction
         return Task.CompletedTask;
     }
 }
+
+// NEW (map network drive): gives a shared network folder a drive letter. The dialog belongs to the main
+// window (ExplorerContext.MapNetworkDrive); the Windows calls are in Services/NetworkMapping.cs.
+// No shortcut: File Explorer has none for it either.
+public sealed class MapNetworkDriveAction(ExplorerContext context) : IAction
+{
+    public CommandCode Code => CommandCode.MapNetworkDrive;
+    public string Label => "Map network drive";
+    public string Description => "Give a shared network folder a drive letter";
+    public string Glyph => "\uE8CE";
+
+    public Task ExecuteAsync(object? parameter = null)
+    {
+        context.MapNetworkDrive?.Invoke();
+        return Task.CompletedTask;
+    }
+}

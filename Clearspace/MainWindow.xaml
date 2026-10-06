@@ -27,6 +27,11 @@
 
         <GridView x:Key="DetailsView" x:Shared="False" ColumnHeaderContainerStyle="{StaticResource ColumnHeader}" />
 
+        <!-- CHANGED (drag to select): the text cells below (dates, type, artist, album, git, authors, source) are
+             aligned left instead of stretched. A stretched TextBlock answers the mouse across the whole column,
+             text or not, and a drag that starts on text moves the file; aligned left, only the text itself
+             does, and the rest of the row is free for starting a selection rectangle. Long text is still cut
+             off with an ellipsis at the column's edge. -->
         <GridViewColumn x:Key="Col.Name" x:Shared="False" Width="400" Header="Name">
                 <GridViewColumn.CellTemplate>
                     <DataTemplate>
@@ -70,6 +75,7 @@
                         <TextBlock Text="{Binding DateModifiedText}"
                                    Foreground="{DynamicResource InkMuted}"
                                    Margin="10,0,0,0"
+                                   HorizontalAlignment="Left"
                                    VerticalAlignment="Center"
                                    Typography.NumeralAlignment="Tabular" />
                     </DataTemplate>
@@ -99,6 +105,7 @@
                         <TextBlock Text="{Binding TypeName}"
                                    Foreground="{DynamicResource InkMuted}"
                                    Margin="10,0,0,0"
+                                   HorizontalAlignment="Left"
                                    VerticalAlignment="Center"
                                    TextTrimming="CharacterEllipsis" />
                     </DataTemplate>
@@ -239,6 +246,7 @@
                         <TextBlock Text="{Binding Artist}"
                                    Foreground="{DynamicResource InkMuted}"
                                    Margin="10,0,0,0"
+                                   HorizontalAlignment="Left"
                                    VerticalAlignment="Center"
                                    TextTrimming="CharacterEllipsis" />
                     </DataTemplate>
@@ -250,6 +258,7 @@
                     <DataTemplate>
                         <TextBlock Foreground="{DynamicResource InkMuted}"
                                    Margin="10,0,0,0"
+                                   HorizontalAlignment="Left"
                                    VerticalAlignment="Center"
                                    TextTrimming="CharacterEllipsis">
                             <TextBlock.Style>
@@ -300,6 +309,7 @@
                     <TextBlock Text="{Binding DateCreatedText}"
                                Foreground="{DynamicResource InkMuted}"
                                Margin="10,0,0,0"
+                               HorizontalAlignment="Left"
                                VerticalAlignment="Center"
                                Typography.NumeralAlignment="Tabular" />
                 </DataTemplate>
@@ -341,6 +351,7 @@
                     <TextBlock Text="{Binding GitStatusText}"
                                Foreground="{Binding GitStatusBrush}"
                                Margin="10,0,0,0"
+                               HorizontalAlignment="Left"
                                VerticalAlignment="Center"
                                TextTrimming="CharacterEllipsis" />
                 </DataTemplate>
@@ -370,6 +381,7 @@
                     <TextBlock Text="{Binding Authors}"
                                Foreground="{DynamicResource InkMuted}"
                                Margin="10,0,0,0"
+                               HorizontalAlignment="Left"
                                VerticalAlignment="Center"
                                TextTrimming="CharacterEllipsis"
                                ToolTip="{Binding Authors}" />
@@ -397,6 +409,7 @@
                     <TextBlock Text="{Binding SourceText}"
                                Foreground="{DynamicResource InkMuted}"
                                Margin="10,0,0,0"
+                               HorizontalAlignment="Left"
                                VerticalAlignment="Center"
                                TextTrimming="CharacterEllipsis"
                                Loaded="OnSourceCellLoaded"
@@ -858,6 +871,11 @@
                         Content="&#xE9F9;" Margin="0,0,7,0"
                         Click="OnDiskUsage" ToolTip="Disk usage · explore indexed file and folder sizes"
                         AutomationProperties.Name="Disk usage" />
+                <!-- NEW (duplicates): looks for exact copies in the folder you are in. See MainWindow.Duplicates.cs. -->
+                <Button Style="{StaticResource IconButton}"
+                        Content="&#xE8C8;" Margin="0,0,7,0"
+                        Click="OnFindDuplicates" ToolTip="Find duplicates · files in this folder that are exact copies of each other"
+                        AutomationProperties.Name="Find duplicates" />
                 <!-- NEW (folder types, step 2): Git branch and changed-file count in Code folders. -->
                 <TextBlock Text="{Binding FolderContextText}"
                            Margin="0,0,9,0"
@@ -938,6 +956,10 @@
                         Command="{Binding NewFolderCommand}" ToolTip="New folder  ·  Ctrl+Shift+N" />
                 <Button Style="{StaticResource IconButton}" Content="&#xE756;"
                         Command="{Binding TerminalCommand}" ToolTip="Open in Terminal  ·  Ctrl+`" />
+                <!-- NEW (preview pane): shows or hides the pane that previews the selected file. -->
+                <Button Style="{StaticResource IconButton}" Content="&#xE8A1;"
+                        Command="{Binding PreviewPaneCommand}" ToolTip="Preview pane  ·  Alt+P"
+                        AutomationProperties.Name="Preview pane" />
                 <ToggleButton Style="{StaticResource IconToggle}"
                               Content="&#xE7B3;"
                               IsChecked="{Binding ShowHiddenItems}"
@@ -984,6 +1006,12 @@
                             <!-- NEW (updates): check now. CHANGED (about): the version number and the "check
                                  automatically" switch moved into the About window (AboutWindow.cs), which also has
                                  the same check as a button. See MainWindow.Updates.cs. -->
+                            <!-- NEW (folder opener): makes Clearspace the program Windows opens folders with (from
+                                 the desktop, from other programs, with Win+E). Ticked while it is on; see
+                                 MainWindow.FolderOpener.cs. -->
+                            <Separator />
+                            <MenuItem Header="Windows" IsEnabled="False" />
+                            <MenuItem x:Name="FolderOpenerMenuItem" Header="Open folders with Clearspace" IsCheckable="True" Click="OnToggleFolderOpener" />
                             <Separator />
                             <MenuItem Header="Check for updates…" Click="OnCheckForUpdates" />
                             <MenuItem Header="About Clearspace…" Click="OnAbout" />
@@ -998,10 +1026,17 @@
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="228" MinWidth="170" MaxWidth="400" />
                 <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="*" />
+                <ColumnDefinition x:Name="ContentColumn" Width="*" />
+                <!-- NEW (preview pane): its splitter and the pane itself. Both stay 0 wide until the pane is
+                     shown; MainWindow.Preview.cs gives them their widths. -->
+                <ColumnDefinition x:Name="PreviewSplitterColumn" Width="0" />
+                <ColumnDefinition x:Name="PreviewColumn" Width="0" />
             </Grid.ColumnDefinitions>
 
-            <ScrollViewer Grid.Column="0"
+            <!-- CHANGED (scroll while dragging): named, so it can be scrolled while a file is dragged over it
+                 (MainWindow.DragScroll.cs). -->
+            <ScrollViewer x:Name="SidebarScroll"
+                          Grid.Column="0"
                           VerticalScrollBarVisibility="Auto"
                           HorizontalScrollBarVisibility="Disabled"
                           Padding="0,0,0,10">
@@ -1065,6 +1100,10 @@
                                                     </Style>
                                                 </MenuItem.Style>
                                             </MenuItem>
+                                            <!-- NEW (map network drive): on the This PC and Network headings. -->
+                                            <MenuItem Header="Map network drive…"
+                                                      Click="OnMapNetworkDrive"
+                                                      Visibility="{Binding OffersMapDrive, Converter={StaticResource BoolToVisible}}" />
                                             <MenuItem Header="Open hub" Click="OnOpenSectionHub">
                                                 <MenuItem.Style>
                                                     <Style TargetType="MenuItem">
@@ -1151,6 +1190,11 @@
                                             <MenuItem Header="Remove from Your files"
                                                       Click="OnRemoveSidebarLibrary"
                                                       Visibility="{Binding IsLibrary, Converter={StaticResource BoolToVisible}}" />
+                                            <!-- NEW (map network drive): only on mapped network drives. Windows forgets
+                                                 the drive, so it does not come back at sign-in. -->
+                                            <MenuItem Header="Disconnect"
+                                                      Click="OnDisconnectSidebarDrive"
+                                                      Visibility="{Binding IsNetworkDrive, Converter={StaticResource BoolToVisible}}" />
                                             <MenuItem Header="Change location…" Click="OnChangeSidebarLocation">
                                                 <MenuItem.Style>
                                                     <Style TargetType="MenuItem">
@@ -1215,7 +1259,9 @@
                           Background="Transparent"
                           FocusVisualStyle="{x:Null}" />
 
-            <Border Grid.Column="2"
+            <!-- CHANGED (preview pane): named, so its right-hand margin can close up when the pane sits beside it. -->
+            <Border x:Name="ContentCard"
+                    Grid.Column="2"
                     Background="{DynamicResource Surface}"
                     BorderBrush="{DynamicResource EdgeSunken}"
                     BorderThickness="1"
@@ -1252,15 +1298,27 @@
                                            FontSize="12"
                                            Foreground="{DynamicResource InkMuted}" />
                             </StackPanel>
-                            <TextBlock Grid.Column="1"
-                                       Text="{Binding HubSummary}"
-                                       MaxWidth="330"
-                                       Margin="18,4,0,0"
-                                       FontFamily="{DynamicResource SerifFont}"
-                                       FontSize="13"
-                                       TextAlignment="Right"
-                                       TextWrapping="Wrap"
-                                       Foreground="{DynamicResource Accent}" />
+                            <!-- CHANGED (map network drive): the summary sits in a panel, so the Network page can
+                                 show its "Map network drive…" button underneath it. -->
+                            <StackPanel Grid.Column="1" Margin="18,4,0,0">
+                                <TextBlock Text="{Binding HubSummary}"
+                                           MaxWidth="330"
+                                           HorizontalAlignment="Right"
+                                           FontFamily="{DynamicResource SerifFont}"
+                                           FontSize="13"
+                                           TextAlignment="Right"
+                                           TextWrapping="Wrap"
+                                           Foreground="{DynamicResource Accent}" />
+                                <!-- NEW (map network drive): gives a shared network folder a drive letter
+                                     (MapNetworkDriveWindow.cs). Only on the Network page. -->
+                                <Button Style="{StaticResource ViewerTextButton}"
+                                        Content="Map network drive…"
+                                        Command="{Binding MapNetworkDriveCommand}"
+                                        HorizontalAlignment="Right"
+                                        Margin="0,10,0,0"
+                                        ToolTip="Give a shared network folder a drive letter"
+                                        Visibility="{Binding IsNetworkHub, Converter={StaticResource BoolToVisible}}" />
+                            </StackPanel>
                         </Grid>
                     </Border>
 
@@ -1346,6 +1404,19 @@
                         </StackPanel>
                     </Border>
 
+                    <!-- NEW (downloads): the "Just arrived" strip of a Downloads folder - the newest files as tiles, and
+                         a line about the setup files in the folder. Only the frame is here; MainWindow.Downloads.cs
+                         fills it and shows it. Shares row 0 with the two banners above; a folder has at most one. -->
+                    <Border x:Name="ArrivalsStrip"
+                            Grid.Row="0"
+                            Margin="14,12,14,4"
+                            Padding="14,10,6,2"
+                            Background="{DynamicResource Base}"
+                            BorderBrush="{DynamicResource EdgeRaised}"
+                            BorderThickness="1"
+                            CornerRadius="{DynamicResource R10}"
+                            Visibility="Collapsed" />
+
                     <ListView x:Name="FileList"
                               Grid.Row="1"
                               ItemsSource="{Binding Items}"
@@ -1407,7 +1478,9 @@
                         </ListView.GroupStyle>
 
                         <ListView.ContextMenu>
-                            <ContextMenu DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}">
+                            <!-- CHANGED (archives): Opened shows the archive entries that fit the selection. -->
+                            <ContextMenu DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}"
+                                         Opened="OnItemMenuOpened">
                                 <MenuItem Header="Open" Command="{Binding OpenCommand}" />
                                 <!-- NEW (tabs): shown when the selection has folders; they open in the background. -->
                                 <MenuItem Header="Open in new tab"
@@ -1418,13 +1491,31 @@
                                 <MenuItem Header="Open in new window"
                                           Command="{Binding OpenInNewWindowCommand}"
                                           Visibility="{Binding IsEnabled, RelativeSource={RelativeSource Self}, Converter={StaticResource BoolToVisible}}" />
+                                <!-- NEW (map network drive): hidden until OnItemMenuOpened finds the one selected item is
+                                     a mapped network drive (a tile on the This PC or Network page). Windows forgets the
+                                     drive, so it does not come back at sign-in. See MainWindow.NetworkDrives.cs. -->
+                                <MenuItem x:Name="DisconnectDriveMenuItem" Header="Disconnect" Click="OnDisconnectNetworkDrive" Visibility="Collapsed" />
                                 <Separator />
                                 <MenuItem Header="Cut" Command="{Binding CutCommand}" InputGestureText="Ctrl+X" />
                                 <MenuItem Header="Copy" Command="{Binding CopyCommand}" InputGestureText="Ctrl+C" />
                                 <MenuItem Header="Paste" Command="{Binding PasteCommand}" InputGestureText="Ctrl+V" />
                                 <Separator />
+                                <!-- CHANGED (batch rename): with several items selected, Rename opens the batch rename dialog. -->
                                 <MenuItem Header="Rename" Command="{Binding RenameCommand}" InputGestureText="F2" />
                                 <MenuItem Header="Delete" Command="{Binding DeleteCommand}" InputGestureText="Del" />
+                                <!-- NEW (archives): hidden until OnItemMenuOpened finds they fit the selection (only
+                                     .zip files selected: the two Extract entries; anything on a disk: Compress).
+                                     See MainWindow.Archives.cs. -->
+                                <MenuItem x:Name="ExtractMenuItem" Header="Extract to a new folder" Click="OnExtractArchives" Visibility="Collapsed" />
+                                <MenuItem x:Name="ExtractToMenuItem" Header="Extract to…" Click="OnExtractArchivesTo" Visibility="Collapsed" />
+                                <MenuItem x:Name="CompressMenuItem" Header="Compress to ZIP file" Click="OnCompressSelection" Visibility="Collapsed" />
+                                <!-- NEW (downloads): hidden until OnItemMenuOpened finds they fit the one selected file:
+                                     it still carries the note saying where it was downloaded from, or (in a Downloads
+                                     folder) files like it have been moved to the same folder before.
+                                     See MainWindow.Downloads.cs. -->
+                                <MenuItem x:Name="OriginPageMenuItem" Header="Open the page this came from" Click="OnOpenOriginPage" Visibility="Collapsed" />
+                                <MenuItem x:Name="OriginLinkMenuItem" Header="Copy download link" Click="OnCopyOriginLink" Visibility="Collapsed" />
+                                <MenuItem x:Name="FilingMenuItem" Header="Move to folder" Click="OnMoveToSuggestedFolder" Visibility="Collapsed" />
                                 <Separator />
                                 <!-- CHANGED (folder locking): works on a single file or folder, so the labels no longer say "file". -->
                                 <!-- CHANGED (unlock vs remove lock): Unlock = until you leave this folder; Remove lock = for good,
@@ -1450,6 +1541,8 @@
                                           IsEnabled="{Binding CanPinToProject}"
                                           Visibility="{Binding IsProjectFolder, Converter={StaticResource BoolToVisible}}" />
                                 <MenuItem Header="Disk usage…" Click="OnDiskUsage" />
+                                <!-- NEW (duplicates): the selected folder, or the folder you are in. -->
+                                <MenuItem Header="Find duplicates…" Click="OnFindDuplicates" />
                                 <MenuItem Header="Always keep on this device"
                                           IsEnabled="{Binding HasCloudSelection}"
                                           Visibility="{Binding IsCloudFolder, Converter={StaticResource BoolToVisible}}"
@@ -1820,6 +1913,26 @@
                                Margin="2,10,0,0" />
                 </StackPanel>
             </Border>
+
+            <!-- NEW (preview pane): shown with Alt+P or the toolbar button, and dragged wider or narrower
+                 with the splitter. What is inside is built in code (Controls/PreviewPane.cs) and put in
+                 PreviewCard the first time the pane is shown. -->
+            <GridSplitter x:Name="PreviewSplitter"
+                          Grid.Column="3"
+                          Width="6"
+                          HorizontalAlignment="Center"
+                          Background="Transparent"
+                          FocusVisualStyle="{x:Null}"
+                          Visibility="Collapsed" />
+
+            <Border x:Name="PreviewCard"
+                    Grid.Column="4"
+                    Background="{DynamicResource Surface}"
+                    BorderBrush="{DynamicResource EdgeSunken}"
+                    BorderThickness="1"
+                    CornerRadius="{DynamicResource R12}"
+                    Margin="0,0,14,14"
+                    Visibility="Collapsed" />
         </Grid>
 
         <!-- NEW (experimental themes): the function-key bar of the DOS Commander theme; hidden in every other
@@ -2008,6 +2121,8 @@
     </Grid>
         <ContentControl x:Name="DiskUsageHost" Visibility="Collapsed" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch" Margin="{DynamicResource PageInset}"/>
         <ContentControl x:Name="IndexingHost" Visibility="Collapsed" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch" Margin="{DynamicResource PageInset}"/>
+        <!-- NEW (duplicates): the Find duplicates page, shown in place of the explorer like the two above. -->
+        <ContentControl x:Name="DuplicatesHost" Visibility="Collapsed" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch" Margin="{DynamicResource PageInset}"/>
         <!-- NEW (sketchbook, round 2): the binding strip (Sketchbook's spiral wire). Hidden in every other theme. -->
         <Rectangle Width="30"
                    HorizontalAlignment="Left"

@@ -18,6 +18,7 @@ internal sealed class IndexOverlay
         public readonly List<string> RemovedTrees = [];
         public long Generation;
         public bool Overflowed;
+        public string? LostBecause; // NEW (search fix): why the drive last dropped out, for the search trace
         public int Count => Added.Count + Removed.Count;
         public void Clear()
         {
@@ -63,8 +64,43 @@ internal sealed class IndexOverlay
     public void MarkOverflowed(string root)
     {
         root = Root(root);
-        lock (_gate) Lose(Get(root));
+        lock (_gate)
+        {
+            var changes = Get(root);
+            Lose(changes);
+            changes.LostBecause = "changes were missed (the watcher overflowed, could not start, or an update failed)";
+        }
         LostChanges?.Invoke(root);
+    }
+
+    // NEW (search fix): why a drive last dropped out of live coverage, in words.
+    public string WhyLost(string root)
+    {
+        lock (_gate) return _volumes.TryGetValue(Root(root), out var changes) ? changes.LostBecause ?? "unknown" : "unknown";
+    }
+
+    // NEW (search fix): the index itself has dealt with these paths (FileIndexUpdater applied the change, or
+    // found there was nothing to apply), so they no longer need to be remembered here.
+    // This list used to keep every path created or deleted since the drive was last caught up. Two things
+    // followed. A search checked every remembered new path on the disk, on each key press, and that list
+    // only grew while Clearspace was open. And after 256 remembered deletions - a few minutes of temporary
+    // files coming and going - the drive was declared "lost": searches then crawled the whole drive from
+    // the disk until the index caught up again. Now only changes the index has not reached yet are kept,
+    // which is a fraction of a second's worth.
+    public void Settle(IReadOnlyList<string> paths)
+    {
+        lock (_gate)
+        {
+            foreach (var path in paths)
+            {
+                if (string.IsNullOrEmpty(path) || !_volumes.TryGetValue(Root(path), out var changes))
+                    continue;
+
+                changes.Added.Remove(path);
+                if (changes.Removed.Remove(path))
+                    changes.RemovedTrees.RemoveAll(tree => tree.Equals(path, StringComparison.OrdinalIgnoreCase));
+            }
+        }
     }
 
     private static void Lose(Changes changes)
@@ -107,7 +143,11 @@ internal sealed class IndexOverlay
             }
             if (changes.RemovedTrees.Count > MaxRemovedTrees || _volumes.Values.Sum(value => value.Count) > MaxTracked)
             {
+                var why = changes.RemovedTrees.Count > MaxRemovedTrees
+                    ? $"more than {MaxRemovedTrees} deletions were waiting to reach the index"
+                    : $"more than {MaxTracked:N0} changes were waiting to reach the index";
                 Lose(changes);
+                changes.LostBecause = why;
                 lost = true;
             }
         }

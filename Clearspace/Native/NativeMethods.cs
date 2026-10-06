@@ -181,6 +181,7 @@ internal static class NativeMethods
     internal const uint FO_DELETE = 0x0003;
     internal const uint FO_RENAME = 0x0004;
 
+    internal const ushort FOF_RENAMEONCOLLISION = 0x0008; // NEW (pre-release review): "name - Copy" instead of refusing
     internal const ushort FOF_NOCONFIRMATION = 0x0010;
     internal const ushort FOF_ALLOWUNDO = 0x0040;
     internal const ushort FOF_WANTNUKEWARNING = 0x4000;

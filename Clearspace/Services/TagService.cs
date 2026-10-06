@@ -30,9 +30,12 @@ public static class TagService
     public static void Delete(string id) => Store.Delete(id);
     public static IReadOnlyList<string> TagIdsFor(string path) => Store.TagIdsFor(path);
     public static IReadOnlyList<TagDefinition> TagsFor(string path) => Store.TagsFor(path);
+    internal static TagStore.TagLookup Lookup() => Store.Lookup(); // NEW (search fix): one read for a whole list of rows
     public static bool HasTag(string path, string tagId) => Store.HasTag(path, tagId);
     public static void Assign(string path, string tagId) => Store.Assign(path, tagId);
     public static void MovePath(string oldPath, string newPath) => Store.MovePath(oldPath, newPath);
+    // NEW (pre-release review): several renames in one go, and what is inside a renamed folder (see TagStore.MovePaths).
+    public static void MovePaths(IReadOnlyList<(string From, string To)> moves) => Store.MovePaths(moves);
     public static void Unassign(string path, string tagId) => Store.Unassign(path, tagId);
     public static void ToggleForAll(IReadOnlyList<string> paths, string tagId) => Store.ToggleForAll(paths, tagId);
     public static void ClearTags(IReadOnlyList<string> paths) => Store.ClearTags(paths);

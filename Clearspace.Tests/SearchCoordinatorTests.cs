@@ -283,6 +283,176 @@ public sealed class SearchCoordinatorTests
         CollectionAssert.AreEqual(new[] { @"D:\" }, sources.LastCrawlRoots!.ToArray());
     }
 
+    // NEW (search trace): a search that takes long leaves one line saying where the time went; a quick one leaves none.
+    [TestMethod]
+    public async Task OnlyASlowSearchLeavesATraceLine()
+    {
+        var lines = new List<string>();
+        var tags = new TagStore(":memory:");
+        _tags.Add(tags);
+        var sources = new FakeSources { Covered = true, Indexed = [Item(@"C:\source\needle.txt")] };
+        using var coordinator = new SearchCoordinator(sources, _ => { }, text => SearchQuery.Parse(text, tags), lines.Add);
+
+        await coordinator.SearchAsync(Request(false) with { Text = "needle" }, [], true, TimeSpan.Zero);
+        Assert.AreEqual(0, lines.Count, "a quick search is not recorded");
+
+        // The wait before the index is asked stands in for a slow stage.
+        await coordinator.SearchAsync(Request(false) with { Text = "needle" }, [], true, SearchTrace.Slow + TimeSpan.FromMilliseconds(200));
+        Assert.AreEqual(1, lines.Count);
+        StringAssert.Contains(lines[0], "search took");
+        StringAssert.Contains(lines[0], "6 characters");
+        StringAssert.Contains(lines[0], "wait asked 1700");
+        StringAssert.Contains(lines[0], "0 crawled from the disk");
+        Assert.IsFalse(lines[0].Contains("needle"), "what was typed is never written down");
+    }
+
+    // NEW (search fix): results on a drive whose index is live are not checked on the disk; the rest are,
+    // best first, up to a limit. `File.Exists` is the real one here, so the paths are ones that do not exist.
+    [TestMethod]
+    public void OnlyResultsFromADriveThatIsBehindAreCheckedOnTheDisk()
+    {
+        var items = new List<FileSystemItem>();
+        for (var i = 0; i < 3000; i++)
+        {
+            items.Add(Item($@"C:\clearspace-test-nowhere\live{i}.txt"));
+            items.Add(Item($@"D:\clearspace-test-nowhere\behind{i}.txt"));
+        }
+
+        var told = new List<string>();
+        var missing = FileIndexService.PruneMissing(items, root => root.StartsWith('C'), CancellationToken.None, out var checkedOnDisk, told.Add);
+
+        Assert.AreEqual(FileIndexService.MaxExistenceChecks, checkedOnDisk, "only D:, and only the top results");
+        Assert.AreEqual(FileIndexService.MaxExistenceChecks, missing.Count);
+        Assert.IsTrue(missing.All(item => item.FullPath.StartsWith(@"D:\")), "nothing on the live drive was asked about");
+        Assert.AreEqual(@"D:\clearspace-test-nowhere\behind0.txt", missing[0].FullPath, "best first");
+        Assert.AreEqual(missing.Count, told.Count, "each missing result is reported, to be hidden until the index catches up");
+
+        var none = FileIndexService.PruneMissing(items, _ => true, CancellationToken.None, out checkedOnDisk, told.Add);
+        Assert.AreEqual(0, checkedOnDisk);
+        Assert.AreEqual(0, none.Count);
+
+        using var stopped = new CancellationTokenSource();
+        stopped.Cancel();
+        Assert.ThrowsException<OperationCanceledException>(() => FileIndexService.PruneMissing(items, _ => false, stopped.Token, out _, told.Add));
+    }
+
+    // NEW (search fix): the Windows folders (Desktop, Downloads...) are asked for once and remembered for a
+    // short while. Every folder row asks for all of them when it gets its icon.
+    [TestMethod]
+    public void AKnownFolderIsAskedForOnceAndThenRemembered()
+    {
+        var store = new KnownFolders.Kept?[7];
+        var asked = 0;
+        string Ask() { asked++; return $@"C:\Users\someone\Downloads{asked}"; }
+        var keep = (long)KnownFolders.KeepFor.TotalMilliseconds;
+
+        Assert.AreEqual(@"C:\Users\someone\Downloads1", KnownFolders.Remember(6, Ask, 1_000, store));
+        for (var i = 0; i < 5000; i++)
+            Assert.AreEqual(@"C:\Users\someone\Downloads1", KnownFolders.Remember(6, Ask, 1_000 + i, store));
+        Assert.AreEqual(1, asked, "thousands of rows, one question");
+
+        Assert.AreEqual(@"C:\Users\someone\Downloads2", KnownFolders.Remember(6, Ask, 1_000 + keep, store), "a moved folder is noticed after a while");
+        Assert.AreEqual(@"C:\Users\someone\Downloads3", KnownFolders.Remember(1, Ask, 1_000 + keep, store), "each folder has its own answer");
+        Assert.AreEqual(3, asked);
+    }
+
+    // NEW (search fix): the list is not touched on the key press. Replacing it rebuilds every row on screen,
+    // and that used to happen on each letter; now it waits for a pause in the typing.
+    [TestMethod]
+    public async Task NothingIsHandedToTheWindowWhileTypingContinues()
+    {
+        var sources = new FakeSources { Covered = true, Indexed = [Item(@"C:\elsewhere\found.txt")] };
+        var updates = new List<SearchUpdate>();
+        using var coordinator = Create(sources, updates);
+        var here = new[] { Item(@"C:\source\here.txt") };
+
+        var first = coordinator.SearchAsync(Request(), here, true, TimeSpan.FromHours(1));
+        Assert.AreEqual(0, updates.Count, "a letter was typed; the list stays as it is");
+        var second = coordinator.SearchAsync(Request(), here, true, TimeSpan.FromHours(1));
+        Assert.AreEqual(0, updates.Count, "and another");
+
+        await coordinator.SearchAsync(Request(), here, true, TimeSpan.Zero); // typing stopped
+        await first.WaitAsync(TimeSpan.FromSeconds(5));
+        await second.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.AreEqual(2, updates[^1].Items.Count);
+    }
+
+    // NEW (search fix): this folder's matches and the index's answer go to the list together.
+    [TestMethod]
+    public async Task ThisFoldersMatchesAndTheIndexsAnswerArriveTogether()
+    {
+        var sources = new FakeSources { Covered = true, Indexed = [Item(@"C:\elsewhere\found.txt")] };
+        var updates = new List<SearchUpdate>();
+        using var coordinator = Create(sources, updates);
+
+        await coordinator.SearchAsync(Request(windows: false), [Item(@"C:\source\here.txt")], true, TimeSpan.Zero);
+
+        Assert.AreEqual(2, updates[0].Items.Count, "the first update already has both");
+        Assert.IsFalse(updates[^1].IsSearching);
+    }
+
+    // NEW (search fix): an update whose rows are the ones already shown hands over the same list. The window
+    // sees that nothing changed and does not rebuild its rows; a search that the index answers changes the
+    // list once, however many updates it sends.
+    [TestMethod]
+    public async Task AnUpdateWithTheSameRowsHandsOverTheSameList()
+    {
+        var sources = new FakeSources { Covered = true, Indexed = [Item(@"C:\elsewhere\found.txt")] };
+        var updates = new List<SearchUpdate>();
+        using var coordinator = Create(sources, updates);
+
+        await coordinator.SearchAsync(Request(windows: false), [], true, TimeSpan.Zero);
+
+        Assert.IsTrue(updates.Count >= 2, "the results, then the finished status");
+        Assert.AreEqual(1, updates[0].Items.Count);
+        Assert.IsTrue(updates.All(update => ReferenceEquals(update.Items, updates[0].Items)));
+        StringAssert.Contains(updates[^1].Status!, "from index");
+        Assert.IsFalse(updates[^1].IsSearching);
+    }
+
+    // NEW (search fix): the wait for the index is short. If the index is slow, this folder's matches are
+    // shown without it, and the rest follows.
+    [TestMethod]
+    public async Task ThisFoldersMatchesAreShownFirstWhenTheIndexIsSlow()
+    {
+        var release = new TaskCompletionSource<IReadOnlyList<FileSystemItem>>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var sources = new FakeSources { Covered = true, Index = _ => release.Task };
+        var updates = new List<SearchUpdate>();
+        using var coordinator = Create(sources, updates);
+        var here = Item(@"C:\source\here.txt");
+
+        var search = coordinator.SearchAsync(Request(windows: false), [here], true, TimeSpan.Zero);
+        Assert.AreEqual(0, updates.Count, "held back for the index");
+
+        var waited = System.Diagnostics.Stopwatch.StartNew();
+        while (updates.Count == 0 && waited.Elapsed < TimeSpan.FromSeconds(5))
+            await Task.Delay(20);
+        Assert.AreEqual(1, updates.Count, "the index has not answered; this folder's matches are shown");
+        Assert.AreSame(here, updates[0].Items.Single());
+
+        release.SetResult([Item(@"C:\elsewhere\found.txt")]);
+        await search.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.AreEqual(2, updates[^1].Items.Count);
+        Assert.IsFalse(updates[^1].IsSearching);
+    }
+
+    // NEW (search fix): a place the index does not cover is read from the disk, which takes long; this
+    // folder's matches are shown before that starts.
+    [TestMethod]
+    public async Task ThisFoldersMatchesAreShownBeforeADriveIsReadFromTheDisk()
+    {
+        var sources = new FakeSources { Crawled = [Item(@"C:\elsewhere\found.txt")] };
+        var updates = new List<SearchUpdate>();
+        using var coordinator = Create(sources, updates);
+        var here = Item(@"C:\source\here.txt");
+
+        await coordinator.SearchAsync(Request(windows: false), [here], true, TimeSpan.Zero);
+
+        Assert.AreSame(here, updates[0].Items.Single());
+        Assert.IsTrue(updates[0].IsSearching);
+        Assert.AreEqual(2, updates[^1].Items.Count);
+    }
+
     private sealed class FakeSources : ISearchSources
     {
         public bool IsIndexLive => true;

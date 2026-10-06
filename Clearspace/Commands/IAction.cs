@@ -64,7 +64,13 @@ public enum CommandCode
 
     // NEW (new window)
     NewWindow,
-    OpenInNewWindow
+    OpenInNewWindow,
+
+    // NEW (preview pane)
+    TogglePreviewPane,
+
+    // NEW (map network drive)
+    MapNetworkDrive
 }
 
 

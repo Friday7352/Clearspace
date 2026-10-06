@@ -193,14 +193,32 @@ public sealed class TagStore : IDisposable
     public IReadOnlyList<string> TagIdsFor(string path)
         => Current().ByPath.TryGetValue(path, out var ids) ? ids.ToArray() : [];
 
-    public IReadOnlyList<TagDefinition> TagsFor(string path)
+    public IReadOnlyList<TagDefinition> TagsFor(string path) => TagsFor(Current(), path);
+
+    private static IReadOnlyList<TagDefinition> TagsFor(Snapshot snapshot, string path)
     {
-        var snapshot = Current();
         if (!snapshot.ByPath.TryGetValue(path, out var ids)) return [];
         var tags = new List<TagDefinition>(ids.Count);
         foreach (var id in ids)
             if (snapshot.ById.TryGetValue(id, out var tag)) tags.Add(tag);
         return tags;
+    }
+
+    // NEW (search fix): the tags as they are at this moment, for looking up many paths in a row.
+    // TagsFor(path) on the store asks the database "has anything changed?" before every answer, under the
+    // store's lock. That is right for one lookup. For a list it meant one database round trip per row:
+    // every row of a folder being opened, and every one of up to 10,000 search results after each key
+    // press - while the UI thread, which reads the tag list to understand what was typed, waited for its
+    // turn on the same lock. A list now asks once and reads all its rows from the answer.
+    internal TagLookup Lookup()
+    {
+        var snapshot = Current();
+        return new TagLookup(path => TagsFor(snapshot, path));
+    }
+
+    internal sealed class TagLookup(Func<string, IReadOnlyList<TagDefinition>> find)
+    {
+        internal IReadOnlyList<TagDefinition> TagsFor(string path) => find(path);
     }
 
     public bool HasTag(string path, string tagId)
@@ -233,6 +251,69 @@ public sealed class TagStore : IDisposable
                 """, newPath, oldPath);
             sql.Execute("DELETE FROM Paths WHERE Path = $p0", oldPath);
         });
+    }
+
+    // NEW (pre-release review): tags follow several renames made together (batch rename), and follow what is
+    // inside a folder that was renamed. All of it is one transaction: either every tag has moved or none has.
+    //  - MovePath, called once per item, gets a batch wrong when names are shifted along or swapped.
+    //    Renaming 1, 2, 3 to 2, 3, 4 moved 1's tags onto 2, then 2's tags (now 1's as well) onto 3, and so
+    //    on: every tag ended up on the last file. Here each old name is read first and taken away before any
+    //    new name is written, so every item keeps exactly its own tags.
+    //  - Renaming a folder used to move only the folder's own tags. A tag on C:\Old\a.txt stayed behind
+    //    under a path that no longer existed. A tagged path inside a renamed folder now moves with it; when
+    //    several of the folders above it were renamed, the nearest one decides.
+    // A name that only changes its capitals needs nothing: paths are matched whatever their capitals.
+    public void MovePaths(IReadOnlyList<(string From, string To)> moves)
+    {
+        var renamed = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var (from, to) in moves)
+        {
+            ArgumentException.ThrowIfNullOrWhiteSpace(to);
+            if (!string.IsNullOrWhiteSpace(from) && !string.Equals(from, to, StringComparison.OrdinalIgnoreCase))
+                renamed[from] = to;
+        }
+        if (renamed.Count == 0) return;
+
+        Write(sql =>
+        {
+            var carried = new List<(string Old, string New, List<string> TagIds)>();
+            foreach (var path in sql.Query("SELECT Path FROM Paths", reader => reader.GetString(0)))
+            {
+                if (RenamedPath(path, renamed) is not { } target || string.Equals(target, path, StringComparison.OrdinalIgnoreCase))
+                    continue;
+                carried.Add((path, target, sql.Query("SELECT TagId FROM PathTags WHERE Path = $p0", reader => reader.GetString(0), path)));
+            }
+
+            foreach (var (old, _, _) in carried)
+            {
+                sql.Execute("DELETE FROM PathTags WHERE Path = $p0", old);
+                sql.Execute("DELETE FROM Paths WHERE Path = $p0", old);
+            }
+
+            foreach (var (_, target, tagIds) in carried)
+            {
+                if (tagIds.Count == 0) continue;
+                sql.Execute("INSERT INTO Paths(Path) VALUES($p0) ON CONFLICT DO NOTHING", target);
+                foreach (var tagId in tagIds)
+                    sql.Execute("INSERT INTO PathTags(Path, TagId) VALUES($p0, $p1) ON CONFLICT DO NOTHING", target, tagId);
+            }
+        });
+    }
+
+    // Where a tagged path is after the renames: its own new name, or the same place under the new name of
+    // the nearest renamed folder above it. Null when none of the renames touches it.
+    private static string? RenamedPath(string path, Dictionary<string, string> renamed)
+    {
+        if (renamed.TryGetValue(path, out var own))
+            return own;
+
+        for (var cut = path.LastIndexOf('\\'); cut > 0; cut = path.LastIndexOf('\\', cut - 1))
+        {
+            if (renamed.TryGetValue(path[..cut], out var folder))
+                return folder + path[cut..];
+        }
+
+        return null;
     }
 
     public void Unassign(string path, string tagId) => Write(sql =>

@@ -92,14 +92,38 @@ public sealed class RenameAction(ExplorerContext context) : IAction
 {
     public CommandCode Code => CommandCode.Rename;
     public string Label => "Rename";
-    public string Description => "Rename the selected item";
+    public string Description => "Rename the selected item, or several at once";
     public string Glyph => "\uE8AC";
     public HotKey HotKey => new(Key.F2);
-    public bool IsExecutable => context.HasSingleSelection;
+    // CHANGED (batch rename): also available with several items selected (was a single item only).
+    public bool IsExecutable => context.HasSingleSelection || (context.HasSelection && context.BeginBatchRename is not null);
 
     public Task ExecuteAsync(object? parameter = null)
     {
+        // NEW (batch rename): several items go to the batch rename dialog.
+        if (context.SelectedItems.Count > 1)
+        {
+            context.BeginBatchRename?.Invoke(context.SelectedItems);
+            return Task.CompletedTask;
+        }
+
         context.BeginRename?.Invoke(context.SelectedItems.FirstOrDefault());
+        return Task.CompletedTask;
+    }
+}
+
+// NEW (preview pane): shows or hides the pane beside the file list that previews the selected file.
+public sealed class TogglePreviewPaneAction(ExplorerContext context) : IAction
+{
+    public CommandCode Code => CommandCode.TogglePreviewPane;
+    public string Label => "Preview pane";
+    public string Description => "Show or hide the preview of the selected file";
+    public string Glyph => "\uE8A1";
+    public HotKey HotKey => new(Key.P, ModifierKeys.Alt);
+
+    public Task ExecuteAsync(object? parameter = null)
+    {
+        context.TogglePreviewPane?.Invoke();
         return Task.CompletedTask;
     }
 }
@@ -151,9 +175,20 @@ public sealed class PasteItemAction(ExplorerContext context) : IAction
         if (paths.Length == 0 || !Directory.Exists(context.CurrentPath))
             return Task.CompletedTask;
 
+        // FIXED (pre-release review): pasting into the folder the items are already in.
+        //  - Copied (Ctrl+C, Ctrl+V in one folder, the usual way to duplicate a file): Windows refuses to copy
+        //    a file onto itself and showed "the source and destination file names are the same". The copies
+        //    now get names of their own ("name - Copy"), as in File Explorer.
+        //  - Cut: the items are where they are being moved to, so there is nothing to do (it was the same error).
+        var here = Path.TrimEndingDirectorySeparator(context.CurrentPath);
+        var alreadyHere = paths.All(path => string.Equals(
+            Path.GetDirectoryName(Path.TrimEndingDirectorySeparator(path)), here, StringComparison.OrdinalIgnoreCase));
+        if (cut && alreadyHere)
+            return Task.CompletedTask;
+
         var result = cut
             ? FileOperationService.Move(paths, context.CurrentPath, context.OwnerHandle)
-            : FileOperationService.Copy(paths, context.CurrentPath, context.OwnerHandle);
+            : FileOperationService.Copy(paths, context.CurrentPath, context.OwnerHandle, keepBoth: alreadyHere);
         context.ReportFileOperation(result);
 
         context.RequestRefresh();

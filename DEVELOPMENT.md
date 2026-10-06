@@ -69,6 +69,7 @@ output/                  Saved test reports and coursework packages
 dist/                    Local published build (generated)
 release/                 Installer output (generated)
 README.md                For the person installing and using Clearspace
+LICENSE                  The MIT licence Clearspace is released under
 DEVELOPMENT.md           This page
 VERSION                  The version number, read by both projects and the installer
 VERSIONING.md            What each part of the version number means and when to raise it

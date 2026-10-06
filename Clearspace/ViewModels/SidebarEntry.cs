@@ -22,6 +22,9 @@ public sealed record SidebarEntry(
     public bool HasHub => IsSection && !string.IsNullOrWhiteSpace(Path);
     public bool IsNestedPin => IsPinned;
 
+    // NEW (map network drive): the This PC and Network headings have "Map network drive…" in their menu.
+    public bool OffersMapDrive => IsSection && SectionId is "this-pc" or "network";
+
     public bool IsCloudBacked => !string.IsNullOrWhiteSpace(CloudProvider);
 
     public string CloudHint => IsCloudBacked

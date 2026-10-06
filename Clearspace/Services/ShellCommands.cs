@@ -34,6 +34,10 @@ internal static class ShellCommands
             _ => null
         };
         var path = args[1].Trim().Trim('"');
+        // NEW (folder opener): Windows passes a drive as "C:\" and the backslash before the closing quote
+        // makes that quote part of the text, so it arrives as C:" - which the trim above leaves as C:.
+        // Put the backslash back, or opening a drive from the desktop would be ignored.
+        if (path.Length == 2 && path[1] == ':' && char.IsAsciiLetter(path[0])) path += "\\";
         if (verb is null || path.Length == 0 || !System.IO.Path.IsPathFullyQualified(path)) return null;
         return new ShellCommand(verb.Value, path);
     }

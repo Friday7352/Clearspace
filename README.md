@@ -46,7 +46,7 @@ A silent run (`ClearspaceSetup.exe /VERYSILENT`) performs the plain update.
      double-click handling go. -->
 ### Uninstalling
 
-Uninstall Clearspace from Windows Settings like any other app, or run the setup again and choose **Remove Clearspace**. This closes Clearspace and removes the app, its shortcuts, its entries in Explorer's right-click menu, the lock icon and double-click handling for `.cslock` files, and the Index Helper service (Windows asks for permission once to remove the service).
+Uninstall Clearspace from Windows Settings like any other app, or run the setup again and choose **Remove Clearspace**. This closes Clearspace and removes the app, its shortcuts, its entries in Explorer's right-click menu, the lock icon and double-click handling for `.cslock` files, the "Open folders with Clearspace" setting (folders open in File Explorer again), and the Index Helper service (Windows asks for permission once to remove the service).
 
 **Your own files are never removed.** Files you left locked stay where they are, still encrypted. Without Clearspace they show a blank icon and cannot be opened; install Clearspace again and they open with the same password.
 
@@ -62,9 +62,26 @@ A silent uninstall asks nothing and leaves locks and data alone.
 
 **Settings > About Clearspace…** has a **Copy details** button that copies the version and system details. Paste them into a new issue on the [Issues page](https://github.com/Friday7352/Clearspace/issues), with what you were doing when it went wrong.
 
+<!-- NEW (search trace) -->
+If searching is slow, attach `search-trace.log` from `%APPDATA%\Clearspace` as well. A search that takes 1.5 seconds or more leaves one line there saying how long each step took, and so does any moment the window stops responding. It holds timings and counts only, never what you typed, and stays on your PC unless you send it.
+
 <!-- NEW: a short list of the recent additions, linking to the sections below. -->
 ## What's new
 
+<!-- NEW (map network drive) -->
+- **[Map a network drive](#familiar-file-manager-foundations)**: give a shared folder on another computer or a NAS a drive letter, and disconnect it again, without opening File Explorer.
+<!-- NEW (drag to select) -->
+- **Drag to select**: drag across empty space in the file list to draw a rectangle, and every file it touches is selected, as in File Explorer.
+<!-- NEW (duplicates, downloads, scroll while dragging) -->
+- **Scroll while dragging**: hold a dragged file near the top or bottom edge of the list, or turn the mouse wheel, and the list scrolls so you can drop it on a folder that was off screen.
+- **[Find duplicates](#find-duplicates)**: finds exact copies in any folder and removes the ones you tick, always keeping one.
+- **[A Downloads folder that helps](#the-downloads-folder)**: your newest downloads at the top with one-click actions, a way back to the page a file came from, suggested folders for filing, and a list of setup files you no longer need.
+<!-- NEW (switching): the four additions made for people moving over from File Explorer. -->
+- **Folders stay up to date**: a download that finishes, or a file another program saves, renames or deletes, shows up in the folder you have open without pressing F5.
+- **[Preview pane](#preview-pane)**: Alt+P shows the selected picture, text file or ZIP beside the list without opening it.
+- **[ZIP files](#zip-files)**: extract and compress from the right-click menu.
+- **[Rename several items at once](#rename-several-items-at-once)**: F2 with more than one item selected, with every new name shown before anything changes.
+- **[Open folders with Clearspace](#open-folders-with-clearspace)**: folders from the desktop, other programs and Win+E open in Clearspace.
 <!-- NEW (user readme): the 1.3.0 additions. -->
 - **[Tabs](#familiar-file-manager-foundations)**: Ctrl+T for a new tab, or middle-click a folder to open it in one. Each tab keeps its own history, search, scroll position and selection.
 - **[More than one window](#familiar-file-manager-foundations)**: Ctrl+N or "Open in new window".
@@ -124,17 +141,17 @@ What each type does:
 | --- | --- | --- | --- |
 | **General files** | List: name, date modified, type | Nothing extra: a plain, fast list. Cloud folders also show each file's sync status. | Anything no other type fits |
 | **Documents** | List: name, pages, authors, date modified, type, size | Page counts and authors, read from the files themselves. | Windows' Documents folder; folders of mostly PDFs, Office files, text and e-books |
-| **Downloads** | List: name, source, date modified, type, size | Newest first, grouped by day, with the site each file came from. | Windows' Downloads folder; names containing "downloads" |
+| **Downloads** | List: name, source, date modified, type, size | Newest first and grouped by day, folders and files together, with the site each file came from. A **Just arrived** strip, suggested folders and the installers list: see [The Downloads folder](#the-downloads-folder). | Windows' Downloads folder; names containing "downloads" |
 | **Desktop** | List: name, type, date modified, size | Folders, shortcuts and files in their own groups. | Windows' Desktop folder |
 | **Photos** | Picture tiles | The in-app photo viewer (zoom, rotate, crop), and image dimensions in details view. | Windows' Pictures folder; names like photos, pictures, images, camera roll, wallpapers; folders of mostly pictures |
 | **Music** | List: play, name, artist, album, length, date modified | Track details read from the files, and the built-in music player. | Windows' Music folder; names like music, songs, albums, playlists; folders of mostly audio |
 | **Videos** | Video tiles | Each tile shows the video's length; details view adds length and resolution. | Windows' Videos folder; names like videos, movies, clips, recordings; folders of mostly videos |
-| **Screenshots** | Picture tiles | Everything Photos does, newest first, and grouped under Today, Yesterday, This week… in details view. | Pictures\Screenshots; names like screenshots, screen captures, snips; pictures mostly named "Screenshot…", "Capture…" or "Snip…" |
+| **Screenshots** | Picture tiles | Everything Photos does, newest first (folders and pictures together), and grouped under Today, Yesterday, This week… in details view. | Pictures\Screenshots; names like screenshots, screen captures, snips; pictures mostly named "Screenshot…", "Capture…" or "Snip…" |
 | **Code** | List: name, Git, date modified, type, size | The Git branch and how many files have changed, a Git column with each file's status, and build and dependency folders such as `bin`, `obj` and `node_modules` dimmed. | A code repository at or above the folder |
 | **Projects** | List: name, date modified, type, tags | A strip above the list with files you pinned to the project and the files changed most recently anywhere inside it. Right-click a file and choose **Pin to project**. | Never; choose it yourself |
 | **Research** | List: name, title, authors, pages, date modified | Papers by their real title and authors (so `2304.12345.pdf` reads as a paper), most recent first. PDFs are read by Clearspace itself, since Windows has no PDF property reader. | Names like research, papers, literature, readings, thesis |
 | **Design & 3D** | Large tiles (160 %) | Large previews (3D models too, where Windows can draw them), the photo viewer, and pixel sizes. | Names like design, renders, artwork, 3D models, Blender; folders of design files (PSD, AI, SVG, Blender, STL, OBJ, FBX…) kept with their pictures |
-| **Archives & Backups** | List: name, date modified, date created, size, type | Newest first and grouped by date, and their contents rank below your current files in search. | Names containing "backup" or "archive"; folders of mostly archives (ZIP, 7z, RAR, ISO, BAK…) |
+| **Archives & Backups** | List: name, date modified, date created, size, type | Newest first and grouped by date, folders and files together, and their contents rank below your current files in search. | Names containing "backup" or "archive"; folders of mostly archives (ZIP, 7z, RAR, ISO, BAK…) |
 
 Columns, sorting, layout and tile size can still be changed in any folder; the
 type only sets where it starts.
@@ -543,6 +560,134 @@ the list and use the delete button or **Shift+Delete**. The confirmation lists
 the targets and explains that they will bypass the Recycle Bin. Afterward, the
 map and totals update for items confirmed removed, including partial deletions.
 
+<!-- NEW (duplicates) -->
+### Find duplicates
+
+Press the **Find duplicates** button in the toolbar (beside Disk usage), or right-click a folder and
+choose **Find duplicates…**. Clearspace looks through the folder for files that are exact copies of each
+other and lists them in groups, the group that wastes the most space first. It works in every folder,
+whatever its folder type.
+
+- Two files count as copies only when their contents are the same, byte for byte. Their names and dates
+  make no difference, so *report.pdf* and *report (1).pdf* are found, and so is the same photo saved
+  under two names in different subfolders.
+- Tick the copies you don't want, or use **Keep the newest of each** or **Keep the oldest of each** to
+  tick the rest in every group at once. **Move to Recycle Bin** removes the ticked files.
+- **One copy always stays.** The last copy left in a group can't be ticked.
+- Just before removing, every ticked file is checked again. A file that changed since the search is left
+  alone, and so is a whole group if the copy you are keeping is no longer there.
+- Removed files go to the Recycle Bin, so they can be put back.
+- **Look in subfolders too** is on by default; turn it off to compare only the files directly in the folder.
+- The folder button on a row goes to that file in its folder. **Esc** or **Back** returns to your files.
+
+Left out of the search: empty files, links, cloud files that are not on this device (reading them would
+download them), and hidden files unless hidden items are shown. A long search shows how far along it is
+and can be stopped; nothing is changed until you choose **Move to Recycle Bin**.
+
+<!-- NEW (duplicates from the index) -->
+On a drive Clearspace has indexed, the search does not read the folders to find out which files there
+are: the index already knows every file's name and size, and only files of the same size can be copies.
+So it goes straight to comparing those, which is the part that has to read the files. Each file's size
+is checked again as it is opened, in case the index was a moment behind. The result says when the list
+came from the index, and **Search the disk instead** runs the slower search that reads every folder.
+
+<!-- NEW (downloads) -->
+### The Downloads folder
+
+A folder with the **Downloads** [folder type](#folder-types-that-adapt-to-your-work) gets four extras.
+
+**Just arrived.** A strip above the list shows your newest downloads from the last week as tiles, up to
+five. Each tile has buttons for what you usually do next: open it, unpack it (a `.zip`), open the page
+it came from, move it, or delete it. Click a tile to find the file in the list; right-click it for the
+same actions in words. A file counts from when it reached this PC, so a download with an old date (a
+driver from 2019, say) is still at the top here even though the list sorts it far down. The **×** hides
+the strip; right-click the empty area of the list and choose **Show just arrived** to bring it back.
+
+**Go back to the page.** Right-click a downloaded file and choose **Open the page this came from** to
+open the web page you downloaded it from, or **Copy download link** for the file's own address. These
+appear in every folder, for any file that still carries the note Windows attaches to downloads. A file
+saved from a private window, or copied from a USB stick, has no note and the entries are not shown.
+
+**Suggested folders.** Clearspace notices where you move downloads to. After files from the same site,
+or of the same kind, have gone to one folder a couple of times, the next one like them is offered
+**Move to "that folder"** on its tile and in its right-click menu. It only offers: nothing is moved
+unless you click. Right-click the tile and choose **Stop suggesting "that folder"** to make it forget a
+folder. What it remembers is a count of moves per folder for each site and file ending, kept in your
+settings file on this PC; no file names or addresses are stored.
+
+**Installers.** The strip counts the setup files in the folder and says how many are for programs that
+are already installed. **Review** lists them:
+
+- **Looks installed** – a program with that name is on this PC, so the setup file is no longer needed.
+  These are ticked.
+- **Newer than the installed version** – probably an update you have not run yet. Not ticked.
+- **Not found among the installed programs** – not ticked.
+
+Change the ticks as you like and choose **Move to Recycle Bin**. The match is made by name against the
+list in Windows' *Installed apps* and is deliberately strict, so some installers of programs you do have
+show as not found; it tells you a program is already installed, not that a file is safe to run.
+
+<!-- NEW (preview pane) -->
+### Preview pane
+
+Press **Alt+P**, or the preview button in the toolbar, to open a pane beside the file list that shows
+the selected item without opening it:
+
+- A picture, a video, or a document Windows can draw (a PDF's first page, for example) appears as a large picture.
+- A text file shows its first lines, whatever it is called: `notes.txt`, `LICENSE`, `.gitignore`, a `.log`.
+- A `.zip` shows a list of what is inside it.
+- Anything else shows its icon.
+
+Underneath are the item's type, size, dates, tags and the folder it is in. With several items selected the
+pane shows how many there are and the total size of the files. Drag the edge of the pane to make it wider
+or narrower; Clearspace remembers whether it was open and how wide.
+
+A cloud file that is not on this device is never downloaded just to preview it, and a locked file is not opened.
+
+<!-- NEW (archives) -->
+### ZIP files
+
+Right-click one or more `.zip` files:
+
+- **Extract to "name"** unpacks each one into a new folder beside it. Nothing that is already there is
+  overwritten: if a folder called "name" exists, the new one is called "name (2)".
+- **Extract to…** does the same inside a folder you choose.
+
+Right-click any files or folders and choose **Compress to ZIP file** to pack them into one new `.zip`
+in the folder you are in.
+
+Both show how far along they are and can be cancelled. A job that is cancelled or fails removes what it
+had half made. Password-protected archives and other formats (7z, RAR) are not supported yet, and
+double-clicking a `.zip` still opens it in whichever program Windows uses for ZIP files.
+
+<!-- NEW (batch rename) -->
+### Rename several items at once
+
+Select several files or folders and press **F2** (or choose **Rename**). A dialog shows every old name
+beside its new one before anything is changed:
+
+- **New name** is a pattern. `{name}` stands for the current name, `{n}` for a number (`{n:3}` gives 001)
+  and `{date}` for the date modified. `Holiday {n}` gives *Holiday 1.jpg*, *Holiday 2.jpg* and so on.
+- **Find** and **replace with** change a piece of text in every name.
+- **Capitals** switches the names to small letters, capitals, or Each Word.
+- **Numbers start at** sets the first number.
+
+File endings (`.jpg`) are kept. A name that can't be used is marked in the list, for example when two
+items would end up with the same name or a name contains a character Windows refuses, and nothing is
+renamed until every name is fine. If one rename fails partway through, the ones already done are put back.
+
+<!-- NEW (folder opener) -->
+### Open folders with Clearspace
+
+Turn on **Settings > Open folders with Clearspace** and folders opened from the desktop, from other
+programs and with **Win+E** open in Clearspace instead of File Explorer. A folder opens in a new tab of
+the Clearspace window you already have.
+
+- It applies to your Windows account only and needs no administrator permission.
+- File Explorer stays on the PC. The file pickers inside other programs are unchanged, and a program
+  that asks for Explorer by name (many "Show in folder" commands do) still gets Explorer.
+- Untick the setting to switch back. Uninstalling Clearspace switches back too.
+
 <!-- NEW: the themes. -->
 ### Themes
 
@@ -584,15 +729,28 @@ look in every theme.
 
 - Browse local, mapped network, and known Windows folders.
 - Back, forward, up, breadcrumb navigation, side-mouse navigation, and an address bar.
+- The folder you have open follows the disk: when another program adds, changes, renames or removes something in it, the list updates by itself and keeps your selection and your place. (Subfolders are not watched, so the date shown for a folder catches up when you press F5 or come back.)
 - Tabs, as in File Explorer: Ctrl+T for a new tab, middle-click a folder to open it in one, drag files onto a tab. Each tab keeps its own history, search, scroll position and selection.
 - More windows: Ctrl+N or "Open in new window". They share one index and one set of caches, so a second window costs little.
 - Your files can hold folders of your own beside Desktop, Documents and the rest: right-click an empty area there for New folder.
 - Copy, cut, paste, rename, new folder, delete to the Recycle Bin, and properties.
+<!-- NEW (drag to select) -->
+- Drag to select, as in File Explorer: start on empty space (the blank part of a row, the gaps between tiles, or below the files) and drag a rectangle over the files you want. Hold Ctrl to add to what is already selected (files under the rectangle flip), or Shift to only add. Hold the pointer at the top or bottom edge, or turn the wheel, to carry on past what is on screen. Esc puts the selection back; a click on empty space clears it. A drag that starts on a file's icon or text still moves the file.
+<!-- NEW (scroll while dragging) -->
+- Drag files onto a folder in the list, the sidebar or a tab to move or copy them. The list scrolls while you drag: hold the file near its top or bottom edge, or turn the mouse wheel, to reach a folder that is off screen. The sidebar does the same.
 - Explorer-style right-click menus and Windows copy/conflict dialogs.
 - This PC and Network hubs with drive capacity indicators.
+<!-- NEW (map network drive) -->
+- Map a network drive without File Explorer: open **Network** in the sidebar and choose **Map network drive…** (it is also in the right-click menu of the This PC and Network headings, and of the empty space on those two pages). Type the folder as `\\server\share` or use **Browse…**, pick one of the free drive letters, and choose whether Windows should reconnect the drive each time you sign in. If the server wants a user name and password, Windows asks for them in its own sign-in box, so Clearspace never sees your password; tick *Connect using different credentials* to be asked even when your own account would work. To remove a drive, right-click it in the sidebar or on the Network page and choose **Disconnect**.
 - Per-folder details-column order and width, saved between sessions.
 - Grid zoom is remembered independently for each folder.
 - Optional terminal launch in the folder currently being viewed.
+
+<!-- NEW (licence) -->
+## License
+
+Clearspace is released under the [MIT License](LICENSE). The two pixel fonts it includes are under the
+SIL Open Font License; their licence texts are in `Clearspace/Assets/Fonts`.
 
 <!-- NEW (user readme): where the build and release instructions went. -->
 ## Building Clearspace yourself
