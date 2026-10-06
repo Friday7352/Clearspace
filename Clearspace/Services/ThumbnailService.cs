@@ -454,6 +454,15 @@ public static class ThumbnailService
             size,
             NativeMethods.SIIGBF_ICONONLY | NativeMethods.SIIGBF_BIGGERSIZEOK);
 
+        // FIXED (tiny tile icons): when a file type's program only ships small icons, Windows returns a big
+        // empty picture with the small icon in the middle, and the tile showed a speck (ZIP files, with
+        // some archive tools). Such an icon is drawn larger when it has enough detail for that (40 pixels
+        // or more). A smaller one would only blur, so the tile gets Clearspace's own page with the type's
+        // name on it, as it does for a type Windows has no icon for. A program's, shortcut's or folder's
+        // own icon is always kept, enlarged up to four times. See Services/FramedIcon.cs.
+        if (icon is BitmapSource picture && FramedIcon.TryEnlarge(picture, size, evenIfBlurry: pathSpecific, out var enlarged))
+            icon = enlarged ?? ScalableIconService.File(extension);
+
         if (icon is not null)
         {
             if (ShellIconCache.Count > 2048)

@@ -122,6 +122,15 @@ public sealed class OpenTerminalAction(ExplorerContext context) : IAction
         if (!Directory.Exists(folder))
             return Task.CompletedTask;
 
+        Launch(folder);
+        return Task.CompletedTask;
+    }
+
+    // CHANGED (menu by type): taken out of ExecuteAsync unchanged, so "Open in Terminal" on a folder in the
+    // right-click menu opens the terminal in that folder (ShellActions.OpenTerminal), not only in the one
+    // on screen. Windows Terminal when it is installed, otherwise PowerShell.
+    internal static void Launch(string folder)
+    {
         try
         {
             System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
@@ -131,7 +140,7 @@ public sealed class OpenTerminalAction(ExplorerContext context) : IAction
                 WorkingDirectory = folder,
                 UseShellExecute = true
             });
-            return Task.CompletedTask;
+            return;
         }
         catch (Exception)
         {
@@ -149,8 +158,6 @@ public sealed class OpenTerminalAction(ExplorerContext context) : IAction
         catch (Exception)
         {
         }
-
-        return Task.CompletedTask;
     }
 }
 

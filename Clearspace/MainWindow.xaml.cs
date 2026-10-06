@@ -86,6 +86,9 @@ public partial class MainWindow : Window
     private Point _sidebarDragStart;
     private Point _fileDragStart;
     private bool _isFileDragPending;
+    // FIXED (drag several): the selected file the button went down on while several were selected. The
+    // selection is left alone until the button comes up; see OnFileListPreviewMouseLeftButtonDown.
+    private FileSystemItem? _pressedInSelection;
     private ListViewItem? _fileDropTarget;
     private string? _editingCategoryId;
     private bool _isPanningViewer;
@@ -1164,7 +1167,50 @@ public partial class MainWindow : Window
         _isFileDragPending = row is not null && !onBlankOfRow;
         _fileDragStart = e.GetPosition(FileList);
         NoteBandPress(e, row, _isFileDragPending);
+
+        // FIXED (drag several): dragging a selection of several files moved only the one under the pointer.
+        // The list reacts to the button going down on a selected file by selecting that file alone, so by
+        // the time the drag started the rest of the selection was gone. Now, when the press is on a file
+        // that is already selected, several are selected and no Ctrl or Shift is held, the list does not
+        // get the press: the selection stays, and a drag takes all of it. If the button comes up again
+        // without a drag, that file becomes the only one selected then (OnFileListPreviewMouseLeftButtonUp),
+        // which is what a plain click on it has always done, and what File Explorer does.
+        // Left alone: a double click's second press, and presses on a button or text box inside the row.
+        _pressedInSelection = null;
+        if (_isFileDragPending && e.ClickCount == 1 && Keyboard.Modifiers == ModifierKeys.None &&
+            row is { IsSelected: true, DataContext: FileSystemItem pressed } && FileList.SelectedItems.Count > 1 &&
+            FindAncestor<ButtonBase>(source) is null && FindAncestor<TextBoxBase>(source) is null)
+        {
+            _pressedInSelection = pressed;
+            row.Focus(); // the list would have done this itself
+            e.Handled = true;
+        }
     }
+
+    // FIXED (drag several): a click (no drag) on one of several selected files selects just that file, now
+    // that the press itself no longer does. Shift+click afterwards counts from it, as after any click.
+    private void OnFileListPreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        if (_pressedInSelection is not { } pressed)
+            return;
+
+        _pressedInSelection = null;
+
+        // Released somewhere else: nothing was clicked.
+        if (FindAncestor<ListViewItem>(e.OriginalSource as DependencyObject) is not { DataContext: FileSystemItem released } ||
+            !ReferenceEquals(released, pressed))
+            return;
+
+        FileList.SelectedItem = pressed; // in a list that allows several, this selects it alone
+
+        try { SelectionAnchorProperty?.SetValue(FileList, pressed); }
+        catch (Exception) { } // Shift+click then counts from the earlier file; nothing worse
+    }
+
+    // Where a Shift+click range starts. ListBox keeps it in a protected property and moves it on every
+    // click it handles itself; the click above is one it never saw.
+    private static readonly System.Reflection.PropertyInfo? SelectionAnchorProperty = typeof(ListBox).GetProperty(
+        "AnchorItem", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
 
     private void OnFileListPreviewMouseMove(object sender, MouseEventArgs e)
     {
@@ -1172,6 +1218,7 @@ public partial class MainWindow : Window
         if (e.LeftButton != MouseButtonState.Pressed)
         {
             _bandPending = false;
+            _pressedInSelection = null; // FIXED (drag several): the button came up somewhere else
             return;
         }
 
@@ -1194,6 +1241,7 @@ public partial class MainWindow : Window
             return;
 
         _isFileDragPending = false;
+        _pressedInSelection = null; // FIXED (drag several): this is a drag, so the selection stays as it is
 
         var paths = _viewModel.Context.SelectedItems
             .Where(item => !item.IsDriveRoot)

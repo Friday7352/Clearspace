@@ -68,6 +68,8 @@ If searching is slow, attach `search-trace.log` from `%APPDATA%\Clearspace` as w
 <!-- NEW: a short list of the recent additions, linking to the sections below. -->
 ## What's new
 
+<!-- NEW (menu by type) -->
+- **[A right-click menu that fits the file](#familiar-file-manager-foundations)**: play a sound file, view or copy a picture, run a program as administrator, print a document, and more, with cut, copy, paste, rename and delete as a row of icons.
 <!-- NEW (map network drive) -->
 - **[Map a network drive](#familiar-file-manager-foundations)**: give a shared folder on another computer or a NAS a drive letter, and disconnect it again, without opening File Explorer.
 <!-- NEW (drag to select) -->
@@ -599,7 +601,12 @@ A folder with the **Downloads** [folder type](#folder-types-that-adapt-to-your-w
 **Just arrived.** A strip above the list shows your newest downloads from the last week as tiles, up to
 five. Each tile has buttons for what you usually do next: open it, unpack it (a `.zip`), open the page
 it came from, move it, or delete it. Click a tile to find the file in the list; right-click it for the
-same actions in words. A file counts from when it reached this PC, so a download with an old date (a
+same actions in words. Drag a tile to use the file somewhere else: into a chat or an e-mail, onto the
+desktop, or onto a folder. The move button opens Clearspace's own folder chooser: your sidebar places on
+the left, the folders inside the open one on the right, and **Move here** once you are in the right one.
+At its top it lists up to three **Recommended** folders with the reason for each, and it opens in the
+first: where files like this one went before, a folder whose name is in the file's name, the folder for
+that kind of file (Pictures for an image), or a folder you moved something to recently. A file counts from when it reached this PC, so a download with an old date (a
 driver from 2019, say) is still at the top here even though the list sorts it far down. The **×** hides
 the strip; right-click the empty area of the list and choose **Show just arrived** to bring it back.
 
@@ -612,8 +619,9 @@ saved from a private window, or copied from a USB stick, has no note and the ent
 or of the same kind, have gone to one folder a couple of times, the next one like them is offered
 **Move to "that folder"** on its tile and in its right-click menu. It only offers: nothing is moved
 unless you click. Right-click the tile and choose **Stop suggesting "that folder"** to make it forget a
-folder. What it remembers is a count of moves per folder for each site and file ending, kept in your
-settings file on this PC; no file names or addresses are stored.
+folder. What it remembers is a count of moves per folder for each site and file ending, and the last
+few folders you moved files to, kept in your settings file on this PC; no file names or addresses are
+stored.
 
 **Installers.** The strip counts the setup files in the folder and says how many are for programs that
 are already installed. **Review** lists them:
@@ -739,6 +747,8 @@ look in every theme.
 <!-- NEW (scroll while dragging) -->
 - Drag files onto a folder in the list, the sidebar or a tab to move or copy them. The list scrolls while you drag: hold the file near its top or bottom edge, or turn the mouse wheel, to reach a folder that is off screen. The sidebar does the same.
 - Explorer-style right-click menus and Windows copy/conflict dialogs.
+<!-- NEW (menu by type) -->
+- The right-click menu fits what you clicked. What suits the kind of file comes first: **Play in Clearspace** for a sound file, **View in Clearspace** for a picture, the **Extract** entries for a ZIP file, **Run as administrator** for a program, **Open file location** for a shortcut. A picture also gets **Copy image** and **Set as desktop background**, documents and pictures get **Print**, a folder gets **Open in Terminal**, and any other file gets **Open with…**. Cut, copy, paste, rename and delete are a row of icons at the bottom of the menu, as in File Explorer; hover over one to see its name and shortcut. Entries that would do nothing for what you clicked are left out: no **Unlock…** on a file that is not locked, no **Pin to sidebar** on a file.
 - This PC and Network hubs with drive capacity indicators.
 <!-- NEW (map network drive) -->
 - Map a network drive without File Explorer: open **Network** in the sidebar and choose **Map network drive…** (it is also in the right-click menu of the This PC and Network headings, and of the empty space on those two pages). Type the folder as `\\server\share` or use **Browse…**, pick one of the free drive letters, and choose whether Windows should reconnect the drive each time you sign in. If the server wants a user name and password, Windows asks for them in its own sign-in box, so Clearspace never sees your password; tick *Connect using different credentials* to be asked even when your own account would work. To remove a drive, right-click it in the sidebar or on the Network page and choose **Disconnect**.

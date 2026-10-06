@@ -485,10 +485,34 @@ code. Tests for all four: `Clearspace.Tests/DownloadsTests.cs`.
 - **Just arrived** (`Services/JustArrived.cs`): the newest five files of the last week, by the later of
   the created and modified dates. Rebuilt when `Items` changes, but only if what it would show differs
   (a key of the picks and the folder's setup files), so a growing download does not redraw it.
+  <!-- NEW (drag from just arrived) --> A tile can be dragged out as its file (`MainWindow.DragArrival`):
+  the same `FileDrop` data a drag from the list carries, so other programs and Clearspace's own drop
+  targets treat it alike. Checked by hand.
 - **Where a file came from** (`Services/DownloadOrigin.cs`): the page (`ReferrerUrl`) and the file's own
   address (`HostUrl`) from the `Zone.Identifier` stream. Only `http` and `https` addresses are accepted,
   because the address is handed to the shell to open; the file's own address is only ever copied, never
   opened.
+- <!-- NEW (move in Clearspace) --> **Move to a folder…** on a tile opens `FolderPickerWindow.cs`,
+  Clearspace's own folder chooser, not Windows' picker: the window's sidebar entries as places, the
+  folders of the open place (`ReadFolders`, tests in `Clearspace.Tests/FolderPickerTests.cs`), a path
+  box that can be typed in, and New folder. A click goes into a folder; the main button chooses the one
+  that is open. The dialog knows nothing about moving: `FolderPickerOptions` carries the button's label
+  and two callbacks, why a folder may not be entered (locked with a password) and why the open one may
+  not be chosen (the file is already there). The other folder choices (Extract to…, Add a folder you
+  already have, Change location…, Browse… when mapping a drive) still use Windows' picker.
+- <!-- NEW (recommended folders) --> **Recommended folders** in that chooser (`Services/FilingAdvisor.cs`).
+  `Rank` gives every candidate folder points and keeps the best three: habit (FilingMemory's counts for
+  the same site and kind, the site, the kind; every folder noted counts here, not only a clear
+  majority), title (`Words` / `NameMatch`: a folder whose name is in the file's name, among your pins,
+  your own folders, every folder moved to before, and folders the index finds for the file's three
+  longest words through `FileIndexService.Search("<word> is:folder")`), kind (Pictures, Music, Videos,
+  Documents, and folders given the matching folder type), and recent (`SettingsData.RecentMoveFolders`,
+  the last eight folders any move in Clearspace went to, noted by `FileOperationService.Move`). Points
+  from several counts add up; the reason shown is the one that earned the most. `Notes` copies the
+  settings on the UI thread, `Recommend` asks the index and the disk on another, and the chooser opens
+  in the first recommendation. Folders under Windows, Program Files, AppData, `node_modules` and
+  dot-folders are never candidates (`IsNoise`), nor is a locked folder. Tests:
+  `Clearspace.Tests/FilingAdvisorTests.cs`. "Stop suggesting" also takes a folder off the recent list.
 - **Learned filing** (`Services/FilingMemory.cs`): `FileOperationService.Move` calls `FilingMemory.Watch`
   before a move and `Moved` after it. For files leaving a Downloads folder it counts the destination
   against `both:<site>|<ending>`, `site:<site>` and `kind:<ending>` in `SettingsData.FilingHabits`. One
@@ -595,6 +619,81 @@ Explorer. Now Clearspace maps and disconnects drives itself.
 - Known limits: a remembered drive whose server is out of reach is not listed anywhere in Clearspace
   (the drive lists skip drives that are not ready), so it cannot be disconnected from here; and a
   network *location* (a shortcut under This PC without a letter) cannot be added.
+
+## Dragging a selection of several files
+
+<!-- FIXED (drag several) -->
+Dragging several selected files moved only the one under the pointer. A WPF list in `Extended` mode
+answers the button going *down* on a selected row by selecting that row alone, so the selection was
+already gone when `OnFileListPreviewMouseMove` read it to start the drag.
+
+- `OnFileListPreviewMouseLeftButtonDown` now marks the press handled when it lands on a file that is
+  already selected, more than one is selected and neither Ctrl nor Shift is held. The list never sees
+  it, the selection stays, and the drag takes all of it. The row is given the keyboard focus by hand,
+  since the list would have done that.
+- A click without a drag still has to end with that one file selected. That now happens when the
+  button comes *up* on the same row (`OnFileListPreviewMouseLeftButtonUp`), which is also when File
+  Explorer does it. `ListBox.AnchorItem` (protected, set by reflection) is moved to the file so that a
+  Shift+click afterwards counts from it.
+- Not changed: a double click's second press, presses with Ctrl or Shift, and presses on a button or a
+  text box inside a row (the photo tiles' "View" button, the rename box).
+- Checked by hand; there is no test that moves the mouse.
+
+## Small icons in tiles
+
+<!-- FIXED (tiny tile icons) -->
+`ThumbnailService.GetShellIcon` asks `IShellItemImageFactory` for an icon at the tile's size. For a file
+type whose program only ships small icons, Windows does not enlarge one: it returns a picture of the
+size asked for that is see-through apart from a thin frame at the edge and the small icon in the middle.
+ZIP files showed as a speck in a square on a PC where an archive tool with 16-pixel icons owns them.
+
+- `Services/FramedIcon.cs`: `Find` recognises the case from the pixels (see-through at four points away
+  from the middle, and everything solid inside a box no wider than 42% of the picture) and cuts the icon
+  out. Tests: `Clearspace.Tests/FramedIconTests.cs`, on pictures made in memory.
+- `TryEnlarge` then draws an icon of 40 pixels or more at 84% of the tile picture. A smaller one would
+  only blur, so the tile gets `ScalableIconService.File` (the drawn page with the type's name), the same
+  as a type Windows has no icon for. A program's, shortcut's or folder's own icon is kept whatever its
+  size, enlarged up to four times.
+- The result goes into `ShellIconCache` like any other type icon, so it is worked out once per type and size.
+- A picture with a filled background is never touched (it may be the icon's own design). If Windows
+  changes how it pads small icons, tiles go back to looking as they did; nothing breaks.
+
+## A right-click menu that fits the file
+
+<!-- NEW (menu by type) -->
+The files-and-folders menu (`MainWindow.xaml`) was the same for everything. It now leads with the
+entries that fit the kind of file, and its five everyday actions are a row of icons.
+
+- `Services/ItemMenu.cs`: `ItemMenu.For` takes the selection reduced to ending / folder / on a disk
+  (`MenuSubject`) and answers with `TypeActions` flags. It reads nothing, so
+  `Clearspace.Tests/ItemMenuTests.cs` covers the whole table. Whether a kind of file can be printed is
+  handed in (`ShellActions.CanPrint`: does the registered program have a `print` verb, asked once per
+  ending).
+- `MainWindow.ItemMenu.cs`: `UpdateTypeMenu` runs from `OnItemMenuOpened` and shows the fitting entries
+  (they are written in the XAML, collapsed, like the archive and download entries). The two separators
+  round the groups hide when their group is empty.
+- `ShellActions` carries them out the way File Explorer does: `runas` and `print` verbs through
+  `Process.Start`, `rundll32 shell32.dll,OpenAs_RunDLL` for Open with…, `SystemParametersInfo` for the
+  desktop background, and `WScript.Shell` (late bound) to read where a shortcut points, after which
+  `RevealFile` goes there. Play and View use the built-in player and photo viewer. Copy image decodes
+  the file with WPF and puts the bitmap on the clipboard. Each returns words for the status line when
+  it fails; a declined administrator prompt is not a failure.
+- `OpenTerminalAction.Launch` is the old body of the toolbar's terminal action, now also used for
+  "Open in Terminal" on a selected folder.
+- **The icon row.** Cut, Copy, Paste, Rename and Delete are `IconButton`s in a `StackPanel` at the end
+  of the menu (a `ContextMenu` takes any element as an item). A button does not close a menu, so
+  `OnMenuRowClick` closes it and runs the command from the dispatcher at `Background` priority, once
+  the keyboard is back with the list: Rename shows a text box that would otherwise lose it. Their
+  enabled state is bound to each command's `IsExecutable`. The arrow keys skip the row; the keyboard
+  shortcuts are unchanged.
+- Carrying the entries out is checked by hand.
+- <!-- CHANGED (only what applies) --> **Nothing that does not apply.** The general entries used to show
+  for everything, some greyed out. `ItemMenu.Common` now decides each from the selection (`MenuSubject`
+  also carries the lock state, the cloud state, drive, pinned): Lock with password only without a lock,
+  Unlock only when locked, Remove lock and Change password only when something selected has a lock,
+  Pin to sidebar / Disk usage / Find duplicates only on one folder, the two cloud entries only for a
+  cloud file they would change, Set folder type only with a folder selected, Reset columns only in the
+  details view. The lock state of the selection is read again as the menu opens.
 
 ## Layout
 

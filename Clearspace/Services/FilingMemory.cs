@@ -168,7 +168,7 @@ internal static class FilingMemory
             folder => (trustNetworkFolders && IsOnNetwork(folder)) || Directory.Exists(folder), Path.GetDirectoryName(path));
     }
 
-    private static bool IsOnNetwork(string folder)
+    internal static bool IsOnNetwork(string folder) // CHANGED (recommended folders): FilingAdvisor asks too
     {
         try
         {
@@ -182,12 +182,69 @@ internal static class FilingMemory
         }
     }
 
+    // CHANGED (recommended folders): also takes the folder off the recently used list.
     internal static void ForgetFolder(string folder)
     {
         lock (Gate)
         {
-            if (Forget(SettingsService.GetFilingHabits(), folder))
+            var target = Normalize(folder);
+            var forgotten = Forget(SettingsService.GetFilingHabits(), folder);
+            forgotten |= SettingsService.GetRecentMoveFolders().RemoveAll(known => known.Equals(target, StringComparison.OrdinalIgnoreCase)) > 0;
+            if (forgotten)
                 SettingsService.Save();
+        }
+    }
+
+    // ---- NEW (recommended folders): the folders files were moved to lately, and a copy of all the notes
+
+    internal const int MostRecentFolders = 8;
+
+    // Puts a folder at the front of the recently used list (once, however it is spelled) and keeps the
+    // list short. False when the folder was at the front already, so there is nothing to save.
+    internal static bool NoteRecent(List<string> recent, string destination)
+    {
+        var folder = Normalize(destination);
+        if (folder.Length == 0)
+            return false;
+
+        if (recent.Count > 0 && recent[0].Equals(folder, StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        recent.RemoveAll(known => known.Equals(folder, StringComparison.OrdinalIgnoreCase));
+        recent.Insert(0, folder);
+        if (recent.Count > MostRecentFolders)
+            recent.RemoveRange(MostRecentFolders, recent.Count - MostRecentFolders);
+        return true;
+    }
+
+    // Called after files were moved to a folder in Clearspace, from any folder (not only Downloads: what
+    // is kept is the folder's name alone, and it is only used to recommend it in the folder chooser).
+    internal static void NoteDestination(string destination)
+    {
+        try
+        {
+            lock (Gate)
+            {
+                if (NoteRecent(SettingsService.GetRecentMoveFolders(), destination))
+                    SettingsService.Save();
+            }
+        }
+        catch (Exception)
+        {
+            // a nicety; it never gets in the way of the move itself
+        }
+    }
+
+    // A copy of the filing notes and the recently used folders, for FilingAdvisor to weigh on another thread.
+    internal static (Dictionary<string, Dictionary<string, int>> Habits, List<string> Recent) Snapshot()
+    {
+        lock (Gate)
+        {
+            var habits = new Dictionary<string, Dictionary<string, int>>(StringComparer.Ordinal);
+            foreach (var (key, folders) in SettingsService.GetFilingHabits())
+                habits[key] = new Dictionary<string, int>(folders);
+
+            return (habits, new List<string>(SettingsService.GetRecentMoveFolders()));
         }
     }
 

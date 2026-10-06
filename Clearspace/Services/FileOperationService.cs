@@ -37,6 +37,8 @@ public static class FileOperationService
         var filing = FilingMemory.Watch(paths, destinationFolder);
         var result = Run(FileOperationKind.Move, paths, destinationFolder, NativeMethods.FOF_ALLOWUNDO, owner);
         filing?.Moved(); // counts only the files that really left, so a move stopped halfway is handled too
+        if (result.Succeeded)
+            FilingMemory.NoteDestination(destinationFolder); // NEW (recommended folders): the folder chooser offers recent folders
         return result;
     }
 

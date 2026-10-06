@@ -1430,6 +1430,7 @@
                               PreviewMouseRightButtonDown="OnFileListRightClick"
                               PreviewMouseWheel="OnFileListMouseWheel"
                               PreviewMouseLeftButtonDown="OnFileListPreviewMouseLeftButtonDown"
+                              PreviewMouseLeftButtonUp="OnFileListPreviewMouseLeftButtonUp"
                               PreviewMouseMove="OnFileListPreviewMouseMove"
                               AllowDrop="True"
                               DragEnter="OnFileListDragOver"
@@ -1481,7 +1482,21 @@
                             <!-- CHANGED (archives): Opened shows the archive entries that fit the selection. -->
                             <ContextMenu DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}"
                                          Opened="OnItemMenuOpened">
+                                <!-- NEW (menu by type): what fits the kind of file comes first. All hidden until OnItemMenuOpened
+                                     finds they fit the selection (Services/ItemMenu.cs decides, MainWindow.ItemMenu.cs carries out):
+                                     a sound file plays in the built-in player, a picture opens in the photo viewer, a ZIP file is
+                                     extracted (these two entries used to sit further down), a program or shortcut can be run as
+                                     administrator, and a shortcut can show the file it points to. -->
+                                <MenuItem x:Name="PlayMenuItem" Header="Play in Clearspace" Click="OnPlaySelected" Visibility="Collapsed" />
+                                <MenuItem x:Name="ViewPhotoMenuItem" Header="View in Clearspace" Click="OnViewSelectedPhoto" Visibility="Collapsed" />
+                                <MenuItem x:Name="ExtractMenuItem" Header="Extract to a new folder" Click="OnExtractArchives" Visibility="Collapsed" />
+                                <MenuItem x:Name="ExtractToMenuItem" Header="Extract to…" Click="OnExtractArchivesTo" Visibility="Collapsed" />
+                                <MenuItem x:Name="RunAsAdminMenuItem" Header="Run as administrator" Click="OnRunAsAdministrator" Visibility="Collapsed" />
+                                <MenuItem x:Name="OpenLocationMenuItem" Header="Open file location" Click="OnOpenShortcutLocation" Visibility="Collapsed" />
+                                <Separator x:Name="TypeMenuSeparator" Visibility="Collapsed" />
                                 <MenuItem Header="Open" Command="{Binding OpenCommand}" />
+                                <!-- NEW (menu by type): Windows' "choose a program" window, for one file that is not a program. -->
+                                <MenuItem x:Name="OpenWithMenuItem" Header="Open with…" Click="OnOpenWith" Visibility="Collapsed" />
                                 <!-- NEW (tabs): shown when the selection has folders; they open in the background. -->
                                 <MenuItem Header="Open in new tab"
                                           Command="{Binding OpenInNewTabCommand}"
@@ -1495,20 +1510,20 @@
                                      a mapped network drive (a tile on the This PC or Network page). Windows forgets the
                                      drive, so it does not come back at sign-in. See MainWindow.NetworkDrives.cs. -->
                                 <MenuItem x:Name="DisconnectDriveMenuItem" Header="Disconnect" Click="OnDisconnectNetworkDrive" Visibility="Collapsed" />
-                                <Separator />
-                                <MenuItem Header="Cut" Command="{Binding CutCommand}" InputGestureText="Ctrl+X" />
-                                <MenuItem Header="Copy" Command="{Binding CopyCommand}" InputGestureText="Ctrl+C" />
-                                <MenuItem Header="Paste" Command="{Binding PasteCommand}" InputGestureText="Ctrl+V" />
-                                <Separator />
-                                <!-- CHANGED (batch rename): with several items selected, Rename opens the batch rename dialog. -->
-                                <MenuItem Header="Rename" Command="{Binding RenameCommand}" InputGestureText="F2" />
-                                <MenuItem Header="Delete" Command="{Binding DeleteCommand}" InputGestureText="Del" />
-                                <!-- NEW (archives): hidden until OnItemMenuOpened finds they fit the selection (only
-                                     .zip files selected: the two Extract entries; anything on a disk: Compress).
-                                     See MainWindow.Archives.cs. -->
-                                <MenuItem x:Name="ExtractMenuItem" Header="Extract to a new folder" Click="OnExtractArchives" Visibility="Collapsed" />
-                                <MenuItem x:Name="ExtractToMenuItem" Header="Extract to…" Click="OnExtractArchivesTo" Visibility="Collapsed" />
+                                <!-- NEW (menu by type): the terminal in the one selected folder (the toolbar's button opens it in
+                                     the folder on screen). -->
+                                <MenuItem x:Name="TerminalHereMenuItem" Header="Open in Terminal" Click="OnOpenTerminalHere" Visibility="Collapsed" />
+                                <!-- CHANGED (menu by type): Cut, Copy, Paste, Rename and Delete were five lines here. They are now the
+                                     row of icons at the bottom of this menu (with several items selected, Rename there still opens
+                                     the batch rename dialog). The line below is hidden when nothing under it fits the selection. -->
+                                <Separator x:Name="MiddleMenuSeparator" />
+                                <!-- NEW (archives): hidden until OnItemMenuOpened finds it fits the selection (anything on a disk).
+                                     The two Extract entries moved to the top of the menu. See MainWindow.Archives.cs. -->
                                 <MenuItem x:Name="CompressMenuItem" Header="Compress to ZIP file" Click="OnCompressSelection" Visibility="Collapsed" />
+                                <!-- NEW (menu by type): for a picture; and Print for documents and pictures whose program can print. -->
+                                <MenuItem x:Name="CopyImageMenuItem" Header="Copy image" Click="OnCopyImage" Visibility="Collapsed" />
+                                <MenuItem x:Name="SetWallpaperMenuItem" Header="Set as desktop background" Click="OnSetWallpaper" Visibility="Collapsed" />
+                                <MenuItem x:Name="PrintMenuItem" Header="Print" Click="OnPrintSelected" Visibility="Collapsed" />
                                 <!-- NEW (downloads): hidden until OnItemMenuOpened finds they fit the one selected file:
                                      it still carries the note saying where it was downloaded from, or (in a Downloads
                                      folder) files like it have been moved to the same folder before.
@@ -1516,17 +1531,22 @@
                                 <MenuItem x:Name="OriginPageMenuItem" Header="Open the page this came from" Click="OnOpenOriginPage" Visibility="Collapsed" />
                                 <MenuItem x:Name="OriginLinkMenuItem" Header="Copy download link" Click="OnCopyOriginLink" Visibility="Collapsed" />
                                 <MenuItem x:Name="FilingMenuItem" Header="Move to folder" Click="OnMoveToSuggestedFolder" Visibility="Collapsed" />
-                                <Separator />
+                                <!-- CHANGED (only what applies): the entries from here down used to show for everything, some of
+                                     them greyed out. Each is now shown only when it can do something for what is selected: no
+                                     "Unlock…" on a file that is not locked, no "Pin to sidebar" on a file, no cloud entries for a
+                                     file that is not in the cloud. ItemMenu.Common (Services/ItemMenu.cs) decides and
+                                     UpdateTypeMenu (MainWindow.ItemMenu.cs) applies it when the menu opens. -->
+                                <Separator x:Name="LockMenuSeparator" />
                                 <!-- CHANGED (folder locking): works on a single file or folder, so the labels no longer say "file". -->
                                 <!-- CHANGED (unlock vs remove lock): Unlock = until you leave this folder; Remove lock = for good,
                                      and works on several selected files and folders at once. -->
-                                <MenuItem Header="Lock with password…" Click="OnLockFile" IsEnabled="{Binding Context.HasSingleSelection}" />
-                                <MenuItem Header="Unlock…" Click="OnUnlockFile" IsEnabled="{Binding Context.HasSingleSelection}" />
-                                <MenuItem Header="Remove lock…" Click="OnRemoveLock" IsEnabled="{Binding Context.HasSelection}" />
+                                <MenuItem x:Name="LockMenuItem" Header="Lock with password…" Click="OnLockFile" />
+                                <MenuItem x:Name="UnlockMenuItem" Header="Unlock…" Click="OnUnlockFile" />
+                                <MenuItem x:Name="RemoveLockMenuItem" Header="Remove lock…" Click="OnRemoveLock" />
                                 <!-- NEW (change password): switch locked files to your current password. -->
-                                <MenuItem Header="Change password…" Click="OnChangeLockPassword" IsEnabled="{Binding Context.HasSelection}" />
+                                <MenuItem x:Name="ChangeLockPasswordMenuItem" Header="Change password…" Click="OnChangeLockPassword" />
                                 <Separator />
-                                <MenuItem Header="Pin to sidebar" Click="OnPinDirectory" />
+                                <MenuItem x:Name="PinMenuItem" Header="Pin to sidebar" Click="OnPinDirectory" />
                                 <!-- NEW (your files): on the Your files page, for folders you added. Deletes nothing. -->
                                 <MenuItem Header="Remove from Your files"
                                           Click="OnRemoveFromYourFiles"
@@ -1540,29 +1560,45 @@
                                           Click="OnUnpinFromProject"
                                           IsEnabled="{Binding CanPinToProject}"
                                           Visibility="{Binding IsProjectFolder, Converter={StaticResource BoolToVisible}}" />
-                                <MenuItem Header="Disk usage…" Click="OnDiskUsage" />
-                                <!-- NEW (duplicates): the selected folder, or the folder you are in. -->
-                                <MenuItem Header="Find duplicates…" Click="OnFindDuplicates" />
-                                <MenuItem Header="Always keep on this device"
-                                          IsEnabled="{Binding HasCloudSelection}"
-                                          Visibility="{Binding IsCloudFolder, Converter={StaticResource BoolToVisible}}"
-                                          Click="OnKeepOnDevice" />
-                                <MenuItem Header="Free up space"
-                                          IsEnabled="{Binding HasCloudSelection}"
-                                          Visibility="{Binding IsCloudFolder, Converter={StaticResource BoolToVisible}}"
-                                          Click="OnFreeUpSpace" />
+                                <!-- CHANGED (only what applies): on one selected folder. (For the folder you are in, both are in the
+                                     menu of the empty part of the list and on the toolbar.) -->
+                                <MenuItem x:Name="DiskUsageMenuItem" Header="Disk usage…" Click="OnDiskUsage" />
+                                <!-- NEW (duplicates): the selected folder. -->
+                                <MenuItem x:Name="DuplicatesMenuItem" Header="Find duplicates…" Click="OnFindDuplicates" />
+                                <!-- CHANGED (only what applies): a cloud file that is not kept on this PC already / that is on it. -->
+                                <MenuItem x:Name="KeepOnDeviceMenuItem" Header="Always keep on this device" Click="OnKeepOnDevice" />
+                                <MenuItem x:Name="FreeUpSpaceMenuItem" Header="Free up space" Click="OnFreeUpSpace" />
                                 <MenuItem Header="Tags" SubmenuOpened="OnTagsSubmenuOpened">
                                     <MenuItem Header="" />
                                 </MenuItem>
                                 <!-- CHANGED (folder types): filled from the folder type definitions when opened. -->
-                                <MenuItem Header="Set folder type"
-                                          IsEnabled="{Binding HasSelectedFolders}"
+                                <MenuItem x:Name="SetFolderTypeMenuItem"
+                                          Header="Set folder type"
                                           SubmenuOpened="OnSetFolderTypeSubmenuOpened">
                                     <MenuItem Header="" />
                                 </MenuItem>
-                                <MenuItem Header="Reset columns" Click="OnResetColumns" />
+                                <!-- CHANGED (only what applies): only in the details view, which is the one with columns. -->
+                                <MenuItem Header="Reset columns" Click="OnResetColumns"
+                                          Visibility="{Binding IsDetails, Converter={StaticResource BoolToVisible}}" />
                                 <MenuItem Header="Copy path" Command="{Binding CopyPathCommand}" InputGestureText="Ctrl+Shift+C" />
                                 <MenuItem Header="Properties" Command="{Binding PropertiesCommand}" InputGestureText="Alt+Enter" />
+                                <!-- NEW (menu by type): the everyday actions as a row of icons, as at the edge of File Explorer's
+                                     menu. Each is off when its command is (nothing selected, a page that is not a folder). A
+                                     button does not close a menu by itself; OnMenuRowClick does that and then runs the command
+                                     named in Tag. The shortcuts that the menu's lines used to show are in the tooltips. -->
+                                <Separator />
+                                <StackPanel Orientation="Horizontal" Margin="9,2,9,0">
+                                    <Button Style="{StaticResource IconButton}" Content="&#xE8C6;" Tag="Cut" Click="OnMenuRowClick"
+                                            IsEnabled="{Binding CutCommand.IsExecutable}" ToolTip="Cut  ·  Ctrl+X" AutomationProperties.Name="Cut" />
+                                    <Button Style="{StaticResource IconButton}" Content="&#xE8C8;" Tag="Copy" Click="OnMenuRowClick"
+                                            IsEnabled="{Binding CopyCommand.IsExecutable}" ToolTip="Copy  ·  Ctrl+C" AutomationProperties.Name="Copy" />
+                                    <Button Style="{StaticResource IconButton}" Content="&#xE77F;" Tag="Paste" Click="OnMenuRowClick"
+                                            IsEnabled="{Binding PasteCommand.IsExecutable}" ToolTip="Paste into this folder  ·  Ctrl+V" AutomationProperties.Name="Paste" />
+                                    <Button Style="{StaticResource IconButton}" Content="&#xE8AC;" Tag="Rename" Click="OnMenuRowClick"
+                                            IsEnabled="{Binding RenameCommand.IsExecutable}" ToolTip="Rename  ·  F2" AutomationProperties.Name="Rename" />
+                                    <Button Style="{StaticResource IconButton}" Content="&#xE74D;" Tag="Delete" Click="OnMenuRowClick"
+                                            IsEnabled="{Binding DeleteCommand.IsExecutable}" ToolTip="Delete  ·  Del" AutomationProperties.Name="Delete" />
+                                </StackPanel>
                             </ContextMenu>
                         </ListView.ContextMenu>
                     </ListView>

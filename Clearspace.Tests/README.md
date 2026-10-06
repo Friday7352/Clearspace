@@ -71,6 +71,20 @@ Run from the repository root. MSTest discovers the tests automatically.
   shown, which drive letters are offered, how Windows' answers are worded, and which sidebar headings
   offer mapping. No test connects to a server or changes this PC's drives; mapping and disconnecting
   a real share are checked by hand.
+- `ItemMenuTests`: which right-click entries fit a selection: sound files, pictures, programs,
+  shortcuts, folders, documents that can be printed, several items at once, and things that are not on
+  a disk. Carrying the entries out is checked by hand.
+- `FilingAdvisorTests`: which folders the folder chooser recommends for a file and the reason shown:
+  the telling words of a file's name, a folder named like the file, where files like it went before,
+  the folder for its kind, recently used folders, reasons adding up, and what is never recommended (the
+  folder the file is in, folders that are gone, system and program folders). Also the short list of
+  recently used folders. The clues are handed in; no disk, index or settings file is read.
+- `FolderPickerTests`: which folders Clearspace's own folder chooser lists: folders only, numbers in
+  names counting as numbers, hidden folders only when asked for, and folders Windows protects never.
+  Uses real folders in a temporary folder. The dialog itself is checked by hand.
+- `FramedIconTests`: telling a small icon that Windows returned inside a big empty picture from an icon
+  that fills its picture: where it is cut out, the size limit, shadows and specks, and pictures with a
+  background of their own, which are left alone. The pictures are made in memory.
 - `DiskUsagePerformanceTests` and `DiskUsageWindowTests`: dense scenes, CPU/GPU
   presentation, camera input, busy-buffer hit testing, navigation, and image captures.
 

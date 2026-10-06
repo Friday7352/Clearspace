@@ -44,6 +44,10 @@ public sealed class SettingsData
     // moves per destination folder, kept per site and per kind of file. See Services/FilingMemory.cs.
     public Dictionary<string, Dictionary<string, int>> FilingHabits { get; set; } = new(StringComparer.Ordinal);
 
+    // NEW (recommended folders): the folders files were last moved to in Clearspace, the latest first (a
+    // handful). The folder chooser recommends them. See Services/FilingMemory.cs and FilingAdvisor.cs.
+    public List<string> RecentMoveFolders { get; set; } = [];
+
     // NEW (duplicates): whether Find duplicates also looks in the folders inside the folder.
     public bool DuplicatesIncludeSubfolders { get; set; } = true;
 
@@ -200,6 +204,7 @@ public static class SettingsService
                     loaded.SidebarOverrides = new Dictionary<string, string>(loaded.SidebarOverrides, StringComparer.OrdinalIgnoreCase);
                     loaded.PinnedDirectories = new Dictionary<string, string>(loaded.PinnedDirectories, StringComparer.OrdinalIgnoreCase);
                     loaded.LibraryFolders ??= []; // NEW (your files)
+                    loaded.RecentMoveFolders ??= []; // NEW (recommended folders)
                     loaded.FilingHabits = new Dictionary<string, Dictionary<string, int>>(   // NEW (downloads)
                         (loaded.FilingHabits ?? []).Where(pair => pair.Value is { Count: > 0 }), StringComparer.Ordinal);
                     loaded.PinnedCategories ??= [];
@@ -535,6 +540,9 @@ public static class SettingsService
 
     // The live notes; FilingMemory changes them and calls Save.
     internal static Dictionary<string, Dictionary<string, int>> GetFilingHabits() => Current.FilingHabits;
+
+    // NEW (recommended folders): the live list; FilingMemory changes it and calls Save.
+    internal static List<string> GetRecentMoveFolders() => Current.RecentMoveFolders;
 
     // NEW (duplicates)
     public static bool GetDuplicatesIncludeSubfolders() => Current.DuplicatesIncludeSubfolders;

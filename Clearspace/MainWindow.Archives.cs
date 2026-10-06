@@ -35,6 +35,7 @@ public partial class MainWindow
         ExtractMenuItem.Visibility = archives ? Visibility.Visible : Visibility.Collapsed;
         ExtractToMenuItem.Visibility = archives ? Visibility.Visible : Visibility.Collapsed;
         CompressMenuItem.Visibility = onDisk ? Visibility.Visible : Visibility.Collapsed;
+        UpdateTypeMenu(); // NEW (menu by type): Play, View, Run as administrator, Open with… and the rest
 
         if (!archives)
             return;

@@ -216,13 +216,16 @@ public partial class MainWindow
 
         // The actions, left to right: the ones that apply to this file.
         var actions = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(-4, 6, 0, 0) };
+        // NEW (play from just arrived): a sound file plays in Clearspace's own player, first in the row.
+        if (item.IsAudio)
+            actions.Children.Add(TileAction("\uE768", "Play in Clearspace", () => PlayArrival(item)));
         actions.Children.Add(TileAction("\uE8E5", "Open", () => WithSelected(item, () => _viewModel.OpenCommand.Execute(null))));
         if (IsArchiveItem(item))
             actions.Children.Add(TileAction("\uE7B8", "Extract to a new folder here", () => WithSelected(item, () => OnExtractArchives(this, new RoutedEventArgs()))));
         if (origin is not null)
             actions.Children.Add(TileAction("\uE774", PageLabel(origin), () => OpenAddress(origin.PageToOpen)));
         actions.Children.Add(offer is null
-            ? TileAction("\uE8DE", "Move to a folder…", () => MoveWithPicker(item))
+            ? TileAction("\uE8DE", "Move to a folder…", () => MoveWithPicker(item, origin))
             : MoveOfferButton(item, offer));
         actions.Children.Add(TileAction("\uE74D", "Delete (to the Recycle Bin)", () => WithSelected(item, () => _viewModel.DeleteCommand.Execute(null))));
 
@@ -246,15 +249,87 @@ public partial class MainWindow
         tile.SetResourceReference(Border.CornerRadiusProperty, "R8");
 
         // A click on the tile itself (not on one of its buttons) finds the file in the list; a double-click opens it.
+        // NEW (drag from just arrived): the press is also where a drag of the tile may start.
+        Point? pressedAt = null;
         tile.MouseLeftButtonDown += (_, e) =>
         {
             if (e.ClickCount == 2)
                 WithSelected(item, () => _viewModel.OpenCommand.Execute(null));
             else
                 WithSelected(item, () => FileList.Focus());
+            pressedAt = e.ClickCount == 1 ? e.GetPosition(tile) : null;
             e.Handled = true;
         };
+
+        // NEW (drag from just arrived): a tile can be dragged like the file it stands for: into another
+        // program (a chat window, an e-mail, a browser's upload box), onto the desktop, or onto a folder in
+        // Clearspace's list, sidebar or tab strip. The drag starts once the pointer has moved the usual
+        // few pixels with the button held, or has left the tile with it held (a quick flick can leave
+        // the tile before the first move is reported). A press on one of the tile's buttons never gets
+        // here: the button keeps it.
+        tile.MouseLeftButtonUp += (_, _) => pressedAt = null;
+        tile.MouseMove += (_, e) =>
+        {
+            if (pressedAt is not { } from)
+                return;
+
+            if (e.LeftButton != MouseButtonState.Pressed)
+            {
+                pressedAt = null;
+                return;
+            }
+
+            var at = e.GetPosition(tile);
+            if (Math.Abs(at.X - from.X) < SystemParameters.MinimumHorizontalDragDistance &&
+                Math.Abs(at.Y - from.Y) < SystemParameters.MinimumVerticalDragDistance)
+                return;
+
+            pressedAt = null;
+            DragArrival(tile, item);
+        };
+        tile.MouseLeave += (_, e) =>
+        {
+            var dragging = pressedAt is not null && e.LeftButton == MouseButtonState.Pressed;
+            pressedAt = null;
+            if (dragging)
+                DragArrival(tile, item);
+        };
         return tile;
+    }
+
+    // NEW (drag from just arrived): hands the tile's file to Windows as a dragged file, the same way a
+    // drag from the list does (MainWindow.xaml.cs), so everything that accepts a file from the list or
+    // from File Explorer accepts it from here. Other programs usually copy it (a chat uploads it); a
+    // folder on the same drive moves it. The list scrolls under the drag as it does for its own.
+    private void DragArrival(Border tile, FileSystemItem item)
+    {
+        var path = item.FullPath;
+        if (!File.Exists(path) && !Directory.Exists(path))
+        {
+            _viewModel.ReportStatus($"{item.Name} is no longer in this folder.");
+            _arrivalsShown = string.Empty;
+            QueueArrivals();
+            return;
+        }
+
+        var data = new DataObject(DataFormats.FileDrop, new[] { path });
+        BeginDragScroll();
+        try { DragDrop.DoDragDrop(tile, data, DragDropEffects.Copy | DragDropEffects.Move); }
+        catch (Exception) { } // the other program refused it part-way; there is nothing to undo
+        finally { EndDragScroll(); }
+    }
+
+    // NEW (play from just arrived): plays a sound file in the built-in player (the bar at the bottom), or
+    // pauses and resumes it when it is the one playing. The list's own row for the file is used when
+    // there is one, so Next and Previous go through the folder's other sound files as they do from the list.
+    private void PlayArrival(FileSystemItem item)
+    {
+        var row = _viewModel.Items.FirstOrDefault(candidate => string.Equals(candidate.FullPath, item.FullPath, StringComparison.OrdinalIgnoreCase)) ?? item;
+
+        if (ReferenceEquals(_viewModel.Player.Current, row))
+            _viewModel.Player.TogglePlay();
+        else
+            _viewModel.PlayTrack(row);
     }
 
     private static async Task LoadTilePictureAsync(Image picture, FileSystemItem item)
@@ -302,6 +377,8 @@ public partial class MainWindow
     private ContextMenu ArrivalMenu(FileSystemItem item, DownloadOrigin? origin, FilingSuggestion? offer)
     {
         var menu = new ContextMenu();
+        if (item.IsAudio)
+            menu.Items.Add(Entry("Play in Clearspace", "\uE768", () => PlayArrival(item))); // NEW (play from just arrived)
         menu.Items.Add(Entry("Open", "\uE8E5", () => WithSelected(item, () => _viewModel.OpenCommand.Execute(null))));
         menu.Items.Add(Entry("Show in the list", "\uE8B3", () => WithSelected(item, () => FileList.Focus())));
         if (IsArchiveItem(item))
@@ -317,7 +394,7 @@ public partial class MainWindow
         menu.Items.Add(new Separator());
         if (offer is not null)
             menu.Items.Add(Entry($"Move to \"{MenuText(offer.FolderName)}\"", "\uE8DE", () => MoveTo(item, offer.Folder)));
-        menu.Items.Add(Entry(offer is null ? "Move to a folder…" : "Move to another folder…", offer is null ? "\uE8DE" : null, () => MoveWithPicker(item)));
+        menu.Items.Add(Entry(offer is null ? "Move to a folder…" : "Move to another folder…", offer is null ? "\uE8DE" : null, () => MoveWithPicker(item, origin)));
         if (offer is not null)
         {
             menu.Items.Add(Entry($"Stop suggesting \"{MenuText(offer.FolderName)}\"", null, () =>
@@ -418,17 +495,104 @@ public partial class MainWindow
         }
     }
 
-    private void MoveWithPicker(FileSystemItem item)
+    // CHANGED (move in Clearspace): the folder is chosen in Clearspace's own dialog (FolderPickerWindow.cs),
+    // not in Windows' folder picker, which is File Explorer in a small window. It shows this window's
+    // sidebar places and opens where the last file was moved to (this session), or in the user folder.
+    // CHANGED (recommended folders): the chooser is given up to three recommended folders with reasons
+    // (Services/FilingAdvisor.cs: where files like this went before, a folder named like the file, the
+    // folder for its kind, folders used lately) and opens in the best of them, so the likely case is one
+    // press of Move here. They are worked out first, off the UI thread (the index is asked for folders
+    // named like the file); if that fails the chooser opens without them.
+    private static string? s_lastMoveFolder;
+    private bool _choosingMoveFolder;
+
+    private async void MoveWithPicker(FileSystemItem item, DownloadOrigin? origin)
     {
-        var picker = new Microsoft.Win32.OpenFolderDialog
+        if (_choosingMoveFolder)
+            return; // a second click while the recommendations are being worked out
+
+        _choosingMoveFolder = true;
+        try
         {
-            Title = $"Move {item.Name} to",
-            InitialDirectory = MainViewModel.LibraryRoot,
-            Multiselect = false
+            IReadOnlyList<FolderRecommendation> recommended = [];
+            try
+            {
+                var notes = FilingAdvisor.Notes(item.FullPath, origin?.Site);
+                recommended = await Task.Run(() => FilingAdvisor.Recommend(notes));
+            }
+            catch (Exception)
+            {
+                // recommendations are a help; choosing a folder works without them
+            }
+
+            ChooseMoveFolder(item, recommended);
+        }
+        catch (Exception error)
+        {
+            MessageDialog.Show(this, error.Message, "Couldn't open the folder chooser", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+        finally
+        {
+            _choosingMoveFolder = false;
+        }
+    }
+
+    private void ChooseMoveFolder(FileSystemItem item, IReadOnlyList<FolderRecommendation> recommended)
+    {
+        var self = Path.TrimEndingDirectorySeparator(item.FullPath);
+        var from = Path.GetDirectoryName(self) ?? string.Empty;
+
+        static bool Same(string one, string other) => string.Equals(
+            Path.TrimEndingDirectorySeparator(one), Path.TrimEndingDirectorySeparator(other), StringComparison.OrdinalIgnoreCase);
+
+        // The folder the file is in can be looked through (the place wanted may be inside it), not chosen.
+        string? WhyNotChoose(string folder)
+        {
+            if (Same(folder, from))
+                return $"{item.Name} is in this folder now. Open the folder it should go to.";
+
+            if (item.IsFolder && (Same(folder, self) || folder.StartsWith(self + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)))
+                return "A folder can't be moved into itself.";
+
+            return null;
+        }
+
+        // A folder that is locked with a password right now has nothing in it to look through.
+        static string? WhyNotEnter(string folder)
+        {
+            try
+            {
+                return FileLockRegistry.Governing(folder) is { State: LockState.Locked }
+                    ? "That folder is locked with a password. Unlock it first, then move the file."
+                    : null;
+            }
+            catch (Exception)
+            {
+                return null;
+            }
+        }
+
+        var picker = new FolderPickerWindow(new FolderPickerOptions(
+            $"Move {item.Name}",
+            "Open the folder it should go in, then choose Move here.",
+            "Move here",
+            recommended.Count > 0 ? recommended[0].Folder : s_lastMoveFolder ?? MainViewModel.LibraryRoot)
+        {
+            Recommended = recommended,
+            Places = [.. _viewModel.Sidebar],
+            ShowHidden = _viewModel.ShowHiddenItems,
+            WhyNotEnter = WhyNotEnter,
+            WhyNotChoose = WhyNotChoose
+        })
+        {
+            Owner = this
         };
 
-        if (picker.ShowDialog(this) == true)
-            MoveTo(item, picker.FolderName);
+        if (picker.ShowDialog() != true || picker.Chosen is not { } folder)
+            return;
+
+        s_lastMoveFolder = folder;
+        MoveTo(item, folder);
     }
 
     private void MoveTo(FileSystemItem item, string folder)
