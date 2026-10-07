@@ -1,0 +1,8 @@
+{
+  "format": 1,
+  "name": "DOS Commander",
+  "author": "Clearspace",
+  "description": "The blue two-panel file managers of the DOS years, with a function-key bar along the bottom.",
+  "experimental": true,
+  "icons": "Mark"
+}

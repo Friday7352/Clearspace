@@ -38,8 +38,10 @@ public partial class MainWindow
 
     // NEW (tabs): a folder is about to be locked again on request: every tab that is in it (or anywhere
     // inside it) moves out to the folder above. Background tabs are moved without being shown.
+    // CHANGED (zip folders): a tab inside a ZIP file that is in the folder moves out as well.
     internal void LeaveFolder(string folder) => Tabs.MoveOut(
-        location => FileLockService.SamePath(location, folder) || FileLockService.IsInside(location, folder),
+        location => FileLockService.SamePath(ArchiveLocation.OnDisk(location), folder) ||
+                    FileLockService.IsInside(ArchiveLocation.OnDisk(location), folder),
         ExplorerTabs.ParentOf(folder));
 
     internal void ReportLockStatus(string message) => _viewModel.ReportFileLock(message);
@@ -108,6 +110,9 @@ public partial class MainWindow
 
     private bool CanEnterLocation(string path)
     {
+        // NEW (zip folders): a ZIP file inside a locked folder is behind that folder's password like
+        // everything else in it, so the gate looks at where the ZIP file itself is.
+        path = ArchiveLocation.OnDisk(path);
         if (path.StartsWith("clearspace://", StringComparison.OrdinalIgnoreCase)) return true;
         string full;
         try { full = Path.TrimEndingDirectorySeparator(Path.GetFullPath(path)); }
@@ -124,6 +129,7 @@ public partial class MainWindow
     // prompt: switching tabs while files are being dragged, taking a drop on a tab.
     private static bool WouldAskForPassword(string path)
     {
+        path = ArchiveLocation.OnDisk(path); // NEW (zip folders): as in CanEnterLocation
         if (path.Length == 0 || path.StartsWith("clearspace://", StringComparison.OrdinalIgnoreCase)) return false;
         string full;
         try { full = Path.TrimEndingDirectorySeparator(Path.GetFullPath(path)); }

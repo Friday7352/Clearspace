@@ -61,6 +61,13 @@ pace with the version above.
 | Tag database schema | `PRAGMA user_version` in `Clearspace/Services/TagDatabase.cs` | 5 | The update moves the database forward by itself, so this alone is a minor release. An older Clearspace refuses a newer database, so the release notes must say that going back to the earlier version is not possible. |
 | Index helper protocol | `JournalProtocol.Version` in `Clearspace/Journal/JournalCatchUp.cs` | 1 | Clearspace and the helper are installed together, so this needs no version step of its own. |
 
+<!-- NEW (go back) -->
+**Going back.** *About Clearspace… > Earlier versions…* installs an older release over the current one. An
+older Clearspace refuses a tag database newer than it knows, so when the tag database schema goes up, set
+`UpdateService.OldestToGoBackTo` (in `Clearspace/Services/UpdateService.cs`) to the release that ships it and
+`GoBackTagSchema` to the new number, in the same commit. A test in `Clearspace.Tests/UpdateTests.cs` fails
+until that is done. Releases older than `OldestToGoBackTo` are no longer offered from then on.
+
 ## Releasing
 
 1. Decide the new number with the table above and write it in [VERSION](VERSION).

@@ -62,6 +62,83 @@ public sealed class UpdateTests
         Assert.IsFalse(UpdateService.TryParseVersion(null, out _));
     }
 
+    // ---- NEW (go back): the list of earlier versions
+
+    private static UpdateInfo ReleaseOf(string number) => new(System.Version.Parse(number), string.Empty,
+        UpdateService.ReleasesPage, "https://github.com/Friday7352/Clearspace/releases/download/v" + number + "/ClearspaceSetup.exe", 1, null);
+
+    private static string[] Numbers(IEnumerable<UpdateInfo> releases) => releases.Select(release => release.VersionText).ToArray();
+
+    [TestMethod]
+    public void EarlierVersionsAreTheOlderOnesNewestFirst()
+    {
+        var all = new[] { ReleaseOf("1.3.0"), ReleaseOf("1.5.0"), ReleaseOf("1.2.0"), ReleaseOf("1.4.0"), ReleaseOf("1.6.0") };
+
+        CollectionAssert.AreEqual(new[] { "1.4.0", "1.3.0", "1.2.0" }, Numbers(UpdateService.Earlier(all, new Version(1, 5, 0))),
+            "Not the version that is running, and not a newer one: that is an update.");
+    }
+
+    [TestMethod]
+    public void VersionsThatCannotUpdateThemselvesAreNotOffered()
+    {
+        var all = new[] { ReleaseOf("1.0.0"), ReleaseOf("1.1.0"), ReleaseOf("1.2.0"), ReleaseOf("1.3.0") };
+
+        CollectionAssert.AreEqual(new[] { "1.3.0", "1.2.0" }, Numbers(UpdateService.Earlier(all, new Version(1, 5, 0))));
+        Assert.AreEqual(0, UpdateService.Earlier(all, UpdateService.OldestToGoBackTo).Count, "Nothing below the oldest one that is safe.");
+    }
+
+    [TestMethod]
+    public void AVersionReleasedTwiceIsListedOnce()
+    {
+        var all = new[] { ReleaseOf("1.3.0"), ReleaseOf("1.3.0"), ReleaseOf("1.2.0") };
+
+        CollectionAssert.AreEqual(new[] { "1.3.0", "1.2.0" }, Numbers(UpdateService.Earlier(all, new Version(1, 4, 0))));
+    }
+
+    [TestMethod]
+    public void TheListOfReleasesIsReadLikeTheNewestOne()
+    {
+        var older = Release.Replace("v1.3.0", "v1.2.0");
+        var draft = Release.Replace("v1.3.0", "v1.4.0").Replace("\"draft\": false", "\"draft\": true");
+        var dated = Release.Replace("\"draft\": false", "\"draft\": false, \"published_at\": \"2026-10-02T04:05:00Z\"");
+        using var document = JsonDocument.Parse("[" + dated + "," + older + "," + draft + ", 5]");
+
+        var all = UpdateService.ParseAll(document.RootElement);
+
+        CollectionAssert.AreEqual(new[] { "1.3.0", "1.2.0" }, Numbers(all), "A draft is not a release, and neither is the stray number.");
+        Assert.AreEqual(new DateTimeOffset(2026, 10, 2, 4, 5, 0, TimeSpan.Zero), all[0].Published);
+        Assert.IsNull(all[1].Published, "A release without a date is still a release.");
+        StringAssert.EndsWith(all[1].DownloadUrl, "/v1.2.0/ClearspaceSetup.exe");
+
+        using var notAList = JsonDocument.Parse(Release);
+        Assert.AreEqual(0, UpdateService.ParseAll(notAList.RootElement).Count);
+    }
+
+    [TestMethod]
+    public void GoingBackPastOpenFoldersWithClearspaceTurnsItOff()
+    {
+        Assert.IsTrue(UpdateService.TurnsOffFolderOpener(new Version(1, 3, 0)));
+        Assert.IsFalse(UpdateService.TurnsOffFolderOpener(UpdateService.FolderOpenerSince));
+        Assert.IsFalse(UpdateService.TurnsOffFolderOpener(new Version(1, 5, 0)));
+    }
+
+    // NEW (file backup): an older Clearspace would open a window every time Task Scheduler starts it.
+    [TestMethod]
+    public void GoingBackPastFileBackupsRemovesTheirTaskSchedulerEntry()
+    {
+        Assert.IsTrue(UpdateService.RemovesBackupTask(new Version(1, 5, 0)));
+        Assert.IsFalse(UpdateService.RemovesBackupTask(UpdateService.FileBackupsSince));
+        Assert.IsTrue(UpdateService.FileBackupsSince > UpdateService.OldestToGoBackTo);
+    }
+
+    // An older Clearspace refuses a tag database newer than it knows: no tags, and locked files it cannot
+    // unlock. If this fails, the schema number went up. Set UpdateService.OldestToGoBackTo to the release
+    // that ships the new schema and UpdateService.GoBackTagSchema to the new number, in the same change.
+    [TestMethod]
+    public void EarlierVersionsNeverReachBehindTheTagDatabase()
+        => Assert.AreEqual(TagDatabase.SchemaVersion, UpdateService.GoBackTagSchema,
+            "The tag database changed: raise UpdateService.OldestToGoBackTo to the release that introduces it.");
+
     [TestMethod]
     public void ReleaseNotesLoseTheirMarkdownMarks()
     {

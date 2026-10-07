@@ -94,13 +94,18 @@ public static class IconService
 
     private static ImageSource? LoadLargeIcon(FileSystemItem item)
     {
+        // CHANGED (zip folders): something inside a ZIP file is not on a disk for Windows to look at, so
+        // its large icon is asked for by kind ("a folder", "a .jpg") instead of by path. The answer is
+        // kept for every file of that kind, so asking by a path Windows can't find would have left the
+        // whole kind without a large icon.
+        var byKind = item.IsInArchive;
         var info = new NativeMethods.SHFILEINFO();
         var result = NativeMethods.SHGetFileInfoW(
-            item.FullPath,
+            byKind ? item.IsFolder ? "folder" : "file" + item.Extension : item.FullPath,
             item.IsFolder ? NativeMethods.FILE_ATTRIBUTE_DIRECTORY : NativeMethods.FILE_ATTRIBUTE_NORMAL,
             ref info,
             (uint)System.Runtime.InteropServices.Marshal.SizeOf<NativeMethods.SHFILEINFO>(),
-            NativeMethods.SHGFI_SYSICONINDEX);
+            NativeMethods.SHGFI_SYSICONINDEX | (byKind ? NativeMethods.SHGFI_USEFILEATTRIBUTES : 0));
 
         if (result == IntPtr.Zero || info.iIcon < 0)
             return null;

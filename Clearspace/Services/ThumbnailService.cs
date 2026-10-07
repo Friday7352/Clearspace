@@ -185,6 +185,11 @@ public static class ThumbnailService
         if (item.Thumbnail is not null)
             return;
 
+        // NEW (zip folders): a picture inside a ZIP file is not a file on a disk; there is nothing to make
+        // a tile picture from without unpacking it. The tile keeps the file type's icon.
+        if (item.IsInArchive)
+            return;
+
         var key = CacheKey(item, size);
 
         if (TryGetCached(key, item, out var cached))

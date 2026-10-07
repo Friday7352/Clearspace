@@ -1,0 +1,8 @@
+{
+  "format": 1,
+  "name": "1-bit Mac",
+  "author": "Clearspace",
+  "description": "A 1984 desktop: black on white, dithered shading.",
+  "experimental": true,
+  "icons": "OneBit"
+}

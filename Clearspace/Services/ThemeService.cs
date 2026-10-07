@@ -1,62 +1,95 @@
 // Clearspace | Themes: which one is active, switching between them, and the theme colours that code needs.
-// NEW (themes): the colours, fonts and corner sizes live in Themes/Dark.xaml, Light.xaml and Retro.xaml.
-// App.xaml merges Dark.xaml; Apply() swaps that one merged dictionary for another theme's, and every
-// window, menu, popup and dialog follows because the XAML refers to the keys with DynamicResource.
-// Code that draws by hand (the disk usage map, status colours in the file list) reads the frozen
-// brushes below instead, which are refreshed on every switch.
+// NEW (themes): every window, menu, popup and dialog refers to the theme's keys with DynamicResource, so
+// swapping one merged dictionary in App.Resources repaints the whole app. Code that draws by hand (the
+// disk usage map, status colours in the file list) reads the frozen brushes below instead, which are
+// refreshed on every switch.
+// CHANGED (theme files): themes are no longer compiled into the app. Each one is a file in the Themes folder
+// beside Clearspace.exe (ThemePackage.cs describes what is inside one), including the ones that come with
+// Clearspace, and anyone can add their own. This class asks ThemeLibrary what is in the folder and
+// ThemeLoader to read a theme; it no longer knows the themes by name.
+//   - App.xaml keeps Themes/Defaults.xaml and the Dark theme's theme.xaml merged underneath as the fallback:
+//     a theme that leaves keys out gets Dark's values for them, and a Themes folder that is missing or
+//     empty still leaves a working (dark) Clearspace.
+//   - The active theme's dictionary is merged on top of those. Apply() swaps that one entry.
+//   - A theme that cannot be read never replaces the look on screen; LastProblem says why.
+//   - When the active theme's file is saved again, the theme is shown again (someone is working on it).
+// CHANGED (themes page): Dark can never go missing. It is always in the list, and when its file has been
+// deleted or cannot be read, picking it shows the Dark look built into the app (the fallback above, with
+// no theme merged on top). Any other theme can be removed (Remove); the Themes page (ThemesView.cs) shows
+// each theme as a small window drawn in its own colours (PreviewResources) and is told when the list
+// changes (ListChanged).
 using System.Runtime.CompilerServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Interop;
 using System.Windows.Media;
+using System.Windows.Threading;
 using Clearspace.Native;
 
 namespace Clearspace.Services;
 
-// NEW (experimental themes): everything code needs to know about one theme. "Name" is its file in the
-// Themes folder and what is saved in settings; "Label" is what the Settings menu shows. Experimental themes
-// are listed in their own submenu and may draw their own icons or change how the toolbar behaves.
+// NEW (experimental themes): everything code needs to know about one theme.
+// CHANGED (theme files): "Name" is the theme's file name without ".zip" (what is saved in settings) and
+// "Label" is "name" from its theme.json (what the Themes page shows); the switches come from theme.json
+// too. Experimental themes are listed under their own heading and may draw their own icons or change how
+// the toolbar behaves.
 // CHANGED (e-ink): EInk = make the window look and refresh like an e-ink panel (Services/EInkScreen.cs).
 public sealed record ThemeInfo(string Name, string Label, bool Experimental = false,
-    IconStyle Icons = IconStyle.System, bool FadeToolbar = false, bool EInk = false, bool CrispText = false);
-// CHANGED (pixel font): CrispText = draw text with hard pixel edges instead of smoothing (Pixel).
+    IconStyle Icons = IconStyle.System, bool FadeToolbar = false, bool EInk = false, bool CrispText = false)
+{
+    // CHANGED (pixel font): CrispText = draw text with hard pixel edges instead of smoothing (Pixel).
+
+    // NEW (theme files): where the theme is and what its theme.json says about it.
+    /// <summary>The theme file (or theme folder) in the Themes folder.</summary>
+    public string Path { get; init; } = string.Empty;
+    public string Author { get; init; } = string.Empty;
+    public string Description { get; init; } = string.Empty;
+    public string Version { get; init; } = string.Empty;
+
+    /// <summary>True for the themes that come with Clearspace; false for one somebody added.</summary>
+    public bool Shipped { get; init; }
+
+    /// <summary>Why the theme cannot be used (its theme.json could not be read), or null.</summary>
+    public string? Problem { get; init; }
+
+    /// <summary>NEW (themes page): true for Dark while its file is not in the Themes folder (or cannot be
+    /// read): the look built into the app. It has no Path.</summary>
+    public bool BuiltIn { get; init; }
+
+    /// <summary>Changes when the theme's files change (ThemeLibrary).</summary>
+    internal string Stamp { get; init; } = string.Empty;
+}
 
 public static class ThemeService
 {
     public const string DefaultTheme = "Dark";
 
-    // The themes offered in Settings. Each name is a file in the Themes folder.
-    // CHANGED (themes): added OLED, Paper, Blueprint and Terminal.
-    // CHANGED (experimental themes): now a list of ThemeInfo, with the nine experimental themes at the end.
-    public static readonly IReadOnlyList<ThemeInfo> Themes =
-    [
-        new ThemeInfo("Dark", "Dark"),
-        new ThemeInfo("OLED", "OLED Black"),
-        new ThemeInfo("Light", "Light"),
-        new ThemeInfo("Blueprint", "Blueprint"),
-        new ThemeInfo("Terminal", "Terminal"),
-        new ThemeInfo("Retro", "Retro"),
-        new ThemeInfo("Pixel", "Pixel", Experimental: true, Icons: IconStyle.Pixel, CrispText: true),
-        new ThemeInfo("DosCommander", "DOS Commander", Experimental: true, Icons: IconStyle.Mark),
-        new ThemeInfo("Wireframe", "Wireframe", Experimental: true, Icons: IconStyle.Line),
-        new ThemeInfo("NeonHud", "Neon HUD", Experimental: true, Icons: IconStyle.Neon),
-        new ThemeInfo("Glass", "Glass", Experimental: true),
-        new ThemeInfo("Sketchbook", "Sketchbook", Experimental: true, Icons: IconStyle.Sketch),
-        new ThemeInfo("SketchbookDark", "Sketchbook (dark)", Experimental: true, Icons: IconStyle.Sketch),   // NEW (dark sketchbook)
-        new ThemeInfo("TypeTiles", "Type tiles", Experimental: true, Icons: IconStyle.Tile),
-        new ThemeInfo("Zen", "Zen", Experimental: true, Icons: IconStyle.Dot, FadeToolbar: true),
-        new ThemeInfo("Mac1Bit", "1-bit Mac", Experimental: true, Icons: IconStyle.OneBit),
-        new ThemeInfo("Mac1BitDark", "1-bit Mac (dark)", Experimental: true, Icons: IconStyle.OneBitDark),   // NEW (1-bit Mac dark)
-        // CHANGED (e-reader): Paper moved down here from the normal themes; its file is still Paper.xaml.
-        new ThemeInfo("Paper", "E-reader", Experimental: true, Icons: IconStyle.Ink, EInk: true),
-    ];
+    // CHANGED (theme files): the themes offered in Settings are whatever is in the Themes folder right now
+    // (this used to be a fixed list written out here). Clearspace's own come first, then added ones.
+    public static IReadOnlyList<ThemeInfo> Themes => ThemeLibrary.Themes;
 
-    public static readonly IReadOnlyList<string> Names = Themes.Select(theme => theme.Name).ToArray();
+    public static IReadOnlyList<string> Names => ThemeLibrary.Themes.Select(theme => theme.Name).ToArray();
+
+    /// <summary>NEW (theme files): the folder theme files live in ("Themes" beside Clearspace.exe).</summary>
+    public static string Folder => ThemeLibrary.Folder;
 
     public static string Current { get; private set; } = DefaultTheme;
 
+    /// <summary>NEW (theme files): the active theme's name as its theme.json gives it ("E-reader" for Paper).</summary>
+    public static string CurrentLabel { get; private set; } = DefaultTheme;
+
     // Raised after a switch, once the new colours are in place.
     public static event Action? Changed;
+
+    // NEW (theme files): why the last Apply() or Import() did not work, in words for the person using
+    // Clearspace; and an event for when the theme on screen could not be shown again after its file changed
+    // (raised on the UI thread; the window puts the message in its status bar).
+    public static string? LastProblem { get; private set; }
+    public static event Action<string>? ReloadFailed;
+
+    // NEW (themes page): raised on the UI thread after the list of themes changed: a theme was imported or
+    // removed, or the Themes folder changed on the disk.
+    public static event Action? ListChanged;
 
     // NEW (experimental themes): which icons the active theme uses (System = Windows' own), whether the
     // last switch changed that (the file list then has to be read again to pick up the new icons), and
@@ -70,6 +103,7 @@ public static class ThemeService
     // ---------------------------------------------------------------- colours for code
     // These start as the dark theme's values so anything drawn before (or without) an Application,
     // such as the unit tests, looks the way it always did.
+    private static readonly Color DarkBase = Color.FromRgb(0x1A, 0x19, 0x17);   // (declared first: BaseColor below starts as this)
     public static SolidColorBrush Ink { get; private set; } = Solid(0xFF, 0xEC, 0xE9, 0xE3);
     public static SolidColorBrush InkMuted { get; private set; } = Solid(0xFF, 0x9C, 0x96, 0x8D);
     public static SolidColorBrush InkFaint { get; private set; } = Solid(0xFF, 0x6E, 0x68, 0x62);
@@ -86,7 +120,7 @@ public static class ThemeService
     public static SolidColorBrush Ground3D { get; private set; } = Solid(0xFF, 0x2A, 0x28, 0x25);
     public static Pen CardEdgePen { get; private set; } = FrozenPen(Solid(0xFF, 0x3A, 0x37, 0x32), 1);
     public static Pen AccentEdgePen { get; private set; } = FrozenPen(Solid(0xFF, 0xD3, 0xA1, 0x5F), 2);
-    public static Color BaseColor { get; private set; } = Color.FromRgb(0x1A, 0x19, 0x17);
+    public static Color BaseColor { get; private set; } = DarkBase;
 
     // True when the window background is dark (decides the dark or light Windows title bar).
     public static bool IsDark { get; private set; } = true;
@@ -99,10 +133,10 @@ public static class ThemeService
     public static CornerRadius Corner(double normal) => new(Radius(normal));
 
     // ---------------------------------------------------------------- state
-    private const string ThemeFolder = "/Clearspace;component/Themes/";
-    private const string SelectedRowPrefix = "SelectedRow.";
-
-    private static ResourceDictionary? _active;        // the theme dictionary currently merged into App.Resources
+    // REMOVED (theme files): ThemeFolder ("/Clearspace;component/Themes/"); themes are not inside the app now.
+    private static ResourceDictionary? _active;        // the theme dictionary merged on top in App.Resources, or null (fallback only)
+    private static bool _shown;                        // NEW (themes page): a theme has been put in place (the built-in Dark has no dictionary)
+    private static string _activeStamp = string.Empty; // NEW (theme files): its files as they were when it was read
     private static ResourceDictionary? _selectedRow;   // overrides for selected rows (themes with a solid highlight), or null
     private static Color? _captionColor;
     private static Color? _captionTextColor;
@@ -115,71 +149,225 @@ public static class ThemeService
     // ---------------------------------------------------------------- start-up and switching
 
     // Called once from App.OnStartup, before any window opens: applies the theme saved in settings.
+    // CHANGED (theme files): the saved theme is read from its file. When it is gone or cannot be read, Dark
+    // is used; when that cannot be read either, the Dark values built into the app (App.xaml) stay.
     public static void Initialize()
     {
         HookSelection();
 
+        // Only the saved theme's file is read before the first window opens. The rest of the Themes folder
+        // is listed once the app is idle (and again whenever the Themes page opens).
         var saved = SettingsService.GetTheme();
-        var name = Resolve(saved);
-        if (name == DefaultTheme)
+        var shown = Show(saved, save: false, again: false);
+        if (!shown && !string.Equals(saved, DefaultTheme, StringComparison.OrdinalIgnoreCase))
+            shown = Show(DefaultTheme, save: false, again: false);
+
+        if (!shown && Application.Current is { } app)
         {
-            // App.xaml already merged Dark.xaml; just read it.
-            if (Application.Current is { } app && FindThemeDictionary(app.Resources.MergedDictionaries) is { } dark)
-            {
-                _active = dark;
-                ReadTheme(dark);
-            }
             Current = DefaultTheme;
-            return;
+            CurrentLabel = DefaultTheme;
+            ReadTheme(app, active: null);
         }
 
-        Apply(name, save: false);
+        // From here on, a theme dropped into the folder appears in the menu, and saving the active theme's
+        // file shows it again.
+        ThemeLibrary.Watch(() => Application.Current?.Dispatcher.BeginInvoke(new Action(OnFolderChanged)));
+        Application.Current?.Dispatcher.BeginInvoke(DispatcherPriority.ApplicationIdle, new Action(() => ThemeLibrary.Refresh()));
+        ThemeCache.TidyLater();
     }
 
-    // Switches to the named theme now. Unknown names fall back to the default theme.
-    public static void Apply(string? name, bool save = true)
+    // Switches to the named theme now.
+    // CHANGED (theme files): returns whether it did. A name that is not in the Themes folder, or a theme
+    // that cannot be read, leaves the look as it is (it used to fall back to the default theme) and puts
+    // the reason in LastProblem.
+    public static bool Apply(string? name, bool save = true) => Show(name, save, again: false);
+
+    /// <summary>NEW (theme files): reads the Themes folder again and returns what is in it (the Themes
+    /// page does this each time it opens).</summary>
+    public static IReadOnlyList<ThemeInfo> Refresh() => ThemeLibrary.Refresh();
+
+    /// <summary>NEW (theme files): checks a theme file from anywhere on the PC and copies it into the
+    /// Themes folder. Returns the theme as now listed, or null with the reason in LastProblem.
+    /// <paramref name="replace"/> is asked when an added theme of that name is already there.</summary>
+    public static ThemeInfo? Import(string file, Func<ThemeInfo, bool>? replace = null)
     {
-        var app = Application.Current;
-        if (app is null)
-            return;
-
-        HookSelection();
-        var theme = Resolve(name);
-        if (_active is not null && theme == Current)
-            return; // already showing it
-
-        ResourceDictionary next;
+        LastProblem = null;
         try
         {
-            next = new ResourceDictionary { Source = new Uri(ThemeFolder + theme + ".xaml", UriKind.Relative) };
+            var theme = ThemeLibrary.Import(file, replace);
+            ListChanged?.Invoke(); // NEW (themes page)
+            return theme;
         }
-        catch (Exception)
+        catch (ThemeFormatException error)
         {
-            return; // the theme file could not be read; keep the look we have
+            LastProblem = error.Message;
+            return null;
+        }
+    }
+
+    /// <summary>NEW (themes page): whether a theme can be removed. Every theme can, except Dark: it is part
+    /// of Clearspace, so there is always one theme left.</summary>
+    public static bool CanRemove(ThemeInfo theme) => !theme.BuiltIn && !ThemeLibrary.IsDefault(theme.Name);
+
+    /// <summary>NEW (themes page): removes a theme by moving its file to the Recycle Bin (so it can be put
+    /// back). When it was the theme on screen, Dark takes its place. Returns false, with the reason in
+    /// LastProblem, when it is Dark or the file could not be moved; false with no reason when the question
+    /// Windows asked was answered No.</summary>
+    public static bool Remove(string name, IntPtr owner)
+    {
+        LastProblem = null;
+        if (ThemeLibrary.Find(name) is not { } theme)
+            return true; // it is gone already
+
+        var wasCurrent = string.Equals(theme.Name, Current, StringComparison.OrdinalIgnoreCase);
+        try
+        {
+            if (!ThemeLibrary.Remove(theme, path => FileOperationService.Delete([path], owner).Succeeded))
+                return false;
+        }
+        catch (ThemeFormatException error)
+        {
+            LastProblem = error.Message;
+            return false;
+        }
+
+        if (wasCurrent)
+            Show(DefaultTheme, save: true, again: false);
+
+        ListChanged?.Invoke();
+        return true;
+    }
+
+    /// <summary>
+    /// NEW (themes page): everything a theme defines, with Clearspace's fallback values underneath, for
+    /// drawing a preview of it: put the result in an element's Resources and whatever is inside that
+    /// element looks its colours, fonts and corners up in this theme instead of the one on screen.
+    /// Null, with the reason in <paramref name="problem"/>, when the theme cannot be read.
+    /// Call it on the UI thread; nothing on screen changes.
+    /// </summary>
+    internal static ResourceDictionary? PreviewResources(ThemeInfo theme, out string? problem)
+    {
+        problem = theme.Problem;
+        if (problem is not null || Application.Current is not { } app)
+            return null;
+
+        ResourceDictionary? own = null;
+        if (!theme.BuiltIn)
+        {
+            try
+            {
+                own = ThemeLoader.Load(ThemePackage.Open(theme.Path));
+            }
+            catch (Exception) when (ThemeLibrary.IsDefault(theme.Name))
+            {
+                own = null; // Dark's file is damaged: Dark is the built-in look
+            }
+            catch (ThemeFormatException error)
+            {
+                problem = error.Message;
+                return null;
+            }
+            catch (Exception error)
+            {
+                problem = "The theme could not be read: " + error.Message;
+                return null;
+            }
+        }
+
+        // The fallback first (everything merged into the app except the theme on screen), then the theme.
+        var all = new ResourceDictionary();
+        foreach (var dictionary in app.Resources.MergedDictionaries)
+        {
+            if (!ReferenceEquals(dictionary, _active))
+                all.MergedDictionaries.Add(dictionary);
+        }
+        if (own is not null)
+            all.MergedDictionaries.Add(own);
+        return all;
+    }
+
+    // "again": show it even though it is the theme on screen (its file changed).
+    private static bool Show(string? name, bool save, bool again)
+    {
+        LastProblem = null;
+        var app = Application.Current;
+        if (app is null)
+            return false;
+
+        HookSelection();
+        var theme = ThemeLibrary.Find(name);
+        if (theme is null)
+        {
+            LastProblem = $"There is no theme called \"{name}\" in the Themes folder.";
+            return false;
+        }
+        if (theme.Problem is { } problem)
+        {
+            LastProblem = problem;
+            return false;
+        }
+        // CHANGED (themes page): was "_active is not null"; the built-in Dark is shown without a dictionary.
+        if (!again && _shown && string.Equals(theme.Name, Current, StringComparison.OrdinalIgnoreCase) &&
+            theme.BuiltIn == (_active is null))
+            return true; // already showing it
+
+        // NEW (themes page): null is the Dark look built into the app: nothing merged on top of the fallback.
+        ResourceDictionary? next = null;
+        if (!theme.BuiltIn)
+        {
+            try
+            {
+                next = ThemeLoader.Load(ThemePackage.Open(theme.Path));
+            }
+            catch (Exception) when (!again && ThemeLibrary.IsDefault(theme.Name))
+            {
+                // NEW (themes page): Dark's own file is damaged. Dark still works: the built-in look is used.
+                // (Not while its file is being saved again and again by someone changing it; they are told
+                // what is wrong instead, below.)
+                next = null;
+            }
+            catch (ThemeFormatException error)
+            {
+                LastProblem = error.Message;
+                return false; // the theme file could not be read; keep the look we have
+            }
+            catch (Exception error)
+            {
+                LastProblem = "The theme could not be read: " + error.Message;
+                return false;
+            }
         }
 
         UnflipAllRows();
 
+        // CHANGED (theme files): the active theme is its own entry, after the fallback dictionaries from
+        // App.xaml (it used to replace the Dark dictionary, found by looking for the key "Base").
+        // CHANGED (themes page): for the built-in Dark that entry is taken away again.
         var merged = app.Resources.MergedDictionaries;
-        var current = _active ?? FindThemeDictionary(merged);
-        var index = current is null ? -1 : merged.IndexOf(current);
-        if (index >= 0) merged[index] = next;
+        var index = _active is null ? -1 : merged.IndexOf(_active);
+        if (next is null)
+        {
+            if (index >= 0) merged.RemoveAt(index);
+        }
+        else if (index >= 0) merged[index] = next;
         else merged.Add(next);
 
         _active = next;
-        Current = theme;
-        ReadTheme(next);
+        _shown = true;
+        _activeStamp = theme.Stamp;
+        Current = theme.Name;
+        CurrentLabel = theme.Label;
+        ReadTheme(app, next);
 
         // NEW (experimental themes): the theme's icon set and toolbar behaviour. Drawn icons are thrown away
         // on every switch because some styles take their colour from the theme.
-        var info = Themes.First(known => known.Name == theme);
         // CHANGED (dark sketchbook): two themes can share a drawn style and still colour it differently
         // (Sketchbook's graphite outline is chalk-white on black paper), so any switch to a drawn style counts.
-        IconsChanged = info.Icons != Icons || info.Icons != IconStyle.System;
-        Icons = info.Icons;
-        FadeToolbar = info.FadeToolbar;
-        EInk = info.EInk;
-        CrispText = info.CrispText;
+        IconsChanged = theme.Icons != Icons || theme.Icons != IconStyle.System;
+        Icons = theme.Icons;
+        FadeToolbar = theme.FadeToolbar;
+        EInk = theme.EInk;
+        CrispText = theme.CrispText;
         EInkScreen.SetActive(EInk);   // NEW (e-ink): builds the screen effect the first time, hands menus and dialogs theirs
         ThemeIcons.Reset();
 
@@ -190,77 +378,94 @@ public static class ThemeService
         }
 
         if (save)
-            SettingsService.SetTheme(theme);
+            SettingsService.SetTheme(theme.Name);
 
         Changed?.Invoke();
+        return true;
     }
 
-    private static string Resolve(string? name) =>
-        Names.FirstOrDefault(known => string.Equals(known, name, StringComparison.OrdinalIgnoreCase)) ?? DefaultTheme;
-
-    // The merged dictionary that holds a theme is the one that defines "Base".
-    private static ResourceDictionary? FindThemeDictionary(IEnumerable<ResourceDictionary> merged)
+    // NEW (theme files): something in the Themes folder changed (on the UI thread, a moment after the last
+    // change). The list is read again; when it was the theme on screen that changed, it is shown again. A
+    // save that left the theme unreadable keeps the look and tells the window why.
+    private static void OnFolderChanged()
     {
-        foreach (var dictionary in merged)
-        {
-            if (dictionary.Contains("Base"))
-                return dictionary;
-        }
-        return null;
+        ThemeLibrary.Refresh();
+        ListChanged?.Invoke(); // NEW (themes page)
+
+        // CHANGED (themes page): was "_active is null"; Dark may be on screen without a dictionary, and its
+        // file may just have been put back (or taken away).
+        if (!_shown || ThemeLibrary.Find(Current) is not { } theme || theme.Stamp == _activeStamp)
+            return;
+
+        _activeStamp = theme.Stamp;   // one try per save, whether or not it works
+        if (!Show(theme.Name, save: false, again: true) && LastProblem is { } problem)
+            ReloadFailed?.Invoke($"{theme.Label} was not reloaded. {problem}");
     }
 
-    // Copies what code needs out of a theme dictionary.
-    private static void ReadTheme(ResourceDictionary theme)
+    // REMOVED (theme files): Resolve (unknown names became the default theme) and FindThemeDictionary (the
+    // active dictionary was the merged one that defined "Base"). ThemeLibrary.Find and _active replace them.
+
+    // Copies what code needs out of the theme.
+    // CHANGED (theme files): every key is looked up through the application's resources, so one the active
+    // theme leaves out comes from the fallback underneath (it used to keep the previous theme's value).
+    // "active" is the theme's own dictionary, or null when only the fallback is in place.
+    private static void ReadTheme(Application app, ResourceDictionary? active)
     {
-        Ink = Read(theme, "Ink", Ink);
-        InkMuted = Read(theme, "InkMuted", InkMuted);
-        InkFaint = Read(theme, "InkFaint", InkFaint);
+        Ink = Read(app, "Ink", Ink);
+        InkMuted = Read(app, "InkMuted", InkMuted);
+        InkFaint = Read(app, "InkFaint", InkFaint);
         InkWash = Solid(0x40, Ink.Color.R, Ink.Color.G, Ink.Color.B);
-        Accent = Read(theme, "Accent", Accent);
-        AccentSoft = Read(theme, "AccentSoft", AccentSoft);
-        AccentWash = Read(theme, "AccentWash", AccentWash);
-        Good = Read(theme, "Good", Good);
-        Warn = Read(theme, "Warn", Warn);
-        Bad = Read(theme, "Bad", Bad);
-        Quiet = Read(theme, "Quiet", Quiet);
-        CardFill = Read(theme, "CardFill", CardFill);
-        CardEdge = Read(theme, "CardEdge", CardEdge);
-        Ground3D = Read(theme, "Ground3D", Ground3D);
+        Accent = Read(app, "Accent", Accent);
+        AccentSoft = Read(app, "AccentSoft", AccentSoft);
+        AccentWash = Read(app, "AccentWash", AccentWash);
+        Good = Read(app, "Good", Good);
+        Warn = Read(app, "Warn", Warn);
+        Bad = Read(app, "Bad", Bad);
+        Quiet = Read(app, "Quiet", Quiet);
+        CardFill = Read(app, "CardFill", CardFill);
+        CardEdge = Read(app, "CardEdge", CardEdge);
+        Ground3D = Read(app, "Ground3D", Ground3D);
         CardEdgePen = FrozenPen(CardEdge, 1);
         AccentEdgePen = FrozenPen(Solid(0xFF, Accent.Color.R, Accent.Color.G, Accent.Color.B), 2);
 
         // CHANGED (experimental themes): a theme whose window background is not one flat colour (Glass is a
         // gradient, Sketchbook is graph paper) names a plain colour for code to use as "Theme.BaseColor".
-        if (theme["Theme.BaseColor"] is Color plain)
-            BaseColor = plain;
-        else if (theme["Base"] is SolidColorBrush window)
-            BaseColor = window.Color;
+        // CHANGED (theme files): a gradient without one counts as its first colour; anything else as dark.
+        BaseColor = app.TryFindResource("Theme.BaseColor") is Color plain ? plain : app.TryFindResource("Base") switch
+        {
+            SolidColorBrush window => window.Color,
+            GradientBrush { GradientStops.Count: > 0 } gradient => gradient.GradientStops[0].Color,
+            _ => DarkBase
+        };
         IsDark = (BaseColor.R * 299 + BaseColor.G * 587 + BaseColor.B * 114) / 1000 < 128;
-        IsSquare = theme["R8"] is CornerRadius corner && corner.TopLeft == 0;
+        IsSquare = app.TryFindResource("R8") is CornerRadius corner && corner.TopLeft == 0;
 
-        _captionColor = theme["Theme.CaptionColor"] is Color caption ? caption : null;
-        _captionTextColor = theme["Theme.CaptionTextColor"] is Color captionText ? captionText : null;
+        _captionColor = app.TryFindResource("Theme.CaptionColor") is Color caption ? caption : null;
+        _captionTextColor = app.TryFindResource("Theme.CaptionTextColor") is Color captionText ? captionText : null;
 
         // "SelectedRow.Ink" etc. become a small dictionary keyed "Ink" etc. (see FlipRow).
         // (The keys are copied first: reading a value can make the dictionary rewrite its entry.)
         ResourceDictionary? row = null;
-        foreach (var key in theme.Keys.Cast<object>().ToArray())
+        if (active is not null)
         {
-            if (key is not string text || !text.StartsWith(SelectedRowPrefix, StringComparison.Ordinal))
-                continue;
+            foreach (var key in active.Keys.Cast<object>().ToArray())
+            {
+                if (key is not string text || !text.StartsWith(ThemeKeys.SelectedRowPrefix, StringComparison.Ordinal))
+                    continue;
 
-            var value = theme[text];
-            if (value is Freezable { CanFreeze: true, IsFrozen: false } freezable)
-                freezable.Freeze();
+                var value = active[text];
+                if (value is Freezable { CanFreeze: true, IsFrozen: false } freezable)
+                    freezable.Freeze();
 
-            row ??= new ResourceDictionary();
-            row[text[SelectedRowPrefix.Length..]] = value;
+                row ??= new ResourceDictionary();
+                row[text[ThemeKeys.SelectedRowPrefix.Length..]] = value;
+            }
         }
         _selectedRow = row;
     }
 
-    private static SolidColorBrush Read(ResourceDictionary theme, string key, SolidColorBrush fallback) =>
-        theme[key] is SolidColorBrush brush ? Solid(brush.Color.A, brush.Color.R, brush.Color.G, brush.Color.B) : fallback;
+    private static SolidColorBrush Read(Application app, string key, SolidColorBrush fallback) =>
+        app.TryFindResource(key) is SolidColorBrush brush ? Solid(brush.Color.A, brush.Color.R, brush.Color.G, brush.Color.B) : fallback;
 
     private static SolidColorBrush Solid(byte a, byte r, byte g, byte b)
     {

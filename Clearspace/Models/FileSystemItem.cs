@@ -56,6 +56,11 @@ public sealed class FileSystemItem : ObservableObject
 
     public bool IsVideoFile => !IsFolder && MediaTypes.IsVideo(Extension); // NEW (folder types, step 3)
 
+    // NEW (zip folders): a file or folder inside a ZIP file that is open like a folder. FullPath is then
+    // an address of Clearspace's own (Services/ArchiveLocation.cs), not a path on a disk: nothing that
+    // works on real files (tags, locks, thumbnails, rename, delete) applies to it.
+    public bool IsInArchive => ArchiveLocation.Is(FullPath);
+
 
     public bool IsInCloudRoot { get; init; }
 
@@ -130,6 +135,9 @@ public sealed class FileSystemItem : ObservableObject
     // tag database is asked once for the list and not once per row.
     internal void RefreshTags(TagStore.TagLookup? tags = null)
     {
+        if (IsInArchive)
+            return; // NEW (zip folders): nothing inside a ZIP file has tags or a lock
+
         Tags = tags is null ? TagService.TagsFor(FullPath) : tags.TagsFor(FullPath);
         RefreshLock();
     }
@@ -161,7 +169,9 @@ public sealed class FileSystemItem : ObservableObject
         _ => string.Empty
     };
 
-    internal void RefreshLock() => LockState = FileLockRegistry.StateOf(FullPath, IsFolder);
+    // CHANGED (zip folders): a ".cslock" file inside a ZIP is just a file in a ZIP; the lock entries are
+    // for files on a disk.
+    internal void RefreshLock() => LockState = IsInArchive ? LockState.None : FileLockRegistry.StateOf(FullPath, IsFolder);
 
 
 
@@ -502,6 +512,19 @@ public sealed class FileSystemItem : ObservableObject
         catch (IOException) { return null; }
         catch (UnauthorizedAccessException) { return null; }
     }
+
+    // NEW (zip folders): a file or folder inside a ZIP file. `location` is its address
+    // (Services/ArchiveLocation.cs). A ZIP keeps one date for each entry, and none for a folder it only
+    // implies ("Trip/a.jpg" with no entry for "Trip").
+    internal static FileSystemItem FromArchiveEntry(string location, string name, bool isFolder, long size, DateTime modified)
+        => new()
+        {
+            Name = name,
+            FullPath = location,
+            Attributes = isFolder ? FileAttributes.Directory : FileAttributes.Normal,
+            Size = isFolder ? 0 : size,
+            DateModified = modified
+        };
 
     private static DateTime ToDateTime(NativeMethods.FILETIME fileTime)
     {

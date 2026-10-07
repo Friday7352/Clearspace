@@ -39,6 +39,16 @@ internal sealed record FolderPickerOptions(string Heading, string Detail, string
     /// <summary>NEW (recommended folders): folders to offer above the list, best first, each with its
     /// reason (Services/FilingAdvisor.cs). A click opens one; nothing is chosen until the main button.</summary>
     public IReadOnlyList<FolderRecommendation> Recommended { get; init; } = [];
+
+    /// <summary>NEW (pick a file): when set (".csbackup"), the chooser picks a FILE with this ending
+    /// instead of a folder. Files with the ending are listed under the folders; a click marks one, the
+    /// main button (or a double click) chooses it, and Chosen is the file's path. Used for "Restore from
+    /// a file…", so that too stays in Clearspace instead of opening Windows' file picker.
+    /// CHANGED (file backup): an empty ending ("") picks any file; the folders are then listed first.</summary>
+    public string? FileExtension { get; init; }
+
+    /// <summary>What such a file is called in the hints ("backup").</summary>
+    public string FileWord { get; init; } = "file";
 }
 
 internal sealed class FolderPickerWindow : Window
@@ -56,8 +66,15 @@ internal sealed class FolderPickerWindow : Window
     private readonly Button _choose;
     private string _current = string.Empty;
     private int _request; // goes up with every folder opened; a listing that arrives for an older one is dropped
+    private string? _pickedFile;  // NEW (pick a file): the file marked in the list, when files are being picked
+    private Button? _pickedRow;
 
-    /// <summary>The folder that was chosen; null when the dialog was cancelled.</summary>
+    private bool PicksFile => _options.FileExtension is not null;
+
+    // CHANGED (file backup): picking a file of any kind ("What to back up" > File…), not one with a set ending.
+    private bool AnyFile => _options.FileExtension is { Length: 0 };
+
+    /// <summary>The folder that was chosen (or the file, when files are being picked); null when the dialog was cancelled.</summary>
     internal string? Chosen { get; private set; }
 
     internal FolderPickerWindow(FolderPickerOptions options)
@@ -133,6 +150,8 @@ internal sealed class FolderPickerWindow : Window
 
         var newFolder = TextButton("New folder", primary: false);
         newFolder.Click += (_, _) => ShowNewFolderRow(true);
+        if (options.FileExtension is not null)
+            newFolder.Visibility = Visibility.Collapsed; // NEW (pick a file): nothing is being put anywhere
         DockPanel.SetDock(_up, Dock.Left);
         DockPanel.SetDock(newFolder, Dock.Right);
 
@@ -280,6 +299,17 @@ internal sealed class FolderPickerWindow : Window
 
         if (!exists)
         {
+            // NEW (pick a file): a file's own path typed or pasted in the box opens its folder with it marked.
+            if (_options.FileExtension is { } ending && full.EndsWith(ending, StringComparison.OrdinalIgnoreCase) &&
+                Path.GetDirectoryName(full) is { Length: > 0 } parent && await Task.Run(() => File.Exists(full)))
+            {
+                if (!await OpenAsync(parent, quiet))
+                    return false;
+
+                Pick(full, _folders.Children.OfType<Button>().FirstOrDefault(row => string.Equals(row.Tag as string, full, StringComparison.OrdinalIgnoreCase)));
+                return true;
+            }
+
             if (!quiet)
                 ShowStatus($"{typed} is not a folder that can be opened.", problem: true);
             return false;
@@ -293,6 +323,8 @@ internal sealed class FolderPickerWindow : Window
         }
 
         _current = full;
+        _pickedFile = null; // NEW (pick a file): what was marked in the folder before is not on screen any more
+        _pickedRow = null;
         _path.Text = full;
         _path.CaretIndex = full.Length;
         _up.IsEnabled = ParentOf(full) is not null;
@@ -317,6 +349,18 @@ internal sealed class FolderPickerWindow : Window
     // The main button is on when the open folder may be chosen; otherwise the status line says why not.
     private void UpdateChoice()
     {
+        // NEW (pick a file): the button is on once a file is marked; until then the line says what to do.
+        if (PicksFile)
+        {
+            _choose.IsEnabled = _pickedFile is not null;
+            ShowStatus(_pickedFile is { } marked
+                ? Path.GetFileName(marked)
+                : AnyFile
+                    ? "Click a file to pick it. Files are listed under the folders."
+                    : $"Click a {_options.FileWord} to pick it. Files ending in {_options.FileExtension} are listed under the folders.", problem: false);
+            return;
+        }
+
         var reason = _current.Length == 0 ? string.Empty : _options.WhyNotChoose?.Invoke(_current);
         _choose.IsEnabled = _current.Length > 0 && reason is null;
         ShowStatus(reason ?? string.Empty, problem: false);
@@ -324,6 +368,17 @@ internal sealed class FolderPickerWindow : Window
 
     private void ChooseCurrent()
     {
+        // NEW (pick a file)
+        if (PicksFile)
+        {
+            if (_pickedFile is null)
+                return;
+
+            Chosen = _pickedFile;
+            DialogResult = true;
+            return;
+        }
+
         if (_current.Length == 0 || _options.WhyNotChoose?.Invoke(_current) is not null)
             return;
 
@@ -340,11 +395,20 @@ internal sealed class FolderPickerWindow : Window
         _folders.Children.Add(Note("Reading…"));
 
         List<string> found;
+        List<string> files = []; // NEW (pick a file): the files that can be picked, listed under the folders
         string? trouble = null;
         try
         {
             var showHidden = _options.ShowHidden;
-            found = await Task.Run(() => ReadFolders(folder, showHidden));
+            var ending = _options.FileExtension;
+            var read = await Task.Run(() =>
+            {
+                var folders = ReadFolders(folder, showHidden);
+                var matching = ending is null ? new List<string>() : ReadFiles(folder, ending, showHidden);
+                return (Folders: folders, Files: matching);
+            });
+            found = read.Folders;
+            files = read.Files;
         }
         catch (Exception error) when (error is IOException or UnauthorizedAccessException or System.Security.SecurityException)
         {
@@ -364,14 +428,31 @@ internal sealed class FolderPickerWindow : Window
             return;
         }
 
-        if (found.Count == 0)
+        if (found.Count == 0 && files.Count == 0)
         {
-            _folders.Children.Add(Note("No folders in here."));
+            _folders.Children.Add(Note(AnyFile ? "Nothing in here." : PicksFile ? $"No folders and no {_options.FileWord} files in here." : "No folders in here."));
             return;
+        }
+
+        // NEW (pick a file): the files first when there are any, since they are what is being looked for.
+        // CHANGED (file backup): when any file can be picked, the folders lead, as in a file list: with every
+        // file of a folder on show, the way further in would otherwise be below all of them.
+        if (!AnyFile)
+        {
+            foreach (var file in files.Take(MostRows))
+                _folders.Children.Add(FileRow(file));
         }
 
         foreach (var path in found.Take(MostRows))
             _folders.Children.Add(Row("", Path.GetFileName(path), path, indent: false));
+
+        if (AnyFile)
+        {
+            foreach (var file in files.Take(MostRows))
+                _folders.Children.Add(FileRow(file));
+            if (files.Count > MostRows)
+                _folders.Children.Add(Note($"…and {files.Count - MostRows:N0} more files. Type or paste the file's path above to pick one of them."));
+        }
 
         if (found.Count > MostRows)
             _folders.Children.Add(Note($"…and {found.Count - MostRows:N0} more. Type or paste the path above to reach one of them."));
@@ -396,6 +477,63 @@ internal sealed class FolderPickerWindow : Window
 
         found.Sort((x, y) => NativeMethods.StrCmpLogicalW(Path.GetFileName(x), Path.GetFileName(y)));
         return found;
+    }
+
+    // NEW (pick a file): the files with one ending directly inside a folder, newest first (a backup is
+    // looked for by when it was made). Hidden ones only when asked for.
+    internal static List<string> ReadFiles(string folder, string ending, bool showHidden)
+    {
+        var all = new EnumerationOptions { IgnoreInaccessible = true, AttributesToSkip = 0, RecurseSubdirectories = false };
+        var found = new List<FileInfo>();
+
+        foreach (var entry in new DirectoryInfo(folder).EnumerateFiles("*" + ending, all))
+        {
+            // "*.abc" also matches "x.abcd" on Windows (short names), so the ending is checked again.
+            if (!entry.Name.EndsWith(ending, StringComparison.OrdinalIgnoreCase))
+                continue;
+            if ((entry.Attributes & FileAttributes.Hidden) != 0 && !showHidden)
+                continue;
+
+            found.Add(entry);
+        }
+
+        return found.OrderByDescending(entry => entry.LastWriteTimeUtc).Select(entry => entry.FullName).ToList();
+    }
+
+    // One file that can be picked: a click marks it, a double click chooses it.
+    private Button FileRow(string path)
+    {
+        var picture = new TextBlock { Text = "\uE7C3", FontSize = 14, Margin = new Thickness(0, 0, 10, 0), VerticalAlignment = VerticalAlignment.Center }; // Page
+        picture.SetResourceReference(TextBlock.FontFamilyProperty, "IconFont");
+        picture.SetResourceReference(TextBlock.ForegroundProperty, "InkMuted");
+        var name = new TextBlock { Text = Path.GetFileName(path), TextTrimming = TextTrimming.CharacterEllipsis, VerticalAlignment = VerticalAlignment.Center };
+        name.SetResourceReference(TextBlock.ForegroundProperty, "Ink");
+        var line = new StackPanel { Orientation = Orientation.Horizontal };
+        line.Children.Add(picture);
+        line.Children.Add(name);
+
+        var row = new Button { Content = line, ToolTip = path, Tag = path, HorizontalAlignment = HorizontalAlignment.Stretch };
+        row.SetResourceReference(StyleProperty, "SidebarButton");
+        row.Click += (_, _) => Pick(path, row);
+        row.MouseDoubleClick += (_, _) =>
+        {
+            Pick(path, row);
+            ChooseCurrent();
+        };
+        return row;
+    }
+
+    // Marks a file as the one to choose (and takes the mark off the one before).
+    private void Pick(string path, Button? row)
+    {
+        _pickedRow?.ClearValue(BackgroundProperty);
+        _pickedRow?.ClearValue(FontWeightProperty);
+        _pickedFile = path;
+        _pickedRow = row;
+        row?.SetResourceReference(BackgroundProperty, "AccentSoft");
+        if (row is not null)
+            row.FontWeight = FontWeights.SemiBold; // tells the marked one apart while the pointer is still on it
+        UpdateChoice();
     }
 
     // ------------------------------------------------------------------ a new folder

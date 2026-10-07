@@ -1,0 +1,9 @@
+{
+  "format": 1,
+  "name": "Zen",
+  "author": "Clearspace",
+  "description": "As little as possible: soft off-white, a coloured dot instead of each icon, and a toolbar that fades until you need it.",
+  "experimental": true,
+  "icons": "Dot",
+  "fadeToolbar": true
+}

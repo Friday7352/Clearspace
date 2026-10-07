@@ -40,6 +40,9 @@ You can also update by hand: download the newer `ClearspaceSetup.exe` and run it
 
 Copies of Clearspace older than 1.2.0 have no update check, so they need the newest installer run once by hand.
 
+<!-- NEW (go back) -->
+**Going back to an earlier version.** If a new version gives you trouble, **Settings > About Clearspace… > Earlier versions…** lists the releases before the one you have. **Go back to this** downloads that release's installer, checks it the same way an update is checked, and installs it over the current one. Your settings, tags and locked files are kept. Clearspace then stops mentioning the version you left, announces only releases newer than it, and **Settings > Check for updates…** takes you forward again whenever you want. Versions before 1.2.0 are not offered, because they cannot update themselves. If **Open folders with Clearspace** is on and the version you go back to does not have it yet, it is turned off first, so folders open in File Explorer again.
+
 A silent run (`ClearspaceSetup.exe /VERYSILENT`) performs the plain update.
 
 <!-- CHANGED (user readme): says plainly that locked files are left in place; only their icon and
@@ -68,6 +71,18 @@ If searching is slow, attach `search-trace.log` from `%APPDATA%\Clearspace` as w
 <!-- NEW: a short list of the recent additions, linking to the sections below. -->
 ## What's new
 
+<!-- NEW (themes page) -->
+- **[A page of themes, each with a preview](#themes)**: Settings > Choose a theme… shows every theme as a small window in its own colours. Click one to use it.
+<!-- NEW (zip folders) -->
+- **[Open ZIP files like folders](#zip-files)**: double-click a `.zip` to look inside it, and open, copy or drag out what you need without extracting it first.
+<!-- NEW (theme files) -->
+- **[Add themes, and make your own](#themes)**: every theme is one file in a Themes folder. Import one somebody made from the Settings menu, or make your own from a copy of any theme.
+<!-- NEW (live drives) -->
+- **[Drives show up as you plug them in](#familiar-file-manager-foundations)**: a USB stick or an external drive appears in the sidebar and on This PC the moment it is connected, and goes when it is taken out.
+<!-- NEW (file backup) -->
+- **[Backup and restore](#backup-and-restore)**: back up files, folders and whole drives to another place, by hand or on a schedule, as a clone, dated versions or zip files, and get a file's earlier versions back from its right-click menu. Clearspace sees what is in a folder (documents, photos, projects) and sets the options that suit it.
+<!-- NEW (backup) -->
+- **[Settings and tags backup](#settings-and-tags-backup)**: back up your settings and tags by hand or automatically, and put them back if they are ever lost.
 <!-- NEW (menu by type) -->
 - **[A right-click menu that fits the file](#familiar-file-manager-foundations)**: play a sound file, view or copy a picture, run a program as administrator, print a document, and more, with cut, copy, paste, rename and delete as a row of icons.
 <!-- NEW (map network drive) -->
@@ -81,7 +96,7 @@ If searching is slow, attach `search-trace.log` from `%APPDATA%\Clearspace` as w
 <!-- NEW (switching): the four additions made for people moving over from File Explorer. -->
 - **Folders stay up to date**: a download that finishes, or a file another program saves, renames or deletes, shows up in the folder you have open without pressing F5.
 - **[Preview pane](#preview-pane)**: Alt+P shows the selected picture, text file or ZIP beside the list without opening it.
-- **[ZIP files](#zip-files)**: extract and compress from the right-click menu.
+- **[ZIP files](#zip-files)**: open one like a folder; extract and compress from the right-click menu.
 - **[Rename several items at once](#rename-several-items-at-once)**: F2 with more than one item selected, with every new name shown before anything changes.
 - **[Open folders with Clearspace](#open-folders-with-clearspace)**: folders from the desktop, other programs and Win+E open in Clearspace.
 <!-- NEW (user readme): the 1.3.0 additions. -->
@@ -176,6 +191,102 @@ Tags are lightweight labels you can create and apply to one or many selected fil
 - Organize pinned locations into your own collapsible, reorderable categories.
 
 Tags are saved on this PC in `%APPDATA%\Clearspace\tags.db`. If you used an early version that kept them in `tags.json`, they are brought over automatically the first time and the old file is kept. A change to many items at once is saved together, so a save that fails leaves your tags as they were.
+
+<!-- NEW (backup) -->
+### Settings and tags backup
+
+**Settings > Back up settings and tags…** keeps a copy of the things Clearspace itself holds, so they can be put back if they are ever lost:
+
+- **Your settings**: pins, the sidebar, Your files, folder types, columns, theme and the rest.
+- **Your tags**: every tag, and which files and folders carry it.
+
+A backup is one small file. Your files themselves are not copied, and neither is anything about password locks: a locked file carries its own lock, and restoring never changes what is locked.
+
+- **Back up now** makes one straight away. The **Label** box under it is what the backup is called in the list. It says *Made by you* unless you type something else, such as *Before reinstalling Windows*.
+- **Automatic backup** makes one every day, every week, or as often as you like while you use Clearspace: choose **Custom** and say every how many hours or days. Choose how many automatic backups to keep (older ones are deleted; backups you made yourself are kept until you delete them) and where they go. The usual place is `Documents\Clearspace Backups`; a folder that OneDrive syncs keeps them safe if the PC is lost. When nothing has changed since the last backup, no new file is made.
+- **Your backups** lists them, newest first, with what each holds. **Restore…** asks what to put back:
+  - **Tags** go back on the files and folders that had them and still exist. Tags you have now stay. Tick **Also remove tags added since this backup** to make the tags exactly as they were then.
+  - **Settings** replace today's settings with the ones in the backup, and Clearspace restarts to use them.
+- **Restore from a file…** uses a backup kept somewhere else, such as a USB stick or one copied from another PC. It opens in Clearspace, not in a File Explorer window: go to the folder, click the backup, and choose **Open**.
+
+Before a restore changes anything, Clearspace makes a backup of how things are now. It appears in the list as *Made before a restore*, so a restore can be undone the same way.
+
+<!-- NEW (file backup) -->
+### Backup and restore
+
+**Settings > Backup and restore…** copies your files, folders and whole drives to another place and keeps those copies up to date. You can also right-click any file, folder or drive and choose **Back up…**. (This is separate from the settings and tags backup above, which only covers what Clearspace itself keeps.)
+
+A backup is one thing to copy, one place to keep it, and its own schedule. Make as many as you like: Photos to an external drive every night, a project folder to a NAS every hour, one important file as dated zips.
+
+<!-- NEW (zip tick box, simpler editor) -->
+**New backup** asks for a handful of things: what to back up, where to save it, a name, what is in it, how often, and how much to keep.
+
+<!-- NEW (backup contents) -->
+**Contents** is the quick way to set a backup up: say what is in the folder and Clearspace sets the options that suit it. It looks at the folder you picked and chooses for you; click another button if it guessed wrong. The line under the buttons says what was set, and everything it sets can still be changed below.
+
+| Contents | What is recommended | Why |
+|---|---|---|
+| **Documents**: Word, Excel, PDFs, notes | Keep the last 30 backups. | Small files that change often. When a document is overwritten or damaged, you go back to a backup from before it happened. |
+| **Photos & media**: pictures, videos, music | One copy. What you delete or change stays in the backup for 90 days. | Large files that rarely change, so one copy is enough, and a photo deleted by mistake can still be had back. They do not shrink in a zip. |
+| **Projects**: code, Unity and other game projects | Keep the last 10 backups, and skip the folders that get rebuilt. | Very many small files that change all the time. Folders such as Unity's `Library` or `node_modules` are often most of a project and are made again when you open it, so leaving them out makes the backup far smaller and faster. |
+| **A mix**: a bit of everything, or a whole drive | One copy. What you delete stays in the backup for 30 days. | |
+
+All of them run daily, unless you chose how often yourself, and none is zipped. Things to know:
+
+- **Skipped folders are skipped by name, wherever they are.** For projects, Clearspace only skips what it found a reason for: `Library`, `Temp`, `Logs`, `obj`, `MemoryCaptures` and `.vs` for Unity; `.vs` and `obj` for .NET; `node_modules`; `__pycache__`; `Intermediate` and `DerivedDataCache` for Unreal; `.godot`. If a folder with one of those names holds something you made, take the name out under **More options > Skip**. Build output (`bin`, `Build`) is not skipped; add it there if you want it left out.
+- **On exFAT and FAT sticks**, every dated backup is stored in full, so "the last 30" would not fit. There Clearspace keeps one copy plus the earlier versions of what changed instead.
+- **Save the backup to another drive.** A line under **Save to** warns you when the backup would be on the same drive as the original, where a drive failure loses both.
+- Against ransomware, a backup only helps if the ransomware cannot reach it: unplug the backup drive when it is not in use.
+
+<!-- NEW (retention) -->
+**Keep** is how many of the backup's runs stay: **Latest only** (each run replaces the one before), the **last 5, 10 or 30**, or every run of the last **30 days, 90 days or year**. Older ones are deleted after each run, and the newest is never deleted, however old it gets. Keeping more than the latest makes each run a dated copy you can restore from; files that did not change between runs take up no extra room (on drives formatted NTFS; on exFAT and FAT sticks every copy is stored in full).
+
+Leave **Zip to save space** unticked for a normal copy. Tick it to have every run pack the copy into one `.zip` file instead. Zipping saves the most on documents and similar files, hardly anything on photos, videos and music, and every run packs everything again, so it suits small and medium folders. **More options** has the other kinds, what a backup keeps, and names to skip; hover over any option to see what it does.
+
+<!-- NEW (backup drives) -->
+Under **Save to**, Clearspace offers the drives that make sense, and updates them as you plug drives in:
+
+- A drive that **already has your backups** on it comes first, with a bold name and how many backups it holds. Clicking it puts the new backup beside them.
+- An **external drive with no backups yet** (a USB stick, a memory card, a disk on a USB cable) is offered more plainly, with its free space. Clicking it uses a `Backups` folder on that drive, which is made when you save.
+
+The drive you are backing up is never offered, and neither is the Windows drive unless backups are already on it. Network drives are not offered, but you can still choose one with **Choose…**. A backup that was waiting for its drive starts within moments of the drive being plugged in.
+
+**The four kinds**
+
+| Kind | What a run does | Good for |
+|---|---|---|
+| **Clone** | Makes the backup the same as the original: new and changed files are copied, and files you deleted are removed from the backup. Windows' own `robocopy` does the copying, several files at a time. | Large folders and drives. |
+| **Add and update** | The same, but nothing is ever removed from the backup. | Folders you tidy up but want everything kept from. |
+| **Versions** | Makes a dated folder that looks like a full copy. Files that have not changed take up no extra room. This is what **Keep** set to more than *Latest only* turns on. | Going back to how things were on a given day. |
+| **Zip archive** | Makes one dated `.zip` file. This is what **Zip to save space** turns on. A zip that was interrupted is carried on with by the next run. | Small folders, and backups you want to send somewhere. |
+
+**What a backup keeps** (under **More options**)
+
+- **Files it removes** (Clone, on unless you turn it off): a file that is gone from the original is moved to an *Earlier versions* folder inside the backup instead of being removed, so a file deleted by mistake can still be had back.
+- **Earlier versions of changed files** (Clone, Add and update): before a changed file replaces the one in the backup, the one in the backup is kept. This is what makes **Earlier versions…** work for those two kinds.
+- Both are kept for 30 days, 90 days, a year, or forever. (Versions and Zip archive keep whole runs instead, as many as **Keep** says.)
+
+**How often**: only when you choose **Back up now**, every hour, every day or every week at a time you set, or every so many hours or days. A backup that was due while the PC was off runs when it is next on. A backup whose drive is not plugged in waits and runs once it is. With **Run scheduled backups when Clearspace is closed** on (at the bottom of the page), backups also run while Clearspace is closed, through one entry in Windows' Task Scheduler; turning it off, or uninstalling Clearspace, removes that entry.
+
+**The page** lists each backup with how its last run went and when the next one is. **Back up now** starts one; it carries on if you close the page or Clearspace, and **Stop** ends it (what was copied stays, and the next run carries on from there). The **…** button has **Edit…**, **Open the backup's folder**, **Show the last report** (which lists any file that could not be copied) and **Remove this backup…**, which takes it off the list and leaves its copies where they are.
+
+**Getting files back**
+
+- **Restore…** on a backup asks which copy (the backup as it is now, or a dated version, zip or set of earlier versions), where to (where the files came from, or another folder) and what to do with files that are already there (leave them, or replace them). Restoring never deletes anything.
+- **Earlier versions…** in a file's right-click menu lists every different state of that file your backups hold. **Restore** puts one in the file's place, after moving the file as it is now to the Recycle Bin; **Save a copy** writes it beside the file instead. The entry appears for files covered by a Versions or Zip archive backup, or by a Clone or Add and update backup with *Earlier versions of changed files* ticked.
+- A backup is also just a folder. **Open the backup's folder** shows it in Clearspace: `Files` is the copy, `Earlier versions` holds dated folders of what was replaced or removed.
+
+**Good to know**
+
+- Each backup gets a folder of its own inside the place you choose, and Clearspace only ever changes things inside that folder. It will not use a folder that already has other things in it.
+- Keep a backup on a different drive from the original. A copy on the same drive is lost with it.
+- A backup of a drive copies its files. It is not an image that Windows can start from, and files Windows keeps locked (and other accounts' files you cannot read) are listed in the report as not copied.
+- OneDrive files that are online-only are left out unless you tick **Include cloud files that are not on this PC**, because copying them downloads them first.
+- Links to other folders (junctions and symbolic links) are not followed.
+- A Clone refuses to run if the original has become completely empty, rather than emptying the backup.
+<!-- NEW (resumable zip) -->
+- **If a backup is interrupted** (a power cut, a shutdown, the drive pulled out, or **Stop**), the next run carries on from where it got to instead of starting over. A Clone or Add and update copies only what is still missing. A zip is saved every 30 seconds while it is being made, so even a zip that takes hours loses at most the last half minute and the file it was in the middle of; one very large file is packed in one go, so it starts again if the run stops inside it. Files that changed or were deleted in the meantime are packed again or left out, so the finished zip matches the folder. While a zip is being made, its files in the backup's folder end in `.cspart`; leave them where they are. A dated copy that was not finished (**Keep** set to more than *Latest only*, not zipped) is made again.
+- Files locked with a password are copied exactly as they are on the disk at that moment. A locked file is still locked in the backup. A file you have unlocked for a visit is copied unlocked if a backup runs during the visit, and that unlocked copy can then stay in the backup (under *Earlier versions*, for as long as the backup keeps those). If that matters, leave folders with locked files out of scheduled backups, or run those backups by hand while everything is locked.
 
 ### Password protected files and folders
 
@@ -655,6 +766,31 @@ A cloud file that is not on this device is never downloaded just to preview it, 
 <!-- NEW (archives) -->
 ### ZIP files
 
+<!-- NEW (zip folders) -->
+Double-click a `.zip`, or press Enter on it, and it opens in the list like a folder, as in File Explorer.
+Nothing is extracted. You go from folder to folder inside it, and Back, Up, the address bar, tabs, sorting
+and the search box work as they do in any folder. While you are inside one:
+
+- **Double-click a file** to open it. Clearspace opens a copy, so changes you make are not saved into
+  the ZIP file.
+- **Copy** (Ctrl+C) or **drag** files and folders out: into a folder in Clearspace, onto the desktop or
+  into another program.
+- **Extract to…** in the right-click menu unpacks what is selected into a folder you choose.
+- **Extract all** in the toolbar unpacks the whole ZIP into a new folder beside it and takes you there.
+  Right-click an empty part of the list for **Extract all to…**, which asks where.
+- The [preview pane](#preview-pane) shows pictures and text inside a ZIP as it does for other files.
+
+Things to know:
+
+- The inside of a ZIP file can be looked at and copied from, not changed. Nothing in it can be renamed,
+  deleted or tagged, and nothing can be pasted into it. To change what is in one, extract it, make the
+  changes and compress the folder again.
+- The address bar shows where you are as a path (`C:\Users\you\Downloads\Photos.zip\Trip`), and you
+  can type or paste such a path to go there.
+- Press **F5** if the ZIP file was replaced while you had it open.
+- A program opened straight from a ZIP you downloaded still gets Windows' usual question before it runs.
+- To open a ZIP in another program instead, right-click it and choose **Open with…**.
+
 Right-click one or more `.zip` files:
 
 - **Extract to "name"** unpacks each one into a new folder beside it. Nothing that is already there is
@@ -665,8 +801,7 @@ Right-click any files or folders and choose **Compress to ZIP file** to pack the
 in the folder you are in.
 
 Both show how far along they are and can be cancelled. A job that is cancelled or fails removes what it
-had half made. Password-protected archives and other formats (7z, RAR) are not supported yet, and
-double-clicking a `.zip` still opens it in whichever program Windows uses for ZIP files.
+had half made. Password-protected archives and other formats (7z, RAR) are not supported yet.
 
 <!-- NEW (batch rename) -->
 ### Rename several items at once
@@ -699,9 +834,12 @@ the Clearspace window you already have.
 <!-- NEW: the themes. -->
 ### Themes
 
-Clearspace comes with a choice of looks. Pick one from the **Settings** menu (the gear
-button), under **Theme**; it applies at once to every window (the main window, dialogs, right-click menus,
-tooltips and the title bar) and is remembered.
+<!-- CHANGED (themes page): themes are picked on a page of previews, not from a list in the menu. -->
+Clearspace comes with a choice of looks. Open the **Settings** menu (the gear button) and choose
+**Choose a theme…**. The Themes page shows every theme as a small window drawn in its own colours and
+fonts; click one to use it. It applies at once to every window (the main window, dialogs, right-click
+menus, tooltips and the title bar) and is remembered. **Back**, Esc or the mouse's back button returns to
+your files.
 
 | Theme | What it looks like |
 | --- | --- |
@@ -712,7 +850,7 @@ tooltips and the title bar) and is remembered.
 | **Terminal** | A green-phosphor screen: black background, green text, monospace everywhere. |
 | **Retro** | The classic 1998 desktop: grey chrome, white lists, navy highlights, square corners. |
 
-The **Experimental themes** submenu in the same menu goes further: these
+The themes under **Experimental** on the same page go further: these
 change the icons, fonts and shapes as well as the colours:
 
 | Theme | What it looks like |
@@ -733,9 +871,50 @@ change the icons, fonts and shapes as well as the colours:
 Windows' own dialogs (the file properties sheet, for example) keep the Windows
 look in every theme.
 
+<!-- NEW (theme files): adding a theme someone made, and making one. -->
+#### Adding a theme
+
+Every theme is one file, and they all live in one folder: **Themes**, next to `Clearspace.exe`. The themes
+above are in it too (`Dark.zip`, `Light.zip` and so on). To add a theme somebody made, either:
+
+<!-- CHANGED (themes page): Import and Open themes folder are buttons on the Themes page. -->
+- choose **Import…** on the Themes page and pick the theme file. Clearspace checks it, copies it into the
+  Themes folder and switches to it; or
+- put the file in the Themes folder yourself (**Open themes folder** on the Themes page takes you
+  there). It appears under **Your themes** straight away.
+
+<!-- CHANGED (themes page): removing from the page, and Dark staying. -->
+To remove a theme, point at it on the Themes page and click the bin on its card, or right-click it and
+choose **Remove**. Its file goes to the Recycle Bin, so you can put it back. To share one, send the file.
+
+**Dark cannot be removed.** It is part of Clearspace itself, so there is always one theme. Even if
+`Dark.zip` is deleted from the Themes folder, Dark stays on the page and works.
+
+A theme can only change how Clearspace looks. Before one is used, Clearspace checks that it holds nothing
+but colours, fonts, shapes and sizes, and refuses it otherwise, so a theme from someone else cannot run a
+program or read your files. A theme that cannot be used says "Can't be read" in place of its preview, and
+why when you point at it.
+
+Updating Clearspace replaces its own theme files (including any you removed) and leaves the ones you added
+alone. To change one of Clearspace's own themes, work on a copy under another name, or the next update
+puts the original back.
+
+#### Making your own theme
+
+A theme file is an ordinary zip holding `theme.json` (its name) and `theme.xaml` (its colours, fonts and
+corner sizes), plus any fonts and pictures it brings along. The quickest start is to unzip a copy of
+`Dark.zip` into a folder of its own inside the Themes folder, click it under **Your themes** on the Themes
+page, and change the colours: Clearspace shows each change as you save it. Zip the folder when it is done, and that file
+is your theme.
+
+[Making a Clearspace theme](docs/Making-a-theme.md) has the steps, every colour you can set, and what a
+theme may and may not contain.
+
 ## Familiar file-manager foundations
 
 - Browse local, mapped network, and known Windows folders.
+<!-- NEW (live drives) -->
+- Drives follow what is plugged in: a USB stick, a memory card or an external drive appears in the sidebar and on This PC within a second or so of being connected, and disappears when it is removed. A tab that was showing a drive that is gone moves to This PC.
 - Back, forward, up, breadcrumb navigation, side-mouse navigation, and an address bar.
 - The folder you have open follows the disk: when another program adds, changes, renames or removes something in it, the list updates by itself and keeps your selection and your place. (Subfolders are not watched, so the date shown for a folder catches up when you press F5 or come back.)
 - Tabs, as in File Explorer: Ctrl+T for a new tab, middle-click a folder to open it in one, drag files onto a tab. Each tab keeps its own history, search, scroll position and selection.
@@ -760,7 +939,8 @@ look in every theme.
 ## License
 
 Clearspace is released under the [MIT License](LICENSE). The two pixel fonts it includes are under the
-SIL Open Font License; their licence texts are in `Clearspace/Assets/Fonts`.
+SIL Open Font License; their licence texts are with them in `Clearspace/Themes/Pixel/fonts` (and inside
+the Pixel theme file). <!-- CHANGED (theme files): the fonts moved into the Pixel theme -->
 
 <!-- NEW (user readme): where the build and release instructions went. -->
 ## Building Clearspace yourself

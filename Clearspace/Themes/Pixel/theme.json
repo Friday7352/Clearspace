@@ -1,0 +1,9 @@
+{
+  "format": 1,
+  "name": "Pixel",
+  "author": "Clearspace",
+  "description": "A 16-bit console menu with pixel fonts and pixel-art icons.",
+  "experimental": true,
+  "icons": "Pixel",
+  "crispText": true
+}

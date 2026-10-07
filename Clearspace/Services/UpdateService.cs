@@ -12,6 +12,7 @@
 //    Clearspace again when done; see installer\Clearspace.iss). Clearspace then closes itself the same way
 //    it does for Setup: whatever is unlocked for a visit is locked again first.
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Net;
 using System.Net.Http;
@@ -21,7 +22,9 @@ using System.Text.Json;
 
 namespace Clearspace.Services;
 
-internal sealed record UpdateInfo(Version Version, string Notes, string PageUrl, string DownloadUrl, long Size, string? Sha256)
+// CHANGED (go back): + Published, the day the release came out (shown in the list of earlier versions).
+internal sealed record UpdateInfo(Version Version, string Notes, string PageUrl, string DownloadUrl, long Size, string? Sha256,
+    DateTimeOffset? Published = null)
 {
     internal string VersionText => UpdateService.Text(Version);
 }
@@ -117,7 +120,9 @@ internal static class UpdateService
             // The release's web page is opened in the browser on request, so it must be a github.com page too.
             var page = Text(release, "html_url");
             if (page is null || !page.StartsWith(ReleasesPage, StringComparison.OrdinalIgnoreCase)) page = ReleasesPage;
-            return new UpdateInfo(version, Text(release, "body") ?? string.Empty, page, url, size, sha256);
+            DateTimeOffset? published = DateTimeOffset.TryParse(Text(release, "published_at"), CultureInfo.InvariantCulture,
+                DateTimeStyles.AssumeUniversal, out var date) ? date : null; // NEW (go back)
+            return new UpdateInfo(version, Text(release, "body") ?? string.Empty, page, url, size, sha256, published);
         }
         return null;
     }
@@ -144,6 +149,115 @@ internal static class UpdateService
     {
         SettingsService.SetSkippedUpdate(update.VersionText);
         Changed?.Invoke();
+    }
+
+    // ---- NEW (go back): earlier versions ----
+    // About Clearspace… > "Earlier versions…" lists the releases older than this one and installs the one
+    // you pick, the same way an update is installed: its own ClearspaceSetup.exe from GitHub, checked
+    // against the published size and fingerprint, run with /SILENT /relaunch=1. Every installer since
+    // 1.2.0 replaces a newer Clearspace when asked to ("Replace Clearspace X with the older version Y").
+    //
+    // What makes going back safe is that the older version can read what this one wrote:
+    //  - the tag database, which also holds the lock records (TagDatabase.SchemaVersion). An older
+    //    Clearspace REFUSES a newer one: no tags, and locked files that cannot be unlocked. So the list
+    //    never goes below OldestToGoBackTo. Whoever raises the schema number must set OldestToGoBackTo to
+    //    the release that ships it, and GoBackTagSchema to the new number; UpdateTests fails until then.
+    //  - locked files themselves (the CSLOCK01 format) and the saved index (rebuilt by itself when it
+    //    does not match) have been the same since 1.2.0.
+    //  - settings.json: an older version ignores what it does not know.
+    // 1.2.0 is also the first version that can update itself, so nothing older is offered: there would
+    // be no way back up from inside the program.
+
+    private const string AllReleases = "https://api.github.com/repos/" + Repository + "/releases?per_page=50";
+
+    /// <summary>The oldest release "Earlier versions" offers. See the note above before changing it.</summary>
+    internal static readonly Version OldestToGoBackTo = new(1, 2, 0);
+
+    /// <summary>The tag database schema OldestToGoBackTo was checked against.</summary>
+    internal const int GoBackTagSchema = 5;
+
+    /// <summary>The first release with "Open folders with Clearspace". An older one cannot answer when
+    /// Windows hands it a folder to open, so the setting is turned off before going back past this.</summary>
+    internal static readonly Version FolderOpenerSince = new(1, 4, 0);
+
+    /// <summary>NEW (file backup): the first release with "Backup and restore" for files. An older one does
+    /// not know "Clearspace.exe --run-backups" and would open a window each time Task Scheduler starts it,
+    /// so the Task Scheduler entry is removed before going back past this. Set this to the number the
+    /// release that first ships file backups is given.</summary>
+    internal static readonly Version FileBackupsSince = new(1, 6, 0);
+
+    // Asks GitHub for the releases and returns the ones that can be gone back to, newest first.
+    // Throws like CheckAsync when GitHub can't be reached.
+    internal static async Task<IReadOnlyList<UpdateInfo>> EarlierAsync(CancellationToken token = default)
+    {
+        using var limit = CancellationTokenSource.CreateLinkedTokenSource(token);
+        limit.CancelAfter(TimeSpan.FromSeconds(20));
+
+        using var response = await Http.GetAsync(AllReleases, limit.Token);
+        response.EnsureSuccessStatusCode();
+        await using var stream = await response.Content.ReadAsStreamAsync(limit.Token);
+        using var json = await JsonDocument.ParseAsync(stream, cancellationToken: limit.Token);
+        return Earlier(ParseAll(json.RootElement), Current);
+    }
+
+    // Reads GitHub's list of releases, keeping the ones Clearspace can install (see Parse).
+    internal static List<UpdateInfo> ParseAll(JsonElement releases)
+    {
+        var found = new List<UpdateInfo>();
+        if (releases.ValueKind != JsonValueKind.Array)
+            return found;
+
+        foreach (var release in releases.EnumerateArray())
+        {
+            if (Parse(release) is { } info)
+                found.Add(info);
+        }
+
+        return found;
+    }
+
+    // The releases older than `current` that it is safe to go back to, newest first, each version once.
+    internal static IReadOnlyList<UpdateInfo> Earlier(IEnumerable<UpdateInfo> releases, Version current)
+        => releases
+            .Where(release => release.Version < current && release.Version >= OldestToGoBackTo)
+            .GroupBy(release => release.Version)
+            .Select(sameVersion => sameVersion.First())
+            .OrderByDescending(release => release.Version)
+            .ToList();
+
+    internal static bool TurnsOffFolderOpener(Version target) => target < FolderOpenerSince;
+
+    // NEW (file backup)
+    internal static bool RemovesBackupTask(Version target) => target < FileBackupsSince;
+
+    // Called just before an earlier version's installer starts.
+    internal static void PrepareToGoBack(UpdateInfo earlier)
+    {
+        // The earlier version would announce the one being left as soon as it starts. It is marked as
+        // skipped (a setting every version since 1.2.0 reads), so only a release newer still is announced.
+        // "Check for updates…" always offers it again, skipped or not.
+        SettingsService.SetSkippedUpdate(Latest is { } newest && newest.Version > Current ? newest.VersionText : CurrentText);
+
+        // NEW (file backup): scheduled backups stop running while Clearspace is closed (the older version
+        // does not know how); the backups and their settings stay for when a newer version is installed again.
+        if (RemovesBackupTask(earlier.Version))
+        {
+            try { FileBackupTask.RemoveForGood(); }
+            catch (Exception) { }
+        }
+
+        if (!TurnsOffFolderOpener(earlier.Version))
+            return;
+
+        try
+        {
+            if (ShellIntegration.IsFolderOpener())
+                ShellIntegration.SetFolderOpener(false, Environment.ProcessPath ?? string.Empty);
+        }
+        catch (Exception)
+        {
+            // Windows keeps what it had; the Settings menu of a later version can still turn it off
+        }
     }
 
     // ---- Download ----

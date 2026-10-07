@@ -343,7 +343,8 @@ internal sealed class SearchCoordinator(ISearchSources sources, Action<SearchUpd
         if (path.Equals(ExplorerLocations.NetworkPath, StringComparison.OrdinalIgnoreCase))
             return count == 0 ? "No mapped network locations"
                 : $"{count:N0} network location{(count == 1 ? "" : "s")}";
-        if (path.StartsWith("clearspace://", StringComparison.OrdinalIgnoreCase))
+        // CHANGED (zip folders): the inside of a ZIP file is counted like a folder ("3 folders, 12 files").
+        if (path.StartsWith("clearspace://", StringComparison.OrdinalIgnoreCase) && !ArchiveLocation.Is(path))
             return count > 0 ? $"{count:N0} location{(count == 1 ? "" : "s")}"
                 : path.Equals(ExplorerLocations.PinnedPath, StringComparison.OrdinalIgnoreCase)
                     ? "No pinned directories yet" : "No locations available";

@@ -1,4 +1,5 @@
 // NEW (move in Clearspace): which folders Clearspace's own folder chooser lists (FolderPickerWindow.ReadFolders).
+// NEW (pick a file): and which files, when it is picking a file such as a backup (FolderPickerWindow.ReadFiles).
 // Uses real folders in a temporary folder that is removed again after each test.
 using System.IO;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -98,4 +99,52 @@ public sealed class FolderPickerTests
     public void AFolderThatIsNotThereIsReportedNotSwallowed()
         => Assert.ThrowsException<DirectoryNotFoundException>(
             () => FolderPickerWindow.ReadFolders(Path.Combine(_root, "missing"), showHidden: false));
+
+    // ---- NEW (pick a file): the files listed when the chooser is picking a file
+
+    private static readonly DateTime Monday = new(2026, 10, 5, 9, 0, 0, DateTimeKind.Utc);
+
+    private void MakeFile(string name, DateTime changedUtc, FileAttributes extra = 0)
+    {
+        var path = Path.Combine(_root, name);
+        File.WriteAllText(path, "x");
+        File.SetLastWriteTimeUtc(path, changedUtc);
+        if (extra != 0)
+            File.SetAttributes(path, File.GetAttributes(path) | extra);
+    }
+
+    private string[] FileNames(bool showHidden)
+        => FolderPickerWindow.ReadFiles(_root, ".csbackup", showHidden).Select(path => Path.GetFileName(path)!).ToArray();
+
+    [TestMethod]
+    public void OnlyFilesWithTheEndingAreListedNewestFirst()
+    {
+        MakeFile("oldest.csbackup", Monday.AddDays(-9));
+        MakeFile("newest.CSBACKUP", Monday);
+        MakeFile("between.csbackup", Monday.AddDays(-2));
+        MakeFile("notes.txt", Monday);
+        MakeFile("almost.csbackup2", Monday);
+        Make("A folder.csbackup");
+
+        CollectionAssert.AreEqual(new[] { "newest.CSBACKUP", "between.csbackup", "oldest.csbackup" }, FileNames(showHidden: false));
+    }
+
+    [TestMethod]
+    public void HiddenFilesShowOnlyWhenAskedFor()
+    {
+        MakeFile("seen.csbackup", Monday);
+        MakeFile("tucked away.csbackup", Monday.AddDays(-1), FileAttributes.Hidden);
+
+        CollectionAssert.AreEqual(new[] { "seen.csbackup" }, FileNames(showHidden: false));
+        CollectionAssert.AreEqual(new[] { "seen.csbackup", "tucked away.csbackup" }, FileNames(showHidden: true));
+    }
+
+    [TestMethod]
+    public void AFolderWithNoSuchFilesGivesNoFiles()
+    {
+        MakeFile("notes.txt", Monday);
+        Make("Invoices");
+
+        Assert.AreEqual(0, FileNames(showHidden: false).Length);
+    }
 }

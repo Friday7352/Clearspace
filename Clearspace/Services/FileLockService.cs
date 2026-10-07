@@ -586,6 +586,12 @@ internal sealed class FileLockService(string databasePath, string? legacyPath = 
     private FolderLockResult RunFolder(string folder, FileLockKeys keys, FileLockStore store, bool locking,
         IProgress<FolderLockProgress>? progress, CancellationToken token)
     {
+        // NEW (zip folders): a file opened or copied out of a ZIP file in this folder left a readable copy
+        // in Clearspace's temporary folder. Locking the folder (the first time, or again after a visit)
+        // removes those copies, so what the folder protects is not left lying outside it.
+        if (locking)
+            ArchiveBrowser.RemoveCopiesFrom(folder);
+
         var files = FileLockSafety.EnumerateFolder(folder).ToList();
         var skipped = new List<FolderLockSkip>();
         int changed = 0, already = 0, warnings = 0;

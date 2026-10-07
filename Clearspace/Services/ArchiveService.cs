@@ -8,6 +8,7 @@
 //    junctions are not followed, so a folder that points back at itself cannot go round for ever.
 //  - Stopping, or a failure, removes what was half made: the new folder, or the unfinished .zip.
 // Only .zip (the format built into .NET). The windows that use this are in MainWindow.Archives.cs.
+// NEW (zip folders): looking inside a ZIP file without unpacking it is Services/ArchiveBrowser.cs.
 using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;

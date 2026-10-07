@@ -42,14 +42,47 @@
 
   <ItemGroup>
     <Resource Include="Assets\Clearspace.ico" />
-    <!-- NEW (pixel font): the Pixel theme's fonts, built into the app so they need no installing. Both are
-         under the SIL Open Font License; the licence texts sit beside them in Assets\Fonts. -->
-    <Resource Include="Assets\Fonts\*.ttf" />
+    <!-- REMOVED (theme files): Resource Include="Assets\Fonts\*.ttf". The Pixel theme's two fonts travel
+         inside its theme file now (Themes\Pixel\fonts, with their licence texts), so they still need no
+         installing. -->
     <!-- NEW (Explorer integration): lock icons Clearspace writes out for Explorer (.cslock files, locked folders). -->
     <EmbeddedResource Include="Assets\LockedFile.ico" LogicalName="Clearspace.LockedFile.ico" />
     <EmbeddedResource Include="Assets\LockedFolder.ico" LogicalName="Clearspace.LockedFolder.ico" />
     <InternalsVisibleTo Include="Clearspace.Tests" />
   </ItemGroup>
+
+  <!-- NEW (theme files): themes are files beside Clearspace.exe, not part of it.
+       Each folder under Themes\ is the source of one theme: theme.json, theme.xaml, and perhaps fonts\ and
+       images\ (Services\ThemePackage.cs describes them). Their XAML is not compiled into the app, apart
+       from the fallback look App.xaml keeps: Themes\Defaults.xaml and the Dark theme's theme.xaml. -->
+  <ItemGroup>
+    <Page Remove="Themes\*\**" />
+    <Page Include="Themes\Dark\theme.xaml" />
+    <ThemeManifest Include="Themes\*\theme.json" />
+  </ItemGroup>
+
+  <!-- NEW (theme files): every build and every publish zips each theme folder into Themes\<folder name>.zip
+       next to Clearspace.exe (bin\..., dist\ and the installer's payload), which is where Clearspace reads
+       themes from and where people add their own. The zips are made new each time; other files in that
+       Themes folder (themes someone added) are left alone. To add a theme that comes with Clearspace: make
+       its folder here and add its name to ThemeLibrary.Shipped. -->
+  <Target Name="FindThemeSources">
+    <ItemGroup>
+      <ThemeSource Include="@(ThemeManifest->'%(RootDir)%(Directory)')">
+        <ThemeName>$([System.IO.Path]::GetFileName($([System.IO.Path]::GetDirectoryName('%(ThemeManifest.FullPath)'))))</ThemeName>
+      </ThemeSource>
+    </ItemGroup>
+  </Target>
+
+  <Target Name="PackThemesAfterBuild" AfterTargets="Build" DependsOnTargets="FindThemeSources">
+    <MakeDir Directories="$(OutDir)Themes" />
+    <ZipDirectory SourceDirectory="%(ThemeSource.Identity)" DestinationFile="$(OutDir)Themes\%(ThemeSource.ThemeName).zip" Overwrite="true" />
+  </Target>
+
+  <Target Name="PackThemesAfterPublish" AfterTargets="Publish" DependsOnTargets="FindThemeSources">
+    <MakeDir Directories="$([MSBuild]::EnsureTrailingSlash('$(PublishDir)'))Themes" />
+    <ZipDirectory SourceDirectory="%(ThemeSource.Identity)" DestinationFile="$([MSBuild]::EnsureTrailingSlash('$(PublishDir)'))Themes\%(ThemeSource.ThemeName).zip" Overwrite="true" />
+  </Target>
 
   <!-- NEW (memory): let the garbage collector compact large arrays when free space builds up between
        them, instead of growing the process to make room. Costs a little speed during big rebuilds. -->

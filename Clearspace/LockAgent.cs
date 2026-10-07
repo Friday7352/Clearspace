@@ -460,7 +460,9 @@ internal sealed class LockAgent
         var shown = new List<string>(ExplorerWindows.Folders());
         // CHANGED (tabs): every tab of the main window counts (was only the one folder on screen).
         // CHANGED (new window): of every main window.
-        foreach (var current in _windows.SelectMany(window => window.ShownLocations))
+        // CHANGED (zip folders): a tab inside a ZIP file counts as being where the ZIP file is, so a folder
+        // unlocked for a visit is not locked again while you are looking inside a ZIP in it.
+        foreach (var current in _windows.SelectMany(window => window.ShownLocations).Select(ArchiveLocation.OnDisk))
         {
             if (current.StartsWith("clearspace://", StringComparison.OrdinalIgnoreCase)) continue;
             try { shown.Add(Path.GetFullPath(current)); } catch (Exception) { }

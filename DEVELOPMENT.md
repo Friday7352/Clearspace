@@ -19,6 +19,13 @@ Run [Build Clearspace.cmd](Build%20Clearspace.cmd) to publish a local executable
 desktop shortcut. [Run Clearspace.cmd](Run%20Clearspace.cmd) is the rebuild-and-launch option for
 development. [Clean.cmd](Clean.cmd) removes the build output.
 
+<!-- NEW (theme files) -->
+Themes are not compiled into `Clearspace.exe`. Each folder in `Clearspace\Themes` is the source of one
+theme, and every build zips them into a `Themes` folder beside the executable (`dist\Themes`, and the
+installer's payload), which is where Clearspace reads them from. See *Themes* in
+[Clearspace/ARCHITECTURE.md](Clearspace/ARCHITECTURE.md), and
+[docs/Making-a-theme.md](docs/Making-a-theme.md) for what a theme file holds.
+
 ## Tests
 
 ```text

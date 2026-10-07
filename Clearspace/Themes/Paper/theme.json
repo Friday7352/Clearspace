@@ -1,0 +1,9 @@
+{
+  "format": 1,
+  "name": "E-reader",
+  "author": "Clearspace",
+  "description": "An e-ink display: sixteen greys, a book typeface, and a page-turn fade when you change folders.",
+  "experimental": true,
+  "icons": "Ink",
+  "eInk": true
+}

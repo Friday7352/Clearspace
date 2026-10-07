@@ -26,6 +26,7 @@ public sealed class SettingsData
     public bool UseWindowsIndex { get; set; } = true;
 
     // NEW (themes): the look picked in Settings - a name from ThemeService.Names ("Dark", "Light", "Retro").
+    // CHANGED (theme files): that name is the theme's file name in the Themes folder, without ".zip".
     public string Theme { get; set; } = "Dark";
 
     // NEW (updates): "Check for updates automatically" (in the About window), and the version "Skip this version" was chosen for
@@ -43,6 +44,18 @@ public sealed class SettingsData
     // NEW (downloads): where downloaded files were moved to, to offer the same folder again. Counts of
     // moves per destination folder, kept per site and per kind of file. See Services/FilingMemory.cs.
     public Dictionary<string, Dictionary<string, int>> FilingHabits { get; set; } = new(StringComparer.Ordinal);
+
+    // NEW (backup): Settings > Back up settings and tags… (BackupWindow.cs, Services/BackupService.cs).
+    // BackupSchedule is "Off", "Daily" or "Weekly"; BackupFolder is null for the usual place
+    // (Documents\Clearspace Backups); BackupsToKeep counts automatic backups only; LastBackupUtc is when
+    // the last backup of any kind was made (it is left out of the backups themselves).
+    public string BackupSchedule { get; set; } = "Off";
+    // CHANGED (custom schedule): BackupSchedule can also be "Custom", which means every BackupEveryHours
+    // hours (a number of days is kept as 24 times as many hours).
+    public int BackupEveryHours { get; set; } = 12;
+    public string? BackupFolder { get; set; }
+    public int BackupsToKeep { get; set; } = 10;
+    public DateTime? LastBackupUtc { get; set; }
 
     // NEW (recommended folders): the folders files were last moved to in Clearspace, the latest first (a
     // handful). The folder chooser recommends them. See Services/FilingMemory.cs and FilingAdvisor.cs.
@@ -554,6 +567,115 @@ public static class SettingsService
 
         Current.DuplicatesIncludeSubfolders = value;
         Save();
+    }
+
+    // ---- NEW (backup)
+
+    public static string GetBackupSchedule() => Current.BackupSchedule is "Daily" or "Weekly" or "Custom" ? Current.BackupSchedule : "Off";
+
+    // NEW (custom schedule): how many hours lie between automatic backups when the schedule is "Custom".
+    public const int LongestBackupInterval = 24 * 365;
+
+    public static int GetBackupEveryHours() => Math.Clamp(Current.BackupEveryHours, 1, LongestBackupInterval);
+
+    public static void SetBackupEveryHours(int value)
+    {
+        value = Math.Clamp(value, 1, LongestBackupInterval);
+        if (Current.BackupEveryHours == value)
+            return;
+
+        Current.BackupEveryHours = value;
+        Save();
+    }
+
+    public static void SetBackupSchedule(string value)
+    {
+        value = value is "Daily" or "Weekly" or "Custom" ? value : "Off";
+        if (Current.BackupSchedule == value)
+            return;
+
+        Current.BackupSchedule = value;
+        Save();
+    }
+
+    public static string? GetBackupFolder() => string.IsNullOrWhiteSpace(Current.BackupFolder) ? null : Current.BackupFolder;
+
+    public static void SetBackupFolder(string? value)
+    {
+        value = string.IsNullOrWhiteSpace(value) ? null : value;
+        if (string.Equals(Current.BackupFolder, value, StringComparison.OrdinalIgnoreCase))
+            return;
+
+        Current.BackupFolder = value;
+        Save();
+    }
+
+    public static int GetBackupsToKeep() => Math.Clamp(Current.BackupsToKeep, 1, 365);
+
+    public static void SetBackupsToKeep(int value)
+    {
+        value = Math.Clamp(value, 1, 365);
+        if (Current.BackupsToKeep == value)
+            return;
+
+        Current.BackupsToKeep = value;
+        Save();
+    }
+
+    public static DateTime? GetLastBackupUtc() => Current.LastBackupUtc;
+
+    public static void SetLastBackupUtc(DateTime value)
+    {
+        Current.LastBackupUtc = value;
+        Save();
+    }
+
+    // The settings as they are in memory right now, as the text of a settings.json, for a backup. When
+    // the last backup was made is left out: it says nothing about the settings, and with it in, two
+    // backups of the same settings would never look the same. Call on the UI thread, where settings change.
+    internal static string CurrentJson()
+    {
+        var last = Current.LastBackupUtc;
+        Current.LastBackupUtc = null;
+        try { return JsonSerializer.Serialize(Current, Options); }
+        finally { Current.LastBackupUtc = last; }
+    }
+
+    // Replaces the settings with the ones in `json` (the settings.json of a backup), in memory and on the
+    // disk. False, with nothing changed, when the text is not settings. How backups are made (schedule,
+    // folder, how many to keep, when the last one was) stays as it is now: restoring an old backup must
+    // not quietly turn automatic backups off. Most of Clearspace reads its settings when it starts, so
+    // the caller offers a restart. Call on the UI thread.
+    internal static bool ReplaceWith(string json)
+    {
+        var temp = FilePath + ".restore";
+        try
+        {
+            System.IO.Directory.CreateDirectory(Directory_);
+            File.WriteAllText(temp, json);
+            if (Read(temp, out _) is not { } restored)
+                return false;
+
+            var now = Current;
+            restored.BackupSchedule = now.BackupSchedule;
+            restored.BackupEveryHours = now.BackupEveryHours; // CHANGED (custom schedule)
+            restored.BackupFolder = now.BackupFolder;
+            restored.BackupsToKeep = now.BackupsToKeep;
+            restored.LastBackupUtc = now.LastBackupUtc;
+
+            _data = restored;
+            Save();
+            return true;
+        }
+        catch (Exception)
+        {
+            return false;
+        }
+        finally
+        {
+            try { File.Delete(temp); }
+            catch (Exception) { }
+        }
     }
 
     public static string? GetSkippedUpdate() => Current.SkippedUpdate;

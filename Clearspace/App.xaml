@@ -1,7 +1,9 @@
 <!-- Clearspace | Application resources and styles.
-     CHANGED (themes): the colours, the four text fonts and the corner sizes moved out to Themes/Dark.xaml
-     (with Light.xaml and Retro.xaml beside it). Everything below now refers to them with DynamicResource
-     instead of StaticResource, so the whole app repaints when ThemeService swaps the theme file. -->
+     CHANGED (themes): the colours, the four text fonts and the corner sizes moved out to the themes.
+     Everything below now refers to them with DynamicResource instead of StaticResource, so the whole app
+     repaints when ThemeService swaps the theme.
+     CHANGED (theme files): the themes are files in the Themes folder beside Clearspace.exe now, read when
+     the app starts (Services/ThemeService.cs). Only the fallback look is still part of the app; see below. -->
 <Application x:Class="Clearspace.App"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -11,12 +13,17 @@
     <Application.Resources>
         <ResourceDictionary>
 
-            <!-- NEW (themes): the active theme. Dark is the default; ThemeService replaces this one entry. -->
+            <!-- NEW (themes): the theme's colours, fonts and corner sizes. -->
             <!-- CHANGED (experimental themes): Defaults.xaml comes first and holds the "off" value of the few
-                 extra keys only experimental themes set; a theme file listed after it wins where both define a key. -->
+                 extra keys only experimental themes set; a dictionary listed after it wins where both define a key. -->
+            <!-- CHANGED (theme files): these two are the fallback, not the active theme. ThemeService reads
+                 the active theme from its file in the Themes folder and merges it after them, so whatever
+                 that theme defines wins, anything it leaves out keeps the Dark theme's value from here, and a
+                 missing or unreadable Themes folder still leaves a working dark Clearspace. Dark's theme.xaml
+                 is the same file that is zipped into Themes\Dark.zip. -->
             <ResourceDictionary.MergedDictionaries>
                 <ResourceDictionary Source="Themes/Defaults.xaml" />
-                <ResourceDictionary Source="Themes/Dark.xaml" />
+                <ResourceDictionary Source="Themes/Dark/theme.xaml" />
             </ResourceDictionary.MergedDictionaries>
 
             <BooleanToVisibilityConverter x:Key="BoolToVisible" />
@@ -428,7 +435,13 @@
                                         CornerRadius="{DynamicResource R6}">
                                 <Grid>
                                     <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="Auto" />
+                                        <!-- FIXED (menu alignment): the column for the tick or picture is as wide in
+                                             every entry of one menu as in the entry that needs it most, so the text
+                                             of all entries starts at the same place. It used to be there only in
+                                             entries that can be ticked, which pushed those to the right of the
+                                             rest (Settings menu: the themes sat further in than "About…"). A menu
+                                             where nothing has a tick or a picture still has no such column. -->
+                                        <ColumnDefinition Width="Auto" SharedSizeGroup="MenuGutter" />
                                         <ColumnDefinition Width="*" />
                                         <ColumnDefinition Width="Auto" />
                                         <ColumnDefinition Width="Auto" />
@@ -441,6 +454,7 @@
                                                FontSize="11"
                                                Width="16"
                                                Margin="0,0,6,0"
+                                               HorizontalAlignment="Left"
                                                Opacity="0"
                                                VerticalAlignment="Center"
                                                Visibility="Collapsed"
@@ -454,6 +468,7 @@
                                                       Width="16"
                                                       Height="16"
                                                       Margin="0,0,10,0"
+                                                      HorizontalAlignment="Left"
                                                       VerticalAlignment="Center"
                                                       TextElement.Foreground="{TemplateBinding Foreground}" />
 
@@ -498,7 +513,8 @@
                                             BorderThickness="1"
                                             CornerRadius="{DynamicResource R10}"
                                             Padding="0,5"
-                                            MinWidth="180">
+                                            MinWidth="180"
+                                            Grid.IsSharedSizeScope="True">
                                         <StackPanel IsItemsHost="True"
                                                     KeyboardNavigation.DirectionalNavigation="Cycle" />
                                     </Border>
@@ -535,6 +551,30 @@
                 </Setter>
             </Style>
 
+            <!-- NEW (menu alignment): a heading inside a menu ("Theme", "Backup"). It is not something to
+                 choose, so it takes no part in the tick column: it stays at the menu's left edge and the
+                 entries under it line up one step in. -->
+            <Style x:Key="MenuHeading" TargetType="MenuItem">
+                <Setter Property="IsEnabled" Value="False" />
+                <Setter Property="Foreground" Value="{DynamicResource InkDisabled}" />
+                <Setter Property="FontFamily" Value="{DynamicResource UIFont}" />
+                <Setter Property="FontSize" Value="12" />
+                <Setter Property="Height" Value="28" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="MenuItem">
+                            <Border Margin="4,0" Padding="10,0" Background="Transparent">
+                                <ContentPresenter ContentSource="Header"
+                                                  VerticalAlignment="Center"
+                                                  TextElement.Foreground="{TemplateBinding Foreground}"
+                                                  TextElement.FontFamily="{TemplateBinding FontFamily}"
+                                                  TextElement.FontSize="{TemplateBinding FontSize}" />
+                            </Border>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
             <Style TargetType="ContextMenu">
                 <Setter Property="Background" Value="{DynamicResource Overlay}" />
                 <Setter Property="Foreground" Value="{DynamicResource Ink}" />
@@ -543,13 +583,15 @@
                 <Setter Property="Template">
                     <Setter.Value>
                         <ControlTemplate TargetType="ContextMenu">
+                            <!-- CHANGED (menu alignment): the entries of one menu share the width of their tick column. -->
                             <Border Background="{TemplateBinding Background}"
                                     Effect="{DynamicResource PopupScreenEffect}"
                                     BorderBrush="{DynamicResource EdgeRaised}"
                                     BorderThickness="1"
                                     CornerRadius="{DynamicResource R10}"
                                     Padding="0,5"
-                                    MinWidth="180">
+                                    MinWidth="180"
+                                    Grid.IsSharedSizeScope="True">
                                 <StackPanel IsItemsHost="True"
                                             KeyboardNavigation.DirectionalNavigation="Cycle" />
                             </Border>

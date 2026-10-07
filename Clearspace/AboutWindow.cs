@@ -106,9 +106,17 @@ internal sealed class AboutWindow : Window
         automatic.Checked += (_, _) => SettingsService.SetCheckForUpdates(true);
         automatic.Unchecked += (_, _) => SettingsService.SetCheckForUpdates(false);
 
+        // NEW (go back): the list of earlier releases, any of which can be installed over this one.
+        var earlier = TextButton("Earlier versions…", primary: false);
+        earlier.HorizontalAlignment = HorizontalAlignment.Left;
+        earlier.Margin = new Thickness(0, 12, 0, 0);
+        earlier.ToolTip = "Go back to an earlier version of Clearspace. Your settings, tags and locked files are kept.";
+        earlier.Click += (_, _) => new VersionsWindow { Owner = this }.ShowDialog();
+
         var updates = new StackPanel();
         updates.Children.Add(updateRow);
         updates.Children.Add(automatic);
+        updates.Children.Add(earlier);
         var updatesCard = new Border { Margin = new Thickness(0, 18, 0, 0), Padding = new Thickness(14, 12, 14, 12), Child = updates };
         updatesCard.SetResourceReference(Border.BackgroundProperty, "Tint");
         updatesCard.SetResourceReference(Border.CornerRadiusProperty, "R8");
@@ -195,7 +203,7 @@ internal sealed class AboutWindow : Window
         var roaming = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
         var local = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
         var windows = Environment.OSVersion.Version;
-        var theme = ThemeService.Themes.FirstOrDefault(known => known.Name == ThemeService.Current)?.Label ?? ThemeService.Current;
+        var theme = ThemeService.CurrentLabel; // CHANGED (theme files): was looked up in the fixed list ThemeService.Themes used to be
 
         return
         [

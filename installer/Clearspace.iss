@@ -40,6 +40,11 @@
 #if FileSize(Payload + "ClearspaceIndexHelper.exe") < 5000000
   #error installer-build\app\ClearspaceIndexHelper.exe does not include .NET (it is too small). Run Build Installer.cmd.
 #endif
+; NEW (theme files): the themes are files in a Themes folder beside Clearspace.exe (the build zips them
+; there). Without them Clearspace still runs, but only with its built-in dark look.
+#if !FileExists(Payload + "Themes\Dark.zip")
+  #error installer-build\app\Themes\Dark.zip is missing: the theme files were not built. Run Build Installer.cmd.
+#endif
 
 [Setup]
 AppId={{E3E7C9F3-AB35-4A5A-9725-C76908ADDC74}
@@ -460,7 +465,7 @@ begin
   end;
   Answer := TaskDialogMsgBox(
     'Remove your Clearspace data too?',
-    'That is your settings, tags, folder types, the saved search index and logs.' + Note,
+    'That is your settings, tags, folder types, themes you added, the saved search index and logs.' + Note,
     mbConfirmation, MB_YESNOCANCEL, [
      '&Keep my data'#13#10'Installing Clearspace again picks up where you left off.', RemoveLabel],
     0);
@@ -592,5 +597,12 @@ begin
   RemoveDir(ExpandConstant('{localappdata}\Clearspace'));   { only goes when nothing else is in it }
 
   if RemoveUserData then
+  begin
     RemoveClearspaceData;
+    { NEW (theme files): themes the user added sit in the Themes folder beside Clearspace.exe. The
+      uninstaller has removed Clearspace's own theme files already; this removes the rest, and then the
+      program folder when nothing else is left in it. Kept data keeps them, so installing again finds them. }
+    DelTree(ExpandConstant('{app}\Themes'), True, True, True);
+    RemoveDir(ExpandConstant('{app}'));
+  end;
 end;

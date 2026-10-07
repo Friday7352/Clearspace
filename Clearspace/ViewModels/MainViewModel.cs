@@ -47,6 +47,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         _folderWatcher = new FolderWatcher(OnFolderChangedOnDisk); // NEW (live folder): made here, on the UI thread, so its calls come back to it
         Navigation = new NavigationService(history); // CHANGED (tab to new window): was new NavigationService()
         Context = new ExplorerContext { Navigation = Navigation };
+        Context.Notify = ReportStatus; // NEW (zip folders): "Opened a copy of ...", from the Open and Copy actions
         Commands = new CommandManager(Context);
 
         // NEW (tabs): the window starts with one tab, which takes over Navigation's history. A new tab
@@ -236,15 +237,17 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         LoadColumns();
     }
 
+    // CHANGED (zip folders): the player and the photo viewer read files from a disk, so neither takes
+    // something that is inside a ZIP file (Open takes a copy out and gives it to its usual program).
     public void PlayTrack(FileSystemItem item)
     {
-        if (item.IsAudio)
+        if (item.IsAudio && !item.IsInArchive)
             Player.Play(Items, item);
     }
 
     public void ViewPhoto(FileSystemItem item)
     {
-        if (item.IsImageFile)
+        if (item.IsImageFile && !item.IsInArchive)
             Viewer.Open(Items, item);
     }
 
@@ -337,9 +340,11 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         }
     }
 
+    // CHANGED (zip folders): tags belong to files and folders on a disk. Things inside a ZIP file are
+    // left out here and in the two methods below (the Tags menu is hidden for them as well).
     private void OnTagToggled(TagOption option)
     {
-        var paths = Context.SelectedItems.Select(item => item.FullPath).ToArray();
+        var paths = Context.SelectedItems.Where(item => !item.IsInArchive).Select(item => item.FullPath).ToArray();
         if (paths.Length == 0)
             return;
 
@@ -357,7 +362,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         if (string.IsNullOrWhiteSpace(name))
             return;
 
-        var paths = Context.SelectedItems.Select(item => item.FullPath).ToArray();
+        var paths = Context.SelectedItems.Where(item => !item.IsInArchive).Select(item => item.FullPath).ToArray();
         TagDefinition? tag = null;
         if (!TryUpdateTags(() => tag = TagService.CreateForPaths(name, paths))) return;
 
@@ -370,7 +375,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
 
     public void ClearTagsOnSelection()
     {
-        var paths = Context.SelectedItems.Select(item => item.FullPath).ToArray();
+        var paths = Context.SelectedItems.Where(item => !item.IsInArchive).Select(item => item.FullPath).ToArray();
         if (paths.Length == 0)
             return;
 
@@ -451,6 +456,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
                 OnPropertyChanged(nameof(IsYourFilesHub));          // NEW (your files)
                 OnPropertyChanged(nameof(CanRemoveFromYourFiles));  // NEW (your files)
                 OnPropertyChanged(nameof(IsNetworkHub));            // NEW (map network drive)
+                OnPropertyChanged(nameof(IsInArchive));             // NEW (zip folders)
 
                 OnPropertyChanged(nameof(FolderProfileLabel));
             }
@@ -1040,6 +1046,14 @@ public sealed class MainViewModel : ObservableObject, IDisposable
 
     public void Start(string? initialPath = null)
     {
+        // NEW (zip folders): a window can start inside a ZIP file (Clearspace.exe "C:\Downloads\Photos.zip").
+        if (!string.IsNullOrWhiteSpace(initialPath) &&
+            !initialPath.StartsWith("clearspace://", StringComparison.OrdinalIgnoreCase) &&
+            ArchiveLocation.FromTyped(initialPath) is { } insideZip)
+        {
+            initialPath = insideZip;
+        }
+
         // CHANGED (new window): a window can also start on one of Clearspace's own pages (This PC, a hub),
         // which is where Ctrl+N from such a page opens the new window.
         var start = !string.IsNullOrWhiteSpace(initialPath) &&
@@ -1674,7 +1688,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         AccessDeniedPath = null;
 
         LoadColumns();
-        AddressText = path;
+        AddressText = ArchiveLocation.Display(path); // CHANGED (zip folders): inside a ZIP, the address written like a path
         IsLoading = true;
         StatusText = hasSnapshot ? "Refreshing cached view…" : "Opening…";
         TimingText = string.Empty;
@@ -1710,6 +1724,13 @@ public sealed class MainViewModel : ObservableObject, IDisposable
                 path.StartsWith(CategoryPathPrefix, StringComparison.OrdinalIgnoreCase))
             {
                 await LoadHubAsync(path, stopwatch, token);
+                return;
+            }
+
+            // NEW (zip folders): a place inside a ZIP file.
+            if (ArchiveLocation.Is(path))
+            {
+                await LoadArchiveAsync(path, stopwatch, token);
                 return;
             }
 
@@ -1783,7 +1804,8 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         {
             if (!load.IsCurrent) return;
             SetDirectoryItems([]);
-            StatusText = "That folder no longer exists";
+            // CHANGED (zip folders): the same line serves a folder that is no longer in a ZIP file.
+            StatusText = ArchiveLocation.Is(path) ? "That folder is no longer in the ZIP file" : "That folder no longer exists";
         }
         catch (IOException exception)
         {
@@ -1799,6 +1821,48 @@ public sealed class MainViewModel : ObservableObject, IDisposable
                 Commands.RefreshState();
             }
         }
+    }
+
+    // ------------------------------------------------------------------ NEW (zip folders)
+    // A ZIP file opens in the list like a folder: double-click it, press Enter on it, or type its path.
+    // The list then shows what is in it, folder by folder, without unpacking anything
+    // (Services/ArchiveBrowser.cs reads the ZIP's table of contents; Services/ArchiveLocation.cs has the
+    // address of a place inside one). Back, Forward, Up, the address bar's trail, tabs, sorting, the
+    // search box (it filters the folder on screen) and both views work as in a folder.
+    // The inside of a ZIP is read-only here: files can be opened, copied or dragged out, and extracted,
+    // but nothing in it can be renamed, deleted, tagged or locked, and nothing can be pasted into it.
+    // The list is not kept up to date by itself; Refresh (F5) reads the ZIP file again.
+
+    /// <summary>The list is showing the inside of a ZIP file.</summary>
+    public bool IsInArchive => ArchiveLocation.Is(CurrentPath);
+
+    private async Task LoadArchiveAsync(string path, Stopwatch stopwatch, CancellationToken token)
+    {
+        var column = SortColumn;
+        var descending = SortDescending;
+        var foldersFirst = _sortedFoldersFirst = FoldersFirst;
+
+        // A missing or unreadable ZIP file throws from here with words for the status line; LoadAsync shows them.
+        IReadOnlyList<FileSystemItem> items = await Task.Run(() =>
+        {
+            var list = ArchiveBrowser.List(path, token);
+            list.Sort(new ItemComparer(column, descending, foldersFirst));
+            IconService.Populate(list);
+            IconService.PopulateTypeNames(list);
+            ScalableIconService.PopulateGridPlaceholders(list);
+            return list;
+        }, token);
+
+        if (token.IsCancellationRequested)
+            return;
+
+        FolderSnapshotCache.Set(path, items);
+        SetDirectoryItems(items);
+        Layout = ResolveLayout(path, items);
+        stopwatch.Stop();
+        StatusText = SearchCoordinator.DescribeBrowsing(path, items);
+        UpdateSearchStatus();
+        TimingText = $"{stopwatch.ElapsedMilliseconds} ms";
     }
 
     private async Task LoadVirtualDrivesAsync(string path, Stopwatch stopwatch, CancellationToken token)

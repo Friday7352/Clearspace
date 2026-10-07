@@ -63,9 +63,13 @@ public sealed class NavigationService
 
     public bool CanGoForward => _history.Index >= 0 && _history.Index < _history.Entries.Count - 1;
 
+    // CHANGED (zip folders): inside a ZIP file, Up goes to the folder above inside it and, from its top,
+    // to the real folder the ZIP file is in.
     public bool CanGoUp => CurrentPath is not null &&
-                           !CurrentPath.StartsWith("clearspace://", StringComparison.OrdinalIgnoreCase) &&
-                           Directory.GetParent(CurrentPath) is not null;
+                           (ArchiveLocation.Is(CurrentPath)
+                               ? ArchiveLocation.Parent(CurrentPath) is not null
+                               : !CurrentPath.StartsWith("clearspace://", StringComparison.OrdinalIgnoreCase) &&
+                                 Directory.GetParent(CurrentPath) is not null);
 
     // NEW (tabs): a history that starts at one location (a new tab).
     public static NavigationHistory CreateHistory(string path)
@@ -128,6 +132,14 @@ public sealed class NavigationService
 
     public void GoUp()
     {
+        // NEW (zip folders)
+        if (ArchiveLocation.Is(CurrentPath))
+        {
+            if (ArchiveLocation.Parent(CurrentPath!) is { } above)
+                Navigate(above);
+            return;
+        }
+
         if (CurrentPath is null || CurrentPath.StartsWith("clearspace://", StringComparison.OrdinalIgnoreCase)) return;
         var parent = Directory.GetParent(CurrentPath);
         if (parent is not null)

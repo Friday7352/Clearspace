@@ -46,7 +46,9 @@ public sealed class ExplorerTab : ObservableObject
     }
 
     // The tooltip: the full path, or the name for places that have no path (This PC, hubs).
-    public string Hint => IsVirtual(_location) || _location.Length == 0 ? Title : _location;
+    // CHANGED (zip folders): a tab inside a ZIP file shows where that is, written like a path.
+    public string Hint => ArchiveLocation.Is(_location) ? ArchiveLocation.Display(_location)
+        : IsVirtual(_location) || _location.Length == 0 ? Title : _location;
 
     private bool _isActive;
     public bool IsActive
@@ -98,6 +100,7 @@ public sealed class ExplorerTab : ObservableObject
         if (path.Equals(ExplorerLocations.YourFilesPath, StringComparison.OrdinalIgnoreCase)) return "\uE80F"; // Home
         if (path.Equals(ExplorerLocations.PinnedPath, StringComparison.OrdinalIgnoreCase)) return "\uE734";    // Favorites
         if (path.Equals(ExplorerLocations.CloudPath, StringComparison.OrdinalIgnoreCase)) return "\uE753";     // Cloud
+        if (ArchiveLocation.Is(path)) return "\uE7B8";                                                         // NEW (zip folders): Package
         if (IsVirtual(path)) return FolderGlyph;
 
         // "C:" or "C:\" is a drive.

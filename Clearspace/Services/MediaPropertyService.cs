@@ -130,6 +130,11 @@ public static class MediaPropertyService
 
     private static void Enqueue(FileSystemItem item, string key, ReadKind kind)
     {
+        // NEW (zip folders): title, length, pixel size and the like are read from a file on a disk.
+        // Something inside a ZIP file has none to read.
+        if (item.IsInArchive)
+            return;
+
         if (!Pending.TryAdd(key, 0))
             return;
 

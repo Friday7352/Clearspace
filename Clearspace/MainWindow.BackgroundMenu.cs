@@ -106,6 +106,7 @@ public partial class MainWindow
 
         menu.Items.Add(Entry("Disk usage…", "\uE9F9", () => OnDiskUsage(this, new RoutedEventArgs())));
         menu.Items.Add(Entry("Find duplicates…", "\uE8C8", () => OnFindDuplicates(this, new RoutedEventArgs()))); // NEW (duplicates)
+        menu.Items.Add(Entry("Back up this folder…", "\uE74E", OnBackUpThisFolder)); // NEW (file backup)
         menu.Items.Add(Entry("Properties", "\uE946", () => _viewModel.PropertiesCommand.Execute(null), "Alt+Enter"));
         return menu;
     }

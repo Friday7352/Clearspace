@@ -105,6 +105,34 @@ internal sealed class PreviewPane : Grid
             var onDisk = !item.IsDriveRoot && Path.IsPathFullyQualified(path);
             ShowDetails(item, onDisk);
 
+            // NEW (zip folders): a file inside a ZIP file is previewed from a copy taken out into Clearspace's
+            // temporary folder (the same copy a double-click opens). From here on that copy is the file: a
+            // picture shows as a picture, text as text. Large files are not taken out just to be looked at.
+            if (item.IsInArchive)
+            {
+                if (item.IsFolder || item.Size > ArchiveBrowser.MostToPreview)
+                {
+                    ShowMessage(item.IsFolder ? "\uE8B7" : "\uE7B8",
+                        item.IsFolder ? "A folder inside the ZIP file." : "Too large to preview from inside a ZIP file. Open it to see it.");
+                    return;
+                }
+
+                var location = path;
+                var copy = await Task.Run(() => CopyOutOfArchive(location));
+                if (request != _request)
+                    return;
+
+                if (copy is null || FileSystemItem.FromLocation(copy) is not { } real)
+                {
+                    ShowMessage("\uE7C3", "No preview for this item.");
+                    return;
+                }
+
+                item = real;
+                path = copy;
+                onDisk = true;
+            }
+
             if (onDisk && !item.IsFolder)
             {
                 if (LockNames.HasLockedName(path))
@@ -153,6 +181,19 @@ internal sealed class PreviewPane : Grid
             // list carries on.
             if (request == _request)
                 ShowMessage("", "This item can't be previewed.");
+        }
+    }
+
+    // NEW (zip folders): null when the file can't be taken out (the ZIP is gone, damaged or protected).
+    private static string? CopyOutOfArchive(string location)
+    {
+        try
+        {
+            return ArchiveBrowser.CopyForOpening(location);
+        }
+        catch (Exception error) when (error is IOException or InvalidDataException or UnauthorizedAccessException or NotSupportedException)
+        {
+            return null;
         }
     }
 

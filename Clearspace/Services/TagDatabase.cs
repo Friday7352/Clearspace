@@ -7,6 +7,12 @@ namespace Clearspace.Services;
 
 internal sealed class TagDatabase(string databasePath, string? legacyPath) : IDisposable
 {
+    // NEW (go back): the schema this Clearspace writes (PRAGMA user_version), as a name. An older Clearspace
+    // refuses a newer database, tags and lock records alike, so "Earlier versions" must never offer a
+    // release from before the one that introduced this number: see UpdateService.OldestToGoBackTo, and
+    // the test that fails when this changes without that being looked at (UpdateTests).
+    internal const int SchemaVersion = 5;
+
     private readonly object _gate = new();
     private SqliteConnection? _connection;
     private bool _disposed;
@@ -45,7 +51,7 @@ internal sealed class TagDatabase(string databasePath, string? legacyPath) : IDi
             using var transaction = connection.BeginTransaction();
             var sql = new TagSql(connection, transaction);
             var version = sql.Number("PRAGMA user_version");
-            if (version is < 0 or > 5) // CHANGED (unlock vs remove lock): schema version 5
+            if (version is < 0 or > SchemaVersion) // CHANGED (unlock vs remove lock): schema version 5
                 throw new InvalidDataException($"Tag database version {version} is not supported by this Clearspace version.");
             if (version == 0)
             {

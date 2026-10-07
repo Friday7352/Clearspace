@@ -25,11 +25,16 @@ internal sealed class UpdateWindow : Window
     private readonly Button _install;
     private bool _working;
     private bool _starting; // the installer is starting: Clearspace is about to close
+    // NEW (go back): the same dialog installs an earlier version (About > Earlier versions…). The wording
+    // changes, "Skip this version" has no meaning and is left out, and the notes of that old release are
+    // not shown (they describe what was new then, which reads as if it were coming).
+    private readonly bool _goingBack;
 
-    internal UpdateWindow(UpdateInfo update)
+    internal UpdateWindow(UpdateInfo update, bool goingBack = false)
     {
         _update = update;
-        Title = "Clearspace update";
+        _goingBack = goingBack;
+        Title = goingBack ? "Earlier version" : "Clearspace update";
         Width = 500;
         SizeToContent = SizeToContent.Height;
         ResizeMode = ResizeMode.NoResize;
@@ -66,14 +71,14 @@ internal sealed class UpdateWindow : Window
 
         var heading = new TextBlock
         {
-            Text = $"Clearspace {update.VersionText} is available",
+            Text = goingBack ? $"Go back to Clearspace {update.VersionText}" : $"Clearspace {update.VersionText} is available",
             FontSize = 20,
             FontWeight = FontWeights.SemiBold,
             TextWrapping = TextWrapping.Wrap
         };
         var current = new TextBlock
         {
-            Text = $"You have {UpdateService.CurrentText}. Updating keeps your settings, tags and locked files.",
+            Text = goingBack ? GoingBackText(update) : $"You have {UpdateService.CurrentText}. Updating keeps your settings, tags and locked files.",
             TextWrapping = TextWrapping.Wrap,
             Margin = new Thickness(0, 4, 0, 0)
         };
@@ -90,7 +95,7 @@ internal sealed class UpdateWindow : Window
         stack.Children.Add(header);
 
         // What's new: the release notes as written on GitHub, lightly tidied (see Tidy).
-        var notes = Tidy(update.Notes);
+        var notes = goingBack ? string.Empty : Tidy(update.Notes);
         if (notes.Length > 0)
         {
             var notesText = new TextBlock { Text = notes, TextWrapping = TextWrapping.Wrap, LineHeight = 19 };
@@ -131,7 +136,12 @@ internal sealed class UpdateWindow : Window
         _skip.Click += (_, _) => { UpdateService.Skip(_update); Close(); };
         _later = TextButton("Later", primary: false);
         _later.Click += (_, _) => Close();
-        _install = TextButton("Update now", primary: true);
+        _install = TextButton(goingBack ? $"Install {update.VersionText}" : "Update now", primary: true);
+        if (goingBack)
+        {
+            _skip.Visibility = Visibility.Collapsed;
+            _later.Content = "Cancel";
+        }
         _install.IsDefault = true;
         _install.Click += async (_, _) => await InstallAsync();
 
@@ -185,6 +195,23 @@ internal sealed class UpdateWindow : Window
         return button;
     }
 
+    // NEW (go back): what going back means, said before anything is downloaded.
+    private static string GoingBackText(UpdateInfo earlier)
+    {
+        var text = $"You have {UpdateService.CurrentText}. Going back keeps your settings, tags and locked files. " +
+                   $"What was added after {earlier.VersionText} will be gone until you update again, which you can do at any time " +
+                   "with Settings > Check for updates….";
+
+        bool folderOpener;
+        try { folderOpener = UpdateService.TurnsOffFolderOpener(earlier.Version) && ShellIntegration.IsFolderOpener(); }
+        catch (Exception) { folderOpener = false; }
+
+        if (folderOpener)
+            text += $"\n\n\"Open folders with Clearspace\" is turned off first, because {earlier.VersionText} does not have it: " +
+                    "folders open in File Explorer again.";
+        return text;
+    }
+
     private async Task InstallAsync()
     {
         if (_working) return;
@@ -212,7 +239,11 @@ internal sealed class UpdateWindow : Window
             _starting = true;
             _later.IsEnabled = false;
             _progress.IsIndeterminate = true;
-            _status.Text = "Starting the installer. Clearspace closes now and opens again when the update is done.";
+            _status.Text = _goingBack
+                ? $"Starting the installer. Clearspace closes now and opens again as {_update.VersionText}."
+                : "Starting the installer. Clearspace closes now and opens again when the update is done.";
+            if (_goingBack)
+                UpdateService.PrepareToGoBack(_update); // NEW (go back): no nagging about the version being left; folder opener off if needed
             UpdateService.StartInstaller(setup);
             // Close the way Setup asks Clearspace to: lock again whatever is unlocked for a visit, then exit.
             LockAgent.Current.Quit();
@@ -229,7 +260,7 @@ internal sealed class UpdateWindow : Window
             _working = false;
             _progress.Visibility = Visibility.Collapsed;
             _status.SetResourceReference(TextBlock.ForegroundProperty, "Danger");
-            _status.Text = "The update couldn't be installed: " + Reason(exception) +
+            _status.Text = (_goingBack ? "That version couldn't be installed: " : "The update couldn't be installed: ") + Reason(exception) +
                            " You can also download it yourself from the Clearspace releases page on GitHub.";
             _later.Content = "Close";
             _later.IsEnabled = true;

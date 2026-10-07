@@ -18,6 +18,14 @@ public sealed class OpenItemAction(ExplorerContext context) : IAction
     public HotKey HotKey => new(Key.Enter);
     public bool IsExecutable => context.HasSelection;
 
+    // CHANGED (zip folders): a ZIP file opens in the list like a folder, as in File Explorer (it used to
+    // go to whichever program Windows uses for .zip files; "Open with…" still offers those).
+    //  - A ZIP file on a disk: the list goes inside it.
+    //  - A folder inside a ZIP: the list goes into it, like any folder.
+    //  - A file inside a ZIP: a copy is taken out into Clearspace's temporary folder and that copy is
+    //    opened. The copy is read-only, because changes to it would not go back into the ZIP file.
+    //    A ZIP inside a ZIP opens in the list the same way, from its copy.
+    // An address inside a ZIP is never handed to Windows to start.
     public async Task ExecuteAsync(object? parameter = null)
     {
         foreach (var item in context.SelectedItems)
@@ -28,21 +36,60 @@ public sealed class OpenItemAction(ExplorerContext context) : IAction
                 return;
             }
 
+            // NEW (zip folders)
+            if (item.IsInArchive)
+            {
+                if (context.ArchiveCopies?.Invoke([item], true) is not [var copy])
+                    return; // failed or stopped; the window has said so
+
+                if (ArchiveService.IsArchive(copy))
+                {
+                    context.Navigation.Navigate(ArchiveLocation.For(copy));
+                    return;
+                }
+
+                if (Start(copy))
+                    context.Notify?.Invoke($"Opened a copy of {item.Name}. Changes to it are not saved into the ZIP file.");
+                continue;
+            }
+
             try
             {
                 if (context.OpenLockedFile is not null && await context.OpenLockedFile(item.FullPath))
                     continue;
-                Process.Start(new ProcessStartInfo
-                {
-                    FileName = item.FullPath,
-                    UseShellExecute = true
-                });
             }
             catch (Exception)
             {
+                continue;
             }
+
+            // NEW (zip folders)
+            if (ArchiveService.IsArchive(item.FullPath))
+            {
+                context.Navigation.Navigate(ArchiveLocation.For(item.FullPath));
+                return;
+            }
+
+            Start(item.FullPath);
         }
 
+    }
+
+    private static bool Start(string path)
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = path,
+                UseShellExecute = true
+            })?.Dispose();
+            return true;
+        }
+        catch (Exception)
+        {
+            return false;
+        }
     }
 }
 
@@ -53,7 +100,7 @@ public sealed class DeleteAction(ExplorerContext context) : IAction
     public string Description => "Move the selection to the Recycle Bin";
     public string Glyph => "\uE74D";
     public HotKey HotKey => new(Key.Delete);
-    public bool IsExecutable => context.HasSelection;
+    public bool IsExecutable => context.HasSelection && !context.SelectionInArchive; // CHANGED (zip folders): the inside of a ZIP is read-only
 
     public Task ExecuteAsync(object? parameter = null)
     {
@@ -74,7 +121,7 @@ public sealed class DeletePermanentlyAction(ExplorerContext context) : IAction
     public string Description => "Delete the selection without using the Recycle Bin";
     public string Glyph => "\uE74D";
     public HotKey HotKey => new(Key.Delete, ModifierKeys.Shift);
-    public bool IsExecutable => context.HasSelection;
+    public bool IsExecutable => context.HasSelection && !context.SelectionInArchive; // CHANGED (zip folders)
 
     public Task ExecuteAsync(object? parameter = null)
     {
@@ -96,7 +143,9 @@ public sealed class RenameAction(ExplorerContext context) : IAction
     public string Glyph => "\uE8AC";
     public HotKey HotKey => new(Key.F2);
     // CHANGED (batch rename): also available with several items selected (was a single item only).
-    public bool IsExecutable => context.HasSingleSelection || (context.HasSelection && context.BeginBatchRename is not null);
+    // CHANGED (zip folders): not for things inside a ZIP file.
+    public bool IsExecutable => !context.SelectionInArchive &&
+                                (context.HasSingleSelection || (context.HasSelection && context.BeginBatchRename is not null));
 
     public Task ExecuteAsync(object? parameter = null)
     {
@@ -139,6 +188,21 @@ public sealed class CopyItemAction(ExplorerContext context) : IAction
 
     public Task ExecuteAsync(object? parameter = null)
     {
+        // NEW (zip folders): things inside a ZIP file are taken out into Clearspace's temporary folder
+        // first, and those copies go on the clipboard, so Paste works here and in every other program.
+        if (context.SelectionInArchive)
+        {
+            var inside = context.SelectedItems.Where(item => item.IsInArchive).ToList();
+            if (context.ArchiveCopies?.Invoke(inside, false) is { Count: > 0 } copies)
+            {
+                List<string> paths = [.. context.SelectedItems.Where(item => !item.IsInArchive).Select(item => item.FullPath), .. copies];
+                ClipboardHelper.SetFiles(paths, cut: false);
+                context.Notify?.Invoke(paths.Count == 1 ? $"Copied {inside[0].Name}." : $"Copied {paths.Count:N0} items.");
+            }
+
+            return Task.CompletedTask;
+        }
+
         ClipboardHelper.SetFiles(context.SelectedPaths, cut: false);
         return Task.CompletedTask;
     }
@@ -151,7 +215,7 @@ public sealed class CutItemAction(ExplorerContext context) : IAction
     public string Description => "Move the selection to the clipboard";
     public string Glyph => "\uE8C6";
     public HotKey HotKey => new(Key.X, ModifierKeys.Control);
-    public bool IsExecutable => context.HasSelection;
+    public bool IsExecutable => context.HasSelection && !context.SelectionInArchive; // CHANGED (zip folders): nothing can be taken away from a ZIP
 
     public Task ExecuteAsync(object? parameter = null)
     {
@@ -207,7 +271,9 @@ public sealed class CopyPathAction(ExplorerContext context) : IAction
 
     public Task ExecuteAsync(object? parameter = null)
     {
-        var text = string.Join(Environment.NewLine, context.SelectedPaths);
+        // CHANGED (zip folders): something inside a ZIP file gives the path as the address bar shows it
+        // (C:\Downloads\Photos.zip\Trip\a.jpg). Everything else is unchanged by Display.
+        var text = string.Join(Environment.NewLine, context.SelectedPaths.Select(ArchiveLocation.Display));
 
         try
         {
@@ -272,11 +338,20 @@ public sealed class ShowPropertiesAction(ExplorerContext context) : IAction
     public string Description => "Open the Windows properties dialog";
     public string Glyph => "\uE946";
     public HotKey HotKey => new(Key.Enter, ModifierKeys.Alt);
-    public bool IsExecutable => context.HasSelection || Directory.Exists(context.CurrentPath);
+    // CHANGED (zip folders): Windows' properties window is about a file or folder on a disk, so it is not
+    // offered for something inside a ZIP file. With nothing selected inside a ZIP, it is the ZIP file's.
+    public bool IsExecutable => context.HasSelection
+        ? !context.SelectionInArchive
+        : Directory.Exists(context.CurrentPath) || ArchiveLocation.Is(context.CurrentPath);
 
     public Task ExecuteAsync(object? parameter = null)
     {
+        if (context.SelectionInArchive)
+            return Task.CompletedTask;
+
         var path = context.SelectedItems.FirstOrDefault()?.FullPath ?? context.CurrentPath;
+        if (ArchiveLocation.TrySplit(path, out var archive, out _))
+            path = archive;
 
         if (!string.IsNullOrEmpty(path))
             FileOperationService.ShowProperties(path, context.OwnerHandle);

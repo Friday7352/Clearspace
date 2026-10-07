@@ -39,6 +39,17 @@ public partial class App : Application
             return;
         }
 
+        // NEW (file backup): "Clearspace.exe --run-backup <id>" and "--run-backups" run file backups without
+        // a window (Services/FileBackupRunner.cs): started by the Backup and restore page, by the window's
+        // once-a-minute check, or by Windows' Task Scheduler while Clearspace is closed. Like the installer
+        // switches, the process ends right here.
+        if (Services.FileBackupRunner.IsSwitch(e.Args))
+        {
+            ShutdownMode = ShutdownMode.OnExplicitShutdown;
+            Environment.Exit(Services.FileBackupRunner.Run(e.Args));
+            return;
+        }
+
         // NEW (Explorer integration): installer hooks.
         if (e.Args.Length == 1 && e.Args[0] is "--register-shell" or "--unregister-shell")
         {
@@ -77,7 +88,9 @@ public partial class App : Application
         {
             var candidate = e.Args[0].Trim('"');
 
-            if (Directory.Exists(candidate))
+            // CHANGED (zip folders): a ZIP file can be given as well as a folder; the window opens inside it
+            // (MainViewModel.Start turns the path into the address of the ZIP's top).
+            if (Directory.Exists(candidate) || (File.Exists(candidate) && Services.ArchiveService.IsArchive(candidate)))
                 StartupPath = candidate;
         }
 
@@ -85,6 +98,10 @@ public partial class App : Application
         // password dialog Explorer can ask for without a main window). A theme problem never stops the app.
         try { Services.ThemeService.Initialize(); }
         catch (Exception) { }
+
+        // NEW (zip folders): copies taken out of ZIP files to open or copy them are kept in the temporary
+        // folder for a day; older ones are removed now, in the background.
+        Services.ArchiveBrowser.TidyLater();
 
         // NEW (logo): every Clearspace window (the main window and each dialog) is given the app icon
         // directly, so the title bar, the taskbar button and Alt+Tab show the logo at the right size from

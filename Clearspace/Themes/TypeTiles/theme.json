@@ -1,0 +1,8 @@
+{
+  "format": 1,
+  "name": "Type tiles",
+  "author": "Clearspace",
+  "description": "Every file is a flat coloured tile with its extension written on it.",
+  "experimental": true,
+  "icons": "Tile"
+}

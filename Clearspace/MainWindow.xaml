@@ -914,6 +914,30 @@
                                      Opened="OnFolderTypeMenuOpened" />
                     </Button.ContextMenu>
                 </Button>
+                <!-- NEW (zip folders): shown only while the list is inside a ZIP file (where the folder type button
+                     above is hidden). Unpacks the whole ZIP into a new folder beside it. See MainWindow.Archives.cs. -->
+                <Button Click="OnExtractAll"
+                        ToolTip="Extract all · unpack this ZIP file into a new folder beside it"
+                        AutomationProperties.Name="Extract all"
+                        Visibility="{Binding IsInArchive, Converter={StaticResource BoolToVisible}}">
+                    <Button.Style>
+                        <Style TargetType="Button" BasedOn="{StaticResource IconButton}">
+                            <Setter Property="Width" Value="Auto" />
+                        </Style>
+                    </Button.Style>
+                    <StackPanel Orientation="Horizontal" Margin="9,0">
+                        <TextBlock Text="&#xE7B8;"
+                                   FontFamily="{StaticResource IconFont}"
+                                   FontSize="13"
+                                   Margin="0,0,7,0"
+                                   VerticalAlignment="Center"
+                                   Foreground="{DynamicResource Accent}" />
+                        <TextBlock Text="Extract all"
+                                   FontFamily="{DynamicResource UIFont}"
+                                   FontSize="11.5"
+                                   VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
                 <!-- REMOVED (toolbar): the tile size control (- 100% +) that appeared here in tile view. It made the
                      toolbar wider in Pictures and Videos folders, which squeezed the address bar and search box.
                      It now sits in the status bar at the bottom right, where there is room for it. -->
@@ -974,34 +998,23 @@
                         AutomationProperties.Name="Settings">
                     <Button.ContextMenu>
                         <ContextMenu Opened="OnSettingsMenuOpened">
-                            <!-- NEW (themes): pick the look. Applies at once to every window and is remembered.
-                                 Each item's Tag is a name from ThemeService.Names. -->
-                            <MenuItem Header="Theme" IsEnabled="False" />
-                            <MenuItem Header="Dark" Tag="Dark" IsCheckable="True" Click="OnThemePicked" />
-                            <MenuItem Header="OLED Black" Tag="OLED" IsCheckable="True" Click="OnThemePicked" />
-                            <MenuItem Header="Light" Tag="Light" IsCheckable="True" Click="OnThemePicked" />
-                            <MenuItem Header="Blueprint" Tag="Blueprint" IsCheckable="True" Click="OnThemePicked" />
-                            <MenuItem Header="Terminal" Tag="Terminal" IsCheckable="True" Click="OnThemePicked" />
-                            <MenuItem Header="Retro" Tag="Retro" IsCheckable="True" Click="OnThemePicked" />
-                            <!-- NEW (experimental themes): these change the icons too, and some add or move things. -->
-                            <MenuItem Header="Experimental themes">
-                                <MenuItem Header="Pixel" Tag="Pixel" IsCheckable="True" Click="OnThemePicked" />
-                                <MenuItem Header="DOS Commander" Tag="DosCommander" IsCheckable="True" Click="OnThemePicked" />
-                                <MenuItem Header="Wireframe" Tag="Wireframe" IsCheckable="True" Click="OnThemePicked" />
-                                <MenuItem Header="Neon HUD" Tag="NeonHud" IsCheckable="True" Click="OnThemePicked" />
-                                <MenuItem Header="Glass" Tag="Glass" IsCheckable="True" Click="OnThemePicked" />
-                                <MenuItem Header="Sketchbook" Tag="Sketchbook" IsCheckable="True" Click="OnThemePicked" />
-                                <!-- NEW (dark sketchbook) -->
-                                <MenuItem Header="Sketchbook (dark)" Tag="SketchbookDark" IsCheckable="True" Click="OnThemePicked" />
-                                <MenuItem Header="Type tiles" Tag="TypeTiles" IsCheckable="True" Click="OnThemePicked" />
-                                <MenuItem Header="Zen" Tag="Zen" IsCheckable="True" Click="OnThemePicked" />
-                                <MenuItem Header="1-bit Mac" Tag="Mac1Bit" IsCheckable="True" Click="OnThemePicked" />
-                                <MenuItem Header="1-bit Mac (dark)" Tag="Mac1BitDark" IsCheckable="True" Click="OnThemePicked" />
-                                <!-- CHANGED (e-reader): Paper moved here from the normal themes and renamed. -->
-                                <MenuItem Header="E-reader" Tag="Paper" IsCheckable="True" Click="OnThemePicked" />
-                            </MenuItem>
+                            <!-- NEW (themes): pick the look. Applies at once to every window and is remembered. -->
+                            <!-- CHANGED (theme files): the themes are no longer written out here. They are files in
+                                 the Themes folder. -->
+                            <!-- CHANGED (menu alignment): the four headings of this menu use MenuHeading, so they
+                                 stay at the left edge while every entry under them lines up (App.xaml). -->
+                            <!-- CHANGED (themes page): the themes are no longer listed in this menu at all (six
+                                 entries and two submenus, made in code between this heading and the line under it).
+                                 One entry opens the Themes page (ThemesView.cs), which shows a small preview of
+                                 each theme and has Import and Open themes folder on it. The name of the theme in
+                                 use is shown beside the entry (MainWindow.Themes.cs sets it when the menu opens).
+                                 The heading and the line are no longer named: nothing is put between them. -->
+                            <MenuItem Header="Theme" Style="{StaticResource MenuHeading}" />
+                            <MenuItem x:Name="ThemesMenuItem" Header="Choose a theme…" Click="OnOpenThemes" />
+                            <!-- REMOVED (theme files): one MenuItem per theme (Dark, OLED Black, Light ... and the
+                                 "Experimental themes" submenu). -->
                             <Separator />
-                            <MenuItem Header="File locking" IsEnabled="False" />
+                            <MenuItem Header="File locking" Style="{StaticResource MenuHeading}" />
                             <MenuItem Header="Remove all locks and reset password…" Click="OnRemoveAllLocks" />
                             <!-- NEW (updates): check now. CHANGED (about): the version number and the "check
                                  automatically" switch moved into the About window (AboutWindow.cs), which also has
@@ -1010,8 +1023,19 @@
                                  the desktop, from other programs, with Win+E). Ticked while it is on; see
                                  MainWindow.FolderOpener.cs. -->
                             <Separator />
-                            <MenuItem Header="Windows" IsEnabled="False" />
+                            <MenuItem Header="Windows" Style="{StaticResource MenuHeading}" />
                             <MenuItem x:Name="FolderOpenerMenuItem" Header="Open folders with Clearspace" IsCheckable="True" Click="OnToggleFolderOpener" />
+                            <!-- NEW (backup): backs up and restores settings and tags, by hand or on a schedule. See
+                                 BackupWindow.cs and Services/BackupService.cs. -->
+                            <Separator />
+                            <!-- CHANGED (backup name): was "Your settings and tags" > "Backup and restore…". That
+                                 name is kept for backing up files, folders and drives, which will get an entry of
+                                 its own under this heading. -->
+                            <MenuItem Header="Backup" Style="{StaticResource MenuHeading}" />
+                            <!-- NEW (file backup): backing up files, folders and drives, by hand or on a schedule, and
+                                 restoring them. The page is FileBackupView.cs; see MainWindow.FileBackup.cs. -->
+                            <MenuItem Header="Backup and restore…" Click="OnFileBackup" />
+                            <MenuItem Header="Back up settings and tags…" Click="OnBackup" />
                             <Separator />
                             <MenuItem Header="Check for updates…" Click="OnCheckForUpdates" />
                             <MenuItem Header="About Clearspace…" Click="OnAbout" />
@@ -1417,6 +1441,16 @@
                             CornerRadius="{DynamicResource R10}"
                             Visibility="Collapsed" />
 
+                    <!-- NEW (list backdrop): a theme's picture or pattern behind the file list ("ListFill"), and
+                         nowhere else: not over the sidebar or the toolbar, and not over the other pages (disk
+                         usage, themes, backup ...), which OverlayFill covers because it lies over the whole
+                         window. The list's own background is see-through, so rows are drawn on top of this.
+                         Clicks and drops pass through it to the list. See-through in every theme that does not
+                         set the key (Themes/Defaults.xaml). -->
+                    <Rectangle Grid.Row="1"
+                               Fill="{DynamicResource ListFill}"
+                               IsHitTestVisible="False" />
+
                     <ListView x:Name="FileList"
                               Grid.Row="1"
                               ItemsSource="{Binding Items}"
@@ -1565,10 +1599,17 @@
                                 <MenuItem x:Name="DiskUsageMenuItem" Header="Disk usage…" Click="OnDiskUsage" />
                                 <!-- NEW (duplicates): the selected folder. -->
                                 <MenuItem x:Name="DuplicatesMenuItem" Header="Find duplicates…" Click="OnFindDuplicates" />
+                                <!-- NEW (file backup): one file, folder or drive that is really on a disk: opens the Backup and
+                                     restore page with a new backup of it started. And, for one file that a backup with file
+                                     history covers, the states of it those backups hold. Both are hidden until
+                                     UpdateFileBackupMenu (MainWindow.FileBackup.cs) finds they fit. -->
+                                <MenuItem x:Name="BackUpMenuItem" Header="Back up…" Click="OnBackUpSelected" Visibility="Collapsed" />
+                                <MenuItem x:Name="EarlierVersionsMenuItem" Header="Earlier versions…" Click="OnEarlierVersions" Visibility="Collapsed" />
                                 <!-- CHANGED (only what applies): a cloud file that is not kept on this PC already / that is on it. -->
                                 <MenuItem x:Name="KeepOnDeviceMenuItem" Header="Always keep on this device" Click="OnKeepOnDevice" />
                                 <MenuItem x:Name="FreeUpSpaceMenuItem" Header="Free up space" Click="OnFreeUpSpace" />
-                                <MenuItem Header="Tags" SubmenuOpened="OnTagsSubmenuOpened">
+                                <!-- CHANGED (zip folders): named, so OnItemMenuOpened can hide it for things inside a ZIP file. -->
+                                <MenuItem x:Name="TagsMenuItem" Header="Tags" SubmenuOpened="OnTagsSubmenuOpened">
                                     <MenuItem Header="" />
                                 </MenuItem>
                                 <!-- CHANGED (folder types): filled from the folder type definitions when opened. -->
@@ -1581,7 +1622,10 @@
                                 <MenuItem Header="Reset columns" Click="OnResetColumns"
                                           Visibility="{Binding IsDetails, Converter={StaticResource BoolToVisible}}" />
                                 <MenuItem Header="Copy path" Command="{Binding CopyPathCommand}" InputGestureText="Ctrl+Shift+C" />
-                                <MenuItem Header="Properties" Command="{Binding PropertiesCommand}" InputGestureText="Alt+Enter" />
+                                <!-- CHANGED (zip folders): hidden when it can do nothing (something inside a ZIP file has no
+                                     Windows properties window). -->
+                                <MenuItem Header="Properties" Command="{Binding PropertiesCommand}" InputGestureText="Alt+Enter"
+                                          Visibility="{Binding IsEnabled, RelativeSource={RelativeSource Self}, Converter={StaticResource BoolToVisible}}" />
                                 <!-- NEW (menu by type): the everyday actions as a row of icons, as at the edge of File Explorer's
                                      menu. Each is off when its command is (nothing selected, a page that is not a folder). A
                                      button does not close a menu by itself; OnMenuRowClick does that and then runs the command
@@ -2159,6 +2203,10 @@
         <ContentControl x:Name="IndexingHost" Visibility="Collapsed" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch" Margin="{DynamicResource PageInset}"/>
         <!-- NEW (duplicates): the Find duplicates page, shown in place of the explorer like the two above. -->
         <ContentControl x:Name="DuplicatesHost" Visibility="Collapsed" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch" Margin="{DynamicResource PageInset}"/>
+        <!-- NEW (file backup): the Backup and restore page, shown in place of the explorer like the three above. -->
+        <ContentControl x:Name="FileBackupHost" Visibility="Collapsed" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch" Margin="{DynamicResource PageInset}"/>
+        <!-- NEW (themes page): the Themes page, shown in place of the explorer like the four above. -->
+        <ContentControl x:Name="ThemesHost" Visibility="Collapsed" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch" Margin="{DynamicResource PageInset}"/>
         <!-- NEW (sketchbook, round 2): the binding strip (Sketchbook's spiral wire). Hidden in every other theme. -->
         <Rectangle Width="30"
                    HorizontalAlignment="Left"

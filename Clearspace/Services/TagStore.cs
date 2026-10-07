@@ -28,6 +28,12 @@ public sealed record TagDefinition(string Id, string Name, string Color)
     }
 }
 
+/// <summary>NEW (backup): what putting tags back from a backup did.</summary>
+/// <param name="TagsCreated">Tags that no longer existed and were made again.</param>
+/// <param name="TagsPutBack">How many times a tag was put on an item.</param>
+/// <param name="Items">How many files and folders got at least one tag back.</param>
+internal sealed record TagRestoreResult(int TagsCreated, int TagsPutBack, int Items);
+
 public sealed class TagStore : IDisposable
 {
     private readonly TagDatabase _database;
@@ -382,6 +388,96 @@ public sealed class TagStore : IDisposable
             return count;
         });
     }
+
+    // ------------------------------------------------------------------ NEW (backup)
+    // What a backup holds of the tags, and putting it back. See Services/BackupService.cs.
+
+    // Every tag and which files and folders carry it, as they are now. From the snapshot: no database read.
+    internal (TagDefinition[] Tags, Dictionary<string, List<string>> Assignments) Export()
+    {
+        var snapshot = Current();
+        var assignments = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+        foreach (var (path, ids) in snapshot.ByPath)
+            assignments[path] = [.. ids];
+        return (snapshot.Tags.ToArray(), assignments);
+    }
+
+    // Puts tags from a backup back, in one step (all of it or none of it).
+    //  - A tag of the backup that still exists (the same id, or failing that the same name) is used as
+    //    it is now; one that is gone is created again with the id, name and colour it had.
+    //  - Every item in `assignments` gets the tags it had. What it has now is kept.
+    //  - exact: afterwards the tags are as in the backup and nothing else: tags and tagging that are
+    //    not in the backup are removed, and names and colours go back to what they were.
+    // The caller decides which items to pass (BackupService leaves out files that no longer exist).
+    // Lock records live in the same database and are never touched here.
+    internal TagRestoreResult Restore(IReadOnlyList<TagDefinition> tags,
+        IReadOnlyDictionary<string, List<string>> assignments, bool exact)
+        => Run(true, sql =>
+        {
+            var created = 0;
+            var current = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase); // backup id -> id to use now
+
+            foreach (var tag in tags)
+            {
+                if (string.IsNullOrWhiteSpace(tag.Id) || string.IsNullOrWhiteSpace(tag.Name) || string.IsNullOrWhiteSpace(tag.Color))
+                    continue;
+
+                if (Find(sql, tag.Id) is { } same)
+                {
+                    current[tag.Id] = same.Id;
+                    if (exact)
+                        sql.Execute("UPDATE Tags SET Name = $p1, Color = $p2 WHERE Id = $p0", same.Id, tag.Name, tag.Color);
+                    continue;
+                }
+
+                if (sql.Query("SELECT Id, Name, Color FROM Tags WHERE Name = $p0 ORDER BY rowid LIMIT 1", ReadTag, tag.Name).FirstOrDefault() is { } sameName)
+                {
+                    current[tag.Id] = sameName.Id; // made again under another id since: it is the same tag to the user
+                    continue;
+                }
+
+                sql.Execute("INSERT INTO Tags(Id, Name, Color) VALUES($p0, $p1, $p2)", tag.Id, tag.Name, tag.Color);
+                current[tag.Id] = tag.Id;
+                created++;
+            }
+
+            if (exact)
+            {
+                // Everything that is tagged now is untagged, and tags the backup does not have go. What the
+                // backup had is then put on again below.
+                sql.Execute("DELETE FROM Paths");
+                var keep = new HashSet<string>(current.Values, StringComparer.OrdinalIgnoreCase);
+                foreach (var id in sql.Query("SELECT Id FROM Tags", reader => reader.GetString(0)))
+                {
+                    if (!keep.Contains(id))
+                        sql.Execute("DELETE FROM Tags WHERE Id = $p0", id);
+                }
+            }
+
+            var added = 0;
+            var items = 0;
+            foreach (var (path, ids) in assignments)
+            {
+                if (string.IsNullOrWhiteSpace(path))
+                    continue;
+
+                var any = false;
+                foreach (var id in ids)
+                {
+                    if (!current.TryGetValue(id, out var now) || HasTag(sql, path, now))
+                        continue;
+
+                    Assign(sql, path, now);
+                    added++;
+                    any = true;
+                }
+
+                if (any)
+                    items++;
+            }
+
+            return new TagRestoreResult(created, added, items);
+        });
 
     public void Dispose() => _database.Dispose();
 }

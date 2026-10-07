@@ -61,6 +61,19 @@ public sealed class ExplorerContext : ObservableObject
 
     public bool HasSingleSelection => SelectedItems.Count == 1;
 
+    // NEW (zip folders): something that is selected is inside a ZIP file. The inside of a ZIP is read-only
+    // in Clearspace, so Cut, Rename and Delete are off for it.
+    public bool SelectionInArchive => SelectedItems.Any(item => item.IsInArchive);
+
+    // NEW (zip folders): gives real files and folders for things selected inside a ZIP file (copies in
+    // Clearspace's temporary folder), or null when that failed or was stopped; `forOpening` asks for copies
+    // marked read-only. Set by the main window, which shows progress for a large job. Null where there
+    // is no window (unit tests that build a context on its own); the actions then do nothing for such items.
+    public Func<IReadOnlyList<FileSystemItem>, bool, IReadOnlyList<string>?>? ArchiveCopies { get; set; }
+
+    // NEW (zip folders): puts a sentence on the status line. Set by the main view model.
+    public Action<string>? Notify { get; set; }
+
     public event EventHandler? SelectionChanged;
 
     public event EventHandler? RefreshRequested;

@@ -155,6 +155,11 @@ internal static class ShellIntegration
         try { SetFolderOpener(false, string.Empty); }
         catch (Exception) { }
 
+        // NEW (file backup): and takes its entry out of Windows' Task Scheduler, which would otherwise go on
+        // starting a program that is no longer there. The backups themselves, and their settings, stay.
+        try { FileBackupTask.RemoveForGood(); }
+        catch (Exception) { }
+
         using (var classes = Registry.CurrentUser.OpenSubKey(@"Software\Classes", writable: true))
         {
             if (classes is null) return;

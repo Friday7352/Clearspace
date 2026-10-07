@@ -6,6 +6,7 @@
 //                       2 = something is still locked (wrong password, stopped, or files in use).
 //   --quit              asks every running Clearspace to close, waits for them, and closes any that did not
 //                       answer. Each one first locks again whatever it has unlocked for a visit. Exit code 0.
+//                       CHANGED (file backup): a file backup in progress is asked to stop too.
 using System.Diagnostics;
 using System.IO;
 using System.Windows;
@@ -91,6 +92,11 @@ internal static class InstallerCommands
     private static int QuitOthers()
     {
         var exe = Environment.ProcessPath ?? AppContext.BaseDirectory;
+
+        // NEW (file backup): a backup in progress is run by a Clearspace without a window, which does not
+        // listen for the request below. It is asked through a file instead, and stops within a second
+        // (what it copied so far is kept, and its next run carries on from there).
+        FileBackupRunner.AskAllToStop();
 
         // Every running Clearspace listens on the same pipe name and one message reaches one of them. Each
         // stops listening as soon as it is asked to close, so keep asking until nobody picks up.

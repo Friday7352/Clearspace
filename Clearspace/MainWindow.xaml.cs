@@ -127,10 +127,12 @@ public partial class MainWindow : Window
         _viewModel.Context.FocusAddressBar = ShowAddressEditor;
         _viewModel.Context.BeginRename = BeginRename;
         InitializeFileLocks(); // CHANGED (locked folders): wires OpenLockedFile, the folder password gate and re-locking
+        InitializeArchives(); // NEW (zip folders): taking copies out of a ZIP file for Open, Copy and dragging
 
         Loaded += OnLoaded;
         // CHANGED (themes): also stops listening for theme switches when the window closes.
         ThemeService.Changed += OnThemeChanged;
+        ThemeService.ReloadFailed += OnThemeReloadFailed; // NEW (theme files): a theme being made was saved with a mistake in it
         // NEW (e-reader): refresh the "page" when the folder changes or the photo viewer opens or closes.
         _viewModel.PropertyChanged += (_, e) => { if (e.PropertyName == nameof(MainViewModel.CurrentPath)) TurnPage(); };   // CHANGED (e-ink): a page turn
         _viewModel.Viewer.PropertyChanged += (_, e) => { if (e.PropertyName == nameof(PhotoViewerViewModel.IsOpen)) FlashPage(); };
@@ -142,6 +144,9 @@ public partial class MainWindow : Window
         InitializePreview(); // NEW (preview pane): Alt+P, the pane beside the file list
         InitializeDuplicates(); // NEW (duplicates): the Find duplicates page, and selecting a file it sends you to
         InitializeNetworkDrives(); // NEW (map network drive): "Map network drive…" and "Disconnect"
+        InitializeBackup(); // NEW (backup): Settings > "Back up settings and tags…", and automatic backups
+        InitializeFileBackup(); // NEW (file backup): Settings > "Backup and restore…", and the check for scheduled file backups
+        InitializeDriveWatch(); // NEW (live drives): a drive plugged in or taken out shows at once, in the sidebar and on This PC
         InitializeDownloads(); // NEW (downloads): the "Just arrived" strip of Downloads folders
         InitializeDragScroll(); // NEW (scroll while dragging): the edges of a list and the mouse wheel, during a drag
         InitializeBandSelect(); // NEW (drag to select): a rectangle dragged over the file list selects what it touches
@@ -152,7 +157,7 @@ public partial class MainWindow : Window
         ToolbarRow.MouseLeave += (_, _) => UpdateToolbarFade();
         ToolbarRow.IsKeyboardFocusWithinChanged += (_, _) => UpdateToolbarFade();
         // CHANGED (duplicates): also stops a duplicate search that is still running.
-        Closed += (_, _) => { ThemeService.Changed -= OnThemeChanged; _indexingView?.Dispose(); _diskUsageView?.Dispose(); _duplicatesView?.Dispose(); _viewModel.Dispose(); };
+        Closed += (_, _) => { ThemeService.Changed -= OnThemeChanged; ThemeService.ReloadFailed -= OnThemeReloadFailed; _indexingView?.Dispose(); _diskUsageView?.Dispose(); _duplicatesView?.Dispose(); _themesView?.Dispose(); _viewModel.Dispose(); };   // CHANGED (themes page): + the Themes page
         PreviewKeyDown += OnPreviewKeyDown;
         PreviewMouseDown += OnWindowMouseDown;
         PreviewMouseMove += OnSidebarMouseMove;
@@ -440,34 +445,20 @@ public partial class MainWindow : Window
     // the corner style and (Windows 11) the caption colours for whichever theme is active.
 
     // NEW (themes): the Settings menu ticks the theme in use each time it opens.
+    // CHANGED (theme files): it also listed the themes each time, from what was in the Themes folder.
+    // CHANGED (themes page): it no longer lists them; it names the theme in use beside "Choose a theme…".
     private void OnSettingsMenuOpened(object sender, RoutedEventArgs e)
     {
-        if (sender is not ContextMenu menu)
+        if (sender is not ContextMenu _)
             return;
 
-        TickCurrentTheme(menu);
+        ShowThemeInMenu(); // CHANGED (themes page): was ShowThemesInMenu(menu), which listed every theme in the menu
         TickFolderOpener(); // NEW (folder opener): ticked while Windows opens folders with Clearspace
     }
 
-    // CHANGED (experimental themes): also looks inside submenus (the experimental themes have their own).
-    private static void TickCurrentTheme(ItemsControl menu)
-    {
-        foreach (var item in menu.Items.OfType<MenuItem>())
-        {
-            if (item.Tag is string theme)
-                item.IsChecked = string.Equals(theme, ThemeService.Current, StringComparison.OrdinalIgnoreCase);
-            if (item.HasItems)
-                TickCurrentTheme(item);
-        }
-    }
-
-    // NEW (themes): a theme was picked in the Settings menu. Switched once the menu has closed, so the
-    // menu is not repainted in the new colours halfway through fading out.
-    private void OnThemePicked(object sender, RoutedEventArgs e)
-    {
-        if (sender is MenuItem { Tag: string theme })
-            Dispatcher.BeginInvoke(new Action(() => ThemeService.Apply(theme)));
-    }
+    // REMOVED (theme files): TickCurrentTheme.
+    // REMOVED (themes page): OnThemePicked. Themes are picked on the Themes page now (ThemesView.cs), not
+    // in the Settings menu.
 
     // NEW (themes): colours in XAML repaint by themselves. The status colours in the file list (cloud, Git,
     // drive space) are handed out by each file's row data, so the visible rows are rebuilt to ask again.
@@ -535,6 +526,18 @@ public partial class MainWindow : Window
         if (_duplicatesView is not null)
         {
             if (e.Key == Key.Escape) { CloseDuplicates(); e.Handled = true; }
+            return;
+        }
+        // NEW (file backup): the same for the Backup and restore page.
+        if (_fileBackupView is not null)
+        {
+            if (e.Key == Key.Escape) { CloseFileBackup(); e.Handled = true; }
+            return;
+        }
+        // NEW (themes page): and for the Themes page.
+        if (_themesView is not null)
+        {
+            if (e.Key == Key.Escape) { CloseThemes(); e.Handled = true; }
             return;
         }
         // NEW (tabs): Ctrl+T, Ctrl+W, Ctrl+Tab ... work wherever the keyboard is, including the search and
@@ -652,6 +655,18 @@ public partial class MainWindow : Window
         if (_duplicatesView is not null)
         {
             if (e.ChangedButton == MouseButton.XButton1) { CloseDuplicates(); e.Handled = true; }
+            return;
+        }
+        // NEW (file backup)
+        if (_fileBackupView is not null)
+        {
+            if (e.ChangedButton == MouseButton.XButton1) { CloseFileBackup(); e.Handled = true; }
+            return;
+        }
+        // NEW (themes page)
+        if (_themesView is not null)
+        {
+            if (e.ChangedButton == MouseButton.XButton1) { CloseThemes(); e.Handled = true; }
             return;
         }
         if (e.ChangedButton is not (MouseButton.XButton1 or MouseButton.XButton2))
@@ -1249,13 +1264,26 @@ public partial class MainWindow : Window
             .Where(path => !string.IsNullOrWhiteSpace(path))
             .ToArray();
 
+        // NEW (zip folders): things dragged out of a ZIP file are taken out into Clearspace's temporary
+        // folder first, and the drag carries those copies, so they can be dropped on a folder here, on the
+        // desktop or into another program. Such a drag only copies: nothing leaves the ZIP file.
+        var allowed = DragDropEffects.Copy | DragDropEffects.Move;
+        if (_viewModel.Context.SelectionInArchive)
+        {
+            if (ArchiveDragPaths() is not { } copies)
+                return;
+
+            paths = copies;
+            allowed = DragDropEffects.Copy;
+        }
+
         if (paths.Length == 0)
             return;
 
         var data = new DataObject(DataFormats.FileDrop, paths);
         // CHANGED (scroll while dragging): the wheel is listened for while the drag lasts.
         BeginDragScroll();
-        try { DragDrop.DoDragDrop(FileList, data, DragDropEffects.Copy | DragDropEffects.Move); }
+        try { DragDrop.DoDragDrop(FileList, data, allowed); }
         finally { EndDragScroll(); }
     }
 
@@ -1305,6 +1333,12 @@ public partial class MainWindow : Window
             return DragDropEffects.None;
 
         targetRow = FindAncestor<ListViewItem>(e.OriginalSource as DependencyObject);
+
+        // NEW (zip folders): nothing can be dropped into a ZIP file, neither on a folder inside it nor on
+        // the empty part of the list (the second is covered below: its address starts with clearspace://).
+        if (targetRow?.DataContext is FileSystemItem { IsInArchive: true })
+            return DragDropEffects.None;
+
         targetFolder = targetRow?.DataContext is FileSystemItem { IsFolder: true } folder
             ? folder.FullPath
             : (string.IsNullOrWhiteSpace(_viewModel.CurrentPath) ||
@@ -1852,6 +1886,14 @@ public partial class MainWindow : Window
             return;
         }
 
+        // NEW (zip folders): and empty space inside a ZIP file (Extract all, Refresh). See MainWindow.Archives.cs.
+        if (!onHeaderOrScrollBar && _viewModel.IsInArchive)
+        {
+            FileList.UnselectAll();
+            FileList.ContextMenu = BuildArchivePageMenu();
+            return;
+        }
+
         if (onHeaderOrScrollBar || !Directory.Exists(_viewModel.CurrentPath))
         {
             FileList.ContextMenu = _itemMenu;
@@ -1897,7 +1939,9 @@ public partial class MainWindow : Window
         BreadcrumbBar.Visibility = Visibility.Collapsed;
         AddressActivator.Visibility = Visibility.Collapsed;
         AddressBox.Visibility = Visibility.Visible;
-        AddressBox.Text = _viewModel.CurrentPath;
+        // CHANGED (zip folders): inside a ZIP file the box shows the address written like a path
+        // (C:\Downloads\Photos.zip\Trip), which is also what can be typed or pasted to get there.
+        AddressBox.Text = ArchiveLocation.Display(_viewModel.CurrentPath);
         AddressBox.Focus();
         AddressBox.SelectAll();
     }
@@ -1920,6 +1964,25 @@ public partial class MainWindow : Window
                 _viewModel.Navigation.Navigate(target);
                 HideAddressEditor();
                 FileList.Focus();
+            }
+            // NEW (zip folders): the path of a ZIP file, or of a folder inside one, opens it in the list.
+            // The path of a file inside one goes to the folder that file is in.
+            else if (ArchiveLocation.FromTyped(target) is { } insideZip)
+            {
+                var found = ArchiveBrowser.Find(insideZip);
+                if (found is { IsFolder: false })
+                    insideZip = ArchiveLocation.Parent(insideZip) ?? insideZip;
+
+                if (found is null && ArchiveLocation.TrySplit(insideZip, out _, out var rest) && rest.Length > 0)
+                {
+                    SystemSounds_Beep(); // the ZIP file is there, but has no such folder
+                }
+                else
+                {
+                    _viewModel.Navigation.Navigate(insideZip);
+                    HideAddressEditor();
+                    FileList.Focus();
+                }
             }
             else if (File.Exists(target))
             {
