@@ -83,7 +83,12 @@ internal sealed class ThemesView : UserControl, IDisposable
         back.Click += (_, _) => CloseRequested?.Invoke(this, EventArgs.Empty);
         DockPanel.SetDock(back, Dock.Left);
 
-        var import = FileBackupUi.TextButton("Import…", primary: true);
+        var create = FileBackupUi.TextButton("Create a theme…", primary: true);
+        create.VerticalAlignment = VerticalAlignment.Top;
+        create.Click += (_, _) => OpenStudio(null);
+        DockPanel.SetDock(create, Dock.Right);
+
+        var import = FileBackupUi.TextButton("Import…", primary: false);
         import.VerticalAlignment = VerticalAlignment.Top;
         import.ToolTip = "Add a theme file somebody made";
         import.Click += (_, _) => ImportRequested?.Invoke(this, EventArgs.Empty);
@@ -95,7 +100,7 @@ internal sealed class ThemesView : UserControl, IDisposable
         DockPanel.SetDock(folder, Dock.Right);
 
         var title = new TextBlock { Text = "Themes", FontSize = 26, FontWeight = FontWeights.SemiBold };
-        var about = FileBackupUi.Muted("Click one to use it.");
+        var about = FileBackupUi.Muted("Click to use. Right-click to edit your themes or customize a copy.");
         about.Margin = new Thickness(0, 5, 0, 0);
         var titles = new StackPanel();
         titles.Children.Add(title);
@@ -103,6 +108,7 @@ internal sealed class ThemesView : UserControl, IDisposable
 
         var header = new DockPanel { Margin = new Thickness(0, 0, 0, 20) };
         header.Children.Add(back);
+        header.Children.Add(create);
         header.Children.Add(import);
         header.Children.Add(folder);
         header.Children.Add(titles);
@@ -174,7 +180,7 @@ internal sealed class ThemesView : UserControl, IDisposable
         AddSection("Experimental", "These change the icons or the layout too.", themes.Where(theme => theme.Shipped && theme.Experimental));
 
         var yours = themes.Where(theme => !theme.Shipped).ToList();
-        AddSection("Your themes", yours.Count == 0 ? "Themes you import show up here." : null, yours, evenWhenEmpty: true);
+        AddSection("Your themes", yours.Count == 0 ? "Make something yours with Create a theme, or import one." : null, yours, evenWhenEmpty: true);
 
         // Forget what was read for themes that have gone or changed.
         var keep = _cards.Select(card => Key(card.Theme)).ToHashSet(StringComparer.OrdinalIgnoreCase);
@@ -333,6 +339,13 @@ internal sealed class ThemesView : UserControl, IDisposable
     {
         var menu = new ContextMenu();
 
+        if (theme.Problem is null && !theme.BuiltIn)
+        {
+            var edit = new MenuItem { Header = theme.Shipped ? "Customize a copy…" : "Edit theme…" };
+            edit.Click += (_, _) => OpenStudio(theme);
+            menu.Items.Add(edit);
+        }
+
         if (theme.Problem is null && !IsCurrent(theme))
         {
             var use = new MenuItem { Header = "Use this theme" };
@@ -356,6 +369,23 @@ internal sealed class ThemesView : UserControl, IDisposable
         }
 
         return menu.Items.Count > 0 ? menu : null;
+    }
+
+    private void OpenStudio(ThemeInfo? theme)
+    {
+        try
+        {
+            var studio = new ThemeStudioWindow(theme) { Owner = Window.GetWindow(this) };
+            if (studio.ShowDialog() == true)
+            {
+                Rebuild();
+                Report($"{studio.SavedName} is saved and now in use.");
+            }
+        }
+        catch (Exception error) when (error is ThemeFormatException or System.IO.IOException or UnauthorizedAccessException)
+        {
+            Report("This theme could not be opened: " + error.Message, true);
+        }
     }
 
     private static bool IsCurrent(ThemeInfo theme) =>

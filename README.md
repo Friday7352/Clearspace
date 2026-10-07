@@ -901,6 +901,26 @@ puts the original back.
 
 #### Making your own theme
 
+For an easy start, open **Settings > Choose a theme… > Create a theme…**. Theme studio
+has six starting moods, colour swatches, red/green/blue/opacity sliders, and custom hex
+colours. Choose **Paint your space** to tune backgrounds, text, selection, borders,
+hover highlights and the other colour details separately. Expand the sections for
+gradients, photo/texture backdrops, four independent font roles, corner roundness,
+icon styles, pixel lettering and a fading toolbar. **Surprise me**, **Undo**, **Redo**
+and **Reset** make experimenting reversible.
+
+The live preview mirrors the actual Explorer area of the window you opened the studio
+from, including its current folder and layout. **Fit / 100%** switches between a scaled
+overview and actual size. The theme is temporarily applied to open Clearspace windows;
+Cancel or closing the studio restores the previous look without changing your saved
+theme. The native Windows title bar is outside the embedded preview.
+
+Give your design a name and choose **Save & use** to add it to **Your themes**. To revise
+it later, right-click its gallery card and choose **Edit theme…**, then **Save changes**.
+**Save a copy** keeps the original. Built-in themes offer **Customize a copy…** instead.
+Existing theme artwork and bundled fonts are preserved when you edit individual settings.
+The saved theme file in the Themes folder can be shared as before.
+
 A theme file is an ordinary zip holding `theme.json` (its name) and `theme.xaml` (its colours, fonts and
 corner sizes), plus any fonts and pictures it brings along. The quickest start is to unzip a copy of
 `Dark.zip` into a folder of its own inside the Themes folder, click it under **Your themes** on the Themes

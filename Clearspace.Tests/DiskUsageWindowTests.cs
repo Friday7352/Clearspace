@@ -36,6 +36,7 @@ public sealed class DiskUsageWindowTests
                     // Load resources without starting the real app or its filesystem services.
                     var app = new App();
                     app.InitializeComponent();
+                    ThemeStudioWindowChecks.Verify(app);
                     await CheckIndexingOverview();
                     var index = Sample();
                     var second = new VolumeIndex(@"D:\", 2);

@@ -159,7 +159,7 @@ internal sealed class ThemePackage
     private static readonly string[] FontEndings = [".ttf", ".otf", ".ttc"];
     private static readonly string[] ImageEndings = [".png", ".jpg", ".jpeg", ".bmp", ".gif"];
 
-    private ThemePackage(string source, ThemeManifest manifest, string markup,
+    internal ThemePackage(string source, ThemeManifest manifest, string markup,
         IReadOnlyList<ThemeAsset> fonts, IReadOnlyDictionary<string, byte[]> images)
     {
         Source = source;

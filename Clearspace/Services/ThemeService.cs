@@ -182,6 +182,8 @@ public static class ThemeService
     // the reason in LastProblem.
     public static bool Apply(string? name, bool save = true) => Show(name, save, again: false);
 
+    internal static bool ApplyEdited(string name) => Show(name, save: true, again: true);
+
     /// <summary>NEW (theme files): reads the Themes folder again and returns what is in it (the Themes
     /// page does this each time it opens).</summary>
     public static IReadOnlyList<ThemeInfo> Refresh() => ThemeLibrary.Refresh();
@@ -338,6 +340,13 @@ public static class ThemeService
             }
         }
 
+        Install(theme, next, save);
+        return true;
+    }
+
+    private static void Install(ThemeInfo theme, ResourceDictionary? next, bool save)
+    {
+        var app = Application.Current;
         UnflipAllRows();
 
         // CHANGED (theme files): the active theme is its own entry, after the fallback dictionaries from
@@ -381,7 +390,32 @@ public static class ThemeService
             SettingsService.SetTheme(theme.Name);
 
         Changed?.Invoke();
-        return true;
+    }
+
+    // Uses precisely the same application path as a saved theme, without persisting settings.
+    // Keep the original dictionary in memory so Cancel also works if its file changes or disappears.
+    internal sealed class PreviewSession : IDisposable
+    {
+        private readonly ResourceDictionary? _original = _active;
+        private readonly ThemeInfo _theme = new(Current, CurrentLabel, Icons: Icons,
+            FadeToolbar: FadeToolbar, EInk: EInk, CrispText: CrispText) { Stamp = _activeStamp };
+        private bool _disposed;
+
+        internal void Show(ThemePackage package)
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            var next = ThemeLoader.Load(package);
+            var m = package.Manifest;
+            Install(new ThemeInfo("studio-preview", m.Name, Icons: m.Icons,
+                FadeToolbar: m.FadeToolbar, EInk: m.EInk, CrispText: m.CrispText), next, false);
+        }
+
+        public void Dispose()
+        {
+            if (_disposed) return;
+            _disposed = true;
+            Install(_theme, _original, false);
+        }
     }
 
     // NEW (theme files): something in the Themes folder changed (on the UI thread, a moment after the last
