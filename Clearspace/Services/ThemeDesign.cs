@@ -8,7 +8,7 @@ using System.Xml.Linq;
 
 namespace Clearspace.Services;
 
-// The studio owns a small palette; related colours are derived together so every screen stays coherent.
+// The studio owns a small palette; related colors are derived together so every screen stays coherent.
 internal sealed record ThemeDesign(string Background, string Accent, string Font = "Segoe UI", double Roundness = 8)
 {
     internal static readonly (string Name, ThemeDesign Design)[] Presets =
@@ -40,12 +40,22 @@ internal sealed record ThemeDesign(string Background, string Accent, string Font
     }
 
     internal static double Contrast(Color a, Color b) => (Math.Max(Luminance(a), Luminance(b)) + .05) / (Math.Min(Luminance(a), Luminance(b)) + .05);
+    // NEW (readability): the smallest step from text toward ink that reaches the wanted contrast on every background.
+    internal static Color Legible(Color text, Color ink, double target, params Color[] backgrounds)
+    {
+        for (var t = 0d; t <= 1; t += .02)
+        {
+            var candidate = Mix(text, ink, t);
+            if (backgrounds.All(b => Contrast(candidate, b) >= target)) return candidate;
+        }
+        return ink;
+    }
     private static Color TextOn(Color background) => Contrast(background, Colors.White) > Contrast(background, Colors.Black) ? Colors.White : Colors.Black;
 
     internal ResourceDictionary Resources()
     {
         if (!TryColor(Background, out var background) || !TryColor(Accent, out var accent))
-            throw new ArgumentException("Use six-digit colours, such as #AFA1FF.");
+            throw new ArgumentException("Use six-digit colors, such as #AFA1FF.");
         if (!double.IsFinite(Roundness) || Roundness < 0 || Roundness > 16)
             throw new ArgumentException("Roundness must be between 0 and 16.");
         if (!new[] { "Segoe UI", "Georgia", "Consolas", "Trebuchet MS" }.Contains(Font))
@@ -55,8 +65,10 @@ internal sealed record ThemeDesign(string Background, string Accent, string Font
         var surface = Mix(background, ink, .045);
         var overlay = Mix(background, ink, .08);
         var selected = Mix(surface, accent, .22);
-        var muted = Mix(surface, ink, .68);
-        var faint = Mix(surface, ink, .53);
+        // CHANGED (readability): secondary and faint text are pushed toward the main text color until they
+        // read at 5.6:1 and 4.5:1 on both the page and the file area, so headings, labels and status text stay legible.
+        var muted = Legible(Mix(surface, ink, .68), ink, 5.6, background, surface);
+        var faint = Legible(Mix(surface, ink, .53), ink, 4.5, background, surface);
         var line = Mix(surface, ink, .17);
         var r = new ResourceDictionary();
         void Brush(string key, Color c) => r[key] = new SolidColorBrush(c);
@@ -81,7 +93,7 @@ internal sealed record ThemeDesign(string Background, string Accent, string Font
         Group(dark ? Color.FromRgb(255, 156, 152) : Color.FromRgb(156, 36, 43), "Danger", "Bad");
         Group(dark ? Color.FromRgb(127, 214, 156) : Color.FromRgb(30, 108, 61), "Good");
         Group(dark ? Color.FromRgb(243, 202, 121) : Color.FromRgb(130, 83, 12), "Warn");
-        // Selection may be lighter than the page, especially with very bright accent colours.
+        // Selection may be lighter than the page, especially with very bright accent colors.
         var selectionInk = TextOn(selected);
         Group(selectionInk, "SelectedRow.Ink");
         Group(Mix(selected, selectionInk, .75), "SelectedRow.InkMuted", "SelectedRow.InkFaint");

@@ -489,7 +489,7 @@ public sealed class ThemeTests
 
         // Code reads the colour out of these, so they must be one flat colour.
         StringAssert.Contains(
-            Problem("<LinearGradientBrush x:Key=\"Ink\"><GradientStop Color=\"Red\" Offset=\"0\" /></LinearGradientBrush>"), "Ink must be one flat colour");
+            Problem("<LinearGradientBrush x:Key=\"Ink\"><GradientStop Color=\"Red\" Offset=\"0\" /></LinearGradientBrush>"), "Ink must be one flat color");
 
         // A value WPF cannot read.
         StringAssert.Contains(Problem("<SolidColorBrush x:Key=\"Base\" Color=\"#GGHHII\" />"), "cannot read");

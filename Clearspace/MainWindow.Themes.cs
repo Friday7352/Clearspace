@@ -23,22 +23,6 @@ public partial class MainWindow
 
     private ThemesView? _themesView;            // NEW (themes page): the page, while it is open
 
-    // Theme studio mirrors the real Explorer visual, including its current folder and view mode.
-    internal FrameworkElement BeginStudioPreview()
-    {
-        ThemesHost.Visibility = Visibility.Collapsed;
-        ExplorerShell.Visibility = Visibility.Visible;
-        UpdateLayout();
-        return (FrameworkElement)Content;
-    }
-
-    internal void EndStudioPreview()
-    {
-        if (_themesView is null) return;
-        ExplorerShell.Visibility = Visibility.Collapsed;
-        ThemesHost.Visibility = Visibility.Visible;
-    }
-
     // REMOVED (themes page): ShowThemesInMenu and ThemeMenuItem, which filled the Settings menu with one
     // entry per theme, and PickTheme, which switched to the one that was picked. The page does both.
 

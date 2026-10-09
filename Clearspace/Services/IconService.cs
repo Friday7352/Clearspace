@@ -24,6 +24,12 @@ public static class IconService
         if (ThemeIcons.For(item) is { } themed)
             return themed;
 
+        return GetSystemIcon(item);
+    }
+
+    internal static ImageSource? GetSystemIcon(FileSystemItem item)
+    {
+
         if (item.IsDriveRoot)
             return IconCache.GetOrAdd($"drive:{item.FullPath}", _ => LoadIcon(item.FullPath, isFolder: true, useAttributes: false, large: true));
 

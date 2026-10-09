@@ -16,16 +16,16 @@ namespace Clearspace.Services;
 public enum IconStyle
 {
     System,   // Windows' own icons (every normal theme)
-    Pixel,    // 16 x 16 pixel art in colour
+    Pixel,    // 16 x 16 pixel art in color
     OneBit,   // the same pixel art in black and white with dithering
     OneBitDark, // NEW (1-bit Mac dark): the black-and-white pixel art with black and white swapped
-    Ink,      // NEW (e-reader): outlines in the theme's ink colour over a grey wash, like an e-ink screen
-    Line,     // one-colour line drawings
-    Neon,     // glowing coloured line drawings
-    Sketch,   // pencil outlines with a coloured-pencil fill
-    Tile,     // a flat coloured tile with the file extension written on it
-    Dot,      // just a small coloured dot
-    Mark      // a single bold mark per kind, in old PC colours
+    Ink,      // NEW (e-reader): outlines in the theme's ink color over a grey wash, like an e-ink screen
+    Line,     // one-color line drawings
+    Neon,     // glowing colored line drawings
+    Sketch,   // pencil outlines with a colored-pencil fill
+    Tile,     // a flat colored tile with the file extension written on it
+    Dot,      // just a small colored dot
+    Mark      // a single bold mark per kind, in old PC colors
 }
 
 internal enum IconKind { Folder, Drive, Document, Image, Video, Audio, Archive, Code, App, Other }
@@ -35,14 +35,18 @@ internal static class ThemeIcons
     private static readonly ConcurrentDictionary<string, ImageSource> Cache = new(StringComparer.Ordinal);
 
     // True while the active theme draws its own icons.
-    internal static bool Active => ThemeService.Icons != IconStyle.System;
+    internal static bool Active => ThemeService.Icons != IconStyle.System || ThemeService.HasCustomIcons;
 
-    // Forget every drawing (the theme changed, and some styles take their colour from the theme).
+    // Forget every drawing (the theme changed, and some styles take their color from the theme).
     internal static void Reset() => Cache.Clear();
+
+    internal static ImageSource? Preview(FileSystemItem item, IconStyle style, Color ink, bool dark)
+        => style == IconStyle.System ? IconService.GetSystemIcon(item) : Draw(style, KindOf(item), LabelFor(item, KindOf(item)), ink, dark);
 
     // The active theme's icon for this file or folder, or null when the theme uses Windows' icons.
     internal static ImageSource? For(FileSystemItem item)
     {
+        if (ThemeFileIcons.Find(item, ThemeService.FileIconResource) is { } custom) return custom;
         var style = ThemeService.Icons;
         if (style == IconStyle.System)
             return null;
@@ -54,7 +58,7 @@ internal static class ThemeIcons
             return cached;
 
         ImageSource icon;
-        try { icon = Draw(style, kind, label); }
+        try { icon = Draw(style, kind, label, ThemeService.Ink.Color, ThemeService.IsDark); }
         catch (Exception) { return null; }   // fall back to the Windows icon rather than fail a folder listing
 
         if (Cache.Count > 4096)
@@ -116,7 +120,7 @@ internal static class ThemeIcons
         return text.Length > 4 ? text[..4] : text;
     }
 
-    // ---------------------------------------------------------------- colours per kind
+    // ---------------------------------------------------------------- colors per kind
 
     private static Color Rgb(uint rgb) => Color.FromRgb((byte)(rgb >> 16), (byte)(rgb >> 8), (byte)rgb);
 
@@ -139,7 +143,7 @@ internal static class ThemeIcons
         return pen;
     }
 
-    // Everyday colours (pixel art, tiles, dots, sketches).
+    // Everyday colors (pixel art, tiles, dots, sketches).
     private static Color KindColor(IconKind kind) => Rgb(kind switch
     {
         IconKind.Folder => 0xF2B33D,
@@ -154,7 +158,7 @@ internal static class ThemeIcons
         _ => 0x8A8F98
     });
 
-    // Bright colours for the neon style.
+    // Bright colors for the neon style.
     private static Color NeonColor(IconKind kind) => Rgb(kind switch
     {
         IconKind.Folder => 0xFFE14D,
@@ -169,7 +173,7 @@ internal static class ThemeIcons
         _ => 0xEAF6FF
     });
 
-    // The sixteen-colour PC palette for the DOS style.
+    // The sixteen-color PC palette for the DOS style.
     private static Color PcColor(IconKind kind) => Rgb(kind switch
     {
         IconKind.Folder => 0xFFFFFF,
@@ -186,7 +190,7 @@ internal static class ThemeIcons
 
     // ---------------------------------------------------------------- drawing
 
-    private static ImageSource Draw(IconStyle style, IconKind kind, string label)
+    private static ImageSource Draw(IconStyle style, IconKind kind, string label, Color ink, bool dark)
     {
         var group = new DrawingGroup();
         // A see-through 16 x 16 square first, so every icon has the same box and lines up the same way.
@@ -207,10 +211,10 @@ internal static class ThemeIcons
                 DrawPixels(group, kind, oneBit: true, inverted: true);
                 break;
             case IconStyle.Ink:
-                DrawInk(group, kind);
+                DrawInk(group, kind, ink);
                 break;
             case IconStyle.Line:
-                group.Children.Add(new GeometryDrawing(null, Stroke(ThemeService.Ink.Color, 1.1), Outline(kind)));
+                group.Children.Add(new GeometryDrawing(null, Stroke(ink, 1.1), Outline(kind)));
                 break;
             case IconStyle.Neon:
                 // A wide faint stroke under a thin bright one reads as a glow, with no blur effect to pay for.
@@ -219,7 +223,7 @@ internal static class ThemeIcons
                 group.Children.Add(new GeometryDrawing(null, Stroke(NeonColor(kind), 1.0), Outline(kind)));
                 break;
             case IconStyle.Sketch:
-                DrawSketch(group, kind);
+                DrawSketch(group, kind, dark);
                 break;
             case IconStyle.Tile:
                 DrawTile(group, kind, label);
@@ -290,16 +294,16 @@ internal static class ThemeIcons
         return outline;
     }
 
-    // A pencil sketch: coloured-pencil hatching inside the shape (over a faint wash of the same colour), the
+    // A pencil sketch: colored-pencil hatching inside the shape (over a faint wash of the same color), the
     // outline in graphite, then the outline again, lighter and slightly turned, the way a second pass of the
     // pencil never lands on the first.
     // CHANGED (sketchbook, round 2): hatched shading replaces the flat see-through fill, and the second
     // outline is turned a little instead of only shifted.
-    private static void DrawSketch(DrawingGroup group, IconKind kind)
+    private static void DrawSketch(DrawingGroup group, IconKind kind, bool dark)
     {
         // CHANGED (dark sketchbook): graphite on light paper, chalk-white pencil on black paper.
-        var pencil = ThemeService.IsDark ? Rgb(0xE8E5DC) : Rgb(0x3A3A44);
-        var colour = KindColor(kind);
+        var pencil = dark ? Rgb(0xE8E5DC) : Rgb(0x3A3A44);
+        var color = KindColor(kind);
 
         // Diagonal strokes across the whole box, cut to the icon's outer shape.
         var hatch = new GeometryGroup();
@@ -307,8 +311,8 @@ internal static class ThemeIcons
             hatch.Children.Add(new LineGeometry(new Point(start, 16), new Point(start + 14, 0)));
 
         var shading = new DrawingGroup { ClipGeometry = Body(kind) };
-        shading.Children.Add(new GeometryDrawing(Fill(colour, 0x2E), null, new RectangleGeometry(new Rect(0, 0, 16, 16))));
-        shading.Children.Add(new GeometryDrawing(null, Stroke(colour, 0.75, 0xD0), hatch));
+        shading.Children.Add(new GeometryDrawing(Fill(color, 0x2E), null, new RectangleGeometry(new Rect(0, 0, 16, 16))));
+        shading.Children.Add(new GeometryDrawing(null, Stroke(color, 0.75, 0xD0), hatch));
         group.Children.Add(shading);
 
         group.Children.Add(new GeometryDrawing(null, Stroke(pencil, 0.9), Outline(kind)));
@@ -318,12 +322,11 @@ internal static class ThemeIcons
         group.Children.Add(new GeometryDrawing(null, Stroke(pencil, 0.5, 0x90), second));
     }
 
-    // NEW (e-reader): an e-ink icon has no colour, only the ink at different strengths. The shape is washed
+    // NEW (e-reader): an e-ink icon has no color, only the ink at different strengths. The shape is washed
     // with a light grey (a different strength for each kind, so kinds can still be told apart) and outlined
-    // in full ink. The ink is the active theme's text colour.
-    private static void DrawInk(DrawingGroup group, IconKind kind)
+    // in full ink. The ink is the active theme's text color.
+    private static void DrawInk(DrawingGroup group, IconKind kind, Color ink)
     {
-        var ink = ThemeService.Ink.Color;
         var wash = (byte)(kind switch
         {
             IconKind.Folder => 0x50,
@@ -343,7 +346,7 @@ internal static class ThemeIcons
             group.Children.Add(new GeometryDrawing(null, Stroke(ink, 0.9), detail));
     }
 
-    // A flat coloured tile with the extension on it; folders are a flat folder shape, drives show their letter.
+    // A flat colored tile with the extension on it; folders are a flat folder shape, drives show their letter.
     private static void DrawTile(DrawingGroup group, IconKind kind, string label)
     {
         var color = KindColor(kind);
@@ -368,7 +371,7 @@ internal static class ThemeIcons
         group.Children.Add(new GeometryDrawing(Brushes.White, null, letters));
     }
 
-    // A coloured dot. Folders are a ring and drives a square, so the three can be told apart without colour.
+    // A colored dot. Folders are a ring and drives a square, so the three can be told apart without color.
     private static void DrawDot(DrawingGroup group, IconKind kind)
     {
         var color = KindColor(kind);
@@ -409,7 +412,7 @@ internal static class ThemeIcons
     }
 
     // ----- pixel art, 16 x 16
-    // k = outline, w = paper, f = body colour, s = body shade, a = emblem colour, b = second emblem colour,
+    // k = outline, w = paper, f = body color, s = body shade, a = emblem color, b = second emblem color,
     // c = small detail (the drive light), . = see-through.
 
     private static readonly string[] FolderMap =

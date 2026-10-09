@@ -1,8 +1,8 @@
 // Clearspace | Theme files: checking theme.xaml before it is trusted.
 // NEW (theme files): theme files are passed from person to person, and XAML can do far more than hold
-// colours: left alone it can start programs or read files as it loads. So a theme's XAML is never handed to
+// colors: left alone it can start programs or read files as it loads. So a theme's XAML is never handed to
 // WPF as written. Prepare() reads it as plain XML first and lets through only what a look is made of:
-//   - a ResourceDictionary of brushes, colours, shapes, pens, fonts, corner sizes, margins and transforms
+//   - a ResourceDictionary of brushes, colors, shapes, pens, fonts, corner sizes, margins and transforms
 //     (the Parts list below), each top-level one with an x:Key;
 //   - plain values. Nothing in { } (bindings, x:Static, x:Type ...), no other namespaces, no code;
 //   - no addresses: no file paths, web links or pack URIs anywhere. The only way to name a file is the two
@@ -176,7 +176,7 @@ internal static partial class ThemeMarkup
             {
                 if (attribute.Name.LocalName != "Key" || !topLevel)
                     throw Refused(element, $"x:{attribute.Name.LocalName} cannot be used here (only x:Key, on the resources themselves).");
-                if (!KeyPattern().IsMatch(attribute.Value))
+                if (!KeyPattern().IsMatch(attribute.Value) && !ThemeFileIcons.IsKey(attribute.Value))
                     throw Refused(element, $"\"{Shorten(attribute.Value)}\" is not a key Clearspace knows (keys are words such as Base, Ink or Theme.BaseColor).");
                 hasKey = true;
                 continue;
@@ -196,7 +196,7 @@ internal static partial class ThemeMarkup
         }
 
         if (topLevel && !hasKey)
-            throw Refused(element, $"this <{name}> needs an x:Key saying which part of Clearspace it colours.");
+            throw Refused(element, $"this <{name}> needs an x:Key saying which part of Clearspace it colors.");
 
         if (!isValue)
         {
@@ -226,7 +226,7 @@ internal static partial class ThemeMarkup
             throw Refused(element, $"xmlns \"{Shorten(declaration.Value)}\" is not allowed; a theme uses only the two standard ones.");
     }
 
-    // A plain value: a colour, a number, a list of numbers, a word, a shape path. Nothing that could be an
+    // A plain value: a color, a number, a list of numbers, a word, a shape path. Nothing that could be an
     // address (no / \ :) and nothing in { }, which is how XAML reaches for bindings and code.
     private static void RequirePlain(XElement element, string what, string value)
     {
@@ -239,13 +239,13 @@ internal static partial class ThemeMarkup
                 continue;
 
             throw Refused(element, letter is '{' or '}'
-                ? $"{what} uses {{ }}. Themes hold plain values only: write the colour or number itself."
-                : $"{what} has a '{letter}' in it. Themes hold plain values only (colours such as #FF1A1917, numbers, words).");
+                ? $"{what} uses {{ }}. Themes hold plain values only: write the color or number itself."
+                : $"{what} has a '{letter}' in it. Themes hold plain values only (colors such as #FF1A1917, numbers, words).");
         }
 
-        // A colour written as a colour-profile file ("ContextColor file ...") would be an address after all.
+        // A color written as a color-profile file ("ContextColor file ...") would be an address after all.
         if (value.Contains("ContextColor", StringComparison.OrdinalIgnoreCase))
-            throw Refused(element, $"{what}: write colours as #AARRGGBB.");
+            throw Refused(element, $"{what}: write colors as #AARRGGBB.");
     }
 
     private static void RequireNoText(XElement element)

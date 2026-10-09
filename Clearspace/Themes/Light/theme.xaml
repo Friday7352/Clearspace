@@ -20,8 +20,9 @@
 
     <!-- Text -->
     <SolidColorBrush x:Key="Ink"           Color="#FF24221E" />
-    <SolidColorBrush x:Key="InkMuted"      Color="#FF68635B" />
-    <SolidColorBrush x:Key="InkFaint"      Color="#FF8A847A" />
+    <!-- CHANGED (readability): secondary and faint text raised to at least 4.5:1 against the page and the file area, so column headings, sidebar labels and status text stay easy to read. -->
+    <SolidColorBrush x:Key="InkMuted"      Color="#FF57534C" />
+    <SolidColorBrush x:Key="InkFaint"      Color="#FF6F6B62" />
     <SolidColorBrush x:Key="InkDisabled"   Color="#FFB9B3A8" />
 
     <!-- Accent: the dark theme's amber, deepened so it stays readable on paper -->
@@ -35,7 +36,7 @@
     <SolidColorBrush x:Key="Good"          Color="#FF2E7D4F" />
     <SolidColorBrush x:Key="Warn"          Color="#FF8C5A14" />
     <SolidColorBrush x:Key="Bad"           Color="#FFC0392B" />
-    <SolidColorBrush x:Key="Quiet"         Color="#FF68635B" />
+    <SolidColorBrush x:Key="Quiet"         Color="#FF57534C" />
 
     <!-- Small fills -->
     <SolidColorBrush x:Key="ThumbRest"     Color="#33000000" />
@@ -57,7 +58,7 @@
     <!-- The highlighted row of a menu -->
     <SolidColorBrush x:Key="MenuHover"       Color="#0F1A1917" />
     <SolidColorBrush x:Key="MenuHoverInk"    Color="#FF24221E" />
-    <SolidColorBrush x:Key="MenuHoverMuted"  Color="#FF68635B" />
+    <SolidColorBrush x:Key="MenuHoverMuted"  Color="#FF57534C" />
     <SolidColorBrush x:Key="MenuHoverFaint"  Color="#FFB9B3A8" />
     <SolidColorBrush x:Key="MenuHoverAccent" Color="#FF8C5A14" />
 

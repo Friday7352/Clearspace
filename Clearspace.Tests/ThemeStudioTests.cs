@@ -74,6 +74,67 @@ public sealed class ThemeStudioTests
     }
 
     [TestMethod]
+    public void ImportedAssetsAndLayoutSurviveEditingAndSaving()
+    {
+        var fontPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Fonts), "arial.ttf");
+        Assert.IsTrue(File.Exists(fontPath), "Windows font fixture must exist.");
+        var png = Convert.FromBase64String("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aE1EAAAAASUVORK5CYII=");
+        var doc = ThemeStudioDocument.FromDesign(ThemeDesign.Presets[0].Design)
+            .ImportFont(File.ReadAllBytes(fontPath), ".ttf", "UIFont")
+            .FileIcon(".PDF", true, png).FileIcon("Report.pdf", false, png).FileIcon("My_notes (final)-2.txt", false, png)
+            .Layout("Explorer.SidebarOnRight", 1).Layout("Explorer.RowPadding", 7);
+        var id = doc.Save(_folder, "Assets");
+        var loaded = ThemeStudioDocument.Open(Info(id));
+        Assert.AreEqual(1, loaded.Package.Fonts.Count);
+        Assert.AreEqual(1, loaded.Package.Images.Count);
+        var resources = loaded.Resources();
+        Assert.AreEqual(System.Windows.Visibility.Visible, resources["Explorer.SidebarOnRight"]);
+        Assert.AreEqual(7d, ((System.Windows.Thickness)resources["Explorer.RowPadding"]).Top);
+        Assert.IsInstanceOfType<FontFamily>(resources["UIFont"]);
+        Assert.IsInstanceOfType<ImageBrush>(resources["FileIcon.Name.my_notes (final)-2.txt"]);
+        var item = new Clearspace.Models.FileSystemItem { Name = "Report.pdf", FullPath = @"C:\Report.pdf" };
+        object? Read(string key) => resources.Contains(key) ? resources[key] : null;
+        Assert.AreSame(((ImageBrush)resources["FileIcon.Name.report.pdf"]).ImageSource, ThemeFileIcons.Find(item, Read));
+        var edited = loaded.Remove("FileIcon.Name.report.pdf");
+        edited.Save(_folder, "Assets edited", Info(id));
+        Assert.IsFalse(ThemeStudioDocument.Open(Info(id)).Resources().Contains("FileIcon.Name.report.pdf"));
+        Assert.ThrowsException<ArgumentException>(() => doc.Layout("Explorer.RowPadding", double.NaN));
+        var folder = Path.Combine(_folder, "FolderTheme"); Directory.CreateDirectory(folder);
+        var basic = ThemeStudioDocument.FromDesign(ThemeDesign.Presets[0].Design);
+        File.WriteAllText(Path.Combine(folder, "theme.xaml"), basic.Markup);
+        File.WriteAllText(Path.Combine(folder, "theme.json"), "{\"name\":\"Folder theme\"}");
+        var info = new ThemeInfo("FolderTheme", "Folder theme") { Path = folder };
+        doc.Save(_folder, "Folder with assets", info);
+        var folderTheme = ThemeStudioDocument.Open(info);
+        Assert.AreEqual(1, folderTheme.Package.Fonts.Count);
+        Assert.AreEqual(1, folderTheme.Package.Images.Count);
+        Assert.IsInstanceOfType<ImageBrush>(folderTheme.Resources()["FileIcon.Extension.pdf"]);
+    }
+
+    [TestMethod]
+    public void StudioUsesPlainLabelsAndSharedFontsAndColors()
+    {
+        var colorKeys = ThemeKeys.All.Where(p => p.Value is ThemeValue.Brush or ThemeValue.FlatColor or ThemeValue.Color).Select(p => p.Key);
+        // CHANGED (stickers): Decor.* hold pictures, placed with the Stickers card rather than picked as colours.
+        foreach (var key in colorKeys.Where(k => !k.StartsWith("Decor.", StringComparison.Ordinal))) Assert.IsTrue(StudioColorOptions.All.Any(o => o.Key == key), key);
+        Assert.IsFalse(StudioColorOptions.All.Any(o => o.Label.Contains("Ink") || o.Label.Contains("SelectedRow")));
+        var doc = ThemeStudioDocument.FromDesign(ThemeDesign.Presets[0].Design).AllFonts("Georgia");
+        foreach (var key in new[] { "UIFont", "SerifFont", "DisplayFont", "MonoFont" }) Assert.AreEqual("Georgia", ((FontFamily)doc.Resources()[key]).Source);
+        var individual = doc.Font("SerifFont", "Arial");
+        Assert.AreEqual("Georgia", ((FontFamily)individual.Resources()["UIFont"]).Source);
+        Assert.AreEqual("Arial", ((FontFamily)individual.Resources()["SerifFont"]).Source);
+        var name = StudioLibrary.ImportFont(File.ReadAllBytes(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Fonts), "arial.ttf")), ".ttf", _folder);
+        Assert.IsTrue(StudioLibrary.Fonts(_folder).Any(f => f.Name == name), "Imported fonts must be discoverable in every font menu.");
+        StudioLibrary.SaveColors(["#FF112233", "#FF112233", "#ABCDEF"], _folder);
+        CollectionAssert.AreEqual(new[] { "#FF112233", "#ABCDEF" }, StudioLibrary.Colors(_folder));
+        Assert.AreEqual(Colors.Red, Clearspace.Controls.StudioColorWheel.FromHsv(0, 1, 1));
+        Assert.AreEqual(Colors.Lime, Clearspace.Controls.StudioColorWheel.FromHsv(120, 1, 1));
+        Assert.AreEqual(Colors.Blue, Clearspace.Controls.StudioColorWheel.FromHsv(240, 1, 1));
+        Assert.AreEqual(Colors.White, Clearspace.Controls.StudioColorWheel.FromHsv(10, 0, 1));
+        Assert.AreEqual(Colors.Black, Clearspace.Controls.StudioColorWheel.FromHsv(10, 1, 0));
+    }
+
+    [TestMethod]
     public void CustomizedResourcesUseTheNormalThemeLoader()
     {
         var doc = ThemeStudioDocument.FromDesign(ThemeDesign.Presets[2].Design)

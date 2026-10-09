@@ -72,7 +72,7 @@ If searching is slow, attach `search-trace.log` from `%APPDATA%\Clearspace` as w
 ## What's new
 
 <!-- NEW (themes page) -->
-- **[A page of themes, each with a preview](#themes)**: Settings > Choose a theme… shows every theme as a small window in its own colours. Click one to use it.
+- **[A page of themes, each with a preview](#themes)**: Settings > Choose a theme… shows every theme as a small window in its own colors. Click one to use it.
 <!-- NEW (zip folders) -->
 - **[Open ZIP files like folders](#zip-files)**: double-click a `.zip` to look inside it, and open, copy or drag out what you need without extracting it first.
 <!-- NEW (theme files) -->
@@ -644,11 +644,11 @@ view shows, keeps following navigation, and comes back exactly as you left it.
 layout - orbit with a drag, pan with a right-drag, scroll to zoom, double-click a
 folder to open it. What the height means is chosen in the corner: *Stacked folders*
 (every folder a slab with its contents standing on it), *size*, *file count*, or
-*file types* (coloured by type, as tall as that type's share of the folder).
+*file types* (colored by type, as tall as that type's share of the folder).
 *Disk layout* shows where the largest files physically sit on the drive, read from
 the file system the way a defragmenter reads it, as a spinning platter (cluster 0
 at the rim, the end of the drive at the hub) or as a defragmenter-style grid. Items
-in the current folder keep their list colours and everything else is grey; hover
+in the current folder keep their list colors and everything else is grey; hover
 for the file and how many pieces it is in, click to open it. Free space is shown
 when Clearspace runs as administrator. On an SSD the positions are logical: the
 drive decides where data physically lives.
@@ -657,7 +657,7 @@ drive decides where data physically lives.
 map's own layout: folders are towers, files are low houses, and a tower's floors
 are its subfolders, stacked largest at the bottom in their true proportions.
 Click a tower to step inside: its floors pull apart and one slides out with its
-contents laid out on it, subfolders as rooms and files as crates coloured by
+contents laid out on it, subfolders as rooms and files as crates colored by
 type. The elevator panel, the arrow keys, or a click moves between floors.
 Double-click a room (or press Enter) to make that folder the tower you are in;
 Back, Up, breadcrumbs and the list follow along. Esc or Backspace steps back out
@@ -836,7 +836,7 @@ the Clearspace window you already have.
 
 <!-- CHANGED (themes page): themes are picked on a page of previews, not from a list in the menu. -->
 Clearspace comes with a choice of looks. Open the **Settings** menu (the gear button) and choose
-**Choose a theme…**. The Themes page shows every theme as a small window drawn in its own colours and
+**Choose a theme…**. The Themes page shows every theme as a small window drawn in its own colors and
 fonts; click one to use it. It applies at once to every window (the main window, dialogs, right-click
 menus, tooltips and the title bar) and is remembered. **Back**, Esc or the mouse's back button returns to
 your files.
@@ -851,19 +851,19 @@ your files.
 | **Retro** | The classic 1998 desktop: grey chrome, white lists, navy highlights, square corners. |
 
 The themes under **Experimental** on the same page go further: these
-change the icons, fonts and shapes as well as the colours:
+change the icons, fonts and shapes as well as the colors:
 
 | Theme | What it looks like |
 | --- | --- |
 | **Pixel** | A 16-bit console menu with pixel fonts and pixel-art icons. |
 | **DOS Commander** | The blue two-panel file managers of the DOS years, with a function-key bar along the bottom. |
-| **Wireframe** | Outlines only, in one colour, with line-drawing icons. |
+| **Wireframe** | Outlines only, in one color, with line-drawing icons. |
 | **Neon HUD** | A sci-fi display: near-black violet, cyan outlines, hot pink, faint scanlines. |
 | **Glass** | The glossy translucent look of the late 2000s over a blue-to-teal gradient. |
 | **Sketchbook** | A spiral-bound sketchbook: paper grain, pencil outlines, a handwriting font, highlighter for selection, hand-sketched icons. |
 | **Sketchbook (dark)** | The same sketchbook on black paper, drawn in chalk-white pencil. |
-| **Type tiles** | Every file is a flat coloured tile with its extension written on it. |
-| **Zen** | As little as possible: soft off-white, a coloured dot instead of each icon, and a toolbar that fades until you need it. |
+| **Type tiles** | Every file is a flat colored tile with its extension written on it. |
+| **Zen** | As little as possible: soft off-white, a colored dot instead of each icon, and a toolbar that fades until you need it. |
 | **1-bit Mac** | A 1984 desktop: black on white, dithered shading. |
 | **1-bit Mac (dark)** | The same, white on black. |
 | **E-reader** | An e-ink display: sixteen greys, a book typeface, and a page-turn fade when you change folders. |
@@ -891,7 +891,7 @@ choose **Remove**. Its file goes to the Recycle Bin, so you can put it back. To 
 `Dark.zip` is deleted from the Themes folder, Dark stays on the page and works.
 
 A theme can only change how Clearspace looks. Before one is used, Clearspace checks that it holds nothing
-but colours, fonts, shapes and sizes, and refuses it otherwise, so a theme from someone else cannot run a
+but colors, fonts, shapes and sizes, and refuses it otherwise, so a theme from someone else cannot run a
 program or read your files. A theme that cannot be used says "Can't be read" in place of its preview, and
 why when you point at it.
 
@@ -902,32 +902,86 @@ puts the original back.
 #### Making your own theme
 
 For an easy start, open **Settings > Choose a theme… > Create a theme…**. Theme studio
-has six starting moods, colour swatches, red/green/blue/opacity sliders, and custom hex
-colours. Choose **Paint your space** to tune backgrounds, text, selection, borders,
-hover highlights and the other colour details separately. Expand the sections for
-gradients, photo/texture backdrops, four independent font roles, corner roundness,
-icon styles, pixel lettering and a fading toolbar. **Surprise me**, **Undo**, **Redo**
-and **Reset** make experimenting reversible.
+shows your settings on the left and a live preview of Clearspace, with sample files, on the right.
+**Click anything in the preview** (a button, the sidebar, a file name, the status bar) to see the colors and
+fonts it is drawn with and change them right there. Nothing in Clearspace changes until you save.
 
-The live preview mirrors the actual Explorer area of the window you opened the studio
-from, including its current folder and layout. **Fit / 100%** switches between a scaled
-overview and actual size. The theme is temporarily applied to open Clearspace windows;
-Cancel or closing the studio restores the previous look without changing your saved
-theme. The native Windows title bar is outside the embedded preview.
+- **Start from** a mood: six ready-made looks, or **Surprise me**. **From a picture** and **My wallpaper**
+  build a whole theme from a photo's colors and put the photo behind see-through panels. **Your themes…**
+  starts from any theme you have (Dino Park, say) and saves it as a new one.
+- **Stickers** put your own pictures anywhere on the window, like Dino Park's tyrannosaur: in front of
+  everything, or behind the panels. Drag one in the preview to move it and drag its corner to resize it, or
+  use a quick place (a corner, the middle, the whole window); set how solid it is. Up to eight per theme.
+  A new sticker opens in the picture editor first: **Remove background** clears a plain background in one
+  click (it works from the picture's edges, so it suits product shots, drawings and screenshots best), then
+  **Erase** or **Bring back** fixes any patch you click, with a tolerance and a softness for the cut edge.
+  **Crop** trims it; for a picture that fills the window (like one from **From a picture**), crop in the window's
+  shape and drag the frame to choose which part shows. **Edit picture…** under Stickers opens it again.
+- **Colors** lists the parts of Clearspace with their current color. Click one to open the color
+  picker: a color wheel, brightness, opacity, a color code, suggestions, and your saved colors
+  (shared across themes). The preview follows the picker as you drag.
+- **Readability** shows how clearly main text, dates and sizes, and headings read on your colors.
+  If any are too faint, **Make text easier to read** lifts them just enough.
+- **Layout** is a small map of the window. Drag the sidebar, toolbar, tabs, status bar, preview pane or the
+  shortcut key bar to where you want it (the places it can go light up), or drop it on the shelf under the
+  map to hide it. Click a part instead for a menu of the same choices. **Classic**, **Mirrored**, **Focus**,
+  **Commander** and **Bottom bar** are ready-made layouts to start from. **Interface size** makes
+  everything in the explorer bigger or smaller (75% to 150%).
+- **Build a custom layout…** (under Layout) opens the layout builder, where nothing has to stay where it was.
+  Drag blocks from the left onto the map of the window: onto an edge of a part to put it beside it, onto its
+  middle to swap it in. Blocks: the main file list, **extra file panes** (as many as you like, each opening on
+  its own folder: Downloads, Desktop, any folder you choose), sidebar, toolbar, tabs, status bar, preview pane,
+  shortcut keys, text, a picture, a clock and empty space. Groups can be rows or columns, with dividers you can
+  drag. Click any part to set its size, the folder it opens on, and its look (fill, outline, corners, margin,
+  padding). Start from **Classic**, **Dual pane**, **Browser**, **Dashboard**, **Four panes** or **Focus**;
+  **Edit as text** shows the layout as `layout.json` for writing by hand. A layout is only data (nothing in it
+  can run), so a shared theme's layout is as safe as its colors.
+  Extra panes are made for moving files: drag between panes, to and from the main list and File Explorer (a
+  move on the same drive, a copy to another; Ctrl copies, Shift moves), Ctrl+C / X / V, Delete, Backspace to
+  go up, and a right-click menu with Copy or Move to the main list's folder. They refresh when files change.
+- **Patterns** puts dots, a grid, blueprint lines, stripes, ruled paper, checks, grain, stars, waves or
+  confetti on the window, the file area, the sidebar, the toolbar or the status bar, in any color, size and
+  strength. **Draw…** opens the pattern maker: paint squares on a grid (8 to 24 across) in the pattern color,
+  the accent or a color of your own, mirror left-right or top-bottom for symmetrical tiles, and see it
+  repeat as you draw. Patterns you keep appear under the built-in ones in every theme; right-click one to
+  edit or remove it.
+- **Effects** adds scanlines, film grain, a fine grid or a screen-door look over the whole window; a vignette,
+  a glow, a sunbeam or dusk; a strip down the left edge (a notebook spiral, warning tape, or your pattern);
+  and tooltips that lean like sticky notes.
+- **Font** sets the typeface.
 
-Give your design a name and choose **Save & use** to add it to **Your themes**. To revise
+**Simple** keeps it to a background and an accent color (text, borders and menus follow them),
+one font, layout, patterns and effects. **Advanced** adds **Parts**, where the sidebar, toolbar, file area
+and status bar each get their own fill, outline, outline width and corners, plus every color (with a search box), separate fonts for
+interface text, file names, headings and paths, corner roundness, background gradients and pictures,
+icon styles, pixel lettering, a fading toolbar, your own icons for a file type, a file name or all
+folders, and sidebar width and row spacing. **Every setting** lists everything a theme can hold, with a
+search box: every color, every font, every corner size, every layout switch and size, and the effects.
+**About this theme** sets who made it, a description, a version, and the e-reader and experimental switches.
+**Surprise me** sometimes adds a pattern, a layout or a glow too,
+and **Preview pane** above the preview shows the pane in the sample so you can see where it sits.
+
+**Add a font file…** puts a TTF or OTF font in Clearspace's font library so every font list offers it,
+in any theme. Fonts you pick are packed into the theme when you save. The library is in
+`%LocalAppData%\Clearspace\ThemeStudio\Fonts`; saved colors are alongside it.
+
+**Undo** and **Redo** (Ctrl+Z, Ctrl+Y) and **Reset** make experimenting safe; Ctrl+S saves.
+**Fit** and **100%** switch the preview between an overview and actual size. Closing the studio with
+unsaved changes asks first.
+
+Give your theme a name at the top and choose **Save & use** to add it to **Your themes**. To revise
 it later, right-click its gallery card and choose **Edit theme…**, then **Save changes**.
 **Save a copy** keeps the original. Built-in themes offer **Customize a copy…** instead.
-Existing theme artwork and bundled fonts are preserved when you edit individual settings.
+Existing theme artwork and bundled fonts are kept when you edit individual settings.
 The saved theme file in the Themes folder can be shared as before.
 
-A theme file is an ordinary zip holding `theme.json` (its name) and `theme.xaml` (its colours, fonts and
+A theme file is an ordinary zip holding `theme.json` (its name) and `theme.xaml` (its colors, fonts and
 corner sizes), plus any fonts and pictures it brings along. The quickest start is to unzip a copy of
 `Dark.zip` into a folder of its own inside the Themes folder, click it under **Your themes** on the Themes
-page, and change the colours: Clearspace shows each change as you save it. Zip the folder when it is done, and that file
+page, and change the colors: Clearspace shows each change as you save it. Zip the folder when it is done, and that file
 is your theme.
 
-[Making a Clearspace theme](docs/Making-a-theme.md) has the steps, every colour you can set, and what a
+[Making a Clearspace theme](docs/Making-a-theme.md) has the steps, every color you can set, and what a
 theme may and may not contain.
 
 ## Familiar file-manager foundations

@@ -613,7 +613,14 @@
     <Border x:Name="ScreenFrame" Background="{DynamicResource Base}" ClipToBounds="True">
     <Grid x:Name="ScreenContent" ClipToBounds="True">
     <!-- CHANGED (sketchbook, round 2): PageInset is 0 except in themes that put something down the left edge. -->
-    <Grid x:Name="ExplorerShell" Margin="{DynamicResource PageInset}">
+    <!-- NEW (stickers): a theme's pictures behind the panels (Decor.Back1-4). They show on the window's background,
+         between and through see-through panels. Clicks pass through; see-through unless a theme sets them. -->
+    <Rectangle Fill="{DynamicResource Decor.Back1}" IsHitTestVisible="False" />
+    <Rectangle Fill="{DynamicResource Decor.Back2}" IsHitTestVisible="False" />
+    <Rectangle Fill="{DynamicResource Decor.Back3}" IsHitTestVisible="False" />
+    <Rectangle Fill="{DynamicResource Decor.Back4}" IsHitTestVisible="False" />
+    <!-- CHANGED (complex themes): LayoutTransform = InterfaceScale, the theme's interface size (100% unless set). -->
+    <Grid x:Name="ExplorerShell" Margin="{DynamicResource PageInset}" LayoutTransform="{DynamicResource InterfaceScale}">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
@@ -623,11 +630,19 @@
         <!-- NEW (tabs): the tab strip sits above the toolbar. The two share the shell's first row (this Grid),
              so the rows below it and the photo viewer's RowSpan are unchanged. Everything a tab does is in
              MainWindow.Tabs.cs; the tabs themselves are ViewModels/ExplorerTabs.cs. -->
-        <Grid Grid.Row="0">
+        <Grid x:Name="NavigationArea" Grid.Row="0">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
+
+        <!-- NEW (complex themes): a panel behind the tabs and the toolbar. See-through unless a theme gives the
+             toolbar a fill or an outline (Part.Toolbar.*). -->
+        <Border x:Name="NavigationPanel" Grid.Row="0" Grid.RowSpan="2" Margin="6,4,8,2" IsHitTestVisible="False"
+                Background="{DynamicResource Part.Toolbar.Fill}"
+                BorderBrush="{DynamicResource Part.Toolbar.Edge}"
+                BorderThickness="{DynamicResource Part.Toolbar.EdgeWidth}"
+                CornerRadius="{DynamicResource Part.Toolbar.Corner}" />
 
         <DockPanel x:Name="TabRow" Grid.Row="0" LastChildFill="False" Margin="10,8,14,0" Background="Transparent">
             <!-- The tabs. TabStripPanel gives every tab the same width and narrows them as more are opened;
@@ -733,7 +748,7 @@
         <!-- CHANGED (experimental themes): named, and given a see-through background so the whole strip (not
              just its buttons) counts as "pointer over the toolbar" for the Zen theme's fading toolbar. -->
         <!-- CHANGED (tabs): second row of the Grid above (was the shell's row 0); a little less space on top. -->
-        <Grid x:Name="ToolbarRow" Grid.Row="1" Margin="10,6,14,8" Background="Transparent">
+        <Grid x:Name="ToolbarRow" Grid.Row="1" Margin="10,6,14,8" Background="Transparent" SizeChanged="OnToolbarSizeChanged">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="*" />
@@ -801,8 +816,13 @@
                 </Grid>
             </Border>
 
-            <StackPanel Grid.Column="2" Orientation="Horizontal">
-                <Border Width="228"
+            <!-- CHANGED (toolbar groups): the buttons on the right are now in groups with a thin line between them:
+                 search and where it looks, tools, this folder, how files are shown, new things, settings. The
+                 search scope and the two tools carry a word beside their icon; when the window is too narrow
+                 for the words, OnToolbarSizeChanged hides them and they go back to icons (tooltips unchanged). -->
+            <StackPanel x:Name="ToolbarActions" Grid.Column="2" Orientation="Horizontal">
+                <!-- CHANGED (toolbar groups): 228 to 200 wide, to leave room for the labelled scope buttons. -->
+                <Border Width="200"
                         Height="32"
                         Margin="0,0,9,0"
                         Background="{DynamicResource Surface}"
@@ -854,28 +874,58 @@
                         </Button>
                     </Grid>
                 </Border>
-                <ToggleButton Style="{StaticResource IconToggle}"
-                              Content="&#xE774;"
-                              Margin="0,0,7,0"
+                <!-- CHANGED (search scope): the globe and page toggles say what they do: "Everywhere" (every drive,
+                     not just this folder) and "File contents" (inside documents too, not only names). On, they are
+                     filled with the accent color, so it is plain which scope a search is using. -->
+                <ToggleButton x:Name="SearchEverywhereChip"
+                              Style="{StaticResource LabelToggle}"
+                              Margin="0,0,4,0"
                               IsChecked="{Binding SearchEverywhere}"
-                              ToolTip="Search everywhere. Looks across every drive rather than just this folder and the folders inside it." />
-                <ToggleButton Style="{StaticResource IconToggle}"
-                              Content="&#xE8A5;"
-                              Margin="0,0,1,0"
+                              AutomationProperties.Name="Search everywhere"
+                              ToolTip="Search everywhere. Looks across every drive rather than just this folder and the folders inside it.">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#xE774;" FontFamily="{StaticResource IconFont}" FontSize="12" VerticalAlignment="Center" />
+                        <TextBlock x:Name="SearchEverywhereLabel" Text="Everywhere" Margin="6,0,0,0"
+                                   FontFamily="{DynamicResource UIFont}" FontSize="11.5" VerticalAlignment="Center" />
+                    </StackPanel>
+                </ToggleButton>
+                <ToggleButton x:Name="SearchContentsChip"
+                              Style="{StaticResource LabelToggle}"
                               IsChecked="{Binding SearchFileContents}"
                               IsEnabled="{Binding IsWindowsIndexAvailable}"
-                              ToolTip="Search inside files. On, this also finds documents that mention the word; off, it matches file and folder names only, which is faster. Contents are read from the Windows Search index, so it only covers locations Windows has indexed." />
+                              AutomationProperties.Name="Search file contents"
+                              ToolTip="Search inside files. On, this also finds documents that mention the word; off, it matches file and folder names only, which is faster. Contents are read from the Windows Search index, so it only covers locations Windows has indexed.">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#xE8A5;" FontFamily="{StaticResource IconFont}" FontSize="12" VerticalAlignment="Center" />
+                        <TextBlock x:Name="SearchContentsLabel" Text="File contents" Margin="6,0,0,0"
+                                   FontFamily="{DynamicResource UIFont}" FontSize="11.5" VerticalAlignment="Center" />
+                    </StackPanel>
+                </ToggleButton>
                 <!-- REMOVED (toolbar tidy): the "Indexing" text button. The index status chip at the bottom right of
                      the file list opens the same page. -->
-                <Button Style="{StaticResource IconButton}"
-                        Content="&#xE9F9;" Margin="0,0,7,0"
+                <Border Style="{StaticResource ToolbarDivider}" />
+                <!-- CHANGED (toolbar groups): Disk usage and Find duplicates are the least familiar icons, so they
+                     carry their names too. -->
+                <Button Style="{StaticResource LabelButton}"
                         Click="OnDiskUsage" ToolTip="Disk usage · explore indexed file and folder sizes"
-                        AutomationProperties.Name="Disk usage" />
+                        AutomationProperties.Name="Disk usage">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#xE9F9;" FontFamily="{StaticResource IconFont}" FontSize="13" VerticalAlignment="Center" />
+                        <TextBlock x:Name="DiskUsageLabel" Text="Disk usage" Margin="7,0,0,0"
+                                   FontFamily="{DynamicResource UIFont}" FontSize="11.5" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
                 <!-- NEW (duplicates): looks for exact copies in the folder you are in. See MainWindow.Duplicates.cs. -->
-                <Button Style="{StaticResource IconButton}"
-                        Content="&#xE8C8;" Margin="0,0,7,0"
+                <Button Style="{StaticResource LabelButton}"
                         Click="OnFindDuplicates" ToolTip="Find duplicates · files in this folder that are exact copies of each other"
-                        AutomationProperties.Name="Find duplicates" />
+                        AutomationProperties.Name="Find duplicates">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#xE8C8;" FontFamily="{StaticResource IconFont}" FontSize="13" VerticalAlignment="Center" />
+                        <TextBlock x:Name="DuplicatesLabel" Text="Duplicates" Margin="7,0,0,0"
+                                   FontFamily="{DynamicResource UIFont}" FontSize="11.5" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
+                <Border Style="{StaticResource ToolbarDivider}" />
                 <!-- NEW (folder types, step 2): Git branch and changed-file count in Code folders. -->
                 <TextBlock Text="{Binding FolderContextText}"
                            Margin="0,0,9,0"
@@ -941,6 +991,7 @@
                 <!-- REMOVED (toolbar): the tile size control (- 100% +) that appeared here in tile view. It made the
                      toolbar wider in Pictures and Videos folders, which squeezed the address bar and search box.
                      It now sits in the status bar at the bottom right, where there is room for it. -->
+                <Border Style="{StaticResource ToolbarDivider}" />
                 <Button x:Name="ColumnsButton"
                         Style="{StaticResource IconButton}"
                         Content="&#xE71D;"
@@ -976,10 +1027,6 @@
                         </Style>
                     </Button.Style>
                 </Button>
-                <Button Style="{StaticResource IconButton}" Content="&#xE8F4;"
-                        Command="{Binding NewFolderCommand}" ToolTip="New folder  ·  Ctrl+Shift+N" />
-                <Button Style="{StaticResource IconButton}" Content="&#xE756;"
-                        Command="{Binding TerminalCommand}" ToolTip="Open in Terminal  ·  Ctrl+`" />
                 <!-- NEW (preview pane): shows or hides the pane that previews the selected file. -->
                 <Button Style="{StaticResource IconButton}" Content="&#xE8A1;"
                         Command="{Binding PreviewPaneCommand}" ToolTip="Preview pane  ·  Alt+P"
@@ -988,11 +1035,18 @@
                               Content="&#xE7B3;"
                               IsChecked="{Binding ShowHiddenItems}"
                               ToolTip="Show hidden items" />
+                <!-- CHANGED (toolbar groups): New folder and Open in Terminal moved here, after the view buttons,
+                     so the buttons that change how files are shown sit together. -->
+                <Border Style="{StaticResource ToolbarDivider}" />
+                <Button Style="{StaticResource IconButton}" Content="&#xE8F4;"
+                        Command="{Binding NewFolderCommand}" ToolTip="New folder  ·  Ctrl+Shift+N" />
+                <Button Style="{StaticResource IconButton}" Content="&#xE756;"
+                        Command="{Binding TerminalCommand}" ToolTip="Open in Terminal  ·  Ctrl+`" />
+                <Border Style="{StaticResource ToolbarDivider}" />
                 <!-- NEW (unlock vs remove lock): settings menu; file locking is its first section. -->
                 <Button x:Name="SettingsButton"
                         Style="{StaticResource IconButton}"
                         Content="&#xE713;"
-                        Margin="6,0,0,0"
                         Click="OnColumnsButtonClick"
                         ToolTip="Settings"
                         AutomationProperties.Name="Settings">
@@ -1046,7 +1100,7 @@
         </Grid>
         </Grid> <!-- NEW (tabs): end of the tab strip + toolbar row -->
 
-        <Grid Grid.Row="1">
+        <Grid x:Name="BrowserBody" Grid.Row="1">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="228" MinWidth="170" MaxWidth="400" />
                 <ColumnDefinition Width="Auto" />
@@ -1056,6 +1110,14 @@
                 <ColumnDefinition x:Name="PreviewSplitterColumn" Width="0" />
                 <ColumnDefinition x:Name="PreviewColumn" Width="0" />
             </Grid.ColumnDefinitions>
+
+            <!-- NEW (complex themes): a panel behind the sidebar. See-through unless a theme gives the sidebar a
+                 fill or an outline (Part.Sidebar.*). It moves with the sidebar (Services/ThemeExplorerLayout.cs). -->
+            <Border x:Name="SidebarPanel" Grid.Column="0" Margin="8,0,2,14" IsHitTestVisible="False"
+                    Background="{DynamicResource Part.Sidebar.Fill}"
+                    BorderBrush="{DynamicResource Part.Sidebar.Edge}"
+                    BorderThickness="{DynamicResource Part.Sidebar.EdgeWidth}"
+                    CornerRadius="{DynamicResource Part.Sidebar.Corner}" />
 
             <!-- CHANGED (scroll while dragging): named, so it can be scrolled while a file is dragged over it
                  (MainWindow.DragScroll.cs). -->
@@ -1277,19 +1339,21 @@
                 </ItemsControl>
             </ScrollViewer>
 
-            <GridSplitter Grid.Column="1"
+            <GridSplitter x:Name="SidebarSplitter" Grid.Column="1"
                           Width="6"
                           HorizontalAlignment="Center"
                           Background="Transparent"
                           FocusVisualStyle="{x:Null}" />
 
             <!-- CHANGED (preview pane): named, so its right-hand margin can close up when the pane sits beside it. -->
+            <!-- CHANGED (complex themes): fill, outline and corners come from Part.Files.*, which are Surface,
+                 EdgeSunken, 1 and R12 unless a theme styles the file area on its own. -->
             <Border x:Name="ContentCard"
                     Grid.Column="2"
-                    Background="{DynamicResource Surface}"
-                    BorderBrush="{DynamicResource EdgeSunken}"
-                    BorderThickness="1"
-                    CornerRadius="{DynamicResource R12}"
+                    Background="{DynamicResource Part.Files.Fill}"
+                    BorderBrush="{DynamicResource Part.Files.Edge}"
+                    BorderThickness="{DynamicResource Part.Files.EdgeWidth}"
+                    CornerRadius="{DynamicResource Part.Files.Corner}"
                     Margin="0,0,14,14">
                 <Grid>
                     <Grid.RowDefinitions>
@@ -1695,8 +1759,12 @@
                         </StackPanel>
                     </Border>
 
-                    <Border Grid.Row="2"
-                            BorderBrush="{DynamicResource LineFaint}"
+                    <!-- CHANGED (complex themes): named, so a theme can hide it or put it above the list
+                         (Services/ThemeExplorerLayout.cs), and given a fill and line of its own (Part.Status.*). -->
+                    <Border x:Name="StatusBar"
+                            Grid.Row="2"
+                            Background="{DynamicResource Part.Status.Fill}"
+                            BorderBrush="{DynamicResource Part.Status.Edge}"
                             BorderThickness="0,1,0,0"
                             Padding="16,8">
                         <Grid>
@@ -2005,19 +2073,27 @@
                           FocusVisualStyle="{x:Null}"
                           Visibility="Collapsed" />
 
+            <!-- CHANGED (complex themes): styled like the file area (Part.Files.*). -->
             <Border x:Name="PreviewCard"
                     Grid.Column="4"
-                    Background="{DynamicResource Surface}"
-                    BorderBrush="{DynamicResource EdgeSunken}"
-                    BorderThickness="1"
-                    CornerRadius="{DynamicResource R12}"
+                    Background="{DynamicResource Part.Files.Fill}"
+                    BorderBrush="{DynamicResource Part.Files.Edge}"
+                    BorderThickness="{DynamicResource Part.Files.EdgeWidth}"
+                    CornerRadius="{DynamicResource Part.Files.Corner}"
                     Margin="0,0,14,14"
                     Visibility="Collapsed" />
         </Grid>
 
+        <!-- NEW (custom layouts): when a theme has a layout of its own (layout.json), the window's parts are moved
+             in here, arranged as it says, and NavigationArea and BrowserBody are hidden. Empty and hidden otherwise.
+             See Services/ThemeLayoutEngine.cs. -->
+        <Grid x:Name="LayoutHost" Grid.Row="0" Grid.RowSpan="2" Visibility="Collapsed" />
+
         <!-- NEW (experimental themes): the function-key bar of the DOS Commander theme; hidden in every other
              theme. The keys shown are Clearspace's real shortcuts (^ = Ctrl). -->
-        <Border Grid.Row="2"
+        <!-- CHANGED (custom layouts): named, so a layout can place it. -->
+        <Border x:Name="KeyBar"
+                Grid.Row="2"
                 Background="{DynamicResource BadgeFill}"
                 Padding="8,3"
                 Visibility="{DynamicResource FunctionKeysVisibility}">
@@ -2212,6 +2288,16 @@
                    HorizontalAlignment="Left"
                    Fill="{DynamicResource BindingFill}"
                    Visibility="{DynamicResource BindingVisibility}"
+                   IsHitTestVisible="False" />
+        <!-- NEW (stickers): a theme's pictures in front of everything (Decor.Front1-4), like Dino Park's tyrannosaur.
+             Clicks pass straight through them; see-through unless a theme sets them. -->
+        <Rectangle Fill="{DynamicResource Decor.Front1}" IsHitTestVisible="False" />
+        <Rectangle Fill="{DynamicResource Decor.Front2}" IsHitTestVisible="False" />
+        <Rectangle Fill="{DynamicResource Decor.Front3}" IsHitTestVisible="False" />
+        <Rectangle Fill="{DynamicResource Decor.Front4}" IsHitTestVisible="False" />
+        <!-- NEW (complex themes): a shade over the whole window (a vignette, a glow); see-through unless a theme
+             sets EdgeShade. Clicks pass straight through it. -->
+        <Rectangle Fill="{DynamicResource EdgeShade}"
                    IsHitTestVisible="False" />
         <!-- NEW (experimental themes): a see-through pattern over the whole window (Neon HUD's scanlines).
              Clicks pass straight through it; hidden in every other theme. -->

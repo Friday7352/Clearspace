@@ -3,7 +3,7 @@
 //
 //     Sunset.zip
 //       theme.json     its name, who made it, and a few switches (icons, crisp text ...)
-//       theme.xaml     the colours, fonts and corner sizes (the keys are listed in the README)
+//       theme.xaml     the colors, fonts and corner sizes (the keys are listed in the README)
 //       fonts\         optional: font files; theme.xaml names one as "fonts/#Family Name"
 //       images\        optional: pictures; theme.xaml paints with one as ImageBrush ImageSource="images/paper.png"
 //
@@ -146,8 +146,11 @@ internal sealed class ThemePackage
     public const string MarkupName = "theme.xaml";
     public const string FontsFolder = "fonts";
     public const string ImagesFolder = "images";
+    // NEW (custom layouts): the optional file that describes the window's own layout (Services/ThemeLayout.cs).
+    public const string LayoutName = "layout.json";
+    private const int MostLayoutBytes = 256 * 1024;
 
-    // A theme is small: a page of settings, a page or two of colours, perhaps a few fonts and pictures.
+    // A theme is small: a page of settings, a page or two of colors, perhaps a few fonts and pictures.
     // The limits are far above anything real and keep a damaged or hostile file from filling memory.
     private const int MostManifestBytes = 64 * 1024;
     private const int MostMarkupBytes = 8 * 1024 * 1024;
@@ -160,14 +163,18 @@ internal sealed class ThemePackage
     private static readonly string[] ImageEndings = [".png", ".jpg", ".jpeg", ".bmp", ".gif"];
 
     internal ThemePackage(string source, ThemeManifest manifest, string markup,
-        IReadOnlyList<ThemeAsset> fonts, IReadOnlyDictionary<string, byte[]> images)
+        IReadOnlyList<ThemeAsset> fonts, IReadOnlyDictionary<string, byte[]> images, string? layout = null)
     {
         Source = source;
         Manifest = manifest;
         Markup = markup;
         Fonts = fonts;
         Images = images;
+        Layout = layout;
     }
+
+    /// <summary>NEW (custom layouts): the text of layout.json, or null when the theme keeps the usual layout.</summary>
+    public string? Layout { get; }
 
     /// <summary>The theme file or folder this was read from.</summary>
     public string Source { get; }
@@ -252,8 +259,10 @@ internal sealed class ThemePackage
             return new ThemePackage(path, manifest, string.Empty, [], new Dictionary<string, byte[]>());
 
         if (!entries.TryGetValue(root + MarkupName, out var markupEntry))
-            throw new ThemeFormatException("There is no theme.xaml in it. That file holds the theme's colours.");
+            throw new ThemeFormatException("There is no theme.xaml in it. That file holds the theme's colors.");
         var markup = Text(Bytes(markupEntry, MostMarkupBytes, MarkupName));
+        // NEW (custom layouts)
+        var layout = entries.TryGetValue(root + LayoutName, out var layoutEntry) ? Text(Bytes(layoutEntry, MostLayoutBytes, LayoutName)) : null;
 
         var fonts = new List<ThemeAsset>();
         var images = new Dictionary<string, byte[]>(StringComparer.OrdinalIgnoreCase);
@@ -269,7 +278,7 @@ internal sealed class ThemePackage
             Keep(isFont, fileName, data, fonts, images, ref total);
         }
 
-        return new ThemePackage(path, manifest, markup, fonts, images);
+        return new ThemePackage(path, manifest, markup, fonts, images, layout);
     }
 
     private static byte[] Bytes(ZipArchiveEntry entry, int most, string what)
@@ -305,8 +314,11 @@ internal sealed class ThemePackage
 
         var markupPath = Path.Combine(path, MarkupName);
         if (!File.Exists(markupPath))
-            throw new ThemeFormatException("There is no theme.xaml in it. That file holds the theme's colours.");
+            throw new ThemeFormatException("There is no theme.xaml in it. That file holds the theme's colors.");
         var markup = Text(Bytes(markupPath, MostMarkupBytes, MarkupName));
+        // NEW (custom layouts)
+        var layoutPath = Path.Combine(path, LayoutName);
+        var layout = File.Exists(layoutPath) ? Text(Bytes(layoutPath, MostLayoutBytes, LayoutName)) : null;
 
         var fonts = new List<ThemeAsset>();
         var images = new Dictionary<string, byte[]>(StringComparer.OrdinalIgnoreCase);
@@ -325,7 +337,7 @@ internal sealed class ThemePackage
             }
         }
 
-        return new ThemePackage(path, manifest, markup, fonts, images);
+        return new ThemePackage(path, manifest, markup, fonts, images, layout);
     }
 
     private static byte[] Bytes(string file, int most, string what)

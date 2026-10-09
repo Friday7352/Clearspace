@@ -55,7 +55,6 @@ public partial class MainWindow
             PreviewColumn.Width = new GridLength(SettingsService.GetPreviewPaneWidth());
             PreviewSplitter.Visibility = Visibility.Visible;
             PreviewCard.Visibility = Visibility.Visible;
-            ContentCard.Margin = new Thickness(0, 0, 0, 14); // the splitter is the gap now
 
             _previewPane.Show(_viewModel.Context.SelectedItems);
         }
@@ -67,10 +66,14 @@ public partial class MainWindow
             PreviewColumn.Width = new GridLength(0);
             PreviewSplitterColumn.Width = new GridLength(0);
             ContentColumn.MinWidth = 0;
-            ContentCard.Margin = new Thickness(0, 0, 14, 14);
 
             _previewPane?.Show([]); // drops the picture it was holding
         }
+
+        // CHANGED (complex themes): the gaps round the file list and the pane are set by the theme layout now,
+        // which knows whether the pane is on the left or the right (it was ContentCard.Margin = 0,0,0,14 when
+        // shown and 0,0,14,14 when hidden).
+        ThemeExplorerLayout.Apply(this);
 
         if (remember)
             SettingsService.SetShowPreviewPane(shown);

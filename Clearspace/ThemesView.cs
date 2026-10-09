@@ -3,9 +3,9 @@
 // The Settings menu used to list every theme by name, six in the menu itself and the rest in two submenus;
 // with eighteen themes and more to import, a name said little about what you would get. The page shows
 // each theme as a small window drawn in its own colours, fonts and corners (Controls/ThemePreview.cs):
+//     Your themes (the ones that were imported or put in the Themes folder)
 //     Clearspace's own themes
 //     Experimental (the ones that also change icons or the layout)
-//     Your themes (the ones that were imported or put in the Themes folder)
 // Click a theme to use it; the one in use has the accent-coloured outline and a tick. "Import…" adds a
 // theme file, "Open themes folder" shows the folder they are all in. A theme's right-click menu (and the
 // bin that appears on its card under the pointer) removes it: its file goes to the Recycle Bin, so it can
@@ -32,6 +32,7 @@ internal sealed class ThemesView : UserControl, IDisposable
     private const double CardPadding = 10;
 
     private readonly StackPanel _sections = new();
+    private readonly Dictionary<string, bool> _expandedSections = new();
     private readonly TextBlock _status;
     private readonly List<Card> _cards = [];
     private readonly Queue<Card> _waiting = new();
@@ -176,11 +177,10 @@ internal sealed class ThemesView : UserControl, IDisposable
         _waiting.Clear();
 
         var themes = ThemeService.Themes;
-        AddSection(null, null, themes.Where(theme => theme.Shipped && !theme.Experimental));
-        AddSection("Experimental", "These change the icons or the layout too.", themes.Where(theme => theme.Shipped && theme.Experimental));
-
         var yours = themes.Where(theme => !theme.Shipped).ToList();
         AddSection("Your themes", yours.Count == 0 ? "Make something yours with Create a theme, or import one." : null, yours, evenWhenEmpty: true);
+        AddSection("Clearspace themes", null, themes.Where(theme => theme.Shipped && !theme.Experimental));
+        AddSection("Experimental themes", "These change the icons or the layout too.", themes.Where(theme => theme.Shipped && theme.Experimental));
 
         // Forget what was read for themes that have gone or changed.
         var keep = _cards.Select(card => Key(card.Theme)).ToHashSet(StringComparer.OrdinalIgnoreCase);
@@ -191,28 +191,38 @@ internal sealed class ThemesView : UserControl, IDisposable
         FillLater();
     }
 
-    private void AddSection(string? heading, string? note, IEnumerable<ThemeInfo> themes, bool evenWhenEmpty = false)
+    private void AddSection(string heading, string? note, IEnumerable<ThemeInfo> themes, bool evenWhenEmpty = false)
     {
         var listed = themes.ToList();
         if (listed.Count == 0 && !evenWhenEmpty)
             return;
 
-        if (heading is not null)
+        var content = new StackPanel { Margin = new Thickness(0, 12, 0, 0) };
+        var title = new TextBlock
         {
-            _sections.Children.Add(new TextBlock
-            {
-                Text = heading,
-                FontSize = 16,
-                FontWeight = FontWeights.SemiBold,
-                Margin = new Thickness(0, 14, 0, note is null ? 12 : 3)
-            });
-        }
+            Text = $"{heading} ({listed.Count})",
+            FontSize = 16,
+            FontWeight = FontWeights.SemiBold
+        };
+        title.SetResourceReference(TextBlock.ForegroundProperty, "Ink");
+        var section = new Expander
+        {
+            Header = title, Content = content,
+            IsExpanded = _expandedSections.GetValueOrDefault(heading, true),
+            HorizontalContentAlignment = HorizontalAlignment.Stretch,
+            Margin = new Thickness(0, 14, 0, 0)
+        };
+        section.SetResourceReference(ForegroundProperty, "Ink");
+        System.Windows.Automation.AutomationProperties.SetName(section, heading);
+        section.Expanded += (_, _) => _expandedSections[heading] = true;
+        section.Collapsed += (_, _) => _expandedSections[heading] = false;
+        _sections.Children.Add(section);
 
         if (note is not null)
         {
             var line = FileBackupUi.Muted(note);
             line.Margin = new Thickness(0, 0, 0, 12);
-            _sections.Children.Add(line);
+            content.Children.Add(line);
         }
 
         if (listed.Count == 0)
@@ -226,7 +236,7 @@ internal sealed class ThemesView : UserControl, IDisposable
             _waiting.Enqueue(card);
             cards.Children.Add(card.Button);
         }
-        _sections.Children.Add(cards);
+        content.Children.Add(cards);
     }
 
     // A theme's card: its preview, its name, a tick when it is the one in use, and a bin when it can be removed.

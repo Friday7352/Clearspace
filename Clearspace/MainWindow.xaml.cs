@@ -426,6 +426,8 @@ public partial class MainWindow : Window
 
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
+        ApplyThemeLayout(); // NEW (custom layouts): before the usual layout, which steps aside for a custom one
+        ThemeExplorerLayout.Apply(this);
         var handle = new WindowInteropHelper(this).Handle;
         _viewModel.Context.OwnerHandle = handle;
         _viewModel.Viewer.OwnerHandle = handle;
@@ -466,6 +468,8 @@ public partial class MainWindow : Window
     // the remembered folder listings and tile pictures are dropped and the current folder is read again.
     private void OnThemeChanged()
     {
+        ApplyThemeLayout(); // NEW (custom layouts)
+        ThemeExplorerLayout.Apply(this);
         UpdateToolbarFade();
         ApplyScreenEffect(); // NEW (e-ink)
 
@@ -495,6 +499,34 @@ public partial class MainWindow : Window
         var rest = ThemeService.FadeToolbar && !ToolbarRow.IsMouseOver && !ToolbarRow.IsKeyboardFocusWithin;
         var animation = new System.Windows.Media.Animation.DoubleAnimation(rest ? 0.2 : 1, TimeSpan.FromMilliseconds(rest ? 450 : 120));
         ToolbarRow.BeginAnimation(OpacityProperty, animation);
+    }
+
+    // NEW (custom layouts): the extra file panes of the theme's layout, made fresh each time the layout is applied.
+    private readonly List<Clearspace.Controls.FilePane> _panes = new();
+
+    // Arranges the window as the theme's layout.json says, or puts it back to the usual layout when it has none.
+    private void ApplyThemeLayout()
+    {
+        foreach (var pane in _panes) pane.Dispose();
+        _panes.Clear();
+        ThemeLayoutEngine.Apply(this, ThemeService.Layout, node =>
+        {
+            var pane = new Clearspace.Controls.FilePane(node.Folder, node.Title, () => _viewModel.CurrentPath, path => _viewModel.Navigation.Navigate(path));
+            _panes.Add(pane);
+            return pane;
+        }, ThemeService.LayoutImage);
+    }
+
+    // NEW (toolbar groups): the words beside the toolbar's labelled buttons give way when the window gets narrow,
+    // so the address bar keeps its room. Tool names (Disk usage, Duplicates) go first; the search scope words
+    // (Everywhere, File contents) last, since those say which way a search is looking. Icons and tooltips stay.
+    private void OnToolbarSizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        var width = e.NewSize.Width;
+        var tools = width >= 1180 ? Visibility.Visible : Visibility.Collapsed;
+        var scope = width >= 940 ? Visibility.Visible : Visibility.Collapsed;
+        DiskUsageLabel.Visibility = DuplicatesLabel.Visibility = tools;
+        SearchEverywhereLabel.Visibility = SearchContentsLabel.Visibility = scope;
     }
 
 

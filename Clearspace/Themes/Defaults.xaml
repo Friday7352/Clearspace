@@ -24,5 +24,48 @@
     <!-- NEW (list backdrop): a picture or pattern behind the file list, and only there (MainWindow.xaml paints
          it under FileList). See-through here, so nothing shows unless a theme sets it. -->
     <SolidColorBrush x:Key="ListFill" Color="#00000000" />
+    <Thickness x:Key="Explorer.SidebarWidth">228,0,0,0</Thickness>
+    <Thickness x:Key="Explorer.RowPadding">0</Thickness>
+    <Visibility x:Key="Explorer.SidebarOnRight">Collapsed</Visibility>
+    <Visibility x:Key="Explorer.ToolbarBottom">Collapsed</Visibility>
+    <Visibility x:Key="Explorer.TabsVisibility">Visible</Visibility>
+    <Visibility x:Key="Explorer.SidebarVisibility">Visible</Visibility>
+
+    <!-- NEW (complex themes): where the other parts of the explorer go. Off here = where they have always been:
+         tabs above the toolbar, the status bar shown under the file list, the preview pane right of the list. -->
+    <Visibility x:Key="Explorer.TabsBelowToolbar">Collapsed</Visibility>
+    <Visibility x:Key="Explorer.StatusBarVisibility">Visible</Visibility>
+    <Visibility x:Key="Explorer.StatusBarTop">Collapsed</Visibility>
+    <Visibility x:Key="Explorer.PreviewOnLeft">Collapsed</Visibility>
+
+    <!-- NEW (complex themes): panels behind the sidebar and the toolbar, and the status bar's own fill.
+         See-through with no outline here, so nothing shows unless a theme sets them. The file area's fill,
+         outline and corners follow Surface, EdgeSunken and R12 (the Dark theme and ThemeParts in ThemeLoader.cs). -->
+    <SolidColorBrush x:Key="Part.Sidebar.Fill" Color="#00000000" />
+    <SolidColorBrush x:Key="Part.Sidebar.Edge" Color="#00000000" />
+    <Thickness x:Key="Part.Sidebar.EdgeWidth">0</Thickness>
+    <CornerRadius x:Key="Part.Sidebar.Corner">0</CornerRadius>
+    <SolidColorBrush x:Key="Part.Toolbar.Fill" Color="#00000000" />
+    <SolidColorBrush x:Key="Part.Toolbar.Edge" Color="#00000000" />
+    <Thickness x:Key="Part.Toolbar.EdgeWidth">0</Thickness>
+    <CornerRadius x:Key="Part.Toolbar.Corner">0</CornerRadius>
+    <Thickness x:Key="Part.Files.EdgeWidth">1</Thickness>
+    <SolidColorBrush x:Key="Part.Status.Fill" Color="#00000000" />
+
+    <!-- NEW (complex themes): a shade laid over the whole window (a vignette, a glow), under OverlayFill. -->
+    <SolidColorBrush x:Key="EdgeShade" Color="#00000000" />
+
+    <!-- NEW (stickers): pictures placed on the window, four behind the panels and four in front. None here. -->
+    <SolidColorBrush x:Key="Decor.Back1" Color="#00000000" />
+    <SolidColorBrush x:Key="Decor.Back2" Color="#00000000" />
+    <SolidColorBrush x:Key="Decor.Back3" Color="#00000000" />
+    <SolidColorBrush x:Key="Decor.Back4" Color="#00000000" />
+    <SolidColorBrush x:Key="Decor.Front1" Color="#00000000" />
+    <SolidColorBrush x:Key="Decor.Front2" Color="#00000000" />
+    <SolidColorBrush x:Key="Decor.Front3" Color="#00000000" />
+    <SolidColorBrush x:Key="Decor.Front4" Color="#00000000" />
+
+    <!-- NEW (complex themes): how big everything in the explorer is drawn (text, icons, buttons, rows). 1 = 100%. -->
+    <ScaleTransform x:Key="InterfaceScale" ScaleX="1" ScaleY="1" />
 
 </ResourceDictionary>

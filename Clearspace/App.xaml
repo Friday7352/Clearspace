@@ -192,6 +192,90 @@
                 </Setter>
             </Style>
 
+            <!-- NEW (toolbar groups): a toolbar toggle with a word beside its icon (the search scope buttons).
+                 Outlined when off; filled with the accent when on, so its state reads at a glance. -->
+            <Style x:Key="LabelToggle" TargetType="ToggleButton">
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="Foreground" Value="{DynamicResource Ink}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource EdgeRaised}" />
+                <Setter Property="Height" Value="30" />
+                <Setter Property="Padding" Value="10,0" />
+                <Setter Property="Margin" Value="1,0" />
+                <Setter Property="Cursor" Value="Hand" />
+                <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="ToggleButton">
+                            <Border x:Name="Root"
+                                    Background="{TemplateBinding Background}"
+                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="{DynamicResource R8}">
+                                <ContentPresenter Margin="{TemplateBinding Padding}"
+                                                  HorizontalAlignment="Center"
+                                                  VerticalAlignment="Center" />
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="Root" Property="Background" Value="{DynamicResource Hover}" />
+                                </Trigger>
+                                <Trigger Property="IsChecked" Value="True">
+                                    <Setter TargetName="Root" Property="Background" Value="{DynamicResource AccentSoft}" />
+                                    <Setter TargetName="Root" Property="BorderBrush" Value="{DynamicResource Accent}" />
+                                    <Setter Property="Foreground" Value="{DynamicResource Accent}" />
+                                </Trigger>
+                                <Trigger Property="IsEnabled" Value="False">
+                                    <Setter Property="Foreground" Value="{DynamicResource InkDisabled}" />
+                                    <Setter TargetName="Root" Property="BorderBrush" Value="{DynamicResource LineFaint}" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <!-- NEW (toolbar groups): a toolbar button with a word beside its icon (Disk usage, Duplicates).
+                 Same look as IconButton, sized to its content. -->
+            <Style x:Key="LabelButton" TargetType="Button" BasedOn="{StaticResource IconButton}">
+                <Setter Property="Width" Value="Auto" />
+                <Setter Property="MinWidth" Value="32" />
+                <Setter Property="Padding" Value="9,0" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="Button">
+                            <Border x:Name="Root"
+                                    Background="{TemplateBinding Background}"
+                                    CornerRadius="{DynamicResource R8}">
+                                <ContentPresenter Margin="{TemplateBinding Padding}"
+                                                  HorizontalAlignment="Center"
+                                                  VerticalAlignment="Center" />
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="Root" Property="Background" Value="{DynamicResource Hover}" />
+                                </Trigger>
+                                <Trigger Property="IsPressed" Value="True">
+                                    <Setter TargetName="Root" Property="Background" Value="{DynamicResource Pressed}" />
+                                </Trigger>
+                                <Trigger Property="IsEnabled" Value="False">
+                                    <Setter Property="Foreground" Value="{DynamicResource InkDisabled}" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <!-- NEW (toolbar groups): the thin upright line between groups of toolbar buttons. -->
+            <Style x:Key="ToolbarDivider" TargetType="Border">
+                <Setter Property="Width" Value="1" />
+                <Setter Property="Height" Value="18" />
+                <Setter Property="Margin" Value="7,0" />
+                <Setter Property="VerticalAlignment" Value="Center" />
+                <Setter Property="Background" Value="{DynamicResource Line}" />
+                <Setter Property="SnapsToDevicePixels" Value="True" />
+            </Style>
+
             <Style x:Key="CrumbButton" TargetType="Button">
                 <Setter Property="Background" Value="Transparent" />
                 <Setter Property="Foreground" Value="{DynamicResource InkMuted}" />
@@ -293,8 +377,8 @@
             <Style x:Key="FileRow" TargetType="ListViewItem">
                 <Setter Property="Background" Value="Transparent" />
                 <Setter Property="Foreground" Value="{DynamicResource Ink}" />
-                <Setter Property="Height" Value="30" />
-                <Setter Property="Padding" Value="0" />
+                <Setter Property="MinHeight" Value="30" />
+                <Setter Property="Padding" Value="{DynamicResource Explorer.RowPadding}" />
                 <Setter Property="BorderThickness" Value="0" />
                 <Setter Property="HorizontalContentAlignment" Value="Stretch" />
                 <Setter Property="FocusVisualStyle" Value="{x:Null}" />
@@ -306,7 +390,7 @@
                                     Background="{TemplateBinding Background}"
                                     Margin="6,1"
                                     CornerRadius="{DynamicResource R7}">
-                                <GridViewRowPresenter VerticalAlignment="Center"
+                                <GridViewRowPresenter VerticalAlignment="Center" Margin="{TemplateBinding Padding}"
                                                       Columns="{TemplateBinding GridView.ColumnCollection}"
                                                       Content="{TemplateBinding Content}" />
                             </Border>

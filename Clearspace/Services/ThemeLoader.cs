@@ -1,7 +1,7 @@
 // Clearspace | Theme files: turning one into the resources the app paints with.
 // NEW (theme files): Load() takes a theme that ThemePackage read, puts its fonts and pictures where WPF can
 // open them (ThemeCache), has ThemeMarkup check theme.xaml, and only then builds the brushes, fonts and
-// sizes: directly for a theme of plain colours (Plain), through WPF's XAML reader for anything richer. What comes back is checked once more against the list of keys Clearspace uses (ThemeKeys): a
+// sizes: directly for a theme of plain colors (Plain), through WPF's XAML reader for anything richer. What comes back is checked once more against the list of keys Clearspace uses (ThemeKeys): a
 // key Clearspace does not know is dropped, and a known key holding the wrong kind of thing (a brush where a
 // corner size belongs) refuses the theme with a message, because that would otherwise stop a window from
 // drawing. A theme may leave keys out; App.xaml keeps the Dark theme's values underneath as the fallback.
@@ -18,8 +18,8 @@ namespace Clearspace.Services;
 
 internal enum ThemeValue
 {
-    Brush,        // any brush: a flat colour, a gradient, a pattern, a picture
-    FlatColor,    // a SolidColorBrush: code reads the colour out of these for what it draws by hand
+    Brush,        // any brush: a flat color, a gradient, a pattern, a picture
+    FlatColor,    // a SolidColorBrush: code reads the color out of these for what it draws by hand
     Font,
     Corner,
     Color,
@@ -52,9 +52,20 @@ internal static class ThemeKeys
             "BadgeFill", "NavFill", "Scrim",
             "MenuHover", "MenuHoverInk", "MenuHoverMuted", "MenuHoverFaint", "MenuHoverAccent",
             "OverlayFill", "BindingFill",
-            "ListFill");   // NEW (list backdrop): behind the file list only
+            "ListFill",    // NEW (list backdrop): behind the file list only
+            // NEW (complex themes): a shade over the whole window (vignette, glow, sunbeam), under OverlayFill.
+            "EdgeShade",
+            // NEW (complex themes): each part of the explorer can have its own fill and outline. Sidebar and
+            // toolbar panels are see-through unless a theme sets them; the file area and the status bar line
+            // follow Surface, EdgeSunken and LineFaint unless a theme sets them (ThemeParts.Complete).
+            "Part.Sidebar.Fill", "Part.Sidebar.Edge", "Part.Toolbar.Fill", "Part.Toolbar.Edge",
+            "Part.Files.Fill", "Part.Files.Edge", "Part.Status.Fill", "Part.Status.Edge",
+            // NEW (stickers): up to four pictures over the whole window and four behind its panels, each an
+            // ImageBrush with its place given by Viewport (fractions of the window). See-through by default.
+            "Decor.Front1", "Decor.Front2", "Decor.Front3", "Decor.Front4",
+            "Decor.Back1", "Decor.Back2", "Decor.Back3", "Decor.Back4");
 
-        // ThemeService hands these to the parts drawn in code (the disk usage map, status colours, hover cards).
+        // ThemeService hands these to the parts drawn in code (the disk usage map, status colors, hover cards).
         Add(ThemeValue.FlatColor,
             "Ink", "InkMuted", "InkFaint", "Accent", "AccentSoft", "AccentWash", "Good", "Warn", "Bad", "Quiet",
             "CardFill", "CardEdge", "Ground3D");
@@ -64,7 +75,15 @@ internal static class ThemeKeys
         Add(ThemeValue.Color, "Theme.CaptionColor", "Theme.CaptionTextColor", "Theme.BaseColor");
         Add(ThemeValue.Visibility, "OverlayVisibility", "FunctionKeysVisibility", "BindingVisibility");
         Add(ThemeValue.Thickness, "PageInset");
+        Add(ThemeValue.Thickness, "Explorer.SidebarWidth", "Explorer.RowPadding");
+        Add(ThemeValue.Visibility, "Explorer.SidebarOnRight", "Explorer.ToolbarBottom", "Explorer.TabsVisibility", "Explorer.SidebarVisibility");
+        // NEW (complex themes): more of the window can move. See Services/ThemeExplorerLayout.cs.
+        Add(ThemeValue.Visibility, "Explorer.TabsBelowToolbar", "Explorer.StatusBarVisibility", "Explorer.StatusBarTop", "Explorer.PreviewOnLeft");
+        Add(ThemeValue.Thickness, "Part.Sidebar.EdgeWidth", "Part.Toolbar.EdgeWidth", "Part.Files.EdgeWidth");
+        Add(ThemeValue.Corner, "Part.Sidebar.Corner", "Part.Toolbar.Corner", "Part.Files.Corner");
         Add(ThemeValue.Transform, "NoteTilt");
+        // NEW (complex themes): the size of everything in the explorer, as a ScaleTransform (1 = 100%).
+        Add(ThemeValue.Transform, "InterfaceScale");
         return kinds;
     }
 
@@ -72,6 +91,7 @@ internal static class ThemeKeys
     /// "SelectedRow.Ink" replaces Ink inside a selected row, so it holds what Ink holds.</summary>
     public static bool TryGetKind(string key, out ThemeValue kind)
     {
+        if (ThemeFileIcons.IsKey(key)) { kind = ThemeValue.Brush; return true; }
         if (Kinds.TryGetValue(key, out kind))
             return true;
 
@@ -96,7 +116,7 @@ internal static class ThemeKeys
     public static string Describe(ThemeValue kind) => kind switch
     {
         ThemeValue.Brush => "a brush (SolidColorBrush, a gradient, a DrawingBrush or an ImageBrush)",
-        ThemeValue.FlatColor => "one flat colour (a SolidColorBrush)",
+        ThemeValue.FlatColor => "one flat color (a SolidColorBrush)",
         ThemeValue.Font => "a FontFamily",
         ThemeValue.Corner => "a CornerRadius",
         ThemeValue.Color => "a Color",
@@ -108,6 +128,25 @@ internal static class ThemeKeys
 
 // ---------------------------------------------------------------- loading
 
+// NEW (complex themes): the file area's own fill, outline and corners, and the status bar's line, start out as
+// the theme's Surface, EdgeSunken, R12 and LineFaint. A theme that sets those but not the part keys gets them
+// copied across here, so older themes (and every theme that never styles parts) look exactly as before.
+// A theme that sets neither falls through to Dark's values for both, which agree with each other.
+internal static class ThemeParts
+{
+    private static readonly (string Part, string From)[] Followers =
+    [
+        ("Part.Files.Fill", "Surface"), ("Part.Files.Edge", "EdgeSunken"), ("Part.Files.Corner", "R12"), ("Part.Status.Edge", "LineFaint")
+    ];
+
+    public static void Complete(ResourceDictionary resources)
+    {
+        foreach (var (part, from) in Followers)
+            if (!resources.Contains(part) && resources.Contains(from))
+                resources[part] = resources[from];
+    }
+}
+
 internal static class ThemeLoader
 {
     /// <summary>Builds the theme's resources. Throws ThemeFormatException, with the reason, when the theme
@@ -117,7 +156,7 @@ internal static class ThemeLoader
         var assets = ThemeCache.Unpack(package);
         var markup = ThemeMarkup.Check(package.Markup, assets.FontsFolder, assets.Image);
 
-        // Most themes are nothing but flat colours, fonts and sizes. Those are built right here, which is
+        // Most themes are nothing but flat colors, fonts and sizes. Those are built right here, which is
         // many times quicker than WPF's XAML reader (this runs before the first window opens) and can say
         // which line a bad value is on. Gradients, patterns and pictures go to the XAML reader.
         var resources = Plain(markup);
@@ -134,7 +173,7 @@ internal static class ThemeLoader
             }
             catch (Exception error)
             {
-                // Usually a value WPF cannot read: a misspelt colour, a number where a word belongs.
+                // Usually a value WPF cannot read: a misspelt color, a number where a word belongs.
                 throw new ThemeFormatException("theme.xaml has a value Clearspace cannot read: " + Reason(error));
             }
         }
@@ -157,6 +196,7 @@ internal static class ThemeLoader
                 freezable.Freeze();
         }
 
+        ThemeParts.Complete(resources); // NEW (complex themes)
         return resources;
     }
 
@@ -263,7 +303,7 @@ internal sealed record ThemeAssets(string? FontsFolder, Func<string, string?> Im
 
 // WPF opens fonts and pictures by address, so the ones inside a theme file are written out here first:
 // %LocalAppData%\Clearspace\ThemeCache\<fingerprint of the files>\fonts and \images. The folder is named
-// after what is in it, so a theme whose colours change keeps using the same copies (WPF holds font files
+// after what is in it, so a theme whose colors change keeps using the same copies (WPF holds font files
 // open, and could not have them replaced under it), and a theme whose fonts change gets a new folder.
 internal static class ThemeCache
 {
