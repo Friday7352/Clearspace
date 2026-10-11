@@ -12,6 +12,8 @@ namespace Clearspace.Services;
 //   - Toolbar (with the tabs) at the top or the bottom.         Explorer.ToolbarBottom
 //   - Tabs above or below the toolbar, or hidden.               Explorer.TabsBelowToolbar / TabsVisibility
 //   - Status bar under or over the file list, or hidden.        Explorer.StatusBarTop / StatusBarVisibility
+//   - NEW (shelf and inspector): the column holding the Inspector and the Shelf goes on the side away from the
+//     sidebar, at the window's edge (it is shown and hidden by MainWindow.Dock.cs, not by the theme).
 // How: rather than moving elements between numbered rows and columns (and keeping every number in step),
 // the row and column definitions themselves are put in a new order. Each element stays with the definition it
 // was in, so whatever else sits in a column (the rename and category panels, the band-select layer that
@@ -42,11 +44,22 @@ internal static class ThemeExplorerLayout
         // Navigation rows: tabs, toolbar.
         if (navigation.RowDefinitions.Count >= 2) Order(navigation, OriginalRows, g => g.RowDefinitions, tabsBelow ? new[] { 1, 0 } : new[] { 0, 1 });
 
-        // Body columns, as written in MainWindow.xaml: 0 sidebar, 1 its splitter, 2 file list, 3 preview splitter, 4 preview.
+        // Body columns, as written in MainWindow.xaml: 0 sidebar, 1 its splitter, 2 file list, 3 preview splitter, 4 preview,
+        // CHANGED (shelf and inspector): 5 the dock's splitter, 6 the dock.
         var columns = OriginalColumns.GetValue(body, g => g.ColumnDefinitions.ToArray());
         if (columns.Length < 5) return;
-        var middle = previewLeft ? new[] { 4, 3, 2 } : new[] { 2, 3, 4 };
-        var order = right ? middle.Concat(new[] { 1, 0 }).ToArray() : new[] { 0, 1 }.Concat(middle).ToArray();
+        var preview = root.FindName("PreviewCard") as FrameworkElement;
+        var previewShown = preview is { Visibility: Visibility.Visible };
+        // CHANGED (review): a hidden preview pane's two 0-wide columns go where no splitter touches them. A
+        // GridSplitter resizes the first of its two neighbours that is not a star column, so with the hidden pane
+        // between the file list and the dock (or the sidebar on the right) dragging that splitter opened an empty
+        // gap instead of resizing the dock (or the sidebar).
+        var middle = !previewShown ? new[] { 2 } : previewLeft ? new[] { 4, 3, 2 } : new[] { 2, 3, 4 };
+        var spare = previewShown ? Array.Empty<int>() : new[] { 3, 4 };
+        var hasDock = columns.Length >= 7;
+        var order = right
+            ? (hasDock ? new[] { 6, 5 } : Array.Empty<int>()).Concat(spare).Concat(middle).Concat(new[] { 1, 0 }).ToArray()
+            : new[] { 0, 1 }.Concat(middle).Concat(hasDock ? new[] { 5, 6 } : Array.Empty<int>()).Concat(spare).ToArray();
         Order(body, OriginalColumns, g => g.ColumnDefinitions, order);
 
         var sideColumn = columns[0];
@@ -57,14 +70,15 @@ internal static class ThemeExplorerLayout
         sidebar.Visibility = splitter.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
 
         // Gaps: a card at the window's edge keeps 14 from it; between two panes the splitter is the gap.
-        var preview = root.FindName("PreviewCard") as FrameworkElement;
-        var previewShown = preview is { Visibility: Visibility.Visible };
-        var visible = order.Where(i => i switch { 0 => show, 2 => true, 4 => previewShown, _ => false }).ToList();
+        var dock = root.FindName("DockCard") as FrameworkElement;   // NEW (shelf and inspector)
+        var dockShown = hasDock && dock is { Visibility: Visibility.Visible };
+        var visible = order.Where(i => i switch { 0 => show, 2 => true, 4 => previewShown, 6 => dockShown, _ => false }).ToList();
         var top = bottom ? 12 : 0;
         var under = bottom ? 4 : Gap;
         Thickness Edge(int index) => new(visible[0] == index ? Gap : 0, top, visible[^1] == index ? Gap : 0, under);
         files.Margin = Edge(2);
         if (preview is not null && previewShown) preview.Margin = Edge(4);
+        if (dock is not null && dockShown) dock.Margin = Edge(6);
         sidebar.Margin = new Thickness(0, top, 0, 0);
         if (root.FindName("SidebarPanel") is FrameworkElement panel)
         {

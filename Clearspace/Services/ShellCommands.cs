@@ -27,6 +27,7 @@ internal static class ShellCommands
         ShellVerb? verb = args[0].ToLowerInvariant() switch
         {
             "--open" => ShellVerb.Open,
+            "--open-folder" => ShellVerb.Open, // NEW (Explorer stays Explorer): Windows opening a folder; see ExplorerHandoff
             "--lock" => ShellVerb.Lock,
             "--unlock" => ShellVerb.Unlock,
             "--remove-lock" => ShellVerb.RemoveLock, // NEW (unlock vs remove lock)

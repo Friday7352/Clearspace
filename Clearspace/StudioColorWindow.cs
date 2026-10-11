@@ -115,7 +115,7 @@ internal sealed class StudioColorWindow : Window
         // Suggestions and your saved colours
         panel.Children.Add(SectionLabel("Suggestions"));
         var suggestions = new WrapPanel();
-        foreach (var hex in ThemeStudioWindow.SuggestedColors)
+        foreach (var hex in StudioUi.SuggestedColors) // CHANGED (edit in place): was ThemeStudioWindow.SuggestedColors
             suggestions.Children.Add(Dot(hex, "Use " + hex, () => Set((Color)ColorConverter.ConvertFromString(hex)!)));
         panel.Children.Add(suggestions);
         panel.Children.Add(SectionLabel("Your colors"));

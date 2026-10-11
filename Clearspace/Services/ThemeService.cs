@@ -193,6 +193,69 @@ public static class ThemeService
 
     internal static bool ApplyEdited(string name) => Show(name, save: true, again: true);
 
+    // ---------------------------------------------------------------- NEW (edit in place)
+
+    // While a theme is being edited, the draft is put on screen like any other theme (every window, the real
+    // files), without saving it in settings. EndDraft puts back the theme that was on screen before, or leaves
+    // the draft for ApplyEdited to replace with the saved file.
+    private static string? _draftReturn;                 // the theme to go back to, while a draft is on screen
+    private static string _draftIcons = string.Empty;    // what the last draft's icons were, so a change elsewhere does not redraw them
+    private static bool _quietIcons;
+
+    /// <summary>NEW (edit in place): the theme dictionary on screen (the draft while editing), so the editor can
+    /// tell which theme key a clicked spot is drawn with. Null for the built-in Dark.</summary>
+    internal static ResourceDictionary? Active => _active;
+
+    /// <summary>NEW (edit in place): whether a draft is on screen.</summary>
+    internal static bool Drafting => _draftReturn is not null;
+
+    /// <summary>NEW (edit in place): puts a theme that is being edited on screen. Returns null, or why it could
+    /// not be shown (the look then stays as it was).</summary>
+    internal static string? ShowDraft(ThemeStudioDocument document)
+    {
+        if (Application.Current is null) return "Clearspace is closing.";
+        ResourceDictionary next;
+        LayoutNode? layout;
+        string? layoutProblem;
+        Func<string, string?> layoutImage = _ => null;
+        try
+        {
+            var package = document.Package;
+            next = ThemeLoader.Load(package);
+            if (!ThemeLayout.TryParse(package.Layout, out layout, out layoutProblem)) layout = null;
+            if (layout is not null)
+            {
+                var assets = ThemeCache.Unpack(package);
+                layoutImage = name => assets.Image(name);
+            }
+        }
+        catch (Exception error) when (error is ThemeFormatException or ArgumentException or System.IO.IOException or InvalidOperationException)
+        {
+            return error.Message;
+        }
+        _draftReturn ??= Current;
+        var m = document.Manifest;
+        var icons = m.Icons + "|" + string.Join("|", next.Keys.Cast<object>().OfType<string>().Where(ThemeFileIcons.IsKey).OrderBy(k => k, StringComparer.Ordinal));
+        _quietIcons = icons == _draftIcons;
+        _draftIcons = icons;
+        var info = new ThemeInfo("studio-draft", string.IsNullOrWhiteSpace(m.Name) ? "Your theme" : m.Name, m.Experimental, m.Icons, m.FadeToolbar, m.EInk, m.CrispText)
+        { Stamp = Guid.NewGuid().ToString("N") };
+        Layout = layout; LayoutImage = layoutImage; LayoutProblem = layoutProblem;
+        try { Install(info, next, save: false); }
+        finally { _quietIcons = false; }
+        return null;
+    }
+
+    /// <summary>NEW (edit in place): ends editing. <paramref name="restore"/> puts back the theme that was on
+    /// screen before the draft; without it the draft stays until the saved theme is applied.</summary>
+    internal static void EndDraft(bool restore)
+    {
+        var back = _draftReturn;
+        _draftReturn = null; _draftIcons = string.Empty;
+        if (restore && back is not null && !Show(back, save: false, again: true))
+            Show(DefaultTheme, save: false, again: true);
+    }
+
     /// <summary>NEW (theme files): reads the Themes folder again and returns what is in it (the Themes
     /// page does this each time it opens).</summary>
     public static IReadOnlyList<ThemeInfo> Refresh() => ThemeLibrary.Refresh();
@@ -233,7 +296,7 @@ public static class ThemeService
         var wasCurrent = string.Equals(theme.Name, Current, StringComparison.OrdinalIgnoreCase);
         try
         {
-            if (!ThemeLibrary.Remove(theme, path => FileOperationService.Delete([path], owner).Succeeded))
+            if (!ThemeLibrary.Remove(theme, path => { using var quiet = UndoHistory.Pause(); return FileOperationService.Delete([path], owner).Succeeded; } /* CHANGED (undo): housekeeping, not recorded */))
                 return false;
         }
         catch (ThemeFormatException error)
@@ -403,7 +466,8 @@ public static class ThemeService
                 }
         _fileIcons = fileIcons; // Immutable snapshot: icon requests also run on worker threads.
         var customIcons = fileIcons.Count > 0;
-        IconsChanged = theme.Icons != Icons || theme.Icons != IconStyle.System || customIcons || HasCustomIcons;
+        // CHANGED (edit in place): a draft whose icons did not change does not redraw every icon on each edit.
+        IconsChanged = !_quietIcons && (theme.Icons != Icons || theme.Icons != IconStyle.System || customIcons || HasCustomIcons);
         HasCustomIcons = customIcons;
         Icons = theme.Icons;
         FadeToolbar = theme.FadeToolbar;

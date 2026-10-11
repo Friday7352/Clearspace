@@ -301,6 +301,29 @@ internal sealed record ThemeStudioDocument(string Markup, ThemeManifest Manifest
         return (this with { Original = package }).Set(key, new XElement(Ns + "ImageBrush", new XAttribute("ImageSource", "images/" + name), new XAttribute("Stretch", "Uniform")));
     }
 
+    // ---------------------------------------------------------------- NEW (theme cards)
+
+    /// <summary>NEW (theme cards): an element taken from another theme (a card), set by its own x:Key. It is
+    /// loaded once with the theme, so one Clearspace cannot read is refused here.</summary>
+    internal ThemeStudioDocument Put(XElement element)
+    {
+        var key = (string?)element.Attribute(X + "Key");
+        if (key is null || !ThemeKeys.TryGetKind(key, out _) && !ThemeFileIcons.IsKey(key)) throw new ArgumentException("That card holds something Clearspace does not use.");
+        var copy = new XElement(element);
+        foreach (var declaration in copy.DescendantsAndSelf().SelectMany(e => e.Attributes()).Where(a => a.IsNamespaceDeclaration).ToArray()) declaration.Remove();
+        return Set(key, copy);
+    }
+
+    /// <summary>NEW (theme cards): pictures and font files a card brings, added to the theme's own.</summary>
+    internal ThemeStudioDocument WithAssets(IReadOnlyDictionary<string, byte[]> images, IReadOnlyList<ThemeAsset> fonts)
+    {
+        if (images.Count == 0 && fonts.Count == 0) return this;
+        var allImages = Original?.Images.ToDictionary(p => p.Key, p => p.Value, StringComparer.OrdinalIgnoreCase) ?? new(StringComparer.OrdinalIgnoreCase);
+        foreach (var (name, bytes) in images) allImages[name] = bytes;
+        var allFonts = (Original?.Fonts ?? []).Where(f => fonts.All(n => !string.Equals(n.FileName, f.FileName, StringComparison.OrdinalIgnoreCase))).Concat(fonts).ToArray();
+        return this with { Original = new ThemePackage(Original?.Source ?? "studio", Manifest, Markup, allFonts, allImages) };
+    }
+
     private ThemeStudioDocument Set(string key, XElement value)
     {
         var root = XElement.Parse(Markup);

@@ -18,6 +18,12 @@ public partial class MainWindow
     private PreviewPane? _previewPane;
     private bool _previewShown;
 
+    /// <summary>NEW (arrange mode): whether the preview pane is open, and opening or closing it (remembered), for
+    /// the theme editor's Arrange panel and for tests.</summary>
+    internal bool PreviewShown => _previewShown;
+
+    internal void ShowPreviewPane(bool shown) => SetPreviewShown(shown, remember: true);
+
     private void InitializePreview()
     {
         _viewModel.Context.TogglePreviewPane = () => SetPreviewShown(!_previewShown, remember: true);
@@ -39,6 +45,7 @@ public partial class MainWindow
     private void SetPreviewShown(bool shown, bool remember)
     {
         _previewShown = shown;
+        PreviewToggle.IsChecked = shown; // CHANGED (lit when open): the toolbar button shows whether the pane is open
 
         if (shown)
         {
@@ -65,7 +72,7 @@ public partial class MainWindow
             PreviewColumn.MinWidth = 0;
             PreviewColumn.Width = new GridLength(0);
             PreviewSplitterColumn.Width = new GridLength(0);
-            ContentColumn.MinWidth = 0;
+            ContentColumn.MinWidth = DockShown ? ListMinWidthBesidePreview : 0;   // CHANGED (shelf and inspector): they need the room too
 
             _previewPane?.Show([]); // drops the picture it was holding
         }

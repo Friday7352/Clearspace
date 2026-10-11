@@ -71,6 +71,8 @@ If searching is slow, attach `search-trace.log` from `%APPDATA%\Clearspace` as w
 <!-- NEW: a short list of the recent additions, linking to the sections below. -->
 ## What's new
 
+<!-- NEW (undo) -->
+- **[Undo and redo](#familiar-file-manager-foundations)**: Ctrl+Z puts back a move, copy, rename, delete or new folder; Ctrl+Y does it again.
 <!-- NEW (themes page) -->
 - **[A page of themes, each with a preview](#themes)**: Settings > Choose a theme… shows every theme as a small window in its own colors. Click one to use it.
 <!-- NEW (zip folders) -->
@@ -96,6 +98,9 @@ If searching is slow, attach `search-trace.log` from `%APPDATA%\Clearspace` as w
 <!-- NEW (switching): the four additions made for people moving over from File Explorer. -->
 - **Folders stay up to date**: a download that finishes, or a file another program saves, renames or deletes, shows up in the folder you have open without pressing F5.
 - **[Preview pane](#preview-pane)**: Alt+P shows the selected picture, text file or ZIP beside the list without opening it.
+<!-- NEW (shelf and inspector) -->
+- **[Inspector](#inspector)**: Alt+I shows everything about the selected file: its real size (folders too), pixels, dates, the program that opens it, its fingerprint.
+- **[Shelf](#shelf)**: Alt+S. Collect files from anywhere, then move, copy or zip them all at once.
 - **[ZIP files](#zip-files)**: open one like a folder; extract and compress from the right-click menu.
 - **[Rename several items at once](#rename-several-items-at-once)**: F2 with more than one item selected, with every new name shown before anything changes.
 - **[Open folders with Clearspace](#open-folders-with-clearspace)**: folders from the desktop, other programs and Win+E open in Clearspace.
@@ -709,7 +714,7 @@ came from the index, and **Search the disk instead** runs the slower search that
 
 A folder with the **Downloads** [folder type](#folder-types-that-adapt-to-your-work) gets four extras.
 
-**Just arrived.** A strip above the list shows your newest downloads from the last week as tiles, up to
+**Just arrived.** A strip above the list always shows your newest downloads as tiles, up to
 five. Each tile has buttons for what you usually do next: open it, unpack it (a `.zip`), open the page
 it came from, move it, or delete it. Click a tile to find the file in the list; right-click it for the
 same actions in words. Drag a tile to use the file somewhere else: into a chat or an e-mail, onto the
@@ -762,6 +767,39 @@ pane shows how many there are and the total size of the files. Drag the edge of 
 or narrower; Clearspace remembers whether it was open and how wide.
 
 A cloud file that is not on this device is never downloaded just to preview it, and a locked file is not opened.
+
+<!-- NEW (shelf and inspector) -->
+### Inspector
+
+Press **Alt+I**, or the **(i)** button in the toolbar, for everything about the selected file or folder:
+
+- its name (select it to copy it), type, and size to the byte;
+- a **folder's real size**: everything inside it, counted as you watch;
+- a picture's size in pixels, a song's or video's length, a document's pages;
+- when it was made, changed and last opened, the program that opens it, its tags, its Git state, and
+  whether it is read-only, hidden, compressed or encrypted;
+- **Copy path**, and **Fingerprint** (its SHA-256, to check a download or that two files are the same; click
+  it to copy it).
+
+With several items selected it shows how many, their total size (folders included), what kinds they are,
+and the oldest and newest change.
+
+### Shelf
+
+Press **Alt+S**, or the shelf button in the toolbar. The shelf collects files from anywhere so you can deal
+with them together:
+
+1. Drop files on it, from the list, the desktop or another program, or right-click and choose **Add to
+   shelf**.
+2. Go to the folder they should end up in.
+3. Press **Move here**, **Copy here** or **Zip here**.
+
+You can also drag things off the shelf, one at a time or with **Drag all**. The shelf only remembers where
+things are; nothing is copied until you say so. It is still there after a restart. Something that was moved
+or deleted since shows faded.
+
+The Inspector and the Shelf share a column on the side away from the sidebar (the Inspector on top when both
+are open). Drag its edge to make it wider; Clearspace remembers what was open and how wide.
 
 <!-- NEW (archives) -->
 ### ZIP files
@@ -829,6 +867,10 @@ the Clearspace window you already have.
 - It applies to your Windows account only and needs no administrator permission.
 - File Explorer stays on the PC. The file pickers inside other programs are unchanged, and a program
   that asks for Explorer by name (many "Show in folder" commands do) still gets Explorer.
+<!-- NEW (Explorer stays Explorer) -->
+- File Explorer still works as it always has when you use it. Double-clicking a folder inside an Explorer
+  window opens it in that window, not in Clearspace. To take a folder from Explorer into Clearspace,
+  right-click it and choose **Clearspace > Open in Clearspace**.
 - Untick the setting to switch back. Uninstalling Clearspace switches back too.
 
 <!-- NEW: the themes. -->
@@ -901,79 +943,102 @@ puts the original back.
 
 #### Making your own theme
 
-For an easy start, open **Settings > Choose a theme… > Create a theme…**. Theme studio
-shows your settings on the left and a live preview of Clearspace, with sample files, on the right.
-**Click anything in the preview** (a button, the sidebar, a file name, the status bar) to see the colors and
-fonts it is drawn with and change them right there. Nothing in Clearspace changes until you save.
+<!-- CHANGED (edit in place, side panel): you edit Clearspace itself, with one panel beside it. -->
+Open **Settings > Choose a theme…** and choose **Create a theme…** (or right-click a theme and choose
+**Edit theme…**). The Themes page closes and **the Clearspace window itself goes into edit mode**, with your
+own files in it. A colored bar across the top says you are editing, and a panel opens on the right, beside
+the window (never over it). Everything you change shows on the window straight away, and nothing is saved
+until you choose **Done**.
 
-- **Start from** a mood: six ready-made looks, or **Surprise me**. **From a picture** and **My wallpaper**
-  build a whole theme from a photo's colors and put the photo behind see-through panels. **Your themes…**
-  starts from any theme you have (Dino Park, say) and saves it as a new one.
-- **Stickers** put your own pictures anywhere on the window, like Dino Park's tyrannosaur: in front of
-  everything, or behind the panels. Drag one in the preview to move it and drag its corner to resize it, or
-  use a quick place (a corner, the middle, the whole window); set how solid it is. Up to eight per theme.
-  A new sticker opens in the picture editor first: **Remove background** clears a plain background in one
-  click (it works from the picture's edges, so it suits product shots, drawings and screenshots best), then
-  **Erase** or **Bring back** fixes any patch you click, with a tolerance and a softness for the cut edge.
-  **Crop** trims it; for a picture that fills the window (like one from **From a picture**), crop in the window's
-  shape and drag the frame to choose which part shows. **Edit picture…** under Stickers opens it again.
-- **Colors** lists the parts of Clearspace with their current color. Click one to open the color
-  picker: a color wheel, brightness, opacity, a color code, suggestions, and your saved colors
-  (shared across themes). The preview follows the picker as you drag.
-- **Readability** shows how clearly main text, dates and sizes, and headings read on your colors.
-  If any are too faint, **Make text easier to read** lifts them just enough.
-- **Layout** is a small map of the window. Drag the sidebar, toolbar, tabs, status bar, preview pane or the
-  shortcut key bar to where you want it (the places it can go light up), or drop it on the shelf under the
-  map to hide it. Click a part instead for a menu of the same choices. **Classic**, **Mirrored**, **Focus**,
-  **Commander** and **Bottom bar** are ready-made layouts to start from. **Interface size** makes
-  everything in the explorer bigger or smaller (75% to 150%).
-- **Build a custom layout…** (under Layout) opens the layout builder, where nothing has to stay where it was.
-  Drag blocks from the left onto the map of the window: onto an edge of a part to put it beside it, onto its
-  middle to swap it in. Blocks: the main file list, **extra file panes** (as many as you like, each opening on
-  its own folder: Downloads, Desktop, any folder you choose), sidebar, toolbar, tabs, status bar, preview pane,
-  shortcut keys, text, a picture, a clock and empty space. Groups can be rows or columns, with dividers you can
-  drag. Click any part to set its size, the folder it opens on, and its look (fill, outline, corners, margin,
-  padding). Start from **Classic**, **Dual pane**, **Browser**, **Dashboard**, **Four panes** or **Focus**;
-  **Edit as text** shows the layout as `layout.json` for writing by hand. A layout is only data (nothing in it
-  can run), so a shared theme's layout is as safe as its colors.
-  Extra panes are made for moving files: drag between panes, to and from the main list and File Explorer (a
-  move on the same drive, a copy to another; Ctrl copies, Shift moves), Ctrl+C / X / V, Delete, Backspace to
-  go up, and a right-click menu with Copy or Move to the main list's folder. They refresh when files change.
-- **Patterns** puts dots, a grid, blueprint lines, stripes, ruled paper, checks, grain, stars, waves or
-  confetti on the window, the file area, the sidebar, the toolbar or the status bar, in any color, size and
-  strength. **Draw…** opens the pattern maker: paint squares on a grid (8 to 24 across) in the pattern color,
-  the accent or a color of your own, mirror left-right or top-bottom for symmetrical tiles, and see it
-  repeat as you draw. Patterns you keep appear under the built-in ones in every theme; right-click one to
-  edit or remove it.
-- **Effects** adds scanlines, film grain, a fine grid or a screen-door look over the whole window; a vignette,
-  a glow, a sunbeam or dusk; a strip down the left edge (a notebook spiral, warning tape, or your pattern);
-  and tooltips that lean like sticky notes.
-- **Font** sets the typeface.
+<!-- CHANGED (cards first): cards are where things are changed. -->
+**Your hand of cards** runs along the bottom, under the window: everything your theme looks like, as cards (its
+colors, panels, patterns and gradients, fonts, layout, stickers, effects and icons), fanned out like cards held
+in a hand. Point at a card and it pops up whole, nudging its neighbours aside. Every setting belongs to one
+card, and so do the switches (pixel lettering is on the font card, a fading toolbar on the layout card, the
+icon style and your own icons on the icons card). A deck is simply all of a theme's cards. The colors,
+panels, font, layout and icons cards are always there, even when the theme leaves those things to Clearspace:
+then the card shows Clearspace's own, and whatever you change goes on it.
 
-**Simple** keeps it to a background and an accent color (text, borders and menus follow them),
-one font, layout, patterns and effects. **Advanced** adds **Parts**, where the sidebar, toolbar, file area
-and status bar each get their own fill, outline, outline width and corners, plus every color (with a search box), separate fonts for
-interface text, file names, headings and paths, corner roundness, background gradients and pictures,
-icon styles, pixel lettering, a fading toolbar, your own icons for a file type, a file name or all
-folders, and sidebar width and row spacing. **Every setting** lists everything a theme can hold, with a
-search box: every color, every font, every corner size, every layout switch and size, and the effects.
-**About this theme** sets who made it, a description, a version, and the e-reader and experimental switches.
-**Surprise me** sometimes adds a pattern, a layout or a glow too,
-and **Preview pane** above the preview shows the pane in the sample so you can see where it sits.
+<!-- NEW (arrange mode) -->
+**Style and Arrange.** The bar across the top switches between two modes. **Style** is for how things look
+(the cards, colors, fonts, patterns). **Arrange** is for where things go: the cards are put away, and you
+drag any part of the window to move it. The part goes to the side the pointer is nearest, the window really
+rearranges as you drag, and the outline glides to where it will land, so what you see is what you get. Let
+go to keep it, or press **Esc** (or let go where it started) to put it back. Drag the sidebar's edge to make
+it wider or narrower. The Arrange panel has the ready layouts, which parts show, sizes, and the panels you
+can open (preview pane, Inspector, Shelf).
 
-**Add a font file…** puts a TTF or OTF font in Clearspace's font library so every font list offers it,
-in any theme. Fonts you pick are packed into the theme when you save. The library is in
-`%LocalAppData%\Clearspace\ThemeStudio\Fonts`; saved colors are alongside it.
+In Style, the panel on the right has two tabs. The **Cards** tab is where things are changed. Its top box always shows
+what you are changing:
 
-**Undo** and **Redo** (Ctrl+Z, Ctrl+Y) and **Reset** make experimenting safe; Ctrl+S saves.
-**Fit** and **100%** switch the preview between an overview and actual size. Closing the studio with
-unsaved changes asks first.
+- **Click a card in your hand** and the box shows that card with everything on it: the colors card its
+  colors, a font card its fonts and pixel lettering, the layout card its layouts, size and fading toolbar, a
+  pattern card its pattern or gradient and where it goes, an effect card its effect, the icons card its style
+  and your own icons. Then **Keep in My cards**, **Copy code** and **Take it out** (Undo puts it back).
+- **Click a part of the window** (the sidebar, the toolbar, the tabs, the file area, the status bar, the
+  preview pane, the shortcut key bar or the window behind them) and the box shows that part: its fill,
+  outline, see-through, pattern or gradient and corners. The cards its look is on rise in your hand, and are
+  named in the box; click one to see the whole card. To move a part, switch to **Arrange**. Grab a sticker to
+  move it; drag its corner to resize it.
+- With nothing picked, the box lists the parts of the window (hidden ones too, to show again) and your
+  stickers. A right-click anywhere on the window lists every color and font that spot is drawn with.
 
-Give your theme a name at the top and choose **Save & use** to add it to **Your themes**. To revise
-it later, right-click its gallery card and choose **Edit theme…**, then **Save changes**.
-**Save a copy** keeps the original. Built-in themes offer **Customize a copy…** instead.
-Existing theme artwork and bundled fonts are kept when you edit individual settings.
-The saved theme file in the Themes folder can be shared as before.
+Under the box, **Add a card** makes new ones: a **pattern** or a **gradient** (two colors blending down,
+across, diagonally or from the middle) on the window or any panel, a **font**, a **layout**, an **effect**
+(scanlines, film grain, a vignette, a glow, a notebook spiral, warning tape, leaning tooltips…), a
+**sticker**, a **picture behind the files**, **your own icon** (a picture for one file type, one file name or
+all folders) or an **icon style**.
+
+**Borrow cards** shows another theme's deck, **My cards** (the ones you kept), or a deck file you open. Click
+a card to add it to your hand, or drag it onto a part of the window (a pattern card goes on the part you drop
+it on); **Use the whole deck** makes your theme that deck. Take the colors from one theme, the stickers from
+another and the layout from a third.
+
+The **Theme** tab is where to start from (six moods, **Surprise me**, a picture, your wallpaper, another
+theme, a deck code or a deck file), sharing, and **Every setting…**.
+
+**Share your deck.**
+
+- **Copy code**, on any card, or **Copy deck code** in the Theme tab copies a line of text to paste in a chat
+  or a forum. Codes start with `CS-` (`CS-COLORS-…` for a card, `CS-DECK-…` for a deck); a card's colors come
+  to a few hundred characters. A code holds settings only: picture cards and font files are too big, so
+  Clearspace says what was left out, and a font in a code is used if the other PC has it.
+- **Save deck file…** in the Theme tab saves every card in one `.csdeck` file, pictures and fonts included
+  (so a deck with a tyrannosaur sticker and a hand-cut font arrives whole).
+- To use one: **Paste code** on the Themes page, or **Import…** for a deck file (each becomes one of your
+  themes), or **Paste a code** / **Open a deck file…** under Borrow cards while editing. A code or deck file is
+  checked like a theme file, so it can only change how Clearspace looks.
+
+**The bar across the top** has the theme's name, **Undo** and **Redo**, **Share** (saves the theme as one
+file you can send to anyone), **Cancel** (puts the theme from before back) and **Done** (or **Save** when you
+are editing your own theme). A pill on the bar says when some text is hard to read on your colors; **Fix**
+lifts it just enough.
+
+The bigger tools open as their own windows:
+
+- The **color picker**: a color wheel, brightness, opacity, a color code, suggestions, and your saved colors
+  (shared across themes). The window follows the picker as you drag.
+- The **pattern maker** (**Draw a pattern…**): paint squares on a grid (8 to 24 across), mirror left-right or
+  top-bottom, and see it repeat as you draw.
+- The **picture editor**, for stickers and pictures: **Remove background** clears a plain background in one
+  click, **Erase** and **Bring back** fix any patch you click, and **Crop** trims it.
+- The **layout builder** (**Build a custom layout…** on the layout card, in Arrange, or Add a card › Layout), where nothing has to stay where it
+  was: extra file panes side by side, a browser look, a dashboard, text, pictures, a clock, and a place for the
+  Inspector and the Shelf. Start from
+  **Classic**, **Dual pane**, **Browser**, **Dashboard**, **Four panes** or **Focus**; **Edit as text** shows
+  the layout as `layout.json`. A layout is only data (nothing in it can run), so a shared theme's layout is as
+  safe as its colors. Extra panes are made for moving files: drag between panes, to and from the main list
+  and File Explorer, Ctrl+C / X / V, Delete and Backspace work in them.
+- **Every setting**: everything a theme can hold, with a search box, and **About this theme** (who made it,
+  a description, a version, and the e-reader and experimental switches).
+
+Keys while editing: **Ctrl+Z** undo, **Ctrl+Y** redo, **Ctrl+S** save, **Delete** hides the picked part
+(or removes the picked sticker), **Esc** lets go of things one at a time. Clearspace's other shortcuts are
+off until you finish. Closing the window with unsaved changes asks first.
+
+Built-in themes are saved as a new theme of your own (the name starts as "… remix"). To change a theme you
+made, right-click it on the Themes page and choose **Edit theme…**. The font library is in
+`%LocalAppData%\Clearspace\ThemeStudio\Fonts`; saved colors and kept cards are alongside it.
 
 A theme file is an ordinary zip holding `theme.json` (its name) and `theme.xaml` (its colors, fonts and
 corner sizes), plus any fonts and pictures it brings along. The quickest start is to unzip a copy of
@@ -995,6 +1060,8 @@ theme may and may not contain.
 - More windows: Ctrl+N or "Open in new window". They share one index and one set of caches, so a second window costs little.
 - Your files can hold folders of your own beside Desktop, Documents and the rest: right-click an empty area there for New folder.
 - Copy, cut, paste, rename, new folder, delete to the Recycle Bin, and properties.
+<!-- NEW (undo) -->
+- Undo and redo, as in File Explorer: **Ctrl+Z** puts back the last move, copy, rename (one item or several at once), delete to the Recycle Bin, or new folder or file, and **Ctrl+Y** does it again. They are also at the top of the menu you get by right-clicking empty space in a folder. Up to 50 changes are kept, until Clearspace is closed. Anything moved, renamed or deleted since by another program is left alone, and the status bar says so. Deleting for good (Shift+Delete) can't be undone.
 <!-- NEW (drag to select) -->
 - Drag to select, as in File Explorer: start on empty space (the blank part of a row, the gaps between tiles, or below the files) and drag a rectangle over the files you want. Hold Ctrl to add to what is already selected (files under the rectangle flip), or Shift to only add. Hold the pointer at the top or bottom edge, or turn the wheel, to carry on past what is on screen. Esc puts the selection back; a click on empty space clears it. A drag that starts on a file's icon or text still moves the file.
 <!-- NEW (scroll while dragging) -->

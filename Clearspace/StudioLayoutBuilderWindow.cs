@@ -20,7 +20,7 @@ namespace Clearspace;
 //     (fill, outline, corners, margin, padding). Remove, wrap it in a row or column, or choose the group round it.
 //   - Top: ready-made layouts, undo / redo, and "Edit as text" for writing layout.json by hand.
 // The result is layout.json text (ThemeLayout.cs), or null for the usual layout.
-internal sealed class StudioLayoutBuilderWindow : Window
+internal sealed class StudioLayoutBuilderWindow : UserControl, IDisposable
 {
     private const double MapWidth = 640, MapHeight = 440;
     private ThemeStudioDocument _document;
@@ -44,20 +44,19 @@ internal sealed class StudioLayoutBuilderWindow : Window
     private bool _textMode;
 
     internal string? Result { get; private set; }
+    internal event EventHandler<bool>? Completed;
+    private Window HostWindow => Window.GetWindow(this) ?? throw new InvalidOperationException("Layout builder must be hosted in Clearspace.");
+    internal void Cancel() => Complete(false);
+    private void Complete(bool accepted) { Dispose(); Completed?.Invoke(this, accepted); }
+    public void Dispose() => _previewTimer.Stop();
     internal ThemeStudioDocument Document => _document;   // with any pictures added for picture blocks
 
-    internal StudioLayoutBuilderWindow(Window owner, ThemeStudioDocument document)
+    internal StudioLayoutBuilderWindow(FrameworkElement owner, ThemeStudioDocument document)
     {
-        if (owner.IsVisible) Owner = owner;
         _document = document;
         _root = ThemeLayout.TryParse(document.LayoutJson, out var parsed, out _) && parsed is not null ? parsed : ThemeLayout.Templates[0].Make();
-        Title = "Layout builder";
-        Width = 1340; Height = 860; MinWidth = 1100; MinHeight = 700;
-        WindowState = WindowState.Maximized;
-        WindowStartupLocation = WindowStartupLocation.CenterOwner; ShowInTaskbar = false;
         SetResourceReference(BackgroundProperty, "Base"); SetResourceReference(ForegroundProperty, "Ink"); SetResourceReference(FontFamilyProperty, "UIFont");
         FontSize = 13;
-        SourceInitialized += (_, _) => ThemeService.ApplyTitleBar(this);
 
         var page = new Grid();
         page.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
@@ -172,8 +171,8 @@ internal sealed class StudioLayoutBuilderWindow : Window
         DockPanel.SetDock(actions, Dock.Right); footerRow.Children.Add(actions);
         var usual = FileBackupUi.TextButton("Use the usual layout", false);
         usual.ToolTip = "Take the custom layout away; the Layout card's map and switches apply again";
-        usual.Click += (_, _) => { Result = null; DialogResult = true; };
-        var cancel = FileBackupUi.TextButton("Cancel", false); cancel.IsCancel = true; cancel.Click += (_, _) => Close();
+        usual.Click += (_, _) => { Result = null; Complete(true); };
+        var cancel = FileBackupUi.TextButton("Cancel", false); cancel.IsCancel = true; cancel.Click += (_, _) => Complete(false);
         var use = FileBackupUi.TextButton("Use this layout", true);
         use.SetResourceReference(BackgroundProperty, "Accent"); use.SetResourceReference(ForegroundProperty, "AccentInk"); use.FontWeight = FontWeights.SemiBold;
         use.Click += (_, _) => Finish();
@@ -243,7 +242,7 @@ internal sealed class StudioLayoutBuilderWindow : Window
         return node.Block switch
         {
             "tabs" => alongRow ? 120 : 26, "toolbar" => alongRow ? 260 : 34, "status" or "keys" => alongRow ? 140 : 22,
-            "text" or "clock" => alongRow ? 120 : 36, "image" => 80, "preview" => alongRow ? 150 : 90, _ => 60
+            "text" or "clock" => alongRow ? 120 : 36, "image" => 80, "preview" or "dock" => alongRow ? 150 : 90, _ => 60
         };
     }
 
@@ -544,7 +543,7 @@ internal sealed class StudioLayoutBuilderWindow : Window
                 browse.Click += (_, _) =>
                 {
                     var picker = new FolderPickerWindow(new FolderPickerOptions("Choose a folder for this pane", "The pane opens here each time Clearspace starts.", "Use this folder",
-                        FilePane.Resolve(node.Folder) is { Length: > 0 } start ? start : KnownFolders.Documents)) { Owner = this };
+                        FilePane.Resolve(node.Folder) is { Length: > 0 } start ? start : KnownFolders.Documents)) { Owner = HostWindow };
                     if (picker.ShowDialog() == true && picker.Chosen is { } chosen) Edit(() => node.Folder = chosen);
                 };
                 _properties.Children.Add(browse);
@@ -665,7 +664,7 @@ internal sealed class StudioLayoutBuilderWindow : Window
             var custom = new MenuItem { Header = "A color of my own…" };
             custom.Click += (_, _) =>
             {
-                var picker = new StudioColorWindow(this, value is { } v && v.StartsWith('#') ? (v.Length == 7 ? "#FF" + v[1..] : v) : "#FF808080", true, null, label);
+                var picker = new StudioColorWindow(HostWindow, value is { } v && v.StartsWith('#') ? (v.Length == 7 ? "#FF" + v[1..] : v) : "#FF808080", true, null, label);
                 if (picker.ShowDialog() == true) Edit(() => set(picker.SelectedColor));
             };
             menu.Items.Add(custom);
@@ -678,11 +677,11 @@ internal sealed class StudioLayoutBuilderWindow : Window
     private void AddPicture(LayoutNode node)
     {
         var picker = new Microsoft.Win32.OpenFileDialog { Title = "Choose a picture", Filter = "Pictures|*.png;*.jpg;*.jpeg;*.bmp;*.gif;*.webp", CheckFileExists = true };
-        if (picker.ShowDialog(this) != true) return;
+        if (picker.ShowDialog(HostWindow) != true) return;
         try
         {
             if (new System.IO.FileInfo(picker.FileName).Length > 16 * 1024 * 1024) { Say("Choose a picture smaller than 16 MB."); return; }
-            var editor = new StudioImageWindow(this, System.IO.File.ReadAllBytes(picker.FileName), fillsWindow: false, 1);
+            var editor = new StudioImageWindow(HostWindow, System.IO.File.ReadAllBytes(picker.FileName), fillsWindow: false, 1);
             if (editor.ShowDialog() != true || editor.Result is not { } edited) return;
             var (document, name) = _document.AddImage(edited);
             _document = document;
@@ -731,6 +730,6 @@ internal sealed class StudioLayoutBuilderWindow : Window
         try { ThemeLayout.Check(_root); }
         catch (ThemeFormatException error) { Say(error.Message); return; }
         Result = ThemeLayout.Write(_root);
-        DialogResult = true;
+        Complete(true);
     }
 }

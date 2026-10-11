@@ -69,8 +69,17 @@ public enum CommandCode
     // NEW (preview pane)
     TogglePreviewPane,
 
+    // NEW (shelf and inspector)
+    ToggleInspector,
+    ToggleShelf,
+    AddToShelf,
+
     // NEW (map network drive)
-    MapNetworkDrive
+    MapNetworkDrive,
+
+    // NEW (undo)
+    Undo,
+    Redo
 }
 
 

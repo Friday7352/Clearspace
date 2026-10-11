@@ -27,7 +27,7 @@ internal static class ThemeLayoutEngine
     private static readonly (string Block, string Name)[] Parts =
     [
         ("tabs", "TabRow"), ("toolbar", "ToolbarRow"), ("sidebar", "SidebarScroll"), ("files", "ContentCard"),
-        ("status", "StatusBar"), ("preview", "PreviewCard"), ("keys", "KeyBar")
+        ("status", "StatusBar"), ("preview", "PreviewCard"), ("dock", "DockCard"), ("keys", "KeyBar")   // CHANGED (shelf and inspector): + dock
     ];
 
     /// <summary>True while a custom layout is shown in this window (ThemeExplorerLayout then leaves things alone).</summary>
@@ -146,17 +146,18 @@ internal static class ThemeLayoutEngine
             {
                 var name = Parts.First(p => p.Block == node.Block).Name;
                 if (root.FindName(name) is not FrameworkElement part) { content = new Border(); break; }
-                LeaveHome(part, keepVisibility: node.Block is "preview");
+                LeaveHome(part, keepVisibility: node.Block is "preview" or "dock");
                 part.Margin = new Thickness(0);
                 if (node.Block is "tabs" or "toolbar") part.Margin = node.Block == "tabs" ? new Thickness(4, 4, 4, 0) : new Thickness(4, 4, 4, 4);
                 if (node.Block == "keys" || node.Block == "status" || node.Block == "tabs" || node.Block == "sidebar") part.Visibility = Visibility.Visible;
                 if (node.Block == "status" && part is Border status) status.BorderThickness = new Thickness(0, 1, 0, 0);
-                if (node.Block == "preview")
+                if (node.Block is "preview" or "dock")
                 {
                     var length = ThemeLayout.Length(node);
                     part.Width = length.IsAbsolute ? length.Value : 300;
                     var frame = Frame(node, part, defaultMargin: 6);
-                    // The preview pane is opened and closed with Alt+P; its place shrinks away while it is closed.
+                    // The preview pane is opened and closed with Alt+P (CHANGED: and the dock with Alt+I and Alt+S);
+                    // its place shrinks away while it is closed.
                     frame.SetBinding(UIElement.VisibilityProperty, new Binding(nameof(Visibility)) { Source = part });
                     return frame;
                 }

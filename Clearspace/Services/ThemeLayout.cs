@@ -22,6 +22,8 @@ namespace Clearspace.Services;
 // its own folder), sidebar, toolbar, tabs, status, preview, keys (the shortcut key bar), text, image (a picture in
 // the theme's images folder), clock, spacer. Each of the window's own parts (all but pane, text, image, clock and
 // spacer) can appear once; leaving one out hides it.
+// NEW (shelf and inspector): dock, the column holding the Inspector and the Shelf. Like the preview pane, it is
+// opened and closed by the person using the window (Alt+I, Alt+S); its place shrinks away while both are closed.
 // Every node may also have: size ("*", "2*", "240" pixels, or "auto"), margin, padding, fill and edge (a theme
 // key such as "Surface" or a colour "#RRGGBB"), edgeWidth and corner. Rows and columns may have "splitters": true,
 // which puts a bar you can drag between their children.
@@ -70,8 +72,8 @@ internal sealed class ThemeLayoutFile
 
 internal static partial class ThemeLayout
 {
-    internal static readonly string[] Blocks = ["files", "pane", "sidebar", "toolbar", "tabs", "status", "preview", "keys", "text", "image", "clock", "spacer"];
-    internal static readonly string[] OnlyOnce = ["files", "sidebar", "toolbar", "tabs", "status", "preview", "keys"];
+    internal static readonly string[] Blocks = ["files", "pane", "sidebar", "toolbar", "tabs", "status", "preview", "dock", "keys", "text", "image", "clock", "spacer"];   // CHANGED (shelf and inspector): + dock
+    internal static readonly string[] OnlyOnce = ["files", "sidebar", "toolbar", "tabs", "status", "preview", "dock", "keys"];
     private const int MostNodes = 80, MostDepth = 10, MostChildren = 12;
 
     internal static readonly JsonSerializerOptions Options = new()
@@ -163,7 +165,7 @@ internal static partial class ThemeLayout
         if (string.IsNullOrEmpty(size))
             return node.Block switch
             {
-                "tabs" or "toolbar" or "status" or "keys" or "text" or "clock" or "image" or "preview" => GridLength.Auto,
+                "tabs" or "toolbar" or "status" or "keys" or "text" or "clock" or "image" or "preview" or "dock" => GridLength.Auto,
                 "sidebar" => new GridLength(228),
                 _ => new GridLength(1, GridUnitType.Star)
             };
@@ -177,13 +179,13 @@ internal static partial class ThemeLayout
     {
         "files" => "Main file list", "pane" => "File pane", "sidebar" => "Sidebar", "toolbar" => "Toolbar", "tabs" => "Tabs",
         "status" => "Status bar", "preview" => "Preview pane", "keys" => "Shortcut keys", "text" => "Text", "image" => "Picture",
-        "clock" => "Clock", "spacer" => "Empty space", _ => block
+        "clock" => "Clock", "spacer" => "Empty space", "dock" => "Shelf and Inspector", _ => block
     };
 
     internal static string Glyph(string block) => block switch
     {
         "files" => "", "pane" => "", "sidebar" => "", "toolbar" => "", "tabs" => "", "status" => "",
-        "preview" => "", "keys" => "", "text" => "", "image" => "", "clock" => "", _ => ""
+        "preview" => "", "keys" => "", "text" => "", "image" => "", "clock" => "", "dock" => "\uE8F1", _ => ""
     };
 
     // Ready-made layouts to start from.

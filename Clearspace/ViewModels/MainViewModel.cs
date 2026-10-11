@@ -270,6 +270,9 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     public RichCommand OpenInNewTabCommand => Commands[CommandCode.OpenInNewTab]; // NEW (tabs)
     public RichCommand OpenInNewWindowCommand => Commands[CommandCode.OpenInNewWindow]; // NEW (new window)
     public RichCommand PreviewPaneCommand => Commands[CommandCode.TogglePreviewPane];   // NEW (preview pane)
+    public RichCommand InspectorCommand => Commands[CommandCode.ToggleInspector];       // NEW (inspector)
+    public RichCommand ShelfCommand => Commands[CommandCode.ToggleShelf];               // NEW (shelf)
+    public RichCommand AddToShelfCommand => Commands[CommandCode.AddToShelf];           // NEW (shelf)
     public RichCommand MapNetworkDriveCommand => Commands[CommandCode.MapNetworkDrive]; // NEW (map network drive)
 
     private IReadOnlyList<FileSystemItem> _items = [];

@@ -9,7 +9,11 @@
 //  - Installers: a line in the strip counts the setup files in the folder and says how many are for
 //    programs already on the PC; "Review" opens InstallersWindow, where the ticked ones can be removed.
 // The strip is rebuilt when the list changes (a download finishing shows up by itself), but only if what
-// it shows would be different. It is hidden during a search, and can be turned off from the menu of the
+// it shows would be different.
+// CHANGED (just arrived, no waiting): the tiles go up at once, from the list alone. Where each file came
+// from, the folder it is offered and the installers line are looked up in the background and filled in
+// when they are known; the strip never waits for them. (Reading the installers of a big Downloads folder
+// took the best part of a minute, and the strip used to show nothing at all until it was done.) It is hidden during a search, and can be turned off from the menu of the
 // empty area of the list ("Show just arrived").
 // The strip's frame is the Border named ArrivalsStrip in MainWindow.xaml; what is in it is built here.
 using System.ComponentModel;
@@ -29,17 +33,32 @@ namespace Clearspace;
 public partial class MainWindow
 {
     private bool _arrivalsQueued;
-    private int _arrivalsRequest;            // goes up with every rebuild; one that finishes for an older request is dropped
     private string _arrivalsShown = string.Empty; // what the strip shows now, to skip rebuilding it unchanged
-    private string _installersFor = string.Empty; // the folder and installer files `_installers` was worked out for
+    private int _arrivalsBuilds;                  // NEW (just arrived trace): numbers the rebuilds in the log
+    // CHANGED (just arrived, no waiting): _arrivalsRequest is gone. A rebuild no longer waits for anything,
+    // so there is no older one still running for a newer one to replace.
+
+    // CHANGED (just arrived, no waiting): the installers line is worked out on its own, one look at a time,
+    // and only when the setup files in the folder changed.
+    private string _installersFor = string.Empty;    // the folder and installer files `_installers` was worked out for
+    private string _installersFolder = string.Empty; // NEW: the folder `_installers` belongs to
     private IReadOnlyList<InstallerFile> _installers = [];
+    private bool _lookingAtInstallers;               // NEW: a look is running; the next starts after it if still needed
+
+    // NEW (just arrived, no waiting): where each tile's file came from and the folder it is offered, looked
+    // up in the background once per file (and again when the file changes) and kept here.
+    private readonly Dictionary<string, (DownloadOrigin? Origin, FilingSuggestion? Offer)> _arrivalExtras = new(StringComparer.OrdinalIgnoreCase);
+    private readonly HashSet<string> _arrivalExtrasPending = new(StringComparer.OrdinalIgnoreCase);
+    private int _arrivalExtrasGeneration; // goes up when the kept answers are forgotten; answers for an older one are dropped
 
     private void InitializeDownloads()
     {
         _viewModel.PropertyChanged += (_, e) =>
         {
+            // CHANGED (just arrived fix): + IsAccessDenied, which ShowsJustArrived also depends on.
             if (e.PropertyName is nameof(MainViewModel.Items) or nameof(MainViewModel.HasSearch) or
-                nameof(MainViewModel.ResolvedFolderType) or nameof(MainViewModel.IsLoading))
+                nameof(MainViewModel.ResolvedFolderType) or nameof(MainViewModel.IsLoading) or
+                nameof(MainViewModel.IsAccessDenied))
                 QueueArrivals();
         };
     }
@@ -54,24 +73,43 @@ public partial class MainWindow
         Dispatcher.BeginInvoke(DispatcherPriority.Background, () =>
         {
             _arrivalsQueued = false;
-            _ = RebuildArrivalsAsync();
+            RebuildArrivals(); // CHANGED (just arrived, no waiting): was RebuildArrivalsAsync
         });
     }
 
     private void HideArrivals()
     {
-        _arrivalsRequest++;
         _arrivalsShown = string.Empty;
         ArrivalsStrip.Visibility = Visibility.Collapsed;
         ArrivalsStrip.Child = null;
     }
 
-    private async Task RebuildArrivalsAsync()
+    // NEW (just arrived, no waiting): forgets the looked-up offers (and what is shown), so they are asked for
+    // again: after a move has taught a new folder, or after "Stop suggesting".
+    private void ForgetArrivalExtras()
     {
+        _arrivalExtras.Clear();
+        _arrivalExtrasGeneration++;
+        _arrivalsShown = string.Empty;
+    }
+
+    // NEW (just arrived, no waiting): the same file, unchanged.
+    private static string ExtrasKey(FileSystemItem item) => $"{item.FullPath}*{item.Size}*{item.DateModified.Ticks}";
+
+    // CHANGED (just arrived, no waiting): rewritten, and no longer async. It builds the strip from the list
+    // and from what has been looked up so far, and starts the lookups that are missing; each of those asks
+    // for another rebuild when it is done. Every decision is written to just-arrived-trace.log.
+    private void RebuildArrivals()
+    {
+        var folder = _viewModel.CurrentPath;
         try
         {
             if (!_viewModel.ShowsJustArrived || !SettingsService.GetShowJustArrived())
             {
+                if (_viewModel.IsDownloadsFolder && ArrivalsStrip.Visibility == Visibility.Visible)
+                    ArrivalsTrace.Write($"hidden in {folder}: " +
+                        (!SettingsService.GetShowJustArrived() ? "turned off (\"Show just arrived\" is unticked)"
+                         : _viewModel.HasSearch ? "a search is showing" : "access denied"));
                 HideArrivals();
                 return;
             }
@@ -79,7 +117,6 @@ public partial class MainWindow
             if (_viewModel.IsLoading && _viewModel.Items.Count == 0)
                 return; // the folder is still being read; this is called again when it has been
 
-            var folder = _viewModel.CurrentPath;
             var items = _viewModel.Items;
             var now = DateTime.Now;
             var picks = JustArrived.Pick(items, now);
@@ -88,49 +125,141 @@ public partial class MainWindow
             var installerKey = folder + "|" + string.Join("|", items
                 .Where(item => !item.IsFolder && InstallerShelf.CouldBeInstaller(item.Name))
                 .Select(item => $"{item.Name}*{item.Size}"));
+            var installers = string.Equals(_installersFolder, folder, StringComparison.OrdinalIgnoreCase) ? _installers : Array.Empty<InstallerFile>();
 
-            var key = installerKey + "#" + string.Join("|", picks.Select(item => $"{item.FullPath}*{item.Size}*{JustArrived.Ago(JustArrived.ArrivedAt(item), now)}"));
+            // NEW: start whatever is missing. Neither is waited for.
+            var missing = picks.Where(item => !_arrivalExtras.ContainsKey(ExtrasKey(item))).ToList();
+            if (missing.Count > 0)
+                LookUpArrivalExtras(missing);
+            if (installerKey != _installersFor && !_viewModel.IsLoading)
+                LookAtInstallers(folder, installerKey);
+
+            // CHANGED: the key also says which of the lookups are in, so the strip is built again when one arrives.
+            var key = $"{folder}|{installers.Count}|{installers.Sum(file => file.Size)}|{installers.Count(file => file.State == InstallerState.Installed)}#" +
+                      string.Join("|", picks.Select(item => $"{item.FullPath}*{item.Size}*{JustArrived.Ago(JustArrived.ArrivedAt(item), now)}*{(_arrivalExtras.ContainsKey(ExtrasKey(item)) ? 1 : 0)}"));
             if (key == _arrivalsShown)
                 return;
 
-            var request = ++_arrivalsRequest;
-            var paths = picks.Select(item => item.FullPath).ToList();
-            var needInstallers = installerKey != _installersFor;
+            var build = ++_arrivalsBuilds;
+            var newest = items.Where(item => !item.IsFolder).OrderByDescending(JustArrived.ArrivedAt).Take(3)
+                .Select(item => "    " + ArrivalsTrace.Describe(item, now));
+            ArrivalsTrace.Write($"rebuild #{build} in {folder}: {items.Count:N0} items{(_viewModel.IsLoading ? " (still loading)" : "")}, " +
+                                $"{picks.Count} new{(picks.Count > 0 ? ": " + string.Join(", ", picks.Select(item => item.Name)) : "")}, " +
+                                $"{missing.Count} still being looked up" +
+                                Environment.NewLine + "  newest in the list:" + Environment.NewLine + string.Join(Environment.NewLine, newest));
 
-            // Off the UI thread: the note on each file, the folder it is offered, and (when needed) the
-            // details of every setup file plus the list of installed programs.
-            var (origins, offers, installers) = await Task.Run(() =>
-            {
-                var origin = paths.Select(DownloadOrigin.Read).ToList();
-                var offer = paths.Select((path, i) => FilingMemory.SuggestFor(path, origin[i]?.Site)).ToList();
-                var shelf = needInstallers ? InstallerShelf.Scan(folder) : null;
-                return (origin, offer, shelf);
-            });
+            // CHANGED (always shown): the strip is no longer hidden when nothing is new; it is always there
+            // in a Downloads folder (an empty folder says so).
 
-            if (request != _arrivalsRequest || !_viewModel.ShowsJustArrived ||
-                !string.Equals(folder, _viewModel.CurrentPath, StringComparison.OrdinalIgnoreCase))
-                return;
-
-            if (installers is not null)
-            {
-                _installers = installers;
-                _installersFor = installerKey;
-            }
-
-            if (picks.Count == 0 && _installers.Count == 0)
-            {
-                HideArrivals();
-                _arrivalsShown = key;
-                return;
-            }
+            var origins = picks.Select(item => _arrivalExtras.TryGetValue(ExtrasKey(item), out var known) ? known.Origin : null).ToList();
+            var offers = picks.Select(item => _arrivalExtras.TryGetValue(ExtrasKey(item), out var known) ? known.Offer : null).ToList();
 
             ArrivalsStrip.Child = BuildArrivals(picks, origins, offers, now);
             ArrivalsStrip.Visibility = Visibility.Visible;
             _arrivalsShown = key;
+            ArrivalsTrace.Write($"rebuild #{build}: shown, {picks.Count} tiles, {installers.Count} installers");
         }
-        catch (Exception)
+        catch (Exception error)
         {
-            HideArrivals(); // the strip is an extra: whatever went wrong, the list below it is unaffected
+            // CHANGED (just arrived trace): written down instead of swallowed. The strip is an extra:
+            // whatever went wrong, the list below it is unaffected.
+            ArrivalsTrace.Write($"FAILED in {folder}, strip hidden: {error.GetType().Name}: {error.Message}" +
+                                Environment.NewLine + error.StackTrace);
+            HideArrivals();
+        }
+    }
+
+    // NEW (just arrived, no waiting): where these files came from and the folder each is offered, read off
+    // the UI thread. A remembered folder on a network drive is taken to be there without asking the network
+    // (a drive that is not connected can take many seconds to say so); Move checks again and says so.
+    private async void LookUpArrivalExtras(IReadOnlyList<FileSystemItem> files)
+    {
+        var wanted = files.Where(file => _arrivalExtrasPending.Add(ExtrasKey(file)))
+            .Select(file => (Key: ExtrasKey(file), Path: file.FullPath)).ToList();
+        if (wanted.Count == 0)
+            return; // already being looked up
+
+        var generation = _arrivalExtrasGeneration;
+        var clock = Stopwatch.StartNew();
+        var found = new List<(string Key, DownloadOrigin? Origin, FilingSuggestion? Offer)>();
+        try
+        {
+            found = await Task.Run(() => wanted.Select(file =>
+            {
+                var origin = Optional(() => DownloadOrigin.Read(file.Path), $"reading where {Path.GetFileName(file.Path)} came from");
+                var offer = Optional(() => FilingMemory.SuggestFor(file.Path, origin?.Site, trustNetworkFolders: true),
+                    $"finding a folder for {Path.GetFileName(file.Path)}");
+                return (file.Key, origin, offer);
+            }).ToList());
+        }
+        catch (Exception error)
+        {
+            ArrivalsTrace.Write($"  looking up {wanted.Count} files failed: {error.GetType().Name}: {error.Message}");
+            found = [.. wanted.Select(file => (file.Key, (DownloadOrigin?)null, (FilingSuggestion?)null))]; // not asked again and again
+        }
+        finally
+        {
+            foreach (var file in wanted)
+                _arrivalExtrasPending.Remove(file.Key);
+        }
+
+        if (clock.ElapsedMilliseconds >= 1000)
+            ArrivalsTrace.Write($"  looking up where {wanted.Count} files came from took {clock.ElapsedMilliseconds:N0} ms");
+
+        if (generation == _arrivalExtrasGeneration)
+        {
+            if (_arrivalExtras.Count > 500)
+                _arrivalExtras.Clear();
+            foreach (var (key, origin, offer) in found)
+                _arrivalExtras[key] = (origin, offer);
+        }
+
+        QueueArrivals();
+    }
+
+    // NEW (just arrived, no waiting): the setup files in the folder, one look at a time. When it is done the
+    // strip is rebuilt; that starts another look if the setup files changed in the meantime.
+    private async void LookAtInstallers(string folder, string installerKey)
+    {
+        if (_lookingAtInstallers)
+            return;
+
+        _lookingAtInstallers = true;
+        var clock = Stopwatch.StartNew();
+        IReadOnlyList<InstallerFile> found;
+        try
+        {
+            found = await Task.Run(() => InstallerShelf.Scan(folder));
+        }
+        catch (Exception error)
+        {
+            ArrivalsTrace.Write($"  looking at the installers in {folder} failed: {error.GetType().Name}: {error.Message}");
+            found = [];
+        }
+        finally
+        {
+            _lookingAtInstallers = false;
+        }
+
+        ArrivalsTrace.Write($"  installers in {folder}: {found.Count} found in {clock.ElapsedMilliseconds:N0} ms");
+        _installers = found;
+        _installersFor = installerKey;
+        _installersFolder = folder;
+        QueueArrivals();
+    }
+
+    // NEW (just arrived trace): runs one of the strip's extras; when it fails, says so in the log and the
+    // strip goes on without it.
+    private static T? Optional<T>(Func<T?> work, string what)
+    {
+        try
+        {
+            return work();
+        }
+        catch (Exception error)
+        {
+            ArrivalsTrace.Write($"  failed {what}, left out: {error.GetType().Name}: {error.Message}");
+            return default;
         }
     }
 
@@ -142,7 +271,7 @@ public partial class MainWindow
         var title = new TextBlock { Text = "Just arrived", FontSize = 14 };
         title.SetResourceReference(TextBlock.FontFamilyProperty, "SerifFont");
 
-        var hint = SmallMuted(picks.Count == 0 ? "Nothing new in the last week" : "Your newest downloads");
+        var hint = SmallMuted(picks.Count == 0 ? "No downloads yet" : "Your newest downloads"); // CHANGED (always shown)
         hint.Margin = new Thickness(10, 2, 0, 0);
         hint.VerticalAlignment = VerticalAlignment.Center;
 
@@ -400,7 +529,7 @@ public partial class MainWindow
             menu.Items.Add(Entry($"Stop suggesting \"{MenuText(offer.FolderName)}\"", null, () =>
             {
                 FilingMemory.ForgetFolder(offer.Folder);
-                _arrivalsShown = string.Empty;
+                ForgetArrivalExtras(); // CHANGED (just arrived, no waiting): the offers are kept now; ask again
                 QueueArrivals();
             }));
         }
@@ -413,7 +542,8 @@ public partial class MainWindow
     // "14 installers, 2.1 GB (9 look installed)  Review": null when the folder has none.
     private StackPanel? InstallersLine()
     {
-        if (_installers.Count == 0)
+        // CHANGED (just arrived, no waiting): only the installers of the folder on screen.
+        if (_installers.Count == 0 || !string.Equals(_installersFolder, _viewModel.CurrentPath, StringComparison.OrdinalIgnoreCase))
             return null;
 
         var installed = _installers.Count(file => file.State == InstallerState.Installed);
@@ -608,7 +738,7 @@ public partial class MainWindow
         if (result.Succeeded)
             _viewModel.ReportStatus($"Moved {item.Name} to {Path.GetFileName(Path.TrimEndingDirectorySeparator(folder))}.");
 
-        _arrivalsShown = string.Empty; // what was learned from this move may change the other tiles' offers
+        ForgetArrivalExtras(); // CHANGED (just arrived, no waiting): what was learned from this move may change the other tiles' offers
         _ = _viewModel.RefreshAsync();
     }
 

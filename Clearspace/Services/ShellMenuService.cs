@@ -283,6 +283,7 @@ internal static class ShellMenuService
     {
         var path = FreeName(parent, "New folder", string.Empty);
         Directory.CreateDirectory(path);
+        UndoHistory.Record(new CreatedStep(path)); // NEW (undo)
         return path;
     }
 
@@ -294,6 +295,7 @@ internal static class ShellMenuService
             File.Copy(source, path);
         else
             File.WriteAllBytes(path, template.Data ?? []);
+        UndoHistory.Record(new CreatedStep(path)); // NEW (undo)
         return path;
     }
 

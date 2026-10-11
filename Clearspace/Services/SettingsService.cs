@@ -41,6 +41,13 @@ public sealed class SettingsData
     // NEW (downloads): the "Just arrived" strip at the top of Downloads folders.
     public bool ShowJustArrived { get; set; } = true;
 
+    // NEW (shelf and inspector): the column of panels on the far side of the file list (MainWindow.Dock.cs):
+    // whether the Inspector and the Shelf are shown, how wide the column was left, and what is on the shelf.
+    public bool ShowInspector { get; set; }
+    public bool ShowShelf { get; set; }
+    public double DockWidth { get; set; } = 300;
+    public List<string> ShelfItems { get; set; } = [];
+
     // NEW (downloads): where downloaded files were moved to, to offer the same folder again. Counts of
     // moves per destination folder, kept per site and per kind of file. See Services/FilingMemory.cs.
     public Dictionary<string, Dictionary<string, int>> FilingHabits { get; set; } = new(StringComparer.Ordinal);
@@ -218,6 +225,7 @@ public static class SettingsService
                     loaded.PinnedDirectories = new Dictionary<string, string>(loaded.PinnedDirectories, StringComparer.OrdinalIgnoreCase);
                     loaded.LibraryFolders ??= []; // NEW (your files)
                     loaded.RecentMoveFolders ??= []; // NEW (recommended folders)
+                    loaded.ShelfItems = (loaded.ShelfItems ?? []).Where(path => !string.IsNullOrWhiteSpace(path)).ToList(); // NEW (shelf)
                     loaded.FilingHabits = new Dictionary<string, Dictionary<string, int>>(   // NEW (downloads)
                         (loaded.FilingHabits ?? []).Where(pair => pair.Value is { Count: > 0 }), StringComparer.Ordinal);
                     loaded.PinnedCategories ??= [];
@@ -536,6 +544,57 @@ public static class SettingsService
             return;
 
         Current.PreviewPaneWidth = Math.Clamp(value, 220, 900);
+        Save();
+    }
+
+    // NEW (shelf and inspector)
+    public static bool GetShowInspector() => Current.ShowInspector;
+
+    public static void SetShowInspector(bool value)
+    {
+        if (Current.ShowInspector == value)
+            return;
+
+        Current.ShowInspector = value;
+        Save();
+    }
+
+    public static bool GetShowShelf() => Current.ShowShelf;
+
+    public static void SetShowShelf(bool value)
+    {
+        if (Current.ShowShelf == value)
+            return;
+
+        Current.ShowShelf = value;
+        Save();
+    }
+
+    public static double GetDockWidth()
+    {
+        var width = Current.DockWidth;
+        return double.IsFinite(width) ? Math.Clamp(width, 220, 600) : 300;
+    }
+
+    public static void SetDockWidth(double value)
+    {
+        if (!double.IsFinite(value) || Math.Abs(Current.DockWidth - value) < 1)
+            return;
+
+        Current.DockWidth = Math.Clamp(value, 220, 600);
+        Save();
+    }
+
+    // What is on the shelf, in the order it was added. At most 1,000 things are kept.
+    internal static IReadOnlyList<string> GetShelfItems() => Current.ShelfItems;
+
+    internal static void SetShelfItems(IEnumerable<string> paths)
+    {
+        var list = paths.Where(path => !string.IsNullOrWhiteSpace(path)).Distinct(StringComparer.OrdinalIgnoreCase).Take(1000).ToList();
+        if (list.SequenceEqual(Current.ShelfItems, StringComparer.OrdinalIgnoreCase))
+            return;
+
+        Current.ShelfItems = list;
         Save();
     }
 

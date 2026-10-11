@@ -43,6 +43,13 @@ internal sealed class ThemesView : UserControl, IDisposable
 
     private bool _filling;
     private bool _disposed;
+    // REMOVED (edit in place): _studio, _galleryContent and ConfirmWindowClose. The page no longer holds a
+    // theme studio; editing happens on the window itself (ThemeEditor.cs), so the page always closes.
+    internal bool TryClose() => true;
+
+    /// <summary>NEW (edit in place): "Create a theme" (null) or "Edit theme…": the window closes this page
+    /// and goes into edit mode.</summary>
+    public event EventHandler<ThemeInfo?>? EditRequested;
 
     public event EventHandler? CloseRequested;
 
@@ -51,6 +58,9 @@ internal sealed class ThemesView : UserControl, IDisposable
 
     /// <summary>"Open themes folder": the window closes this page and goes there.</summary>
     public event EventHandler? FolderRequested;
+
+    /// <summary>NEW (theme codes): "Paste code": the window reads the code from the clipboard and adds the theme.</summary>
+    public event EventHandler? PasteCodeRequested;
 
     /// <summary>"Show its file": the window closes this page and selects the theme's file in the Themes folder.</summary>
     public event EventHandler<string>? ShowFileRequested;
@@ -86,14 +96,22 @@ internal sealed class ThemesView : UserControl, IDisposable
 
         var create = FileBackupUi.TextButton("Create a theme…", primary: true);
         create.VerticalAlignment = VerticalAlignment.Top;
-        create.Click += (_, _) => OpenStudio(null);
+        create.Click += (_, _) => OpenStudio(null); // CHANGED (edit in place): asks the window to go into edit mode
         DockPanel.SetDock(create, Dock.Right);
 
         var import = FileBackupUi.TextButton("Import…", primary: false);
         import.VerticalAlignment = VerticalAlignment.Top;
-        import.ToolTip = "Add a theme file somebody made";
+        import.ToolTip = "Add a theme file or a deck file somebody made";   // CHANGED (deck files)
         import.Click += (_, _) => ImportRequested?.Invoke(this, EventArgs.Empty);
         DockPanel.SetDock(import, Dock.Right);
+
+        // NEW (theme codes): a deck (or a card) somebody sent as a code, read from the clipboard.
+        var paste = FileBackupUi.TextButton("Paste code", primary: false);
+        paste.VerticalAlignment = VerticalAlignment.Top;
+        paste.ToolTip = "Add a theme from a deck code somebody sent you (copy it first; it starts with CS-)";
+        paste.Margin = new Thickness(0, 0, 8, 0);
+        paste.Click += (_, _) => PasteCodeRequested?.Invoke(this, EventArgs.Empty);
+        DockPanel.SetDock(paste, Dock.Right);
 
         var folder = FileBackupUi.TextButton("Open themes folder", primary: false);
         folder.VerticalAlignment = VerticalAlignment.Top;
@@ -111,6 +129,7 @@ internal sealed class ThemesView : UserControl, IDisposable
         header.Children.Add(back);
         header.Children.Add(create);
         header.Children.Add(import);
+        header.Children.Add(paste);   // NEW (theme codes)
         header.Children.Add(folder);
         header.Children.Add(titles);
 
@@ -381,22 +400,8 @@ internal sealed class ThemesView : UserControl, IDisposable
         return menu.Items.Count > 0 ? menu : null;
     }
 
-    private void OpenStudio(ThemeInfo? theme)
-    {
-        try
-        {
-            var studio = new ThemeStudioWindow(theme) { Owner = Window.GetWindow(this) };
-            if (studio.ShowDialog() == true)
-            {
-                Rebuild();
-                Report($"{studio.SavedName} is saved and now in use.");
-            }
-        }
-        catch (Exception error) when (error is ThemeFormatException or System.IO.IOException or UnauthorizedAccessException)
-        {
-            Report("This theme could not be opened: " + error.Message, true);
-        }
-    }
+    // CHANGED (edit in place): asks the window to edit the theme on itself, instead of opening the studio here.
+    internal void OpenStudio(ThemeInfo? theme) => EditRequested?.Invoke(this, theme);
 
     private static bool IsCurrent(ThemeInfo theme) =>
         string.Equals(theme.Name, ThemeService.Current, StringComparison.OrdinalIgnoreCase);

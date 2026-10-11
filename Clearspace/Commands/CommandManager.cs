@@ -67,8 +67,17 @@ public sealed class CommandManager
         // NEW (preview pane)
         Add(new TogglePreviewPaneAction(context));
 
+        // NEW (shelf and inspector)
+        Add(new ToggleInspectorAction(context));
+        Add(new ToggleShelfAction(context));
+        Add(new AddToShelfAction(context));
+
         // NEW (map network drive)
         Add(new MapNetworkDriveAction(context));
+
+        // NEW (undo)
+        Add(new UndoAction(context));
+        Add(new RedoAction(context));
 
         void Add(IAction action) => _commands[action.Code] = new RichCommand(action, context);
     }

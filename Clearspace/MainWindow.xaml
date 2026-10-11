@@ -1028,9 +1028,20 @@
                     </Button.Style>
                 </Button>
                 <!-- NEW (preview pane): shows or hides the pane that previews the selected file. -->
-                <Button Style="{StaticResource IconButton}" Content="&#xE8A1;"
-                        Command="{Binding PreviewPaneCommand}" ToolTip="Preview pane  ·  Alt+P"
-                        AutomationProperties.Name="Preview pane" />
+                <!-- CHANGED (lit when open): these three are toggles now, lit in the accent colour while their panel
+                     is open, like Show hidden items. IsChecked is set by the window whenever the panel opens or
+                     closes (SetPreviewShown, SetInspectorShown, SetShelfShown), so it is right however the panel
+                     was opened or closed: this button, the shortcut, or the panel's own close button. -->
+                <ToggleButton x:Name="PreviewToggle" Style="{StaticResource IconToggle}" Content="&#xE8A1;"
+                              Command="{Binding PreviewPaneCommand}" ToolTip="Preview pane  ·  Alt+P"
+                              AutomationProperties.Name="Preview pane" />
+                <!-- NEW (inspector, shelf): the details of the selected file, and the place to collect files. -->
+                <ToggleButton x:Name="InspectorToggle" Style="{StaticResource IconToggle}" Content="&#xE946;"
+                              Command="{Binding InspectorCommand}" ToolTip="Inspector  ·  Alt+I"
+                              AutomationProperties.Name="Inspector" />
+                <ToggleButton x:Name="ShelfToggle" Style="{StaticResource IconToggle}" Content="&#xE8F1;"
+                              Command="{Binding ShelfCommand}" ToolTip="Shelf  ·  Alt+S"
+                              AutomationProperties.Name="Shelf" />
                 <ToggleButton Style="{StaticResource IconToggle}"
                               Content="&#xE7B3;"
                               IsChecked="{Binding ShowHiddenItems}"
@@ -1109,6 +1120,10 @@
                      shown; MainWindow.Preview.cs gives them their widths. -->
                 <ColumnDefinition x:Name="PreviewSplitterColumn" Width="0" />
                 <ColumnDefinition x:Name="PreviewColumn" Width="0" />
+                <!-- NEW (shelf and inspector): the column of panels on the far side, and its splitter. 0 wide until
+                     one of them is shown; MainWindow.Dock.cs gives them their widths. -->
+                <ColumnDefinition x:Name="DockSplitterColumn" Width="0" />
+                <ColumnDefinition x:Name="DockColumn" Width="0" />
             </Grid.ColumnDefinitions>
 
             <!-- NEW (complex themes): a panel behind the sidebar. See-through unless a theme gives the sidebar a
@@ -1685,6 +1700,9 @@
                                 <!-- CHANGED (only what applies): only in the details view, which is the one with columns. -->
                                 <MenuItem Header="Reset columns" Click="OnResetColumns"
                                           Visibility="{Binding IsDetails, Converter={StaticResource BoolToVisible}}" />
+                                <!-- NEW (shelf): collect the selection, to move, copy or zip it together with files from elsewhere. -->
+                                <MenuItem Header="Add to shelf" Command="{Binding AddToShelfCommand}"
+                                          Visibility="{Binding IsEnabled, RelativeSource={RelativeSource Self}, Converter={StaticResource BoolToVisible}}" />
                                 <MenuItem Header="Copy path" Command="{Binding CopyPathCommand}" InputGestureText="Ctrl+Shift+C" />
                                 <!-- CHANGED (zip folders): hidden when it can do nothing (something inside a ZIP file has no
                                      Windows properties window). -->
@@ -2076,6 +2094,27 @@
             <!-- CHANGED (complex themes): styled like the file area (Part.Files.*). -->
             <Border x:Name="PreviewCard"
                     Grid.Column="4"
+                    Background="{DynamicResource Part.Files.Fill}"
+                    BorderBrush="{DynamicResource Part.Files.Edge}"
+                    BorderThickness="{DynamicResource Part.Files.EdgeWidth}"
+                    CornerRadius="{DynamicResource Part.Files.Corner}"
+                    Margin="0,0,14,14"
+                    Visibility="Collapsed" />
+
+            <!-- NEW (shelf and inspector): the Inspector (details of the selected file) and the Shelf (files
+                 collected from anywhere), one above the other. Built in code (MainWindow.Dock.cs,
+                 Controls/InspectorPane.cs, Controls/ShelfPane.cs) the first time one is shown. It sits on the
+                 side away from the sidebar (Services/ThemeExplorerLayout.cs). -->
+            <GridSplitter x:Name="DockSplitter"
+                          Grid.Column="5"
+                          Width="6"
+                          HorizontalAlignment="Center"
+                          Background="Transparent"
+                          FocusVisualStyle="{x:Null}"
+                          Visibility="Collapsed" />
+
+            <Border x:Name="DockCard"
+                    Grid.Column="6"
                     Background="{DynamicResource Part.Files.Fill}"
                     BorderBrush="{DynamicResource Part.Files.Edge}"
                     BorderThickness="{DynamicResource Part.Files.EdgeWidth}"

@@ -194,7 +194,11 @@ internal static class ShellIntegration
     private const string OpenerMarker = "Clearspace";
     private static readonly string[] OpenerClasses = ["Directory", "Drive"];
 
-    private static string FolderOpenerCommand(string exePath) => $"\"{exePath}\" --open \"%1\"";
+    // CHANGED (Explorer stays Explorer): --open-folder, not --open, so Clearspace can tell Windows opening a
+    // folder (which may come from inside File Explorer, and then stays there: ExplorerHandoff) from someone
+    // choosing "Open in Clearspace". A setting that was on before is rewritten to this the next time
+    // Clearspace starts (Register: FolderOpenerIsCurrent compares the whole command).
+    private static string FolderOpenerCommand(string exePath) => $"\"{exePath}\" --open-folder \"%1\"";
 
     private static string LauncherCommand(string exePath) =>
         $"\"{exePath}\" --open \"{Environment.GetFolderPath(Environment.SpecialFolder.UserProfile)}\"";
@@ -239,8 +243,10 @@ internal static class ShellIntegration
             {
                 using (var verb = shell.CreateSubKey(OpenerVerb, writable: true))
                 {
-                    verb.SetValue(string.Empty, "Open in Clearspace");
-                    verb.SetValue("Icon", exePath);
+                    // CHANGED (Explorer stays Explorer): shown in Explorer's menu as plain "Open", because from
+                    // inside Explorer it now opens the folder in Explorer. "Open in Clearspace" is its own entry.
+                    verb.SetValue(string.Empty, "Open");
+                    verb.DeleteValue("Icon", throwOnMissingValue: false); // CHANGED (Explorer stays Explorer): a plain "Open", like Explorer's own
                     // Remember what was the default before (another file manager's verb, usually nothing).
                     if (!isOurs)
                     {

@@ -323,6 +323,10 @@ internal sealed class BatchRenameWindow : Window
             return;
         }
 
+        // NEW (undo): the whole batch is one step; Ctrl+Z gives every item its old name back.
+        if (outcome.Renamed.Count > 0)
+            UndoHistory.Record(new RenamedStep(outcome.Renamed));
+
         Outcome = outcome;
         DialogResult = true;
     }

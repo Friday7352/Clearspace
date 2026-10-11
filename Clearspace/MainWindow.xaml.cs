@@ -142,6 +142,7 @@ public partial class MainWindow : Window
         InitializeWindows(); // NEW (new window): "Open in new window" and Ctrl+N
         InitializeBatchRename(); // NEW (batch rename): Rename with several items selected
         InitializePreview(); // NEW (preview pane): Alt+P, the pane beside the file list
+        InitializeDock(); // NEW (shelf and inspector): Alt+I, Alt+S, the column of panels on the far side
         InitializeDuplicates(); // NEW (duplicates): the Find duplicates page, and selecting a file it sends you to
         InitializeNetworkDrives(); // NEW (map network drive): "Map network drive…" and "Disconnect"
         InitializeBackup(); // NEW (backup): Settings > "Back up settings and tags…", and automatic backups
@@ -158,6 +159,7 @@ public partial class MainWindow : Window
         ToolbarRow.IsKeyboardFocusWithinChanged += (_, _) => UpdateToolbarFade();
         // CHANGED (duplicates): also stops a duplicate search that is still running.
         Closed += (_, _) => { ThemeService.Changed -= OnThemeChanged; ThemeService.ReloadFailed -= OnThemeReloadFailed; _indexingView?.Dispose(); _diskUsageView?.Dispose(); _duplicatesView?.Dispose(); _themesView?.Dispose(); _viewModel.Dispose(); };   // CHANGED (themes page): + the Themes page
+        Closing += (_, e) => ThemeEditClosing(e);   // CHANGED (edit in place): was the Themes page asking about its studio
         PreviewKeyDown += OnPreviewKeyDown;
         PreviewMouseDown += OnWindowMouseDown;
         PreviewMouseMove += OnSidebarMouseMove;
@@ -532,6 +534,9 @@ public partial class MainWindow : Window
 
     private void OnPreviewKeyDown(object sender, KeyEventArgs e)
     {
+        // NEW (edit in place): while a theme is being made on the window, every key goes to the editor.
+        if (ThemeEditKey(e)) return;
+
         // NEW (drag to select): Esc while a selection rectangle is out puts the selection back as it was.
         // Every other key is swallowed until the button is let go: the arrow keys, Space or Ctrl+A would
         // change the selection under the rectangle while it is keeping its own count of it.
@@ -677,6 +682,8 @@ public partial class MainWindow : Window
 
     private void OnWindowMouseDown(object sender, MouseButtonEventArgs e)
     {
+        if (_themeEdit is not null) return; // NEW (edit in place): the mouse's back button does nothing while editing
+
         if (_indexingView is not null)
         {
             if (e.ChangedButton == MouseButton.XButton1) { CloseIndexing(); e.Handled = true; }
