@@ -24,7 +24,8 @@
     <!-- Text -->
     <SolidColorBrush x:Key="Ink"           Color="#FFECEFF4" />
     <SolidColorBrush x:Key="InkMuted"      Color="#FF9AA3B2" />
-    <SolidColorBrush x:Key="InkFaint"      Color="#FF6E7786" />
+    <!-- CHANGED (readability): secondary and faint text raised to at least 4.5:1 against the page and the file area, so column headings, sidebar labels and status text stay easy to read. -->
+    <SolidColorBrush x:Key="InkFaint"      Color="#FF7E8794" />
     <SolidColorBrush x:Key="InkDisabled"   Color="#FF48505C" />
 
     <!-- Accent -->

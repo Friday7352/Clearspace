@@ -490,7 +490,8 @@ internal sealed class FileVersionsWindow : Window
             {
                 // The Recycle Bin first. If the file is still there afterwards (in use, or the question
                 // Windows asks was answered No), nothing is replaced.
-                FileOperationService.Delete([_path], new WindowInteropHelper(this).Handle);
+                using (UndoHistory.Pause()) // CHANGED (undo): part of a restore, not something to undo on its own
+                    FileOperationService.Delete([_path], new WindowInteropHelper(this).Handle);
                 if (File.Exists(_path))
                 {
                     ShowStatus($"{name} could not be moved to the Recycle Bin (it may be open in a program), so it was left as it is.", problem: true);

@@ -34,8 +34,15 @@ public sealed class DiskUsageWindowTests
                 try
                 {
                     // Load resources without starting the real app or its filesystem services.
-                    var app = new App();
+                    // Application queues startup in its constructor. Resource rendering must not
+                    // start Explorer, filesystem watchers, or dialogs when layout pumps messages.
+                    void SuppressStartup(object? sender, DispatcherHookEventArgs args) => args.Operation.Abort();
+                    dispatcher.Hooks.OperationPosted += SuppressStartup;
+                    App app;
+                    try { app = new App(); }
+                    finally { dispatcher.Hooks.OperationPosted -= SuppressStartup; }
                     app.InitializeComponent();
+                    ThemeStudioWindowChecks.Verify(app);
                     await CheckIndexingOverview();
                     var index = Sample();
                     var second = new VolumeIndex(@"D:\", 2);

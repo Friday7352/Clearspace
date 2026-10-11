@@ -89,6 +89,11 @@ public sealed class ExplorerContext : ObservableObject
     // NEW (preview pane): shows or hides the preview pane beside the file list. Set by the main window.
     public Action? TogglePreviewPane { get; set; }
 
+    // NEW (shelf and inspector): MainWindow.Dock.cs
+    public Action? ToggleInspector { get; set; }
+    public Action? ToggleShelf { get; set; }
+    public Action<IReadOnlyList<FileSystemItem>>? AddToShelf { get; set; }
+
     public Func<string, Task<bool>>? OpenLockedFile { get; set; }
 
     public Action? SelectAll { get; set; }

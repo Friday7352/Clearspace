@@ -119,10 +119,11 @@ public sealed class ThemeTests
                 var package = ThemePackage.Open(folder);
                 Assert.IsFalse(string.IsNullOrWhiteSpace(package.Manifest.Name), name);
 
-                // Nothing the theme defines may be dropped as unknown: count the keys before and after.
-                var written = System.Xml.Linq.XDocument.Parse(package.Markup).Root!.Elements().Count();
+                // Every written key must survive. The loader also adds defaults for newer theme features.
+                var written = System.Xml.Linq.XDocument.Parse(package.Markup).Root!.Elements()
+                    .Select(e => (string)e.Attribute(System.Xml.Linq.XName.Get("Key", ThemeMarkup.Xaml))!).ToArray();
                 var resources = ThemeLoader.Load(package);
-                Assert.AreEqual(written, resources.Count, name + " defines a key Clearspace does not know");
+                foreach (var key in written) Assert.IsTrue(resources.Contains(key), name + " defines an unknown key: " + key);
                 Assert.IsTrue(resources["Base"] is Brush, name);
                 Assert.IsTrue(resources["Ink"] is SolidColorBrush { IsFrozen: true }, name);
             }
@@ -489,7 +490,7 @@ public sealed class ThemeTests
 
         // Code reads the colour out of these, so they must be one flat colour.
         StringAssert.Contains(
-            Problem("<LinearGradientBrush x:Key=\"Ink\"><GradientStop Color=\"Red\" Offset=\"0\" /></LinearGradientBrush>"), "Ink must be one flat colour");
+            Problem("<LinearGradientBrush x:Key=\"Ink\"><GradientStop Color=\"Red\" Offset=\"0\" /></LinearGradientBrush>"), "Ink must be one flat color");
 
         // A value WPF cannot read.
         StringAssert.Contains(Problem("<SolidColorBrush x:Key=\"Base\" Color=\"#GGHHII\" />"), "cannot read");

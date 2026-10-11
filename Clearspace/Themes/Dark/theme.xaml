@@ -27,8 +27,9 @@
 
     <!-- Text -->
     <SolidColorBrush x:Key="Ink"           Color="#FFECE9E3" />
-    <SolidColorBrush x:Key="InkMuted"      Color="#FF9C968D" />
-    <SolidColorBrush x:Key="InkFaint"      Color="#FF6E6862" />
+    <!-- CHANGED (readability): secondary and faint text raised to at least 4.5:1 against the page and the file area, so column headings, sidebar labels and status text stay easy to read. -->
+    <SolidColorBrush x:Key="InkMuted"      Color="#FFA8A299" />
+    <SolidColorBrush x:Key="InkFaint"      Color="#FF8E8882" />
     <SolidColorBrush x:Key="InkDisabled"   Color="#FF4E4A45" />
 
     <!-- Accent -->
@@ -42,7 +43,7 @@
     <SolidColorBrush x:Key="Good"          Color="#FF70B284" />
     <SolidColorBrush x:Key="Warn"          Color="#FFD3A15F" />
     <SolidColorBrush x:Key="Bad"           Color="#FFD65F54" />
-    <SolidColorBrush x:Key="Quiet"         Color="#FF9C968D" />
+    <SolidColorBrush x:Key="Quiet"         Color="#FFA8A299" />
 
     <!-- Small fills -->
     <SolidColorBrush x:Key="ThumbRest"     Color="#26FFFFFF" />   <!-- scroll bar -->
@@ -64,7 +65,7 @@
     <!-- The highlighted row of a menu -->
     <SolidColorBrush x:Key="MenuHover"       Color="#0DFFFFFF" />
     <SolidColorBrush x:Key="MenuHoverInk"    Color="#FFECE9E3" />
-    <SolidColorBrush x:Key="MenuHoverMuted"  Color="#FF9C968D" />
+    <SolidColorBrush x:Key="MenuHoverMuted"  Color="#FFA8A299" />
     <SolidColorBrush x:Key="MenuHoverFaint"  Color="#FF4E4A45" />
     <SolidColorBrush x:Key="MenuHoverAccent" Color="#FFD3A15F" />
 
@@ -85,6 +86,13 @@
     <CornerRadius x:Key="R9">9</CornerRadius>
     <CornerRadius x:Key="R10">10</CornerRadius>
     <CornerRadius x:Key="R12">12</CornerRadius>
+
+    <!-- NEW (complex themes): the file area and the status bar line, as Surface, EdgeSunken, R12 and LineFaint
+         above. Other themes need not set these: they follow those four keys (ThemeParts in ThemeLoader.cs). -->
+    <SolidColorBrush x:Key="Part.Files.Fill"   Color="#FF232220" />
+    <SolidColorBrush x:Key="Part.Files.Edge"   Color="#FF33302C" />
+    <CornerRadius x:Key="Part.Files.Corner">12</CornerRadius>
+    <SolidColorBrush x:Key="Part.Status.Edge"  Color="#FF2A2825" />
     <CornerRadius x:Key="RPlayerBar">0,0,11,11</CornerRadius>
 
 </ResourceDictionary>

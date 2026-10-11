@@ -7,7 +7,9 @@
 // list, the same way Backup and restore and Find duplicates open. The page shows a small preview of every
 // theme and has Import and Open themes folder on it. Esc, the mouse's back button or the page's own Back
 // button return to the files.
-// This file opens and closes the page and does the two things the page asks the window for:
+// This file opens and closes the page and does the things the page asks the window for:
+//   - NEW (edit in place): Create a theme and Edit theme close the page and put the window into edit mode
+//     (MainWindow.ThemeEdit.cs).
 //   - Import asks for a theme file in Clearspace's own chooser, checks it, copies it into the Themes folder
 //     and switches to it. A theme file put into the folder by hand shows up the same way, without importing.
 //   - Open themes folder (and "Show its file" on a theme) goes there in Clearspace itself.
@@ -34,7 +36,8 @@ public partial class MainWindow
 
     private void OpenThemes()
     {
-        if (_themesView is not null || _diskUsageView is not null || _indexingView is not null ||
+        if (_themeEdit is not null || // NEW (edit in place)
+            _themesView is not null || _diskUsageView is not null || _indexingView is not null ||
             _duplicatesView is not null || _fileBackupView is not null)
             return;
 
@@ -42,6 +45,13 @@ public partial class MainWindow
         _themesView.CloseRequested += (_, _) => CloseThemes();
         _themesView.ImportRequested += (_, _) => ImportTheme();
         _themesView.FolderRequested += (_, _) => OpenThemesFolder();
+        _themesView.PasteCodeRequested += (_, _) => PasteThemeCode();   // NEW (theme codes)
+        // NEW (edit in place): "Create a theme" and "Edit theme…" close the page and put the window into edit mode.
+        _themesView.EditRequested += (_, theme) =>
+        {
+            CloseThemes();
+            StartThemeEdit(theme); // MainWindow.ThemeEdit.cs
+        };
         _themesView.ShowFileRequested += (_, file) =>
         {
             CloseThemes();
@@ -56,7 +66,7 @@ public partial class MainWindow
 
     private void CloseThemes()
     {
-        if (_themesView is null)
+        if (_themesView is null || !_themesView.TryClose())
             return;
 
         _themesView.Dispose(); // stops it listening for theme changes
@@ -82,7 +92,8 @@ public partial class MainWindow
             Places = [.. _viewModel.Sidebar],
             ShowHidden = _viewModel.ShowHiddenItems,
             FileExtension = ThemeLibrary.Extension,
-            FileWord = "theme file"
+            MoreExtensions = [ThemeDeckFile.Extension],   // NEW (deck files): a deck file is imported as a theme too
+            FileWord = "theme or deck file"
         })
         {
             Owner = this
@@ -91,6 +102,25 @@ public partial class MainWindow
         if (picker.ShowDialog() != true || picker.Chosen is not { } file)
             return;
         s_lastThemeFolder = Path.GetDirectoryName(file);
+
+        // NEW (deck files): a deck file's cards make a theme of your own, pictures and fonts included.
+        if (file.EndsWith(ThemeDeckFile.Extension, StringComparison.OrdinalIgnoreCase))
+        {
+            try
+            {
+                var deck = ThemeDeckFile.Read(file);
+                var id = deck.Theme().Save(ThemeService.Folder, deck.Name);
+                ThemeService.Refresh();
+                var shown = ThemeService.Apply(id);
+                var said = shown ? $"{deck.Name} was added to your themes." : $"{deck.Name} was added, but could not be put on screen: {ThemeService.LastProblem}";
+                if (_themesView is { } view) view.Report(said, !shown); else _viewModel.ReportStatus(said);
+            }
+            catch (Exception error) when (error is IOException or UnauthorizedAccessException or ThemeFormatException or ArgumentException)
+            {
+                MessageDialog.Show(this, error.Message, "That deck file cannot be used", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+            return;
+        }
 
         var theme = ThemeService.Import(file, existing => MessageDialog.Show(this,
             $"{existing.Label} is already in your themes.\n\nReplace it? Choose No to keep both.",
@@ -131,6 +161,34 @@ public partial class MainWindow
 
         CloseThemes();
         _viewModel.Navigation.Navigate(folder);
+    }
+
+    // NEW (theme codes): "Paste code" on the Themes page. A deck code becomes a theme of your own in the Themes
+    // folder and is put on screen; a card code is kept in My cards, to play while making a theme.
+    private void PasteThemeCode()
+    {
+        string text;
+        try { text = Clipboard.ContainsText() ? Clipboard.GetText() : ""; }
+        catch (System.Runtime.InteropServices.ExternalException) { _themesView?.Report("The clipboard is busy. Try again.", true); return; }
+        if (!ThemeCodes.LooksLikeCode(text)) { _themesView?.Report("Copy a Clearspace code first (it starts with CS-), then choose Paste code.", true); return; }
+        if (!ThemeCodes.TryRead(text, out var card, out var theme, out var name, out var problem)) { _themesView?.Report(problem, true); return; }
+        try
+        {
+            if (theme is not null)
+            {
+                var id = theme.Save(ThemeService.Folder, name);
+                ThemeService.Refresh();
+                var shown = ThemeService.Apply(id);
+                _themesView?.Report(shown ? $"{name} was added to your themes." : $"{name} was added, but could not be put on screen: {ThemeService.LastProblem}", !shown);
+            }
+            else if (card is not null)
+            {
+                ThemeCards.Keep(card);
+                _themesView?.Report($"{name} is kept in My cards. Play it while making a theme (Cards › Borrow cards › My cards).");
+            }
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException or ArgumentException or ThemeFormatException)
+        { _themesView?.Report("The code could not be saved: " + error.Message, true); }
     }
 
     // The theme on screen was saved again (someone is making it) and can no longer be read: the look stays

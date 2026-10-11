@@ -177,6 +177,55 @@ public sealed class TogglePreviewPaneAction(ExplorerContext context) : IAction
     }
 }
 
+// NEW (inspector): shows or hides the Inspector, the details of the selected file (Controls/InspectorPane.cs).
+public sealed class ToggleInspectorAction(ExplorerContext context) : IAction
+{
+    public CommandCode Code => CommandCode.ToggleInspector;
+    public string Label => "Inspector";
+    public string Description => "Show or hide the details of the selected file";
+    public string Glyph => "\uE946";
+    public HotKey HotKey => new(Key.I, ModifierKeys.Alt);
+
+    public Task ExecuteAsync(object? parameter = null)
+    {
+        context.ToggleInspector?.Invoke();
+        return Task.CompletedTask;
+    }
+}
+
+// NEW (shelf): shows or hides the Shelf, where files from anywhere are collected (Controls/ShelfPane.cs).
+public sealed class ToggleShelfAction(ExplorerContext context) : IAction
+{
+    public CommandCode Code => CommandCode.ToggleShelf;
+    public string Label => "Shelf";
+    public string Description => "Show or hide the shelf, where you collect files from anywhere";
+    public string Glyph => "\uE8F1";
+    public HotKey HotKey => new(Key.S, ModifierKeys.Alt);
+
+    public Task ExecuteAsync(object? parameter = null)
+    {
+        context.ToggleShelf?.Invoke();
+        return Task.CompletedTask;
+    }
+}
+
+// NEW (shelf): puts the selection on the shelf (and shows the shelf).
+public sealed class AddToShelfAction(ExplorerContext context) : IAction
+{
+    public CommandCode Code => CommandCode.AddToShelf;
+    public string Label => "Add to shelf";
+    public string Description => "Put the selected files on the shelf, to move, copy or zip them together later";
+    public string Glyph => "\uE8F1";
+
+    public bool IsExecutable => context.SelectedItems.Any(item => !item.IsDriveRoot && !item.IsInArchive);
+
+    public Task ExecuteAsync(object? parameter = null)
+    {
+        context.AddToShelf?.Invoke(context.SelectedItems);
+        return Task.CompletedTask;
+    }
+}
+
 public sealed class CopyItemAction(ExplorerContext context) : IAction
 {
     public CommandCode Code => CommandCode.CopyItem;
@@ -321,6 +370,7 @@ public sealed class NewFolderAction(ExplorerContext context) : IAction
         try
         {
             Directory.CreateDirectory(target);
+            UndoHistory.Record(new CreatedStep(target)); // NEW (undo)
             context.RequestRefresh();
         }
         catch (Exception)

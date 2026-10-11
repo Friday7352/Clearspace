@@ -185,9 +185,27 @@ internal static class NativeMethods
     internal const ushort FOF_NOCONFIRMATION = 0x0010;
     internal const ushort FOF_ALLOWUNDO = 0x0040;
     internal const ushort FOF_WANTNUKEWARNING = 0x4000;
+    // NEW (undo): one destination per source (undo puts each item back at its own old path), the new
+    // names Windows gave on a name clash (so undo knows where a copy really landed), and no question
+    // before re-creating a folder that has gone in the meantime.
+    internal const ushort FOF_MULTIDESTFILES = 0x0001;
+    internal const ushort FOF_WANTMAPPINGHANDLE = 0x0020;
+    internal const ushort FOF_NOCONFIRMMKDIR = 0x0200;
 
     [DllImport("shell32.dll", CharSet = CharSet.Unicode)]
     internal static extern int SHFileOperationW(ref SHFILEOPSTRUCT lpFileOp);
+
+    // NEW (undo): frees the list of new names SHFileOperationW hands back with FOF_WANTMAPPINGHANDLE.
+    [DllImport("shell32.dll")]
+    internal static extern void SHFreeNameMappings(IntPtr hNameMappings);
+
+    // NEW (undo): tells open Explorer windows (and the Recycle Bin's) that a folder changed, after undo puts
+    // something back from the Recycle Bin by itself.
+    internal const int SHCNE_UPDATEDIR = 0x00001000;
+    internal const uint SHCNF_PATHW = 0x0005;
+
+    [DllImport("shell32.dll", CharSet = CharSet.Unicode)]
+    internal static extern void SHChangeNotify(int wEventId, uint uFlags, string? dwItem1, IntPtr dwItem2);
 
 
     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]

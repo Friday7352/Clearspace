@@ -42,6 +42,7 @@
 
   <ItemGroup>
     <Resource Include="Assets\Clearspace.ico" />
+    <EmbeddedResource Include="MainWindow.xaml" LogicalName="Clearspace.ExplorerPreview.xaml" />
     <!-- REMOVED (theme files): Resource Include="Assets\Fonts\*.ttf". The Pixel theme's two fonts travel
          inside its theme file now (Themes\Pixel\fonts, with their licence texts), so they still need no
          installing. -->

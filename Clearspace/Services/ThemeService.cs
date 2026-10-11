@@ -1,7 +1,7 @@
-// Clearspace | Themes: which one is active, switching between them, and the theme colours that code needs.
+// Clearspace | Themes: which one is active, switching between them, and the theme colors that code needs.
 // NEW (themes): every window, menu, popup and dialog refers to the theme's keys with DynamicResource, so
 // swapping one merged dictionary in App.Resources repaints the whole app. Code that draws by hand (the
-// disk usage map, status colours in the file list) reads the frozen brushes below instead, which are
+// disk usage map, status colors in the file list) reads the frozen brushes below instead, which are
 // refreshed on every switch.
 // CHANGED (theme files): themes are no longer compiled into the app. Each one is a file in the Themes folder
 // beside Clearspace.exe (ThemePackage.cs describes what is inside one), including the ones that come with
@@ -16,7 +16,7 @@
 // CHANGED (themes page): Dark can never go missing. It is always in the list, and when its file has been
 // deleted or cannot be read, picking it shows the Dark look built into the app (the fallback above, with
 // no theme merged on top). Any other theme can be removed (Remove); the Themes page (ThemesView.cs) shows
-// each theme as a small window drawn in its own colours (PreviewResources) and is told when the list
+// each theme as a small window drawn in its own colors (PreviewResources) and is told when the list
 // changes (ListChanged).
 using System.Runtime.CompilerServices;
 using System.Windows;
@@ -78,8 +78,14 @@ public static class ThemeService
     /// <summary>NEW (theme files): the active theme's name as its theme.json gives it ("E-reader" for Paper).</summary>
     public static string CurrentLabel { get; private set; } = DefaultTheme;
 
-    // Raised after a switch, once the new colours are in place.
+    // Raised after a switch, once the new colors are in place.
     public static event Action? Changed;
+
+    // NEW (custom layouts): the active theme's layout (layout.json), or null for the usual one, and where its
+    // pictures are. A layout that cannot be read is left out (the theme's colours still apply); LayoutProblem says why.
+    internal static LayoutNode? Layout { get; private set; }
+    internal static Func<string, string?> LayoutImage { get; private set; } = _ => null;
+    internal static string? LayoutProblem { get; private set; }
 
     // NEW (theme files): why the last Apply() or Import() did not work, in words for the person using
     // Clearspace; and an event for when the theme on screen could not be shown again after its file changed
@@ -96,11 +102,14 @@ public static class ThemeService
     // whether the toolbar should fade while the pointer is elsewhere.
     public static IconStyle Icons { get; private set; } = IconStyle.System;
     public static bool IconsChanged { get; private set; }
+    internal static bool HasCustomIcons { get; private set; }
+    private static IReadOnlyDictionary<string, ImageBrush> _fileIcons = new Dictionary<string, ImageBrush>();
+    internal static object? FileIconResource(string key) => _fileIcons.GetValueOrDefault(key);
     public static bool FadeToolbar { get; private set; }
     public static bool EInk { get; private set; }   // NEW (e-ink)
     public static bool CrispText { get; private set; }   // NEW (pixel font)
 
-    // ---------------------------------------------------------------- colours for code
+    // ---------------------------------------------------------------- colors for code
     // These start as the dark theme's values so anything drawn before (or without) an Application,
     // such as the unit tests, looks the way it always did.
     private static readonly Color DarkBase = Color.FromRgb(0x1A, 0x19, 0x17);   // (declared first: BaseColor below starts as this)
@@ -182,6 +191,71 @@ public static class ThemeService
     // the reason in LastProblem.
     public static bool Apply(string? name, bool save = true) => Show(name, save, again: false);
 
+    internal static bool ApplyEdited(string name) => Show(name, save: true, again: true);
+
+    // ---------------------------------------------------------------- NEW (edit in place)
+
+    // While a theme is being edited, the draft is put on screen like any other theme (every window, the real
+    // files), without saving it in settings. EndDraft puts back the theme that was on screen before, or leaves
+    // the draft for ApplyEdited to replace with the saved file.
+    private static string? _draftReturn;                 // the theme to go back to, while a draft is on screen
+    private static string _draftIcons = string.Empty;    // what the last draft's icons were, so a change elsewhere does not redraw them
+    private static bool _quietIcons;
+
+    /// <summary>NEW (edit in place): the theme dictionary on screen (the draft while editing), so the editor can
+    /// tell which theme key a clicked spot is drawn with. Null for the built-in Dark.</summary>
+    internal static ResourceDictionary? Active => _active;
+
+    /// <summary>NEW (edit in place): whether a draft is on screen.</summary>
+    internal static bool Drafting => _draftReturn is not null;
+
+    /// <summary>NEW (edit in place): puts a theme that is being edited on screen. Returns null, or why it could
+    /// not be shown (the look then stays as it was).</summary>
+    internal static string? ShowDraft(ThemeStudioDocument document)
+    {
+        if (Application.Current is null) return "Clearspace is closing.";
+        ResourceDictionary next;
+        LayoutNode? layout;
+        string? layoutProblem;
+        Func<string, string?> layoutImage = _ => null;
+        try
+        {
+            var package = document.Package;
+            next = ThemeLoader.Load(package);
+            if (!ThemeLayout.TryParse(package.Layout, out layout, out layoutProblem)) layout = null;
+            if (layout is not null)
+            {
+                var assets = ThemeCache.Unpack(package);
+                layoutImage = name => assets.Image(name);
+            }
+        }
+        catch (Exception error) when (error is ThemeFormatException or ArgumentException or System.IO.IOException or InvalidOperationException)
+        {
+            return error.Message;
+        }
+        _draftReturn ??= Current;
+        var m = document.Manifest;
+        var icons = m.Icons + "|" + string.Join("|", next.Keys.Cast<object>().OfType<string>().Where(ThemeFileIcons.IsKey).OrderBy(k => k, StringComparer.Ordinal));
+        _quietIcons = icons == _draftIcons;
+        _draftIcons = icons;
+        var info = new ThemeInfo("studio-draft", string.IsNullOrWhiteSpace(m.Name) ? "Your theme" : m.Name, m.Experimental, m.Icons, m.FadeToolbar, m.EInk, m.CrispText)
+        { Stamp = Guid.NewGuid().ToString("N") };
+        Layout = layout; LayoutImage = layoutImage; LayoutProblem = layoutProblem;
+        try { Install(info, next, save: false); }
+        finally { _quietIcons = false; }
+        return null;
+    }
+
+    /// <summary>NEW (edit in place): ends editing. <paramref name="restore"/> puts back the theme that was on
+    /// screen before the draft; without it the draft stays until the saved theme is applied.</summary>
+    internal static void EndDraft(bool restore)
+    {
+        var back = _draftReturn;
+        _draftReturn = null; _draftIcons = string.Empty;
+        if (restore && back is not null && !Show(back, save: false, again: true))
+            Show(DefaultTheme, save: false, again: true);
+    }
+
     /// <summary>NEW (theme files): reads the Themes folder again and returns what is in it (the Themes
     /// page does this each time it opens).</summary>
     public static IReadOnlyList<ThemeInfo> Refresh() => ThemeLibrary.Refresh();
@@ -222,7 +296,7 @@ public static class ThemeService
         var wasCurrent = string.Equals(theme.Name, Current, StringComparison.OrdinalIgnoreCase);
         try
         {
-            if (!ThemeLibrary.Remove(theme, path => FileOperationService.Delete([path], owner).Succeeded))
+            if (!ThemeLibrary.Remove(theme, path => { using var quiet = UndoHistory.Pause(); return FileOperationService.Delete([path], owner).Succeeded; } /* CHANGED (undo): housekeeping, not recorded */))
                 return false;
         }
         catch (ThemeFormatException error)
@@ -241,7 +315,7 @@ public static class ThemeService
     /// <summary>
     /// NEW (themes page): everything a theme defines, with Clearspace's fallback values underneath, for
     /// drawing a preview of it: put the result in an element's Resources and whatever is inside that
-    /// element looks its colours, fonts and corners up in this theme instead of the one on screen.
+    /// element looks its colors, fonts and corners up in this theme instead of the one on screen.
     /// Null, with the reason in <paramref name="problem"/>, when the theme cannot be read.
     /// Call it on the UI thread; nothing on screen changes.
     /// </summary>
@@ -313,11 +387,22 @@ public static class ThemeService
 
         // NEW (themes page): null is the Dark look built into the app: nothing merged on top of the fallback.
         ResourceDictionary? next = null;
+        LayoutNode? layout = null;                       // NEW (custom layouts)
+        Func<string, string?> layoutImage = _ => null;
+        string? layoutProblem = null;
         if (!theme.BuiltIn)
         {
             try
             {
-                next = ThemeLoader.Load(ThemePackage.Open(theme.Path));
+                // CHANGED (custom layouts): the package is opened once for the colours and the layout.
+                var package = ThemePackage.Open(theme.Path);
+                next = ThemeLoader.Load(package);
+                if (!ThemeLayout.TryParse(package.Layout, out layout, out layoutProblem)) layout = null;
+                if (layout is not null)
+                {
+                    var assets = ThemeCache.Unpack(package);
+                    layoutImage = name => assets.Image(name);
+                }
             }
             catch (Exception) when (!again && ThemeLibrary.IsDefault(theme.Name))
             {
@@ -325,6 +410,7 @@ public static class ThemeService
                 // (Not while its file is being saved again and again by someone changing it; they are told
                 // what is wrong instead, below.)
                 next = null;
+                layout = null; // NEW (custom layouts)
             }
             catch (ThemeFormatException error)
             {
@@ -338,6 +424,14 @@ public static class ThemeService
             }
         }
 
+        Layout = layout; LayoutImage = layoutImage; LayoutProblem = layoutProblem; // NEW (custom layouts)
+        Install(theme, next, save);
+        return true;
+    }
+
+    private static void Install(ThemeInfo theme, ResourceDictionary? next, bool save)
+    {
+        var app = Application.Current;
         UnflipAllRows();
 
         // CHANGED (theme files): the active theme is its own entry, after the fallback dictionaries from
@@ -360,10 +454,21 @@ public static class ThemeService
         ReadTheme(app, next);
 
         // NEW (experimental themes): the theme's icon set and toolbar behaviour. Drawn icons are thrown away
-        // on every switch because some styles take their colour from the theme.
-        // CHANGED (dark sketchbook): two themes can share a drawn style and still colour it differently
+        // on every switch because some styles take their color from the theme.
+        // CHANGED (dark sketchbook): two themes can share a drawn style and still color it differently
         // (Sketchbook's graphite outline is chalk-white on black paper), so any switch to a drawn style counts.
-        IconsChanged = theme.Icons != Icons || theme.Icons != IconStyle.System;
+        var fileIcons = new Dictionary<string, ImageBrush>();
+        if (next is not null)
+            foreach (var key in next.Keys.Cast<object>().OfType<string>().Where(ThemeFileIcons.IsKey).ToArray())
+                if (next[key] is ImageBrush image)
+                {
+                    var frozen = image.CloneCurrentValue(); frozen.Freeze(); fileIcons[key] = frozen;
+                }
+        _fileIcons = fileIcons; // Immutable snapshot: icon requests also run on worker threads.
+        var customIcons = fileIcons.Count > 0;
+        // CHANGED (edit in place): a draft whose icons did not change does not redraw every icon on each edit.
+        IconsChanged = !_quietIcons && (theme.Icons != Icons || theme.Icons != IconStyle.System || customIcons || HasCustomIcons);
+        HasCustomIcons = customIcons;
         Icons = theme.Icons;
         FadeToolbar = theme.FadeToolbar;
         EInk = theme.EInk;
@@ -381,7 +486,6 @@ public static class ThemeService
             SettingsService.SetTheme(theme.Name);
 
         Changed?.Invoke();
-        return true;
     }
 
     // NEW (theme files): something in the Themes folder changed (on the UI thread, a moment after the last
@@ -428,9 +532,9 @@ public static class ThemeService
         CardEdgePen = FrozenPen(CardEdge, 1);
         AccentEdgePen = FrozenPen(Solid(0xFF, Accent.Color.R, Accent.Color.G, Accent.Color.B), 2);
 
-        // CHANGED (experimental themes): a theme whose window background is not one flat colour (Glass is a
-        // gradient, Sketchbook is graph paper) names a plain colour for code to use as "Theme.BaseColor".
-        // CHANGED (theme files): a gradient without one counts as its first colour; anything else as dark.
+        // CHANGED (experimental themes): a theme whose window background is not one flat color (Glass is a
+        // gradient, Sketchbook is graph paper) names a plain color for code to use as "Theme.BaseColor".
+        // CHANGED (theme files): a gradient without one counts as its first color; anything else as dark.
         BaseColor = app.TryFindResource("Theme.BaseColor") is Color plain ? plain : app.TryFindResource("Base") switch
         {
             SolidColorBrush window => window.Color,
@@ -489,7 +593,7 @@ public static class ThemeService
     private const int DwmColorDefault = unchecked((int)0xFFFFFFFF);   // "let Windows choose"
 
     // Makes a window's title bar match the theme: dark or light, round or square corners, and (on
-    // Windows 11) the theme's own caption colours when it sets them. Windows 10 ignores the colours.
+    // Windows 11) the theme's own caption colors when it sets them. Windows 10 ignores the colors.
     // Call it once the window has a handle (SourceInitialized or later); Apply() repeats it for every
     // open window when the theme changes.
     public static void ApplyTitleBar(Window window)
@@ -522,9 +626,9 @@ public static class ThemeService
     private static int ColorRef(Color color) => color.R | color.G << 8 | color.B << 16;
 
     // ---------------------------------------------------------------- selected rows
-    // In most themes a selected row is a slightly different shade and its text keeps its colours. In
+    // In most themes a selected row is a slightly different shade and its text keeps its colors. In
     // Retro it is solid navy, so dark text would vanish. Rather than give every cell of every list a
-    // second set of colours, the theme lists replacements ("SelectedRow.Ink" ...) and these handlers
+    // second set of colors, the theme lists replacements ("SelectedRow.Ink" ...) and these handlers
     // merge them into a row's own resources while it is selected: each element inside the row looks a
     // key up through its parents, reaches the row first, and takes the replacement. Nothing happens in
     // themes that list no replacements.
@@ -553,6 +657,7 @@ public static class ThemeService
 
     private static void FlipRow(ListBoxItem row, bool selected)
     {
+        if (row.TryFindResource("ThemeStudio.Isolated") is true) return;
         var overrides = _selectedRow;
         if (overrides is null || row is ComboBoxItem)   // drop-down entries keep their own highlight
             return;

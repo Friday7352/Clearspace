@@ -46,13 +46,14 @@ public sealed class DownloadsTests
 
         var shown = JustArrived.Pick(items, Now);
 
-        CollectionAssert.AreEqual(new[] { "a minute.png", "an hour.pdf", "three days.zip" }, shown.Select(item => item.Name).ToArray(),
-            "no folders, no unfinished downloads, nothing hidden, nothing older than a week");
+        // CHANGED (always shown): old files count too; the strip shows the newest whatever their age.
+        CollectionAssert.AreEqual(new[] { "a minute.png", "an hour.pdf", "three days.zip", "last month.iso" }, shown.Select(item => item.Name).ToArray(),
+            "no folders, no unfinished downloads, nothing hidden");
 
         var many = Enumerable.Range(0, 12).Select(i => Row($"file {i:00}.txt", Now.AddMinutes(-i))).ToList();
         Assert.AreEqual(JustArrived.Most, JustArrived.Pick(many, Now).Count);
         Assert.AreEqual("file 00.txt", JustArrived.Pick(many, Now)[0].Name);
-        Assert.AreEqual(0, JustArrived.Pick([Row("old.txt", Now.AddDays(-8))], Now).Count, "nothing recent: the strip is not shown");
+        Assert.AreEqual(1, JustArrived.Pick([Row("old.txt", Now.AddDays(-8))], Now).Count, "CHANGED (always shown): an old file is still shown");
     }
 
     [TestMethod]

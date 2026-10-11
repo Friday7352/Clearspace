@@ -66,6 +66,12 @@ public partial class MainWindow
         try { paste.IsEnabled = Clipboard.ContainsFileDropList(); }
         catch (Exception) { paste.IsEnabled = false; }   // another program has the clipboard open
         menu.Items.Add(paste);
+
+        // NEW (undo): "Undo move of report.docx" / "Redo ...", as Explorer has them here; only when there is one.
+        if (UndoHistory.UndoWords is { } undoWords)
+            menu.Items.Add(Entry($"Undo {undoWords}", "\uE7A7", () => _viewModel.Commands[Clearspace.Commands.CommandCode.Undo].Execute(null), "Ctrl+Z"));
+        if (UndoHistory.RedoWords is { } redoWords)
+            menu.Items.Add(Entry($"Redo {redoWords}", "\uE7A6", () => _viewModel.Commands[Clearspace.Commands.CommandCode.Redo].Execute(null), "Ctrl+Y"));
         menu.Items.Add(new Separator());
 
         // ---- Terminal, then what installed apps add (Shift held = also the ones Explorer hides until Shift).

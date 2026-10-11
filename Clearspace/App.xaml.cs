@@ -71,6 +71,17 @@ public partial class App : Application
             return;
         }
 
+        // NEW (Explorer stays Explorer): Windows asked Clearspace to open a folder (the setting "Open folders
+        // with Clearspace"). When that came from inside a File Explorer window, the folder is shown there
+        // instead, and nothing of Clearspace opens (Services/ExplorerHandoff.cs).
+        if (e.Args.Length >= 2 && e.Args[0].Equals("--open-folder", StringComparison.OrdinalIgnoreCase) &&
+            Services.ShellCommands.Parse(e.Args) is { } folderAsked &&
+            Services.ExplorerHandoff.TryKeepInExplorer(folderAsked.Path))
+        {
+            Shutdown(0);
+            return;
+        }
+
         // NEW (Explorer integration): a command from Explorer goes to the Clearspace that's already running.
         if (Services.ShellCommands.Parse(e.Args) is { } command)
         {

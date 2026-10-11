@@ -47,6 +47,10 @@ internal sealed record FolderPickerOptions(string Heading, string Detail, string
     /// CHANGED (file backup): an empty ending ("") picks any file; the folders are then listed first.</summary>
     public string? FileExtension { get; init; }
 
+    /// <summary>NEW (deck files): other endings picked as well as FileExtension (".csdeck" beside a theme's
+    /// ".zip" on the Themes page). Ignored when FileExtension is not set.</summary>
+    public IReadOnlyList<string> MoreExtensions { get; init; } = [];
+
     /// <summary>What such a file is called in the hints ("backup").</summary>
     public string FileWord { get; init; } = "file";
 }
@@ -70,6 +74,9 @@ internal sealed class FolderPickerWindow : Window
     private Button? _pickedRow;
 
     private bool PicksFile => _options.FileExtension is not null;
+
+    // NEW (deck files): every ending that can be picked.
+    private IReadOnlyList<string> Endings => _options.FileExtension is { Length: > 0 } first ? [first, .. _options.MoreExtensions] : [];
 
     // CHANGED (file backup): picking a file of any kind ("What to back up" > File…), not one with a set ending.
     private bool AnyFile => _options.FileExtension is { Length: 0 };
@@ -300,7 +307,7 @@ internal sealed class FolderPickerWindow : Window
         if (!exists)
         {
             // NEW (pick a file): a file's own path typed or pasted in the box opens its folder with it marked.
-            if (_options.FileExtension is { } ending && full.EndsWith(ending, StringComparison.OrdinalIgnoreCase) &&
+            if (Endings.Any(ending => full.EndsWith(ending, StringComparison.OrdinalIgnoreCase)) &&   // CHANGED (deck files): any of the endings
                 Path.GetDirectoryName(full) is { Length: > 0 } parent && await Task.Run(() => File.Exists(full)))
             {
                 if (!await OpenAsync(parent, quiet))
@@ -357,7 +364,7 @@ internal sealed class FolderPickerWindow : Window
                 ? Path.GetFileName(marked)
                 : AnyFile
                     ? "Click a file to pick it. Files are listed under the folders."
-                    : $"Click a {_options.FileWord} to pick it. Files ending in {_options.FileExtension} are listed under the folders.", problem: false);
+                    : $"Click a {_options.FileWord} to pick it. Files ending in {string.Join(" or ", Endings)} are listed under the folders.", problem: false);
             return;
         }
 
@@ -401,10 +408,15 @@ internal sealed class FolderPickerWindow : Window
         {
             var showHidden = _options.ShowHidden;
             var ending = _options.FileExtension;
+            var more = _options.MoreExtensions;   // NEW (deck files)
             var read = await Task.Run(() =>
             {
                 var folders = ReadFolders(folder, showHidden);
                 var matching = ending is null ? new List<string>() : ReadFiles(folder, ending, showHidden);
+                // NEW (deck files): files with the other endings too, all newest first.
+                if (ending is { Length: > 0 } && more.Count > 0)
+                    matching = matching.Concat(more.SelectMany(e => ReadFiles(folder, e, showHidden))).Distinct(StringComparer.OrdinalIgnoreCase)
+                        .OrderByDescending(File.GetLastWriteTimeUtc).ToList();
                 return (Folders: folders, Files: matching);
             });
             found = read.Folders;
