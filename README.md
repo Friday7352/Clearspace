@@ -1,1091 +1,668 @@
-# Clearspace
+<p align="center">
+  <img src="docs/images/clearspace-logo.svg" width="96" alt="Clearspace logo">
+</p>
 
-Clearspace is a modern Windows file manager built to be a comfortable replacement for File Explorer: familiar file operations, a calmer interface, and better ways to organize and find work.
+<h1 align="center">Clearspace</h1>
 
-> **Work in progress:** Clearspace is still an early public release. There will be bugs and rough edges as it is used on more Windows setups and file collections. Please report issues you find; fixes and improvements will continue over time.
+<p align="center">
+  <b>A modern file manager for Windows: everything File Explorer does, plus the things you wish it did.</b><br>
+  <a href="https://github.com/Friday7352/Clearspace/releases/latest/download/ClearspaceSetup.exe">Download for Windows 10 and 11</a>
+  ·
+  <a href="#whats-new-in-170">What's new</a>
+  ·
+  <a href="https://github.com/Friday7352/Clearspace/issues">Report a problem</a>
+</p>
 
-<!-- CHANGED (user readme): this page is now for the person installing and using Clearspace. Installing
-     comes first. Building from source, publishing a release and the project layout moved to
-     DEVELOPMENT.md. -->
+> [!NOTE]
+> Clearspace is still young. There will be bugs and rough edges as it meets more PCs and file collections.
+> If something goes wrong, please [report it](#reporting-a-problem). Fixes and improvements keep coming.
+
+## What is Clearspace?
+
+Clearspace is a file manager: the program you use to open, move, copy, rename and delete your files. It works
+the way you expect from File Explorer, with tabs, drag and drop, right-click menus and undo. It also adds
+tools that make files easier to find, sort and look after.
+
+It sits **beside** File Explorer and does not remove or break it. You can use both, and you can make Clearspace
+the one Windows opens folders with whenever you like.
+
+**At a glance**
+
+- 📁 **Folders that adapt.** A photo folder opens as picture tiles, a music folder gets a player, a code folder shows Git status. Clearspace picks the [folder type](#folder-types) for you, or you choose.
+- 🔎 **Search that doesn't freeze.** Results start showing at once and keep arriving, across your whole PC if you like, with [tags](#tags-and-favorites) to find things wherever they live.
+- ⬇️ **A Downloads folder that helps.** Your newest downloads at the top, a way back to the page a file came from, and suggestions for where to file it.
+- 🗂️ **Handy side panels.** A [preview pane](#preview-pane), an [Inspector](#inspector) with everything about a file, and a [Shelf](#shelf) to gather files from anywhere.
+- 🗺️ **See what fills your drive.** A zoomable [disk usage map](#disk-usage-map), and a [duplicate finder](#find-duplicates).
+- 💾 **Backups built in.** [Back up](#backup-and-restore) folders and drives on a schedule, and get earlier versions of a file back.
+- 🔒 **Password locks.** [Encrypt files and folders](#password-locks) with a password, from Clearspace or from Explorer.
+- 🎨 **Themes.** Many [looks to choose from](#themes), and a theme creator for making your own (in beta).
+
+## Contents
+
+- [Install](#install) · [Updating](#updating) · [Uninstalling](#uninstalling) · [Reporting a problem](#reporting-a-problem)
+- [What's new in 1.7.0](#whats-new-in-170)
+- [The basics](#the-basics) · [Keyboard shortcuts](#keyboard-shortcuts)
+- [Folder types](#folder-types) · [The Downloads folder](#the-downloads-folder)
+- [Search and indexing](#search-and-indexing) · [Tags and Favorites](#tags-and-favorites)
+- [Preview pane](#preview-pane) · [Inspector](#inspector) · [Shelf](#shelf)
+- [ZIP files](#zip-files) · [Rename several items at once](#rename-several-items-at-once) · [Find duplicates](#find-duplicates)
+- [Disk usage map](#disk-usage-map)
+- [Backup and restore](#backup-and-restore) · [Settings and tags backup](#settings-and-tags-backup)
+- [Password locks](#password-locks)
+- [Photos and music](#photos-and-music)
+- [Open folders with Clearspace](#open-folders-with-clearspace)
+- [Themes](#themes) · [The theme creator (beta)](#the-theme-creator-beta)
+- [Where Clearspace keeps its data](#where-clearspace-keeps-its-data) · [License](#license) · [Building Clearspace yourself](#building-clearspace-yourself)
+
+---
+
 ## Install
 
-1. Download **[ClearspaceSetup.exe](https://github.com/Friday7352/Clearspace/releases/latest/download/ClearspaceSetup.exe)**, the newest release. Earlier versions are on the [Releases page](https://github.com/Friday7352/Clearspace/releases).
+1. Download **[ClearspaceSetup.exe](https://github.com/Friday7352/Clearspace/releases/latest/download/ClearspaceSetup.exe)**. Earlier versions are on the [Releases page](https://github.com/Friday7352/Clearspace/releases).
 2. Run it. Windows may show a blue **Windows protected your PC** notice, because the installer is not signed with a publisher certificate. Choose **More info**, then **Run anyway**.
-3. Follow the steps. Setup offers the two options described below.
+3. Follow the steps.
 
-**What you need:** 64-bit Windows 10 or Windows 11. Nothing else has to be installed first: everything Clearspace uses is inside the setup file or already part of Windows. The setup file works offline and downloads nothing.
+**What you need:** 64-bit Windows 10 or Windows 11. Nothing else has to be installed first, and the setup file
+works offline.
 
-**What setup does:** it installs Clearspace for your Windows account only, so it needs no administrator permission, and adds it to the Start menu. Clearspace sits beside File Explorer and does not replace it. Setup offers two options:
+**What setup does:** it installs Clearspace for your Windows account only (no administrator permission needed)
+and adds it to the Start menu. It offers two options:
 
 - **A desktop shortcut.**
-- **Instant indexing** (on by default) installs the Clearspace Index Helper service described under [Instant indexing and fast catch-up](#instant-indexing-and-fast-catch-up). Windows asks for administrator permission once, during setup. You can turn it on or off later from the Indexing page.
+- **Instant indexing** (on by default) installs a small helper service that makes search indexing much faster. See [Search and indexing](#search-and-indexing). Windows asks for administrator permission once. You can turn it on or off later from the Indexing page.
 
-<!-- CHANGED (user readme): the in-app update comes first; running a newer setup by hand is the fallback. -->
 ### Updating
 
-Clearspace updates itself. After the first install nobody has to download the installer by hand:
+Clearspace updates itself.
 
-- **Settings > Check for updates…** looks for a newer release right away.
-- **Settings > About Clearspace…** shows the version, where Clearspace and its data are, and the Windows and .NET it runs on, with the same **Check for updates** button and a **Copy details** button for bug reports.
-- **Check for updates automatically** (in the About window, on by default) looks quietly a few seconds after Clearspace starts and every 6 hours while it is open. It never interrupts: a newer version shows as an **Update available** chip in the status bar.
-- The update dialog shows what changed. **Update now** downloads the installer, checks it against the size and SHA-256 fingerprint GitHub lists for it, runs it with only a progress window, and opens Clearspace again. **Later** keeps the chip; **Skip this version** hides it until something newer is released.
+- It checks quietly a few seconds after it starts and every 6 hours while it is open. When there is a new version, an **Update available** chip appears in the status bar. It never interrupts you.
+- Click the chip, or choose **Settings > Check for updates…**, to see what changed. **Update now** downloads the new installer, checks it against the size and SHA-256 fingerprint GitHub lists for it, installs it and opens Clearspace again. **Later** keeps the chip; **Skip this version** hides it until something newer comes out.
+- The check is one request to GitHub. Nothing about your PC is sent. Turn off **Check for updates automatically** in **Settings > About Clearspace…** to stop it.
 
-The check is one request to GitHub for the newest Clearspace release. Nothing about your PC is sent beyond what any web request carries. Turn **Check for updates automatically** off in the About window to stop it.
+<details>
+<summary><b>Updating by hand, going back to an earlier version, and silent installs</b></summary>
 
-You can also update by hand: download the newer `ClearspaceSetup.exe` and run it. Setup sees the Clearspace that is already installed and opens on a page offering:
+**By hand:** download the newer `ClearspaceSetup.exe` and run it. Setup sees the installed Clearspace and offers:
 
-- **Update** (or **Repair** when the same version is installed) — replaces the app and keeps settings, tags, the saved index and locked files. Clearspace is closed first; anything unlocked for a visit is locked again before it closes.
-- **Update and choose the options again** — the same, plus the page with the desktop shortcut and Instant indexing options.
-- **Remove Clearspace** — starts the uninstaller.
+- **Update** (or **Repair** for the same version): replaces the app and keeps settings, tags, the saved index and locked files. Clearspace is closed first, and anything unlocked for a visit is locked again.
+- **Update and choose the options again**: the same, plus the page with the shortcut and Instant indexing options.
+- **Remove Clearspace**: starts the uninstaller.
 
 Copies of Clearspace older than 1.2.0 have no update check, so they need the newest installer run once by hand.
 
-<!-- NEW (go back) -->
-**Going back to an earlier version.** If a new version gives you trouble, **Settings > About Clearspace… > Earlier versions…** lists the releases before the one you have. **Go back to this** downloads that release's installer, checks it the same way an update is checked, and installs it over the current one. Your settings, tags and locked files are kept. Clearspace then stops mentioning the version you left, announces only releases newer than it, and **Settings > Check for updates…** takes you forward again whenever you want. Versions before 1.2.0 are not offered, because they cannot update themselves. If **Open folders with Clearspace** is on and the version you go back to does not have it yet, it is turned off first, so folders open in File Explorer again.
+**Going back:** if a new version gives you trouble, **Settings > About Clearspace… > Earlier versions…** lists the
+releases before yours. **Go back to this** installs that release over the current one, checked the same way as an
+update. Your settings, tags and locked files are kept. Clearspace then only announces releases newer than the one
+you went back to. Versions before 1.2.0 are not offered. If **Open folders with Clearspace** is on and the older
+version doesn't have it, it is turned off first, so folders open in File Explorer again.
 
-A silent run (`ClearspaceSetup.exe /VERYSILENT`) performs the plain update.
+**Silent install:** `ClearspaceSetup.exe /VERYSILENT` performs the plain update.
 
-<!-- CHANGED (user readme): says plainly that locked files are left in place; only their icon and
-     double-click handling go. -->
+</details>
+
 ### Uninstalling
 
-Uninstall Clearspace from Windows Settings like any other app, or run the setup again and choose **Remove Clearspace**. This closes Clearspace and removes the app, its shortcuts, its entries in Explorer's right-click menu, the lock icon and double-click handling for `.cslock` files, the "Open folders with Clearspace" setting (folders open in File Explorer again), and the Index Helper service (Windows asks for permission once to remove the service).
+Uninstall Clearspace from Windows Settings like any other app, or run the setup again and choose **Remove
+Clearspace**. This removes the app, its shortcuts, its entries in Explorer's right-click menu, the lock icons, the
+"Open folders with Clearspace" setting and the Index Helper service.
 
-**Your own files are never removed.** Files you left locked stay where they are, still encrypted. Without Clearspace they show a blank icon and cannot be opened; install Clearspace again and they open with the same password.
+**Your own files are never removed.** Before anything goes, the uninstaller asks up to two questions:
 
-Before anything is removed, the uninstaller asks up to two questions:
-
-1. **Locked files** (only when something is still locked): **Remove the locks first** opens Clearspace's *Remove all locks* dialog, which asks for your password and decrypts everything; **Leave them locked** uninstalls anyway.
-2. **Your data**: **Keep my data** leaves tags, folder types and settings in `%APPDATA%\Clearspace` and the saved index, lock icons and logs in `%LOCALAPPDATA%\Clearspace` for a later install. **Remove everything** deletes both folders. If items are still locked, the lock records (`tags.db`) and lock icons are kept either way.
+1. **Locked files** (only if something is still locked): **Remove the locks first** asks for your password and decrypts everything. **Leave them locked** uninstalls anyway. Locked files stay encrypted and can't be opened until Clearspace is installed again (then they open with the same password).
+2. **Your data**: **Keep my data** leaves your tags, folder types and settings for a later install. **Remove everything** deletes them. If anything is still locked, the lock records are kept either way.
 
 A silent uninstall asks nothing and leaves locks and data alone.
 
-<!-- NEW (user readme) -->
 ### Reporting a problem
 
-**Settings > About Clearspace…** has a **Copy details** button that copies the version and system details. Paste them into a new issue on the [Issues page](https://github.com/Friday7352/Clearspace/issues), with what you were doing when it went wrong.
+Choose **Settings > About Clearspace…** and press **Copy details**. Paste that into a new issue on the
+[Issues page](https://github.com/Friday7352/Clearspace/issues), with what you were doing when it went wrong.
 
-<!-- NEW (search trace) -->
-If searching is slow, attach `search-trace.log` from `%APPDATA%\Clearspace` as well. A search that takes 1.5 seconds or more leaves one line there saying how long each step took, and so does any moment the window stops responding. It holds timings and counts only, never what you typed, and stays on your PC unless you send it.
+Two small logs in `%APPDATA%\Clearspace` can help. They stay on your PC unless you send them:
 
-<!-- NEW: a short list of the recent additions, linking to the sections below. -->
-## What's new
+- `search-trace.log`: when searching is slow. It records how long each step of a slow search took, never what you typed.
+- `just-arrived-trace.log`: when the Downloads folder's **Just arrived** strip misbehaves. It records what the strip decided and why, with the names and dates of your newest downloads.
 
-<!-- NEW (undo) -->
-- **[Undo and redo](#familiar-file-manager-foundations)**: Ctrl+Z puts back a move, copy, rename, delete or new folder; Ctrl+Y does it again.
-<!-- NEW (themes page) -->
-- **[A page of themes, each with a preview](#themes)**: Settings > Choose a theme… shows every theme as a small window in its own colors. Click one to use it.
-<!-- NEW (zip folders) -->
-- **[Open ZIP files like folders](#zip-files)**: double-click a `.zip` to look inside it, and open, copy or drag out what you need without extracting it first.
-<!-- NEW (theme files) -->
-- **[Add themes, and make your own](#themes)**: every theme is one file in a Themes folder. Import one somebody made from the Settings menu, or make your own from a copy of any theme.
-<!-- NEW (live drives) -->
-- **[Drives show up as you plug them in](#familiar-file-manager-foundations)**: a USB stick or an external drive appears in the sidebar and on This PC the moment it is connected, and goes when it is taken out.
-<!-- NEW (file backup) -->
-- **[Backup and restore](#backup-and-restore)**: back up files, folders and whole drives to another place, by hand or on a schedule, as a clone, dated versions or zip files, and get a file's earlier versions back from its right-click menu. Clearspace sees what is in a folder (documents, photos, projects) and sets the options that suit it.
-<!-- NEW (backup) -->
-- **[Settings and tags backup](#settings-and-tags-backup)**: back up your settings and tags by hand or automatically, and put them back if they are ever lost.
-<!-- NEW (menu by type) -->
-- **[A right-click menu that fits the file](#familiar-file-manager-foundations)**: play a sound file, view or copy a picture, run a program as administrator, print a document, and more, with cut, copy, paste, rename and delete as a row of icons.
-<!-- NEW (map network drive) -->
-- **[Map a network drive](#familiar-file-manager-foundations)**: give a shared folder on another computer or a NAS a drive letter, and disconnect it again, without opening File Explorer.
-<!-- NEW (drag to select) -->
-- **Drag to select**: drag across empty space in the file list to draw a rectangle, and every file it touches is selected, as in File Explorer.
-<!-- NEW (duplicates, downloads, scroll while dragging) -->
-- **Scroll while dragging**: hold a dragged file near the top or bottom edge of the list, or turn the mouse wheel, and the list scrolls so you can drop it on a folder that was off screen.
-- **[Find duplicates](#find-duplicates)**: finds exact copies in any folder and removes the ones you tick, always keeping one.
-- **[A Downloads folder that helps](#the-downloads-folder)**: your newest downloads at the top with one-click actions, a way back to the page a file came from, suggested folders for filing, and a list of setup files you no longer need.
-<!-- NEW (switching): the four additions made for people moving over from File Explorer. -->
-- **Folders stay up to date**: a download that finishes, or a file another program saves, renames or deletes, shows up in the folder you have open without pressing F5.
-- **[Preview pane](#preview-pane)**: Alt+P shows the selected picture, text file or ZIP beside the list without opening it.
-<!-- NEW (shelf and inspector) -->
-- **[Inspector](#inspector)**: Alt+I shows everything about the selected file: its real size (folders too), pixels, dates, the program that opens it, its fingerprint.
-- **[Shelf](#shelf)**: Alt+S. Collect files from anywhere, then move, copy or zip them all at once.
-- **[ZIP files](#zip-files)**: open one like a folder; extract and compress from the right-click menu.
-- **[Rename several items at once](#rename-several-items-at-once)**: F2 with more than one item selected, with every new name shown before anything changes.
-- **[Open folders with Clearspace](#open-folders-with-clearspace)**: folders from the desktop, other programs and Win+E open in Clearspace.
-<!-- NEW (user readme): the 1.3.0 additions. -->
-- **[Tabs](#familiar-file-manager-foundations)**: Ctrl+T for a new tab, or middle-click a folder to open it in one. Each tab keeps its own history, search, scroll position and selection.
-- **[More than one window](#familiar-file-manager-foundations)**: Ctrl+N or "Open in new window".
-- **[Your own folders in Your files](#familiar-file-manager-foundations)**, beside Desktop, Documents and the rest.
-- **[Password locks](#password-protected-files-and-folders)** for files and folders, with lock icons and right-click entries in Windows Explorer too.
-- **[Folder types](#folder-types-that-adapt-to-your-work)**: thirteen built-in types, types you save yourself, a Projects strip, and Git status in Code folders.
-- **[Instant indexing and fast catch-up](#instant-indexing-and-fast-catch-up)**: a drive's first index takes seconds, and reopening Clearspace reads only what changed.
-- **[The Indexing page](#see-what-is-indexed)** shows how each drive is kept current and what the index is doing right now.
-- **[Disk usage map](#disk-usage-visualizer)**: your drives, motherboard, memory and processor when you zoom out, plus experimental 3D views.
-- **Lower memory use**: saving the index no longer copies it, and memory used by a rescan is handed back to Windows.
-- **[Themes](#themes)**: six looks to choose from, plus a set of experimental ones that change the icons and fonts too.
+---
 
-## What Clearspace adds
+## What's new in 1.7.0
 
-<!-- CHANGED (user readme): notes written for developers were taken out of this section or reworded
-     (how tags and locks are stored, how the disk map draws, links to the design notes). The design
-     notes are linked from DEVELOPMENT.md. -->
+- **Theme creator (beta).** Make your own theme on the Clearspace window itself, with your own files in it. Restyle any part, move parts around, add patterns, gradients, stickers and effects, and share your theme as a code or a file. [More below](#the-theme-creator-beta). *It is still in beta, so expect bugs.*
+- **Custom layouts.** Themes can rearrange the whole window, including several file lists side by side, a browser look or a dashboard.
+- **Undo and redo.** **Ctrl+Z** puts back a move, copy, rename, delete or new folder. **Ctrl+Y** does it again.
+- **Inspector** (**Alt+I**): everything about a file or folder, including a folder's real size and a file's fingerprint.
+- **Shelf** (**Alt+S**): gather files from anywhere, then move, copy or zip them all at once.
+- **Toolbar buttons light up** while their panel is open (preview pane, Inspector, Shelf).
+- **File Explorer works normally again** with **Open folders with Clearspace** on. Folders you open inside an Explorer window stay in Explorer.
+- **Just arrived** in Downloads now always shows your newest downloads, and appears straight away instead of sometimes not at all.
+- **Easier to read:** column headings, sidebar labels and status text have more contrast, and toolbar labels make room in a narrow window.
 
-### Folder types that adapt to your work
+---
 
-<!-- CHANGED: every folder type explained in one table (what it opens as, what it adds, and when
-     Automatic picks it), with a picture of the menu. -->
+## The basics
 
-Every folder has a type, chosen from the folder type button in the toolbar. The
-type decides how the folder opens (tiles or a list), which columns it shows, how
-it is sorted and grouped, and which extras it gets, such as the photo viewer or
-the music player. A type you choose is saved for that folder.
+Everything you'd expect from a file manager works the way it does in File Explorer:
+
+- **Getting around:** Back, Forward, Up, the address bar (click it, or press **Ctrl+L**, to type a path), the clickable path, and your mouse's side buttons.
+- **Tabs:** **Ctrl+T** for a new tab, or middle-click a folder to open it in one. Drag files onto a tab to move them there. Each tab keeps its own history, search, scroll position and selection.
+- **More windows:** **Ctrl+N** or **Open in new window**.
+- **Files:** copy, cut, paste, rename, new folder, delete to the Recycle Bin and Properties, with Windows' own copy and "replace or skip" dialogs.
+- **Undo and redo:** **Ctrl+Z** puts back the last move, copy, rename (one item or several), delete to the Recycle Bin, or new folder or file. **Ctrl+Y** does it again. They are also at the top of the menu you get by right-clicking empty space. Clearspace keeps the last 50 changes until it closes. If something was moved, renamed or deleted since by another program, it is left alone and the status bar says so. Deleting for good (**Shift+Delete**) can't be undone.
+- **Drag and drop:** drag files onto a folder in the list, the sidebar or a tab to move or copy them. Hold a file near the top or bottom of the list, or turn the mouse wheel, to scroll while dragging.
+- **Drag to select:** drag a rectangle across empty space to select everything it touches. Hold **Ctrl** to add or remove, **Shift** to only add. **Esc** puts the selection back.
+- **A right-click menu that fits:** **Play** for a song, **View** for a picture, **Extract** for a ZIP file, **Run as administrator** for a program, **Open file location** for a shortcut, **Print** for documents and pictures, **Set as desktop background** for a picture. Cut, copy, paste, rename and delete sit as a row of icons at the bottom. Entries that wouldn't do anything are left out.
+- **Always up to date:** when another program adds, changes, renames or removes a file in the folder you're looking at, the list updates by itself, without pressing F5.
+- **Drives come and go live:** a USB stick or external drive appears in the sidebar and on This PC the moment you plug it in, and goes when you remove it.
+- **Network drives:** open **Network** in the sidebar and choose **Map network drive…** to give a shared folder (`\\server\share`) a drive letter. Windows asks for any password in its own sign-in box, so Clearspace never sees it. Right-click a mapped drive and choose **Disconnect** to remove it.
+- **Your files:** the sidebar's home for Desktop, Documents and the rest. Add folders of your own there.
+- **Views you keep:** each folder remembers its column order and widths and its tile size (**Ctrl+mouse wheel**). **Ctrl+Shift+V** switches between the list and tiles.
+
+### Keyboard shortcuts
+
+| Keys | What they do |
+|---|---|
+| **Alt+Left** / **Alt+Right** / **Alt+Up** | Back / Forward / Up |
+| **Alt+Home** | Your user folder |
+| **Ctrl+L** | Type a path in the address bar |
+| **Ctrl+F** | Search |
+| **F5** | Refresh |
+| **Enter** | Open |
+| **F2** | Rename (with several items selected: [rename them all](#rename-several-items-at-once)) |
+| **Ctrl+C** / **Ctrl+X** / **Ctrl+V** | Copy / Cut / Paste |
+| **Ctrl+Shift+C** | Copy path |
+| **Ctrl+Shift+N** | New folder |
+| **Delete** / **Shift+Delete** | Delete to the Recycle Bin / delete for good |
+| **Ctrl+Z** / **Ctrl+Y** | Undo / Redo |
+| **Alt+Enter** | Properties |
+| **Ctrl+A** / **Ctrl+Shift+I** / **Esc** | Select all / invert the selection / clear it |
+| **Ctrl+T** / **Ctrl+W** | New tab / close tab |
+| **Ctrl+Tab** / **Ctrl+Shift+Tab** | Next / previous tab |
+| **Ctrl+1** … **Ctrl+8**, **Ctrl+9** | Go to that tab, or the last one |
+| **Ctrl+Shift+T** | Reopen the tab you closed |
+| **Ctrl+N** | New window |
+| **Ctrl+Shift+V** | Switch between list and tiles |
+| **Alt+P** / **Alt+I** / **Alt+S** | Preview pane / Inspector / Shelf |
+| **Ctrl+`** | Open a terminal in this folder |
+
+---
+
+## Folder types
+
+Every folder has a **type**, chosen from the folder type button in the toolbar. The type decides how the folder
+opens (tiles or a list), which columns it shows, how it is sorted and grouped, and what extras it gets, such as the
+photo viewer or the music player.
 
 <img src="docs/images/folder-types-menu.png" width="222" align="right" alt="The folder type menu: Automatic, General files, Documents, Downloads, Desktop, Photos, Music, Videos, Screenshots, Code, Projects, Research, Design &amp; 3D, Archives &amp; Backups, Apply to subfolders, and Save this view as a folder type">
 
-Leave a folder on **Automatic** and Clearspace picks the type for you. The
-toolbar shows what it picked, for example **Auto (Photos)**, or just **Auto**
-when nothing in particular fits and the folder opens as General files. It
-decides in this order:
+Leave a folder on **Automatic** and Clearspace picks for you. The toolbar shows what it picked, such as
+**Auto (Photos)**. It looks, in this order, at:
 
-1. **Windows' own folders.** Desktop, Documents, Downloads, Pictures, Music,
-   Videos and Pictures\Screenshots keep their meaning wherever they have been
-   moved to.
-2. **The folder's name.** A folder called "Camera roll" opens as Photos, "Old
-   backups" as Archives & Backups, and so on.
-3. **A code repository.** A `.git` folder, a solution or project file, or a
-   package manifest such as `package.json` in the folder or any folder above it.
-4. **What the folder contains.** Once a folder has been opened, at least three
-   files with most of them (60 %) of one kind decide it: mostly pictures is
-   Photos, mostly songs is Music.
+1. **Windows' own folders.** Desktop, Documents, Downloads, Pictures, Music, Videos and Screenshots, wherever they have been moved to.
+2. **The folder's name.** "Camera roll" opens as Photos, "Old backups" as Archives & Backups, and so on.
+3. **Code.** A `.git` folder, a solution or project file, or a file such as `package.json` in the folder or above it.
+4. **What's inside.** Once opened, a folder where most files (60 %) are one kind takes that type.
 
-**Apply to subfolders** makes the type you chose cover every folder inside it,
-unless one of them has a type of its own; the nearest choice wins. Code,
-Projects, Research and Archives & Backups apply to subfolders as soon as you
-choose them.
+**Apply to subfolders** makes your choice cover every folder inside it, unless one has a type of its own.
 
 <br clear="right">
 
-What each type does:
+| Type | Opens as | What it adds |
+| --- | --- | --- |
+| **General files** | A plain list | Nothing extra: a fast list. Cloud folders also show each file's sync status. |
+| **Documents** | List with pages and authors | Page counts and authors, read from the files themselves. |
+| **Downloads** | List, newest first | Grouped by day, the site each file came from, and the [Downloads extras](#the-downloads-folder). |
+| **Desktop** | List | Folders, shortcuts and files in their own groups. |
+| **Photos** | Picture tiles | The [photo viewer](#photos-and-music) and picture sizes. |
+| **Music** | List with artist, album and length | The built-in [music player](#photos-and-music). |
+| **Videos** | Video tiles | Each tile shows the video's length; the list adds resolution. |
+| **Screenshots** | Picture tiles, newest first | Everything Photos does, grouped under Today, Yesterday, This week… |
+| **Code** | List with a Git column | The Git branch, how many files changed, each file's Git status, and build folders (`bin`, `obj`, `node_modules`) dimmed. |
+| **Projects** | List with tags | A strip of files you pinned to the project and files changed most recently inside it. Choose it yourself. |
+| **Research** | List with title, authors and pages | Papers by their real title and authors, so `2304.12345.pdf` reads as a paper. |
+| **Design & 3D** | Large tiles | Big previews (3D models too, where Windows can draw them), the photo viewer and pixel sizes. |
+| **Archives & Backups** | List, newest first | Grouped by date, and its contents rank below your current files in search. |
 
-| Type | Opens as | What it adds | Automatic picks it for |
-| --- | --- | --- | --- |
-| **General files** | List: name, date modified, type | Nothing extra: a plain, fast list. Cloud folders also show each file's sync status. | Anything no other type fits |
-| **Documents** | List: name, pages, authors, date modified, type, size | Page counts and authors, read from the files themselves. | Windows' Documents folder; folders of mostly PDFs, Office files, text and e-books |
-| **Downloads** | List: name, source, date modified, type, size | Newest first and grouped by day, folders and files together, with the site each file came from. A **Just arrived** strip, suggested folders and the installers list: see [The Downloads folder](#the-downloads-folder). | Windows' Downloads folder; names containing "downloads" |
-| **Desktop** | List: name, type, date modified, size | Folders, shortcuts and files in their own groups. | Windows' Desktop folder |
-| **Photos** | Picture tiles | The in-app photo viewer (zoom, rotate, crop), and image dimensions in details view. | Windows' Pictures folder; names like photos, pictures, images, camera roll, wallpapers; folders of mostly pictures |
-| **Music** | List: play, name, artist, album, length, date modified | Track details read from the files, and the built-in music player. | Windows' Music folder; names like music, songs, albums, playlists; folders of mostly audio |
-| **Videos** | Video tiles | Each tile shows the video's length; details view adds length and resolution. | Windows' Videos folder; names like videos, movies, clips, recordings; folders of mostly videos |
-| **Screenshots** | Picture tiles | Everything Photos does, newest first (folders and pictures together), and grouped under Today, Yesterday, This week… in details view. | Pictures\Screenshots; names like screenshots, screen captures, snips; pictures mostly named "Screenshot…", "Capture…" or "Snip…" |
-| **Code** | List: name, Git, date modified, type, size | The Git branch and how many files have changed, a Git column with each file's status, and build and dependency folders such as `bin`, `obj` and `node_modules` dimmed. | A code repository at or above the folder |
-| **Projects** | List: name, date modified, type, tags | A strip above the list with files you pinned to the project and the files changed most recently anywhere inside it. Right-click a file and choose **Pin to project**. | Never; choose it yourself |
-| **Research** | List: name, title, authors, pages, date modified | Papers by their real title and authors (so `2304.12345.pdf` reads as a paper), most recent first. PDFs are read by Clearspace itself, since Windows has no PDF property reader. | Names like research, papers, literature, readings, thesis |
-| **Design & 3D** | Large tiles (160 %) | Large previews (3D models too, where Windows can draw them), the photo viewer, and pixel sizes. | Names like design, renders, artwork, 3D models, Blender; folders of design files (PSD, AI, SVG, Blender, STL, OBJ, FBX…) kept with their pictures |
-| **Archives & Backups** | List: name, date modified, date created, size, type | Newest first and grouped by date, folders and files together, and their contents rank below your current files in search. | Names containing "backup" or "archive"; folders of mostly archives (ZIP, 7z, RAR, ISO, BAK…) |
+The type only sets where a folder starts. You can still change its columns, sorting and layout.
 
-Columns, sorting, layout and tile size can still be changed in any folder; the
-type only sets where it starts.
+- **Save this view as a folder type…** keeps a folder's layout, columns, sort and tile size as a type of your own (for example "School"). It keeps the extras of the type it was made from.
+- Select several folders and right-click to set their type together.
+- Search understands types: `screenshots receipt` or `type:school essay`.
 
-Arrange a folder the way you like it and choose **Save this view as a folder type…** to keep its layout, columns, sort and tile size as your own type (for example "School"). A saved type keeps the extras of the type it was made from, so one saved from Photos still has the photo viewer. Search understands folder types too: `screenshots receipt` or `type:school essay`.
+## The Downloads folder
 
-Select several folders, right-click, and set their type together when organizing a larger collection.
+Folders of the **Downloads** type get four extras.
 
-### Built-in music player
+**Just arrived.** A strip above the list shows your five newest downloads as tiles, with buttons for what you
+usually do next: open, unpack (a `.zip`), open the page it came from, move or delete. Click a tile to find the file
+in the list, or drag it into a chat, an e-mail, onto the desktop or onto a folder. A file counts from when it
+reached your PC, so a download with an old date (a driver from 2019, say) still shows at the top. The **×** hides
+the strip; right-click empty space in the list and choose **Show just arrived** to bring it back.
 
-Set a directory to **Music** and Clearspace can play supported tracks directly in the app. It reads the same Windows music properties used by Explorer for metadata such as artist, album, track number, and duration, while keeping ordinary double-click behavior available for opening files in their default app.
+**Go back to the page.** Right-click a downloaded file and choose **Open the page this came from**, or **Copy
+download link** for the file's own address. This works in every folder, for files that still carry the note
+Windows attaches to downloads.
 
-### Tags and Favorites
+**Suggested folders.** Clearspace notices where you move your downloads. After files from the same site, or of the
+same kind, have gone to one folder a couple of times, the next one like them offers **Move to "that folder"**. It
+only suggests; nothing moves until you click. **Move…** opens a folder chooser that recommends up to three folders
+and says why. Right-click a tile and choose **Stop suggesting** to make it forget a folder. Only counts of moves
+are remembered, never file names or web addresses.
 
-Tags are lightweight labels you can create and apply to one or many selected files and folders. They make it possible to group work across unrelated locations without moving anything on disk.
+**Installers.** The strip counts the setup files in the folder and how many are for programs you already have.
+**Review** lists them: ones that **look installed** are ticked, ones **newer than what you have** (an update you
+haven't run yet) and ones **not found** are not. Change the ticks and choose **Move to Recycle Bin**. The match is
+made by name against Windows' *Installed apps* list. It tells you a program is installed, not that a file is safe.
 
-- Create, apply, remove, and delete tags from the right-click menu.
-- Search by a tag name, or use `tag:work` for an exact tag filter.
-- Pin frequently used locations to Favorites in the sidebar.
-- Organize pinned locations into your own collapsible, reorderable categories.
+## Search and indexing
 
-Tags are saved on this PC in `%APPDATA%\Clearspace\tags.db`. If you used an early version that kept them in `tags.json`, they are brought over automatically the first time and the old file is kept. A change to many items at once is saved together, so a save that fails leaves your tags as they were.
+Type in the search box (**Ctrl+F**) and results start at once:
 
-<!-- NEW (backup) -->
-### Settings and tags backup
+1. The folder you're in is filtered immediately.
+2. Its subfolders are searched in the background, and more results stream in without freezing the window.
+3. If you turn it on, Windows' own search index adds fast results, including words inside documents.
 
-**Settings > Back up settings and tags…** keeps a copy of the things Clearspace itself holds, so they can be put back if they are ever lost:
+**Search Everywhere** widens the search to all your drives. Network drives are left out of that, so a slow share
+can't stall it.
 
-- **Your settings**: pins, the sidebar, Your files, folder types, columns, theme and the rest.
-- **Your tags**: every tag, and which files and folders carry it.
+```text
+tag:work        items with the Work tag
+type:photos     folders set to the Photos type
+ext:png         PNG files
+is:folder       folders only
+is:image        pictures only
+```
 
-A backup is one small file. Your files themselves are not copied, and neither is anything about password locks: a locked file carries its own lock, and restoring never changes what is locked.
+**Clearspace's own index.** Clearspace keeps an index of file names, sizes and dates, so search and the disk map
+never wait for a walk of the disk. The optional **Index Helper** service (the *Instant indexing* option in setup)
+makes it fast:
 
-- **Back up now** makes one straight away. The **Label** box under it is what the backup is called in the list. It says *Made by you* unless you type something else, such as *Before reinstalling Windows*.
-- **Automatic backup** makes one every day, every week, or as often as you like while you use Clearspace: choose **Custom** and say every how many hours or days. Choose how many automatic backups to keep (older ones are deleted; backups you made yourself are kept until you delete them) and where they go. The usual place is `Documents\Clearspace Backups`; a folder that OneDrive syncs keeps them safe if the PC is lost. When nothing has changed since the last backup, no new file is made.
-- **Your backups** lists them, newest first, with what each holds. **Restore…** asks what to put back:
-  - **Tags** go back on the files and folders that had them and still exist. Tags you have now stay. Tick **Also remove tags added since this backup** to make the tags exactly as they were then.
-  - **Settings** replace today's settings with the ones in the backup, and Clearspace restarts to use them.
-- **Restore from a file…** uses a backup kept somewhere else, such as a USB stick or one copied from another PC. It opens in Clearspace, not in a File Explorer window: go to the folder, click the backup, and choose **Open**.
+- **Instant first index:** it reads the drive's file table directly, so millions of files take seconds rather than minutes.
+- **Fast catch-up:** after a restart it reads only what changed since last time, instead of rescanning the drive.
 
-Before a restore changes anything, Clearspace makes a backup of how things are now. It appears in the list as *Made before a restore*, so a restore can be undone the same way.
+The helper sees file names and folders, never what's inside your files, and only returns what your own account can
+open. Without it (and on network drives or drives that aren't NTFS), Clearspace scans folders instead and rescans
+once a day. The index takes about 100 MB of memory per million files.
 
-<!-- NEW (file backup) -->
-### Backup and restore
+<details>
+<summary><b>The Indexing page</b></summary>
 
-**Settings > Backup and restore…** copies your files, folders and whole drives to another place and keeps those copies up to date. You can also right-click any file, folder or drive and choose **Back up…**. (This is separate from the settings and tags backup above, which only covers what Clearspace itself keeps.)
+Open **Indexing** from the toolbar, the disk usage map or the index status indicator to see:
 
-A backup is one thing to copy, one place to keep it, and its own schedule. Make as many as you like: Photos to an external drive every night, a project folder to a NAS every hour, one important file as dated zips.
+- what the index is doing right now (the drive and folder being scanned, with live counts);
+- totals: entries, changes applied this session, the saved index's size and an estimate of its memory use;
+- **Fast catch-up**, with **Turn on** and **Turn off**;
+- each drive's status, how it is kept current, its next update and its last scan, with progress bars during a scan;
+- **Catch up now** (only what changed), **Full rescan** (everything, in the background) and **Refresh status**;
+- recent activity, the folders the last scan skipped and why, and where the index file is saved;
+- **Browse the index for this drive**, in pages of up to 1,000 entries.
 
-<!-- NEW (zip tick box, simpler editor) -->
-**New backup** asks for a handful of things: what to back up, where to save it, a name, what is in it, how often, and how much to keep.
+![The Indexing page: what is being scanned, totals, fast catch-up, and each drive's status](docs/images/indexing-overview.png)
 
-<!-- NEW (backup contents) -->
-**Contents** is the quick way to set a backup up: say what is in the folder and Clearspace sets the options that suit it. It looks at the folder you picked and chooses for you; click another button if it guessed wrong. The line under the buttons says what was set, and everything it sets can still be changed below.
+</details>
 
-| Contents | What is recommended | Why |
+## Tags and Favorites
+
+**Tags** are labels you put on files and folders, so you can group things that live in different places without
+moving them. Create, apply, remove and delete tags from the right-click menu, then search by a tag's name or with
+`tag:work`.
+
+**Favorites** in the sidebar hold the places you visit most. Sort them into your own categories, which you can
+collapse and reorder.
+
+Tags are kept on your PC in `%APPDATA%\Clearspace\tags.db`. To keep them safe, see
+[Settings and tags backup](#settings-and-tags-backup).
+
+## Preview pane
+
+Press **Alt+P**, or the preview button in the toolbar, to see the selected item beside the list without opening
+it: pictures, videos and documents Windows can draw (a PDF's first page, for example), the first lines of any text
+file, and what's inside a `.zip`. Underneath are its type, size, dates, tags and folder. With several items
+selected it shows how many and their total size.
+
+A cloud file that isn't on your PC is never downloaded just to preview it, and a locked file isn't opened.
+
+## Inspector
+
+Press **Alt+I**, or the **(i)** button, for everything about the selected file or folder:
+
+- its name, type and size to the byte;
+- a **folder's real size**, counting everything inside it as you watch;
+- a picture's size in pixels, a song's or video's length, a document's pages;
+- when it was made, changed and last opened, the program that opens it, its tags, its Git state, and whether it is read-only, hidden, compressed or encrypted;
+- **Copy path**, and its **Fingerprint** (SHA-256), to check a download or that two files are the same. Click it to copy it.
+
+With several items selected it shows how many, their total size, what kinds they are, and the oldest and newest
+change.
+
+## Shelf
+
+Press **Alt+S**, or the shelf button. The shelf collects files from anywhere so you can deal with them together:
+
+1. Drop files on it from the list, the desktop or another program, or right-click and choose **Add to shelf**.
+2. Go to the folder they should end up in.
+3. Press **Move**, **Copy** or **Zip**.
+
+You can also drag things off the shelf, one at a time or all at once with **Drag all**. The shelf only remembers
+where things are; nothing is copied until you say so, and it is still there after a restart. **Clear** takes
+everything off the shelf and leaves the files where they are.
+
+The Inspector and the Shelf share a column on the right of the window. Drag its edge to make it wider. The
+toolbar buttons for the preview pane, Inspector and Shelf light up while their panel is open.
+
+## ZIP files
+
+Double-click a `.zip` and it opens like a folder, without extracting anything. Back, Up, tabs, sorting and search
+all work inside it.
+
+- **Double-click a file** to open a copy of it. Changes you make aren't saved into the ZIP.
+- **Copy** or **drag** files out of it, into a folder, onto the desktop or into another program.
+- **Extract all** in the toolbar unpacks the whole ZIP into a new folder beside it.
+- Right-click `.zip` files for **Extract to "name"** (a new folder beside each) or **Extract to…** (a folder you choose). Nothing that is already there is overwritten.
+- Right-click any files and choose **Compress to ZIP file** to pack them into a new `.zip`.
+
+The inside of a ZIP can be looked at and copied from, not changed: to change it, extract it, change it and
+compress it again. Password-protected ZIPs and other formats (7z, RAR) aren't supported yet.
+
+## Rename several items at once
+
+Select several files or folders and press **F2**. A window shows every old name beside its new one before anything
+changes:
+
+- **New name** is a pattern: `{name}` is the current name, `{n}` a number (`{n:3}` gives 001) and `{date}` the date modified. `Holiday {n}` gives *Holiday 1.jpg*, *Holiday 2.jpg*…
+- **Find** and **replace with** change a piece of text in every name.
+- **Capitals** switches names to small letters, capitals, or Each Word.
+
+File endings are kept. Names that can't be used are marked, and nothing is renamed until all of them are fine.
+**Ctrl+Z** puts every old name back.
+
+## Find duplicates
+
+Press **Find duplicates** in the toolbar, or right-click a folder and choose **Find duplicates…**. Clearspace finds
+files that are exact copies of each other, byte for byte, whatever they're called, and lists them in groups with the
+biggest waste of space first.
+
+- Tick the copies you don't want, or use **Keep the newest of each** or **Keep the oldest of each**, then **Move to Recycle Bin**.
+- **One copy always stays.** The last one in a group can't be ticked.
+- Every ticked file is checked again just before it is removed, and anything that changed is left alone.
+- **Look in subfolders too** is on by default.
+
+On a drive Clearspace has indexed, the search starts from the index and only reads files that could be copies, so
+it is much faster. **Search the disk instead** runs the full, slower search.
+
+## Disk usage map
+
+Press **Disk usage** in the toolbar to see what fills your drive. The whole drive is drawn as nested blocks, each
+sized by how much space it takes, beside a list of the biggest items.
+
+![The disk usage map of a whole drive beside its size list](docs/images/disk-usage-map.png)
+
+- **Click a block** to fly into that folder. **Scroll** to zoom at the pointer, **drag** to pan, and zoom out to leave a folder. Back, Up and the path follow along.
+- **Hover** a block for its size, share and file type.
+- **Delete for good** from the map: right-click a block, or select items in the list and press **Shift+Delete**. A confirmation lists what will go.
+- **Back to files** returns to your files.
+
+Keep zooming out and you see your other drives, each drawn as the device it is (an NVMe stick, an SSD, a hard
+drive, a USB enclosure), cabled to your actual motherboard with its processor, memory and graphics card. Zoom into
+the memory to see which programs are using it, or into the processor to see its cores and how busy each one is.
+
+![Zoomed all the way out: each drive drawn as the device it is, cabled to the motherboard](docs/images/disk-usage-hardware.png)
+
+<details>
+<summary><b>Map settings and experimental views</b></summary>
+
+The gear beside **Refresh** opens the map's settings. They are remembered.
+
+- **GPU acceleration** draws the map with your graphics card.
+- **Low performance mode** draws only the folder you're in, for integrated graphics or enormous folders.
+- **Conserve memory** keeps less in memory and draws fewer blocks at a time.
+- **Build in the background** keeps reading the rest of the drive while you look at part of it.
+- **Render everything** (experimental) draws every block at every depth at once, so nothing pops in as you zoom. It needs more memory in very large folders.
+- **Index network drives** adds mapped network drives (a NAS, a share) to the index, the map and search. A share is only read while it answers.
+- **Experimental views** adds a **View** picker: **3D blocks** (the folder as a field of blocks you can orbit), **Disk layout** (where the largest files physically sit on the drive) and **3D city** (folders as towers you can walk into).
+
+Press **F3** in the map to see how fast it is drawing on your PC. The map shows a snapshot of the index, so very
+recent changes may be missing until it refreshes.
+
+</details>
+
+## Backup and restore
+
+**Settings > Backup and restore…** copies files, folders and whole drives to another place and keeps those copies
+up to date, by hand or on a schedule. You can also right-click any file, folder or drive and choose **Back up…**.
+
+**New backup** asks what to back up, where to save it, how often, and how much to keep. **Contents** sets it up for
+you: say what's in the folder and Clearspace picks the options that suit it.
+
+| Contents | What is set | Why |
 |---|---|---|
-| **Documents**: Word, Excel, PDFs, notes | Keep the last 30 backups. | Small files that change often. When a document is overwritten or damaged, you go back to a backup from before it happened. |
-| **Photos & media**: pictures, videos, music | One copy. What you delete or change stays in the backup for 90 days. | Large files that rarely change, so one copy is enough, and a photo deleted by mistake can still be had back. They do not shrink in a zip. |
-| **Projects**: code, Unity and other game projects | Keep the last 10 backups, and skip the folders that get rebuilt. | Very many small files that change all the time. Folders such as Unity's `Library` or `node_modules` are often most of a project and are made again when you open it, so leaving them out makes the backup far smaller and faster. |
-| **A mix**: a bit of everything, or a whole drive | One copy. What you delete stays in the backup for 30 days. | |
+| **Documents** | Keep the last 30 backups | Small files that change often. You can go back to before a file was overwritten or damaged. |
+| **Photos & media** | One copy; deleted or changed files are kept for 90 days | Big files that rarely change, so one copy is enough, and a photo deleted by mistake can still be had back. |
+| **Projects** | Keep the last 10 backups, skip rebuilt folders | Folders such as Unity's `Library` or `node_modules` are made again when you open a project, so leaving them out makes backups far smaller. |
+| **A mix** | One copy; deleted files are kept for 30 days | A bit of everything, or a whole drive. |
 
-All of them run daily, unless you chose how often yourself, and none is zipped. Things to know:
-
-- **Skipped folders are skipped by name, wherever they are.** For projects, Clearspace only skips what it found a reason for: `Library`, `Temp`, `Logs`, `obj`, `MemoryCaptures` and `.vs` for Unity; `.vs` and `obj` for .NET; `node_modules`; `__pycache__`; `Intermediate` and `DerivedDataCache` for Unreal; `.godot`. If a folder with one of those names holds something you made, take the name out under **More options > Skip**. Build output (`bin`, `Build`) is not skipped; add it there if you want it left out.
-- **On exFAT and FAT sticks**, every dated backup is stored in full, so "the last 30" would not fit. There Clearspace keeps one copy plus the earlier versions of what changed instead.
-- **Save the backup to another drive.** A line under **Save to** warns you when the backup would be on the same drive as the original, where a drive failure loses both.
-- Against ransomware, a backup only helps if the ransomware cannot reach it: unplug the backup drive when it is not in use.
-
-<!-- NEW (retention) -->
-**Keep** is how many of the backup's runs stay: **Latest only** (each run replaces the one before), the **last 5, 10 or 30**, or every run of the last **30 days, 90 days or year**. Older ones are deleted after each run, and the newest is never deleted, however old it gets. Keeping more than the latest makes each run a dated copy you can restore from; files that did not change between runs take up no extra room (on drives formatted NTFS; on exFAT and FAT sticks every copy is stored in full).
-
-Leave **Zip to save space** unticked for a normal copy. Tick it to have every run pack the copy into one `.zip` file instead. Zipping saves the most on documents and similar files, hardly anything on photos, videos and music, and every run packs everything again, so it suits small and medium folders. **More options** has the other kinds, what a backup keeps, and names to skip; hover over any option to see what it does.
-
-<!-- NEW (backup drives) -->
-Under **Save to**, Clearspace offers the drives that make sense, and updates them as you plug drives in:
-
-- A drive that **already has your backups** on it comes first, with a bold name and how many backups it holds. Clicking it puts the new backup beside them.
-- An **external drive with no backups yet** (a USB stick, a memory card, a disk on a USB cable) is offered more plainly, with its free space. Clicking it uses a `Backups` folder on that drive, which is made when you save.
-
-The drive you are backing up is never offered, and neither is the Windows drive unless backups are already on it. Network drives are not offered, but you can still choose one with **Choose…**. A backup that was waiting for its drive starts within moments of the drive being plugged in.
-
-**The four kinds**
-
-| Kind | What a run does | Good for |
-|---|---|---|
-| **Clone** | Makes the backup the same as the original: new and changed files are copied, and files you deleted are removed from the backup. Windows' own `robocopy` does the copying, several files at a time. | Large folders and drives. |
-| **Add and update** | The same, but nothing is ever removed from the backup. | Folders you tidy up but want everything kept from. |
-| **Versions** | Makes a dated folder that looks like a full copy. Files that have not changed take up no extra room. This is what **Keep** set to more than *Latest only* turns on. | Going back to how things were on a given day. |
-| **Zip archive** | Makes one dated `.zip` file. This is what **Zip to save space** turns on. A zip that was interrupted is carried on with by the next run. | Small folders, and backups you want to send somewhere. |
-
-**What a backup keeps** (under **More options**)
-
-- **Files it removes** (Clone, on unless you turn it off): a file that is gone from the original is moved to an *Earlier versions* folder inside the backup instead of being removed, so a file deleted by mistake can still be had back.
-- **Earlier versions of changed files** (Clone, Add and update): before a changed file replaces the one in the backup, the one in the backup is kept. This is what makes **Earlier versions…** work for those two kinds.
-- Both are kept for 30 days, 90 days, a year, or forever. (Versions and Zip archive keep whole runs instead, as many as **Keep** says.)
-
-**How often**: only when you choose **Back up now**, every hour, every day or every week at a time you set, or every so many hours or days. A backup that was due while the PC was off runs when it is next on. A backup whose drive is not plugged in waits and runs once it is. With **Run scheduled backups when Clearspace is closed** on (at the bottom of the page), backups also run while Clearspace is closed, through one entry in Windows' Task Scheduler; turning it off, or uninstalling Clearspace, removes that entry.
-
-**The page** lists each backup with how its last run went and when the next one is. **Back up now** starts one; it carries on if you close the page or Clearspace, and **Stop** ends it (what was copied stays, and the next run carries on from there). The **…** button has **Edit…**, **Open the backup's folder**, **Show the last report** (which lists any file that could not be copied) and **Remove this backup…**, which takes it off the list and leaves its copies where they are.
+- **Save it to another drive.** Clearspace recommends external drives, puts drives that already hold your backups first, and warns when a backup would be on the same drive as the original.
+- **Zip to save space** packs each run into one `.zip`. It suits documents; photos and videos hardly shrink.
+- **Scheduled backups** run while Clearspace is open, and also while it's closed if you turn that on. A backup that was due while the PC was off, or whose drive wasn't plugged in, runs as soon as it can.
+- **Interrupted?** A power cut, a shutdown or a pulled drive doesn't start a backup over. The next run carries on from where it stopped, and even a long zip loses at most its last half minute.
 
 **Getting files back**
 
-- **Restore…** on a backup asks which copy (the backup as it is now, or a dated version, zip or set of earlier versions), where to (where the files came from, or another folder) and what to do with files that are already there (leave them, or replace them). Restoring never deletes anything.
-- **Earlier versions…** in a file's right-click menu lists every different state of that file your backups hold. **Restore** puts one in the file's place, after moving the file as it is now to the Recycle Bin; **Save a copy** writes it beside the file instead. The entry appears for files covered by a Versions or Zip archive backup, or by a Clone or Add and update backup with *Earlier versions of changed files* ticked.
-- A backup is also just a folder. **Open the backup's folder** shows it in Clearspace: `Files` is the copy, `Earlier versions` holds dated folders of what was replaced or removed.
+- **Restore…** on a backup puts a copy back where it came from or into another folder. Restoring never deletes anything.
+- **Earlier versions…** in a file's right-click menu lists every saved state of that file. **Restore** puts one back (the current file goes to the Recycle Bin first), or **Save a copy** puts it beside the file.
+- A backup is also just a folder: **Open the backup's folder** shows it in Clearspace.
 
-**Good to know**
+<details>
+<summary><b>More about backups: the four kinds, what is kept, and good to know</b></summary>
 
-- Each backup gets a folder of its own inside the place you choose, and Clearspace only ever changes things inside that folder. It will not use a folder that already has other things in it.
-- Keep a backup on a different drive from the original. A copy on the same drive is lost with it.
-- A backup of a drive copies its files. It is not an image that Windows can start from, and files Windows keeps locked (and other accounts' files you cannot read) are listed in the report as not copied.
+| Kind | What a run does | Good for |
+|---|---|---|
+| **Clone** | Makes the backup the same as the original, using Windows' own fast copy (`robocopy`). | Large folders and drives. |
+| **Add and update** | The same, but nothing is ever removed from the backup. | Folders you tidy up but want everything kept from. |
+| **Versions** | Makes a dated folder that looks like a full copy; unchanged files take no extra room (on NTFS drives). | Going back to how things were on a given day. |
+| **Zip archive** | Makes one dated `.zip`. | Small folders, and backups you want to send somewhere. |
+
+**Keep** decides how many runs stay: **Latest only**, the **last 5, 10 or 30**, or every run of the last **30 days,
+90 days or year**. The newest run is never deleted.
+
+Under **More options**:
+
+- **Files it removes** (Clone): a file gone from the original moves to an *Earlier versions* folder instead of being deleted.
+- **Earlier versions of changed files** (Clone, Add and update): the old copy is kept before a changed file replaces it.
+- Both are kept for 30 days, 90 days, a year or forever.
+- **Skip**: folder names left out. For projects, Clearspace skips only what it found a reason for (`Library`, `Temp`, `Logs`, `obj`, `.vs`, `node_modules`, `__pycache__`, `Intermediate`, `DerivedDataCache`, `.godot` and similar). Take a name out if a folder with that name holds something you made.
+
+Good to know:
+
+- Each backup gets its own folder, and Clearspace only ever changes things inside it.
+- A drive backup copies its files. It isn't an image Windows can start from.
+- On exFAT and FAT sticks every dated copy is stored in full, so Clearspace keeps one copy plus earlier versions there instead.
 - OneDrive files that are online-only are left out unless you tick **Include cloud files that are not on this PC**, because copying them downloads them first.
-- Links to other folders (junctions and symbolic links) are not followed.
-- A Clone refuses to run if the original has become completely empty, rather than emptying the backup.
-<!-- NEW (resumable zip) -->
-- **If a backup is interrupted** (a power cut, a shutdown, the drive pulled out, or **Stop**), the next run carries on from where it got to instead of starting over. A Clone or Add and update copies only what is still missing. A zip is saved every 30 seconds while it is being made, so even a zip that takes hours loses at most the last half minute and the file it was in the middle of; one very large file is packed in one go, so it starts again if the run stops inside it. Files that changed or were deleted in the meantime are packed again or left out, so the finished zip matches the folder. While a zip is being made, its files in the backup's folder end in `.cspart`; leave them where they are. A dated copy that was not finished (**Keep** set to more than *Latest only*, not zipped) is made again.
-- Files locked with a password are copied exactly as they are on the disk at that moment. A locked file is still locked in the backup. A file you have unlocked for a visit is copied unlocked if a backup runs during the visit, and that unlocked copy can then stay in the backup (under *Earlier versions*, for as long as the backup keeps those). If that matters, leave folders with locked files out of scheduled backups, or run those backups by hand while everything is locked.
+- Links to other folders aren't followed. A Clone refuses to run if the original has become completely empty, rather than emptying the backup.
+- Against ransomware, a backup only helps if the ransomware can't reach it: unplug the backup drive when you're not using it.
+- Locked files are copied still locked. A file unlocked for a visit is copied unlocked if a backup runs during the visit, so leave folders with locked files out of scheduled backups if that matters.
 
-### Password protected files and folders
+</details>
 
-<!-- CHANGED: same behavior as before, regrouped under short labels so it is easier to scan. -->
+## Settings and tags backup
 
-Right-click a file or folder and choose **Lock with password…** to encrypt its
-contents. The first lock creates a master password (any length); later locks use
-that password. Keep the password safe: it cannot be recovered. Existing copies and
-backups are not encrypted by this operation.
+**Settings > Back up settings and tags…** keeps a copy of what Clearspace itself holds: your settings (pins, the
+sidebar, folder types, columns, theme and the rest) and your tags. Your files aren't copied, and nothing about
+password locks is.
 
-<!-- NEW: pictures of the lock and unlock dialogs. -->
+- **Back up now** makes one straight away. Give it a label if you like, such as *Before reinstalling Windows*.
+- **Automatic backup** makes one every day, every week, or as often as you choose, and keeps as many as you say. They go to `Documents\Clearspace Backups` unless you choose somewhere else. A folder OneDrive syncs keeps them safe if the PC is lost.
+- **Restore…** puts back your tags (on the files that still exist), your settings, or both. **Restore from a file…** uses a backup from a USB stick or another PC.
+
+Before a restore changes anything, Clearspace backs up how things are now, so a restore can be undone too.
+
+## Password locks
+
+Right-click a file or folder and choose **Lock with password…** to encrypt it with AES-256. The first lock creates
+your password. **Keep it safe: it can't be recovered.**
+
 <p>
   <img src="docs/images/lock-dialog.png" width="400" align="top" alt="The Lock file dialog, creating the password for the first lock">
   <img src="docs/images/unlock-dialog.png" width="400" align="top" alt="The Unlock file dialog, asking for the password">
 </p>
 
-*Left: the first lock creates your password. Right: unlocking a locked file.*
+- **Files** become `<name>.cslock` with a lock badge. Opening one asks for the password; it stays unlocked until no window is showing its folder, then locks again.
+- **Folders** have every file inside encrypted; names stay visible. Opening the folder asks for the password, and everything locks again when you leave.
+- **Remove lock…** decrypts for good. **Settings > Remove all locks and reset password…** unlocks everything and lets you choose a new password.
+- **Locks travel with the files.** After a reinstall, a Windows reset or on another PC, they still open with the password they were locked with. If that's an older password, Clearspace offers to switch them to your current one.
+- **Limits:** local NTFS drives only. Files over 64 MB, links, cloud placeholders, files in use and a few others are skipped and listed. Drive roots, your user folder and Windows folders are refused. Copies and backups made before locking aren't encrypted.
 
-- **Files.** A locked file is renamed `<name>.cslock` and shows a lock badge.
-  Opening it, or choosing **Unlock…**, asks for the password and restores it. It
-  stays unlocked until no Clearspace or Explorer window is showing its folder,
-  then locks again.
-- **Folders.** Locking a folder encrypts every file inside it and its subfolders;
-  names stay visible. Opening a locked folder asks for the password. While you're
-  inside, its files are unlocked and work normally, and Clearspace locks them
-  again when you leave (or on the next start after a crash).
-- **In Windows Explorer.** The same actions are in Explorer's right-click menu,
-  and locked items get lock icons there too. See
-  [Using locks from Windows Explorer](#using-locks-from-windows-explorer) below.
-- **Removing locks.** **Remove lock…** decrypts for good and works on several
-  selected files and folders at once. Removing the lock from something inside a
-  locked folder also stops that folder asking for a password (its other files
-  stay locked). **Settings > Remove all locks and reset password…** unlocks
-  everything and lets you create a new password on the next lock.
-- **Reinstalls and other PCs.** Locked files never depend on Clearspace's
-  database: after a reinstall, a Windows reset or on another PC they still open
-  with the password they were locked with. If that is an older password, the
-  prompt says so and offers to switch the file to your current one;
-  **Change password…** does the same for a selection.
-- **Limits.** Locking works on local NTFS drives. Files that can't be locked
-  (over 64 MB, links, cloud placeholders, files with additional data streams
-  such as downloads, files in use) are skipped and listed. Drive roots, your
-  user folder, and Windows/program folders are refused.
+<details>
+<summary><b>Using locks from File Explorer</b></summary>
 
-<!-- PICTURE SLOT (uncomment once the file exists):
-![Lock badges on a locked file and folder in Clearspace](docs/images/lock-badges.png)
--->
-
-Locked files are encrypted with AES-256, using a key made from your password.
-
-<!-- NEW: how locking works in File Explorer, without opening Clearspace. -->
-#### Using locks from Windows Explorer
-
-You don't need the Clearspace window open to use locks. Setup, and every start
-of Clearspace, adds Clearspace's entries to Explorer's right-click menu (under
-**Show more options** on Windows 11). Explorer also shows locked items with
-their own icons: a locked file appears as `<name>.cslock` with a lock icon and
-the type "Clearspace locked file", and a locked folder gets a lock folder icon.
-
-<!-- PICTURE SLOT (uncomment once the file exists):
-![Clearspace entries in Windows Explorer's right-click menu](docs/images/explorer-menu.png)
--->
+The same actions are in Explorer's right-click menu (under **Show more options** on Windows 11), and locked items
+get lock icons there too.
 
 | In Explorer | What happens |
 | --- | --- |
-| Right-click a file, **Lock with Clearspace** | The password dialog opens on its own. The file is encrypted in place and renamed `<name>.cslock`. |
-| Double-click a `.cslock` file | Asks for the password, unlocks the file, and opens it in its usual program. |
+| Right-click a file, **Lock with Clearspace** | The password window opens and the file is locked. |
+| Double-click a `.cslock` file | Asks for the password, unlocks it and opens it in its usual program. |
 | Right-click a `.cslock` file, **Unlock with Clearspace** | Unlocks it for now, without opening it. |
 | Right-click a `.cslock` file, **Remove lock with Clearspace** | Decrypts it for good. |
 | Right-click a `.cslock` file, **Change password with Clearspace** | Switches a file locked with an older password to your current one. |
-| Right-click a folder, **Clearspace**, then **Lock folder**, **Unlock folder**, **Remove lock** or **Change password** | The same actions for every file inside the folder and its subfolders. |
-| Right-click a folder, **Clearspace**, **Open in Clearspace** | Opens the folder in the main Clearspace window. This is the only entry that does; all the others show just the password dialog. |
+| Right-click a folder, **Clearspace**, then **Lock folder**, **Unlock folder**, **Remove lock** or **Change password** | The same for everything in the folder. |
+| Right-click a folder, **Clearspace**, **Open in Clearspace** | Opens the folder in Clearspace. |
 
-Unlocking is for a visit, not for good. An unlocked file goes back to its normal
-name and works in any program. Meanwhile Clearspace keeps running in the
-background with no window and watches which folders your Explorer windows and
-tabs are showing:
+Unlocking is for a visit. Clearspace runs quietly in the background and locks things again a few seconds after no
+Explorer or Clearspace window is showing their folder. Anything left unlocked by a crash or shutdown is locked again
+the next time Clearspace starts. Explorer can still list a locked folder without a password, but all it shows are the
+encrypted `.cslock` files.
 
-- A few seconds after no Explorer or Clearspace window is showing that folder,
-  the file is encrypted again. Clearspace exits once nothing is left unlocked.
-- If you unlock a folder from its right-click menu and don't open it within a
-  minute, it locks again.
-- A file another program still has open is retried every 30 seconds.
-- Anything left unlocked by a crash or a shutdown is locked again the next time
-  Clearspace starts.
+</details>
 
-A file inside a locked folder is unlocked by unlocking the folder: one password
-prompt covers everything in it.
+## Photos and music
 
-One difference from Clearspace itself: Explorer can still open a locked folder
-and list what is in it without a password. What it lists are the encrypted
-`.cslock` files, so nothing in them can be read until you unlock. Only
-Clearspace's own window stops at the folder and asks for the password first.
+**Photo viewer.** In a Photos folder, open a picture to browse the folder, zoom and pan without leaving Clearspace.
+You can rotate a picture or crop it, saving in place where the format allows, or as a copy.
 
-### Photo viewer and editing
+**Music player.** In a Music folder, play songs right in Clearspace, with artist, album, track number and length
+read from the files. Double-click still opens a song in its usual program.
 
-The Photos folder type has an in-app image viewer. Open an image from its tile to browse the folder, zoom, and pan without leaving Clearspace. You can also rotate an image or crop a selected region directly in the viewer, saving in place when the format supports it or saving a copy when needed.
+## Open folders with Clearspace
 
-### Search designed to stay responsive
-
-Clearspace treats search as a layered operation instead of making the interface wait for a complete disk walk:
-
-1. Filtering the folder already on screen happens immediately from its in-memory snapshot.
-2. Search then walks subfolders in the background and streams additional matches into the results rather than freezing the window.
-3. When enabled, Clearspace also asks the existing **Windows Search index** for fast results from indexed locations—including supported text inside documents—while the background walk continues to cover locations Windows has not indexed.
-
-The result is a faster first response, plus complete results rather than a choice between speed and coverage. **Search Everywhere** expands the search to ready local drives and Clearspace's saved tag/folder-type indexes. Network drives are intentionally not crawled as part of that wide search, because an unavailable share should not make search feel stalled.
-
-Useful search filters:
-
-```text
-tag:work           items with the Work tag
-type:photos        folders set to the Photos type
-ext:png            PNG files
-is:folder          folders only
-is:image           image files only
-```
-
-Clearspace maintains a compact filename index and also uses the Windows-maintained index for file contents. Content results depend on Windows indexing the location and being able to read that file type. If a source is unavailable or lacks coverage, Clearspace can fall back to its background crawl.
-
-<!-- NEW: the index helper service, file-table scan and change-journal catch-up. -->
-### Instant indexing and fast catch-up
-
-Clearspace keeps its own index of file names, sizes and dates, so search and the
-disk map never wait on a walk of the disk. A small optional Windows service, the
-**Clearspace Index Helper**, makes that index quick to build and cheap to keep
-current:
-
-- **Instant first index.** Instead of opening every folder, the helper reads the
-  drive's NTFS file table front to back. A few million files take seconds rather
-  than minutes. The first time this is used on a drive, Clearspace compares it
-  once, in the background, with a normal folder walk; if the two disagree, that
-  drive goes back to folder walks and the Indexing page says why.
-- **Fast catch-up.** Windows records every change on an NTFS drive in its change
-  journal. After a restart, or when live watching misses something, Clearspace
-  reads only what changed since it last looked instead of rescanning the whole
-  drive. Drives kept current this way skip the daily rescan.
-
-Turn it on with **Instant indexing** in the installer, or later with **Turn on**
-under *Fast catch-up* on the Indexing page; Windows asks for administrator
-permission once. **Turn off** removes the service again. Clearspace itself always
-runs as a normal user. The helper sees file names and folders, never file
-contents, and only returns paths your own account can open.
-
-Without the helper, and on network drives or drives that are not NTFS, Clearspace
-walks folders as before: live changes are applied as they happen and the drive is
-rescanned once a day.
-
-The index is held in memory while Clearspace runs, roughly 100 MB per million
-files and folders. Saving it writes straight to disk without making a second
-copy, and the memory a rescan needs is handed back to Windows when it finishes.
-
-### See what is indexed
-
-<!-- CHANGED: describes the current Indexing page (fast catch-up, per-drive facts, activity log). -->
-
-Open **Indexing** from the file browser toolbar, the disk viewer toolbar, or the
-index status indicator. This page stays inside Clearspace.
-
-![The Indexing page: what is being scanned, totals, fast catch-up, and each drive's status](docs/images/indexing-overview.png)
-
-*The Indexing page, drawn here with sample data.*
-
-It shows:
-
-- What the index is doing right now: the drive and folder being scanned, with
-  live entry and folder counts. Searches keep using the previous index until a
-  scan finishes.
-- Totals: indexed entries, live changes applied this session, the saved index's
-  size on disk and when it was saved, and an estimated memory footprint, listed
-  separately from disk space.
-- **Fast catch-up**: whether it is on, with **Turn on** and **Turn off**.
-- Each drive's status and how it is kept current (the change journal or full
-  scans), its next update and why one is pending, its last catch-up, its last
-  full scan, and the live changes applied this session.
-- During a scan, per-drive progress bars show the percentage of discovered folders processed,
-  with processed and waiting counts. More folders are discovered during scanning,
-  so the percentage can decrease. Completed drives show a ready status instead of
-  an idle progress bar. Excluded or unreadable locations remain listed separately.
-  No extra counting scan is required.
-- **Catch up now** reads only what changed since the last look. **Full rescan**
-  runs a complete scan in the background; current saved
-  entries stay searchable while it runs. Automatic full rescans are spaced 20
-  minutes apart, and **Full rescan** skips that wait. **Refresh status** only
-  refreshes the display.
-- **Recent activity**: a log of this session's scans, catch-ups and problems.
-- **Scan coverage and skipped folders**: skipped folders and reasons from the
-  latest scan in this session. Older saved indexes clearly indicate when those
-  details are unavailable.
-- **Index file**: the saved index's full storage path, with buttons to copy the
-  path or open the containing folder.
-
-**Browse the index for this drive** supports folder navigation, filtering, and pages of up to 1,000
-entries so large folders do not create enormous interface lists. Index reads run
-in the background. Clearspace indexes names, paths, sizes, and file metadata;
-document-content indexing belongs to Windows Search, whose options are linked
-from the page. Use **Back** to return to the view you were using.
-
-### Disk usage visualizer
-
-Use **Disk usage** in the toolbar or right-click menu to explore indexed file
-sizes. Folder tiles show their combined file sizes; click one to drill down,
-or compare sizes and matching colored icons in the compact list. Use
-your mouse's side buttons for Back/Forward through visited folders and drives.
-The view also includes breadcrumbs, Up, drive selection, and Refresh.
-It displays a snapshot of logical file lengths, so recent
-changes and folders excluded by the index scan may be missing. Refresh reads
-the latest available index rather than starting a new scan.
-
-<!-- NEW: pictures. -->
-![The disk usage map of a whole drive beside its size list](docs/images/disk-usage-map.png)
-
-*A 6 TiB drive with **Render everything** on: every block at every depth is drawn at once.*
-
-The analyzer opens inside Clearspace; **Back to files** restores the browser.
-The whole drive is one nested treemap that fills the space beside the list, and
-the view is a camera moving over it. Click a block to fly into it: the folder
-grows out of the exact rectangle you clicked, its contents fade in as they
-get room, and the rest of the drive stays in place, dimmed, around it. Scroll to
-zoom smoothly at the pointer, drag to pan, and zoom back out to leave a folder;
-the list, breadcrumbs, and history follow along. Back, Up, breadcrumbs and your
-mouse's side buttons fly the same camera, so every transition is continuous.
-Escape (or **Whole folder**) returns to the full current folder after zooming inside it.
-
-![Inside a folder: its contents fill the map while the rest of the drive stays dimmed around it](docs/images/disk-usage-folder.png)
-
-*Inside a folder (sample data): the rest of the drive stays in place, dimmed, around it.*
-
-Keep zooming out past the whole drive's files and the rest of the drive comes into
-view at the same scale: its free space, and used space the index does not account
-for. Zoom out further still and the other drives in the drive list appear in a row
-beside it, each sized to its capacity, with a name plate on top and a cable running
-down to your computer below them. Indexed drives show their own folders and files,
-laid out like the map; drives not indexed yet show used and free space. Zoom into
-another drive and it opens once its files fill the view, or click it (or one of its
-folders) to fly in and open it there. The drives keep their places in drive-letter
-order whichever one is open. Click anywhere else out there to return to the files.
-
-Each drive is drawn as the device it is - an M.2 NVMe stick with its gold contacts,
-a 2.5" SATA SSD, a 3.5" hard drive with its connectors, a USB enclosure - read from
-Windows' own description of the disk. Zoomed all the way out, each one's cover fades
-in: a hard drive's lid with its platter and label, an SSD's or NVMe stick's label,
-all showing the maker, model and capacity. Zooming into a drive opens its cover up
-again to show the files inside. Network drives sit on a server of their own, named
-after it and cabled to your computer.
-
-Zooming out stops once at the row of drives on their own; a few more pushes of the
-wheel carry on out to your actual motherboard below them, each drive cabled down into
-a SATA port on its edge. The board is drawn the way the map draws everything - flat
-blocks with the map's gaps and labels: the board tagged with its maker and model, the
-processor, a memory block holding its slots (a module in each one that is really
-filled, labelled with its size), and the graphics card, all named from the machine
-itself. Network drives sit on their servers beside it, cabled to the board. Hover a
-part for its details.
-
-![Zoomed all the way out: each drive drawn as the device it is, cabled to the motherboard, with a network share on its own server](docs/images/disk-usage-hardware.png)
-
-*Zoomed all the way out: the drives, the motherboard with its processor, memory and graphics card, and a network share on its server.*
-
-Zoom into the memory and its sticks fade away to show what it holds, laid out like a
-drive: every running program sized by the memory it takes (all its processes
-together), then Windows' own share, what is available, and what the hardware
-reserves. Zoom into a program and you see what it has loaded - its .exe, its
-libraries, data files it has mapped - each sized by how much of it is actually in
-memory, beside its own working data. Click any block to zoom to it. It updates live,
-once a second, but only while you are looking into the memory (its contents on screen
-and the window not minimized) - anywhere else nothing is read or redrawn. Blocks grow
-and shrink in place as programs use more or less memory, rather than reshuffling. It
-needs no administrator rights; a few system programs Windows keeps
-closed to other programs show only their size. Memory is not stored per stick
-(Windows spreads every program across all of them), so the programs fill the memory
-as a whole.
-
-Zoom into the processor and its lid fades away to show the die, laid out as your chip
-is actually built - read from Windows, not a stock picture: its core complexes (one
-per L3 cache, so a Ryzen shows its CCXs), the cores in them with their threads and
-their own L1 and L2 caches, performance and efficiency cores on hybrid Intel chips
-(efficiency cores in the fours that share an L2), and the L3 each complex shares.
-Every core and thread is lit from cool to warm by how busy it is, with its clock
-speed in its details. Beside the die, What's running shows every program sized by
-its share of the processor. Like the memory, it updates once a second only while you
-are looking into it, and needs no administrator rights (temperatures would need a
-driver, so they are not shown). It is drawn as the chip is organised, not to scale.
-
-**Index network drives** (in the same gear panel, off by default) indexes mapped
-network drives too, so a NAS or share appears in the drive list, in the map, beside
-your other drives when zoomed out, and in search. Clearspace only reads a share while
-it answers - it checks once a minute, in the background - and a share that is out of reach keeps its last index so its sizes can
-still be browsed. The first pass reads the whole share over the network, so a large
-NAS can take a while. Turning the option off drops those indexes straight away.
-
-Blocks take one hue per branch - everything inside a top-level folder shares its
-color - and each block within it gets its own shade, so a folder reads as one
-region without its contents fusing into a flat field. List rows use the same
-colors. Hover a block for its size, share, file type, and what a click will do. Tile areas are
-exact byte proportions within each folder. Deeper folders load in the background
-as they grow on screen, and very large folders group their smallest items so
-drawing stays fast at any zoom.
-
-A folder tree you have explored is kept when you close the analyzer or switch to
-another drive, so coming back is immediate and keeps the depth you had opened.
-With **Build in the background** on (the default), Clearspace keeps reading the rest
-of the drive while you look at part of it, so zooming in later finds it already laid
-out. What is on screen is always read first.
-
-With **Render everything** on, the whole drive is laid out once when the analyzer
-opens - about a second for a million files - into a compact table of roughly
-30 MB per million files, so every block at every depth is on screen immediately
-and zooming never waits for anything to load. The layout is kept when you switch
-drives, and refreshes and file changes (up to six levels below the folder you are
-in) lay it out again in the background and swap it in when it is ready.
-Folder sizes are aggregated once and kept warm, so opening the analyzer shows the
-map immediately instead of calculating first. They are recomputed when you choose
-**Refresh** or when a full index build finishes; while the view is open it also
-updates itself quietly in the background. Changing drives, resizing, and first
-load cross-fade from the picture already on screen rather than blanking.
-
-<!-- CHANGED: the map's settings as they appear in the gear panel, with a picture. -->
-The gear beside Refresh opens the map's settings. All of them are remembered
-between runs.
-
-<img src="docs/images/disk-usage-settings.png" width="300" align="right" alt="The disk usage settings panel: Map performance, Drives and Experimental options">
-
-**Map performance**
-
-- *GPU acceleration* draws the map with your graphics card. Turned off, the processor draws it instead, which is what happens anyway on a PC without a suitable graphics card. The panel names the graphics card in use.
-- *Low performance mode* draws only the folder you are in - everything inside it
-  stays a solid block until you open it - so a frame never walks a deep tree.
-  That is the setting to reach for on integrated graphics or in enormous folders.
-- *Conserve memory* draws fewer blocks per frame, keeps far fewer labels in
-  memory, and holds folder sizes for one drive only instead of keeping them
-  warm. Names reappear as you look at them.
-- *Build in the background* keeps reading the rest of the drive while you look
-  at part of it, so zooming in later finds it already laid out.
-- *Render everything (experimental)* draws blocks at every depth, down to a
-  fifth of a pixel and up to 750,000 a frame, so zooming reveals little that was
-  not already on screen and nothing pops in. The drawing itself is nearly free
-  on a discrete card; the cost is that the whole folder must be read and held in
-  memory, so watch the F3 memory line in a very large folder.
-
-**Drives**
-
-- *Index network drives* also indexes mapped network drives, as described above.
-
-**Experimental**
-
-- *Experimental views* adds the **View** picker described below.
-
-<br clear="right">
-
-**Experimental views** (also in the gear panel, off by default) add a **View** picker
-beside the drive list. The map itself is untouched: it is only hidden while another
-view shows, keeps following navigation, and comes back exactly as you left it.
-*3D blocks* raises the folder you are in as a field of blocks on the map's own
-layout - orbit with a drag, pan with a right-drag, scroll to zoom, double-click a
-folder to open it. What the height means is chosen in the corner: *Stacked folders*
-(every folder a slab with its contents standing on it), *size*, *file count*, or
-*file types* (colored by type, as tall as that type's share of the folder).
-*Disk layout* shows where the largest files physically sit on the drive, read from
-the file system the way a defragmenter reads it, as a spinning platter (cluster 0
-at the rim, the end of the drive at the hub) or as a defragmenter-style grid. Items
-in the current folder keep their list colors and everything else is grey; hover
-for the file and how many pieces it is in, click to open it. Free space is shown
-when Clearspace runs as administrator. On an SSD the positions are logical: the
-drive decides where data physically lives.
-<!-- NEW: the 3D city view. -->
-*3D city* shows the folder you are in as a city. Every item is a building on the
-map's own layout: folders are towers, files are low houses, and a tower's floors
-are its subfolders, stacked largest at the bottom in their true proportions.
-Click a tower to step inside: its floors pull apart and one slides out with its
-contents laid out on it, subfolders as rooms and files as crates colored by
-type. The elevator panel, the arrow keys, or a click moves between floors.
-Double-click a room (or press Enter) to make that folder the tower you are in;
-Back, Up, breadcrumbs and the list follow along. Esc or Backspace steps back out
-onto the street.
-
-The map is built to stay smooth on large drives. It does its work in the background, stops drawing when nothing is moving, and keeps distant folders as single blocks until you zoom in close enough to see inside them. Closing the analyzer stops whatever it was still working on. Press **F3** in the analyzer to see frame timings on your own drive.
-
-The sidebar uses single-line name/size rows. Hover for full names and percentages;
-the info button holds index details. Selection reveals the permanent-delete controls.
-
-To **delete permanently**, right-click a file/folder block or select items in
-the list and use the delete button or **Shift+Delete**. The confirmation lists
-the targets and explains that they will bypass the Recycle Bin. Afterward, the
-map and totals update for items confirmed removed, including partial deletions.
-
-<!-- NEW (duplicates) -->
-### Find duplicates
-
-Press the **Find duplicates** button in the toolbar (beside Disk usage), or right-click a folder and
-choose **Find duplicates…**. Clearspace looks through the folder for files that are exact copies of each
-other and lists them in groups, the group that wastes the most space first. It works in every folder,
-whatever its folder type.
-
-- Two files count as copies only when their contents are the same, byte for byte. Their names and dates
-  make no difference, so *report.pdf* and *report (1).pdf* are found, and so is the same photo saved
-  under two names in different subfolders.
-- Tick the copies you don't want, or use **Keep the newest of each** or **Keep the oldest of each** to
-  tick the rest in every group at once. **Move to Recycle Bin** removes the ticked files.
-- **One copy always stays.** The last copy left in a group can't be ticked.
-- Just before removing, every ticked file is checked again. A file that changed since the search is left
-  alone, and so is a whole group if the copy you are keeping is no longer there.
-- Removed files go to the Recycle Bin, so they can be put back.
-- **Look in subfolders too** is on by default; turn it off to compare only the files directly in the folder.
-- The folder button on a row goes to that file in its folder. **Esc** or **Back** returns to your files.
-
-Left out of the search: empty files, links, cloud files that are not on this device (reading them would
-download them), and hidden files unless hidden items are shown. A long search shows how far along it is
-and can be stopped; nothing is changed until you choose **Move to Recycle Bin**.
-
-<!-- NEW (duplicates from the index) -->
-On a drive Clearspace has indexed, the search does not read the folders to find out which files there
-are: the index already knows every file's name and size, and only files of the same size can be copies.
-So it goes straight to comparing those, which is the part that has to read the files. Each file's size
-is checked again as it is opened, in case the index was a moment behind. The result says when the list
-came from the index, and **Search the disk instead** runs the slower search that reads every folder.
-
-<!-- NEW (downloads) -->
-### The Downloads folder
-
-A folder with the **Downloads** [folder type](#folder-types-that-adapt-to-your-work) gets four extras.
-
-**Just arrived.** A strip above the list always shows your newest downloads as tiles, up to
-five. Each tile has buttons for what you usually do next: open it, unpack it (a `.zip`), open the page
-it came from, move it, or delete it. Click a tile to find the file in the list; right-click it for the
-same actions in words. Drag a tile to use the file somewhere else: into a chat or an e-mail, onto the
-desktop, or onto a folder. The move button opens Clearspace's own folder chooser: your sidebar places on
-the left, the folders inside the open one on the right, and **Move here** once you are in the right one.
-At its top it lists up to three **Recommended** folders with the reason for each, and it opens in the
-first: where files like this one went before, a folder whose name is in the file's name, the folder for
-that kind of file (Pictures for an image), or a folder you moved something to recently. A file counts from when it reached this PC, so a download with an old date (a
-driver from 2019, say) is still at the top here even though the list sorts it far down. The **×** hides
-the strip; right-click the empty area of the list and choose **Show just arrived** to bring it back.
-
-**Go back to the page.** Right-click a downloaded file and choose **Open the page this came from** to
-open the web page you downloaded it from, or **Copy download link** for the file's own address. These
-appear in every folder, for any file that still carries the note Windows attaches to downloads. A file
-saved from a private window, or copied from a USB stick, has no note and the entries are not shown.
-
-**Suggested folders.** Clearspace notices where you move downloads to. After files from the same site,
-or of the same kind, have gone to one folder a couple of times, the next one like them is offered
-**Move to "that folder"** on its tile and in its right-click menu. It only offers: nothing is moved
-unless you click. Right-click the tile and choose **Stop suggesting "that folder"** to make it forget a
-folder. What it remembers is a count of moves per folder for each site and file ending, and the last
-few folders you moved files to, kept in your settings file on this PC; no file names or addresses are
-stored.
-
-**Installers.** The strip counts the setup files in the folder and says how many are for programs that
-are already installed. **Review** lists them:
-
-- **Looks installed** – a program with that name is on this PC, so the setup file is no longer needed.
-  These are ticked.
-- **Newer than the installed version** – probably an update you have not run yet. Not ticked.
-- **Not found among the installed programs** – not ticked.
-
-Change the ticks as you like and choose **Move to Recycle Bin**. The match is made by name against the
-list in Windows' *Installed apps* and is deliberately strict, so some installers of programs you do have
-show as not found; it tells you a program is already installed, not that a file is safe to run.
-
-<!-- NEW (preview pane) -->
-### Preview pane
-
-Press **Alt+P**, or the preview button in the toolbar, to open a pane beside the file list that shows
-the selected item without opening it:
-
-- A picture, a video, or a document Windows can draw (a PDF's first page, for example) appears as a large picture.
-- A text file shows its first lines, whatever it is called: `notes.txt`, `LICENSE`, `.gitignore`, a `.log`.
-- A `.zip` shows a list of what is inside it.
-- Anything else shows its icon.
-
-Underneath are the item's type, size, dates, tags and the folder it is in. With several items selected the
-pane shows how many there are and the total size of the files. Drag the edge of the pane to make it wider
-or narrower; Clearspace remembers whether it was open and how wide.
-
-A cloud file that is not on this device is never downloaded just to preview it, and a locked file is not opened.
-
-<!-- NEW (shelf and inspector) -->
-### Inspector
-
-Press **Alt+I**, or the **(i)** button in the toolbar, for everything about the selected file or folder:
-
-- its name (select it to copy it), type, and size to the byte;
-- a **folder's real size**: everything inside it, counted as you watch;
-- a picture's size in pixels, a song's or video's length, a document's pages;
-- when it was made, changed and last opened, the program that opens it, its tags, its Git state, and
-  whether it is read-only, hidden, compressed or encrypted;
-- **Copy path**, and **Fingerprint** (its SHA-256, to check a download or that two files are the same; click
-  it to copy it).
-
-With several items selected it shows how many, their total size (folders included), what kinds they are,
-and the oldest and newest change.
-
-### Shelf
-
-Press **Alt+S**, or the shelf button in the toolbar. The shelf collects files from anywhere so you can deal
-with them together:
-
-1. Drop files on it, from the list, the desktop or another program, or right-click and choose **Add to
-   shelf**.
-2. Go to the folder they should end up in.
-3. Press **Move here**, **Copy here** or **Zip here**.
-
-You can also drag things off the shelf, one at a time or with **Drag all**. The shelf only remembers where
-things are; nothing is copied until you say so. It is still there after a restart. Something that was moved
-or deleted since shows faded.
-
-The Inspector and the Shelf share a column on the side away from the sidebar (the Inspector on top when both
-are open). Drag its edge to make it wider; Clearspace remembers what was open and how wide.
-
-<!-- NEW (archives) -->
-### ZIP files
-
-<!-- NEW (zip folders) -->
-Double-click a `.zip`, or press Enter on it, and it opens in the list like a folder, as in File Explorer.
-Nothing is extracted. You go from folder to folder inside it, and Back, Up, the address bar, tabs, sorting
-and the search box work as they do in any folder. While you are inside one:
-
-- **Double-click a file** to open it. Clearspace opens a copy, so changes you make are not saved into
-  the ZIP file.
-- **Copy** (Ctrl+C) or **drag** files and folders out: into a folder in Clearspace, onto the desktop or
-  into another program.
-- **Extract to…** in the right-click menu unpacks what is selected into a folder you choose.
-- **Extract all** in the toolbar unpacks the whole ZIP into a new folder beside it and takes you there.
-  Right-click an empty part of the list for **Extract all to…**, which asks where.
-- The [preview pane](#preview-pane) shows pictures and text inside a ZIP as it does for other files.
-
-Things to know:
-
-- The inside of a ZIP file can be looked at and copied from, not changed. Nothing in it can be renamed,
-  deleted or tagged, and nothing can be pasted into it. To change what is in one, extract it, make the
-  changes and compress the folder again.
-- The address bar shows where you are as a path (`C:\Users\you\Downloads\Photos.zip\Trip`), and you
-  can type or paste such a path to go there.
-- Press **F5** if the ZIP file was replaced while you had it open.
-- A program opened straight from a ZIP you downloaded still gets Windows' usual question before it runs.
-- To open a ZIP in another program instead, right-click it and choose **Open with…**.
-
-Right-click one or more `.zip` files:
-
-- **Extract to "name"** unpacks each one into a new folder beside it. Nothing that is already there is
-  overwritten: if a folder called "name" exists, the new one is called "name (2)".
-- **Extract to…** does the same inside a folder you choose.
-
-Right-click any files or folders and choose **Compress to ZIP file** to pack them into one new `.zip`
-in the folder you are in.
-
-Both show how far along they are and can be cancelled. A job that is cancelled or fails removes what it
-had half made. Password-protected archives and other formats (7z, RAR) are not supported yet.
-
-<!-- NEW (batch rename) -->
-### Rename several items at once
-
-Select several files or folders and press **F2** (or choose **Rename**). A dialog shows every old name
-beside its new one before anything is changed:
-
-- **New name** is a pattern. `{name}` stands for the current name, `{n}` for a number (`{n:3}` gives 001)
-  and `{date}` for the date modified. `Holiday {n}` gives *Holiday 1.jpg*, *Holiday 2.jpg* and so on.
-- **Find** and **replace with** change a piece of text in every name.
-- **Capitals** switches the names to small letters, capitals, or Each Word.
-- **Numbers start at** sets the first number.
-
-File endings (`.jpg`) are kept. A name that can't be used is marked in the list, for example when two
-items would end up with the same name or a name contains a character Windows refuses, and nothing is
-renamed until every name is fine. If one rename fails partway through, the ones already done are put back.
-
-<!-- NEW (folder opener) -->
-### Open folders with Clearspace
-
-Turn on **Settings > Open folders with Clearspace** and folders opened from the desktop, from other
-programs and with **Win+E** open in Clearspace instead of File Explorer. A folder opens in a new tab of
-the Clearspace window you already have.
+Turn on **Settings > Open folders with Clearspace** and folders you open from the desktop, from other programs or
+with **Win+E** open in Clearspace instead of File Explorer, in a new tab of the window you already have.
 
 - It applies to your Windows account only and needs no administrator permission.
-- File Explorer stays on the PC. The file pickers inside other programs are unchanged, and a program
-  that asks for Explorer by name (many "Show in folder" commands do) still gets Explorer.
-<!-- NEW (Explorer stays Explorer) -->
-- File Explorer still works as it always has when you use it. Double-clicking a folder inside an Explorer
-  window opens it in that window, not in Clearspace. To take a folder from Explorer into Clearspace,
-  right-click it and choose **Clearspace > Open in Clearspace**.
-- Untick the setting to switch back. Uninstalling Clearspace switches back too.
+- **File Explorer keeps working as it always has.** A folder you open inside an Explorer window stays in that window. To take a folder from Explorer into Clearspace, right-click it and choose **Clearspace > Open in Clearspace**.
+- The file pickers inside other programs don't change, and programs that ask for Explorer by name (many "Show in folder" commands) still get Explorer.
+- Untick the setting to switch back. Uninstalling switches back too.
 
-<!-- NEW: the themes. -->
-### Themes
+---
 
-<!-- CHANGED (themes page): themes are picked on a page of previews, not from a list in the menu. -->
-Clearspace comes with a choice of looks. Open the **Settings** menu (the gear button) and choose
-**Choose a theme…**. The Themes page shows every theme as a small window drawn in its own colors and
-fonts; click one to use it. It applies at once to every window (the main window, dialogs, right-click
-menus, tooltips and the title bar) and is remembered. **Back**, Esc or the mouse's back button returns to
-your files.
+## Themes
+
+Open **Settings > Choose a theme…** to see every theme as a small window in its own colors, and click one to use it.
+It applies at once to every Clearspace window and is remembered.
 
 | Theme | What it looks like |
 | --- | --- |
 | **Dark** | The default: warm dark greys with an amber accent. |
-| **OLED Black** | True black with dim grey text, so an OLED screen switches those pixels off. |
+| **OLED Black** | True black, so an OLED screen switches those pixels off. |
 | **Light** | Warm paper tones. |
-| **Blueprint** | A drafting sheet: deep navy, white and pale-cyan lines, a monospace face for names and paths. |
-| **Terminal** | A green-phosphor screen: black background, green text, monospace everywhere. |
-| **Retro** | The classic 1998 desktop: grey chrome, white lists, navy highlights, square corners. |
+| **Blueprint** | A drafting sheet: deep navy, white and pale-cyan lines. |
+| **Terminal** | A green-phosphor screen, monospace everywhere. |
+| **Retro** | The classic 1998 desktop: grey chrome, navy highlights, square corners. |
 
-The themes under **Experimental** on the same page go further: these
-change the icons, fonts and shapes as well as the colors:
+The **Experimental** themes go further and change icons, fonts and shapes too: **Pixel** (a 16-bit console menu),
+**DOS Commander** (the blue two-panel file managers of the DOS years), **Wireframe** (outlines only), **Neon HUD**
+(a sci-fi display), **Glass** (the glossy late-2000s look), **Sketchbook** and **Sketchbook (dark)** (pencil on
+paper, or chalk on black), **Type tiles** (every file a colored tile with its extension), **Zen** (as little as
+possible), **1-bit Mac** and **1-bit Mac (dark)** (a 1984 desktop), and **E-reader** (an e-ink display).
 
-| Theme | What it looks like |
-| --- | --- |
-| **Pixel** | A 16-bit console menu with pixel fonts and pixel-art icons. |
-| **DOS Commander** | The blue two-panel file managers of the DOS years, with a function-key bar along the bottom. |
-| **Wireframe** | Outlines only, in one color, with line-drawing icons. |
-| **Neon HUD** | A sci-fi display: near-black violet, cyan outlines, hot pink, faint scanlines. |
-| **Glass** | The glossy translucent look of the late 2000s over a blue-to-teal gradient. |
-| **Sketchbook** | A spiral-bound sketchbook: paper grain, pencil outlines, a handwriting font, highlighter for selection, hand-sketched icons. |
-| **Sketchbook (dark)** | The same sketchbook on black paper, drawn in chalk-white pencil. |
-| **Type tiles** | Every file is a flat colored tile with its extension written on it. |
-| **Zen** | As little as possible: soft off-white, a colored dot instead of each icon, and a toolbar that fades until you need it. |
-| **1-bit Mac** | A 1984 desktop: black on white, dithered shading. |
-| **1-bit Mac (dark)** | The same, white on black. |
-| **E-reader** | An e-ink display: sixteen greys, a book typeface, and a page-turn fade when you change folders. |
+Windows' own dialogs, such as file Properties, keep the Windows look in every theme.
 
-Windows' own dialogs (the file properties sheet, for example) keep the Windows
-look in every theme.
+**Adding and removing themes.** Every theme is one file in the **Themes** folder next to `Clearspace.exe`. To add one
+somebody made, choose **Import…** on the Themes page (or **Paste code** for a theme sent as a code). To remove one,
+click the bin on its card; it goes to the Recycle Bin. **Dark** can't be removed, so there is always one theme.
 
-<!-- NEW (theme files): adding a theme someone made, and making one. -->
-#### Adding a theme
+**Themes are safe to share.** A theme can only change how Clearspace looks. Clearspace checks every theme, code and
+deck file before using it and refuses anything that isn't colors, fonts, shapes, pictures and layout, so a theme
+from someone else can't run a program or read your files.
 
-Every theme is one file, and they all live in one folder: **Themes**, next to `Clearspace.exe`. The themes
-above are in it too (`Dark.zip`, `Light.zip` and so on). To add a theme somebody made, either:
+Updating Clearspace replaces its own theme files and leaves yours alone. To change a built-in theme, work on a
+copy under another name.
 
-<!-- CHANGED (themes page): Import and Open themes folder are buttons on the Themes page. -->
-- choose **Import…** on the Themes page and pick the theme file. Clearspace checks it, copies it into the
-  Themes folder and switches to it; or
-- put the file in the Themes folder yourself (**Open themes folder** on the Themes page takes you
-  there). It appears under **Your themes** straight away.
+### The theme creator (beta)
 
-<!-- CHANGED (themes page): removing from the page, and Dark staying. -->
-To remove a theme, point at it on the Themes page and click the bin on its card, or right-click it and
-choose **Remove**. Its file goes to the Recycle Bin, so you can put it back. To share one, send the file.
+> [!WARNING]
+> **The theme creator is in beta.** It is new and still being worked on, so there can be a lot of bugs:
+> things that don't look right, settings that don't stick, or a window that behaves oddly while you're editing.
+> Your files are never at risk (a theme can only change how Clearspace looks), and **Cancel** always puts your old
+> theme back. If something goes wrong, please [report it](#reporting-a-problem).
 
-**Dark cannot be removed.** It is part of Clearspace itself, so there is always one theme. Even if
-`Dark.zip` is deleted from the Themes folder, Dark stays on the page and works.
+Choose **Create a theme…** on the Themes page, or right-click a theme and choose **Edit theme…**. The Clearspace
+window itself goes into edit mode, with your own files in it, so you see exactly how your theme will look. A panel
+opens on the right and a bar across the top. Nothing is saved until you press **Done**, and **Cancel** puts
+everything back.
 
-A theme can only change how Clearspace looks. Before one is used, Clearspace checks that it holds nothing
-but colors, fonts, shapes and sizes, and refuses it otherwise, so a theme from someone else cannot run a
-program or read your files. A theme that cannot be used says "Can't be read" in place of its preview, and
-why when you point at it.
+**Two modes**, switched on the top bar:
 
-Updating Clearspace replaces its own theme files (including any you removed) and leaves the ones you added
-alone. To change one of Clearspace's own themes, work on a copy under another name, or the next update
-puts the original back.
+- **Style** is for how things look. **Click any part of the window** (the sidebar, toolbar, tabs, file area, status bar…) to change its color, outline, see-through, pattern or corners. Right-click anywhere to see every color and font that spot uses.
+- **Arrange** is for where things go. **Drag any part of the window** to move it. The window rearranges as you drag, so what you see is what you get. Let go to keep it, or press **Esc** to put it back.
 
-#### Making your own theme
+**Your theme is a hand of cards**, shown along the bottom: its colors, panels, patterns, fonts, layout, stickers,
+effects and icons. Click a card to change it. **Add a card** makes new ones:
 
-<!-- CHANGED (edit in place, side panel): you edit Clearspace itself, with one panel beside it. -->
-Open **Settings > Choose a theme…** and choose **Create a theme…** (or right-click a theme and choose
-**Edit theme…**). The Themes page closes and **the Clearspace window itself goes into edit mode**, with your
-own files in it. A colored bar across the top says you are editing, and a panel opens on the right, beside
-the window (never over it). Everything you change shows on the window straight away, and nothing is saved
-until you choose **Done**.
+- a **pattern** or a **gradient** on the window or any panel (draw your own with the **pattern maker**);
+- a **font**, a **layout** or an **icon style**;
+- an **effect**: scanlines, film grain, a vignette, a glow, a notebook spiral, warning tape and more;
+- a **sticker**, or a **picture behind the files**. The picture editor can **remove a background** in one click and crop;
+- **your own icon** for a file type, a file name or all folders.
 
-<!-- CHANGED (cards first): cards are where things are changed. -->
-**Your hand of cards** runs along the bottom, under the window: everything your theme looks like, as cards (its
-colors, panels, patterns and gradients, fonts, layout, stickers, effects and icons), fanned out like cards held
-in a hand. Point at a card and it pops up whole, nudging its neighbours aside. Every setting belongs to one
-card, and so do the switches (pixel lettering is on the font card, a fading toolbar on the layout card, the
-icon style and your own icons on the icons card). A deck is simply all of a theme's cards. The colors,
-panels, font, layout and icons cards are always there, even when the theme leaves those things to Clearspace:
-then the card shows Clearspace's own, and whatever you change goes on it.
+**Borrow cards** from any other theme: take the colors from one, the stickers from another and the layout from a
+third. Keep cards you like in **My cards** to use again.
 
-<!-- NEW (arrange mode) -->
-**Style and Arrange.** The bar across the top switches between two modes. **Style** is for how things look
-(the cards, colors, fonts, patterns). **Arrange** is for where things go: the cards are put away, and you
-drag any part of the window to move it. The part goes to the side the pointer is nearest, the window really
-rearranges as you drag, and the outline glides to where it will land, so what you see is what you get. Let
-go to keep it, or press **Esc** (or let go where it started) to put it back. Drag the sidebar's edge to make
-it wider or narrower. The Arrange panel has the ready layouts, which parts show, sizes, and the panels you
-can open (preview pane, Inspector, Shelf).
+**Start from something.** The **Theme** tab offers six moods, **Surprise me**, a picture, your wallpaper or another
+theme as a starting point.
 
-In Style, the panel on the right has two tabs. The **Cards** tab is where things are changed. Its top box always shows
-what you are changing:
+**Custom layouts.** **Build a custom layout…** lets you rearrange the whole window: several file lists side by
+side, a browser look, a dashboard, text, pictures and a clock. Start from **Classic**, **Dual pane**, **Browser**,
+**Dashboard**, **Four panes** or **Focus**. The extra file lists are made for moving files: drag between them,
+use copy and paste, and delete.
 
-- **Click a card in your hand** and the box shows that card with everything on it: the colors card its
-  colors, a font card its fonts and pixel lettering, the layout card its layouts, size and fading toolbar, a
-  pattern card its pattern or gradient and where it goes, an effect card its effect, the icons card its style
-  and your own icons. Then **Keep in My cards**, **Copy code** and **Take it out** (Undo puts it back).
-- **Click a part of the window** (the sidebar, the toolbar, the tabs, the file area, the status bar, the
-  preview pane, the shortcut key bar or the window behind them) and the box shows that part: its fill,
-  outline, see-through, pattern or gradient and corners. The cards its look is on rise in your hand, and are
-  named in the box; click one to see the whole card. To move a part, switch to **Arrange**. Grab a sticker to
-  move it; drag its corner to resize it.
-- With nothing picked, the box lists the parts of the window (hidden ones too, to show again) and your
-  stickers. A right-click anywhere on the window lists every color and font that spot is drawn with.
+**Share it.**
 
-Under the box, **Add a card** makes new ones: a **pattern** or a **gradient** (two colors blending down,
-across, diagonally or from the middle) on the window or any panel, a **font**, a **layout**, an **effect**
-(scanlines, film grain, a vignette, a glow, a notebook spiral, warning tape, leaning tooltips…), a
-**sticker**, a **picture behind the files**, **your own icon** (a picture for one file type, one file name or
-all folders) or an **icon style**.
+- **Copy code** (one card) or **Copy deck code** (the whole theme) copies a line of text starting with `CS-` to paste in a chat or a forum. Codes can't carry pictures or font files, and Clearspace says what was left out.
+- **Save deck file…** saves everything in one `.csdeck` file, pictures and fonts included.
+- **Share** on the top bar saves the finished theme as a theme file you can send to anyone.
 
-**Borrow cards** shows another theme's deck, **My cards** (the ones you kept), or a deck file you open. Click
-a card to add it to your hand, or drag it onto a part of the window (a pattern card goes on the part you drop
-it on); **Use the whole deck** makes your theme that deck. Take the colors from one theme, the stickers from
-another and the layout from a third.
+The top bar also has **Undo** and **Redo** (**Ctrl+Z**, **Ctrl+Y**), and a warning when some text is hard to read on
+your colors, with a **Fix** button. **Ctrl+S** saves; **Esc** lets go of things one at a time. A built-in theme is
+saved as a new theme of your own; to change one you made, right-click it and choose **Edit theme…**.
 
-The **Theme** tab is where to start from (six moods, **Surprise me**, a picture, your wallpaper, another
-theme, a deck code or a deck file), sharing, and **Every setting…**.
+Prefer editing files by hand? A theme file is an ordinary zip with `theme.json` and `theme.xaml` inside.
+[Making a Clearspace theme](docs/Making-a-theme.md) has the steps and every setting a theme can hold.
 
-**Share your deck.**
+---
 
-- **Copy code**, on any card, or **Copy deck code** in the Theme tab copies a line of text to paste in a chat
-  or a forum. Codes start with `CS-` (`CS-COLORS-…` for a card, `CS-DECK-…` for a deck); a card's colors come
-  to a few hundred characters. A code holds settings only: picture cards and font files are too big, so
-  Clearspace says what was left out, and a font in a code is used if the other PC has it.
-- **Save deck file…** in the Theme tab saves every card in one `.csdeck` file, pictures and fonts included
-  (so a deck with a tyrannosaur sticker and a hand-cut font arrives whole).
-- To use one: **Paste code** on the Themes page, or **Import…** for a deck file (each becomes one of your
-  themes), or **Paste a code** / **Open a deck file…** under Borrow cards while editing. A code or deck file is
-  checked like a theme file, so it can only change how Clearspace looks.
+## Where Clearspace keeps its data
 
-**The bar across the top** has the theme's name, **Undo** and **Redo**, **Share** (saves the theme as one
-file you can send to anyone), **Cancel** (puts the theme from before back) and **Done** (or **Save** when you
-are editing your own theme). A pill on the bar says when some text is hard to read on your colors; **Fix**
-lifts it just enough.
+| What | Where |
+|---|---|
+| Settings, tags, folder types, logs | `%APPDATA%\Clearspace` |
+| The saved index, lock icons | `%LOCALAPPDATA%\Clearspace` |
+| Theme creator fonts, saved colors and kept cards | `%LOCALAPPDATA%\Clearspace\ThemeStudio` |
+| Themes | The **Themes** folder next to `Clearspace.exe` |
+| Settings and tags backups | `Documents\Clearspace Backups`, unless you chose elsewhere |
 
-The bigger tools open as their own windows:
+Everything stays on your PC. The only thing Clearspace sends anywhere is the update check to GitHub, which you can
+turn off.
 
-- The **color picker**: a color wheel, brightness, opacity, a color code, suggestions, and your saved colors
-  (shared across themes). The window follows the picker as you drag.
-- The **pattern maker** (**Draw a pattern…**): paint squares on a grid (8 to 24 across), mirror left-right or
-  top-bottom, and see it repeat as you draw.
-- The **picture editor**, for stickers and pictures: **Remove background** clears a plain background in one
-  click, **Erase** and **Bring back** fix any patch you click, and **Crop** trims it.
-- The **layout builder** (**Build a custom layout…** on the layout card, in Arrange, or Add a card › Layout), where nothing has to stay where it
-  was: extra file panes side by side, a browser look, a dashboard, text, pictures, a clock, and a place for the
-  Inspector and the Shelf. Start from
-  **Classic**, **Dual pane**, **Browser**, **Dashboard**, **Four panes** or **Focus**; **Edit as text** shows
-  the layout as `layout.json`. A layout is only data (nothing in it can run), so a shared theme's layout is as
-  safe as its colors. Extra panes are made for moving files: drag between panes, to and from the main list
-  and File Explorer, Ctrl+C / X / V, Delete and Backspace work in them.
-- **Every setting**: everything a theme can hold, with a search box, and **About this theme** (who made it,
-  a description, a version, and the e-reader and experimental switches).
-
-Keys while editing: **Ctrl+Z** undo, **Ctrl+Y** redo, **Ctrl+S** save, **Delete** hides the picked part
-(or removes the picked sticker), **Esc** lets go of things one at a time. Clearspace's other shortcuts are
-off until you finish. Closing the window with unsaved changes asks first.
-
-Built-in themes are saved as a new theme of your own (the name starts as "… remix"). To change a theme you
-made, right-click it on the Themes page and choose **Edit theme…**. The font library is in
-`%LocalAppData%\Clearspace\ThemeStudio\Fonts`; saved colors and kept cards are alongside it.
-
-A theme file is an ordinary zip holding `theme.json` (its name) and `theme.xaml` (its colors, fonts and
-corner sizes), plus any fonts and pictures it brings along. The quickest start is to unzip a copy of
-`Dark.zip` into a folder of its own inside the Themes folder, click it under **Your themes** on the Themes
-page, and change the colors: Clearspace shows each change as you save it. Zip the folder when it is done, and that file
-is your theme.
-
-[Making a Clearspace theme](docs/Making-a-theme.md) has the steps, every color you can set, and what a
-theme may and may not contain.
-
-## Familiar file-manager foundations
-
-- Browse local, mapped network, and known Windows folders.
-<!-- NEW (live drives) -->
-- Drives follow what is plugged in: a USB stick, a memory card or an external drive appears in the sidebar and on This PC within a second or so of being connected, and disappears when it is removed. A tab that was showing a drive that is gone moves to This PC.
-- Back, forward, up, breadcrumb navigation, side-mouse navigation, and an address bar.
-- The folder you have open follows the disk: when another program adds, changes, renames or removes something in it, the list updates by itself and keeps your selection and your place. (Subfolders are not watched, so the date shown for a folder catches up when you press F5 or come back.)
-- Tabs, as in File Explorer: Ctrl+T for a new tab, middle-click a folder to open it in one, drag files onto a tab. Each tab keeps its own history, search, scroll position and selection.
-- More windows: Ctrl+N or "Open in new window". They share one index and one set of caches, so a second window costs little.
-- Your files can hold folders of your own beside Desktop, Documents and the rest: right-click an empty area there for New folder.
-- Copy, cut, paste, rename, new folder, delete to the Recycle Bin, and properties.
-<!-- NEW (undo) -->
-- Undo and redo, as in File Explorer: **Ctrl+Z** puts back the last move, copy, rename (one item or several at once), delete to the Recycle Bin, or new folder or file, and **Ctrl+Y** does it again. They are also at the top of the menu you get by right-clicking empty space in a folder. Up to 50 changes are kept, until Clearspace is closed. Anything moved, renamed or deleted since by another program is left alone, and the status bar says so. Deleting for good (Shift+Delete) can't be undone.
-<!-- NEW (drag to select) -->
-- Drag to select, as in File Explorer: start on empty space (the blank part of a row, the gaps between tiles, or below the files) and drag a rectangle over the files you want. Hold Ctrl to add to what is already selected (files under the rectangle flip), or Shift to only add. Hold the pointer at the top or bottom edge, or turn the wheel, to carry on past what is on screen. Esc puts the selection back; a click on empty space clears it. A drag that starts on a file's icon or text still moves the file.
-<!-- NEW (scroll while dragging) -->
-- Drag files onto a folder in the list, the sidebar or a tab to move or copy them. The list scrolls while you drag: hold the file near its top or bottom edge, or turn the mouse wheel, to reach a folder that is off screen. The sidebar does the same.
-- Explorer-style right-click menus and Windows copy/conflict dialogs.
-<!-- NEW (menu by type) -->
-- The right-click menu fits what you clicked. What suits the kind of file comes first: **Play in Clearspace** for a sound file, **View in Clearspace** for a picture, the **Extract** entries for a ZIP file, **Run as administrator** for a program, **Open file location** for a shortcut. A picture also gets **Copy image** and **Set as desktop background**, documents and pictures get **Print**, a folder gets **Open in Terminal**, and any other file gets **Open with…**. Cut, copy, paste, rename and delete are a row of icons at the bottom of the menu, as in File Explorer; hover over one to see its name and shortcut. Entries that would do nothing for what you clicked are left out: no **Unlock…** on a file that is not locked, no **Pin to sidebar** on a file.
-- This PC and Network hubs with drive capacity indicators.
-<!-- NEW (map network drive) -->
-- Map a network drive without File Explorer: open **Network** in the sidebar and choose **Map network drive…** (it is also in the right-click menu of the This PC and Network headings, and of the empty space on those two pages). Type the folder as `\\server\share` or use **Browse…**, pick one of the free drive letters, and choose whether Windows should reconnect the drive each time you sign in. If the server wants a user name and password, Windows asks for them in its own sign-in box, so Clearspace never sees your password; tick *Connect using different credentials* to be asked even when your own account would work. To remove a drive, right-click it in the sidebar or on the Network page and choose **Disconnect**.
-- Per-folder details-column order and width, saved between sessions.
-- Grid zoom is remembered independently for each folder.
-- Optional terminal launch in the folder currently being viewed.
-
-<!-- NEW (licence) -->
 ## License
 
-Clearspace is released under the [MIT License](LICENSE). The two pixel fonts it includes are under the
-SIL Open Font License; their licence texts are with them in `Clearspace/Themes/Pixel/fonts` (and inside
-the Pixel theme file). <!-- CHANGED (theme files): the fonts moved into the Pixel theme -->
+Clearspace is released under the [MIT License](LICENSE). The two pixel fonts it includes are under the SIL Open
+Font License; their licence texts are with them in `Clearspace/Themes/Pixel/fonts` and inside the Pixel theme file.
 
-<!-- NEW (user readme): where the build and release instructions went. -->
 ## Building Clearspace yourself
 
-The source code is in this repository. To build Clearspace from it, publish a release, or see how it is put together, read [DEVELOPMENT.md](DEVELOPMENT.md).
+The source code is in this repository. To build Clearspace, publish a release, or see how it is put together, read
+[DEVELOPMENT.md](DEVELOPMENT.md).
 
-Please note that this is still in early development. There will be bugs and missing features. I will try to add these and patch bugs when I can. Thank you for trying this out!
+---
+
+<p align="center">Thanks for trying Clearspace! It's still early, so bugs and missing features are expected. I'll keep adding and fixing things as I can.</p>
