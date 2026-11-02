@@ -1054,7 +1054,9 @@ public static class SettingsService
     private static readonly (string Id, string Name)[] DefaultSidebarSections =
     [
         ("files", "Your files"),
-        ("recent", "Recent"), // NEW (recent)
+        // CHANGED (productivity): "productivity" in place of "recent" (a Recent saved by 1.9.1 test builds is
+        // dropped by the clean-up below, since it is no longer a known section).
+        ("productivity", "Productivity"),
         ("favorites", "Favorites"),
         ("cloud", "Cloud"),
         ("this-pc", "This PC"),
@@ -1088,11 +1090,10 @@ public static class SettingsService
             if (Current.SidebarSectionOrder.Contains(id))
                 continue;
 
-            // NEW (recent): a section added in an update goes where it is in the default order (Recent under
-            // Your files), not at the bottom of a sidebar someone has already arranged.
-            var after = id == "recent" ? Current.SidebarSectionOrder.IndexOf("files") : -1;
-            if (after >= 0)
-                Current.SidebarSectionOrder.Insert(after + 1, id);
+            // NEW (recent), CHANGED (productivity): a section added in an update goes where it is in the
+            // default order (Productivity at the very top), not at the bottom of a sidebar already arranged.
+            if (id == "productivity")
+                Current.SidebarSectionOrder.Insert(0, id);
             else
                 Current.SidebarSectionOrder.Add(id);
         }

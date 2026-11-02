@@ -20,6 +20,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     public const string PinnedPath = ExplorerLocations.PinnedPath;
     public const string CloudPath = ExplorerLocations.CloudPath;
     public const string RecentPath = ExplorerLocations.RecentPath; // NEW (recent)
+    public const string ProductivityPath = ExplorerLocations.ProductivityPath; // NEW (productivity)
     public const string CategoryPathPrefix = ExplorerLocations.CategoryPathPrefix;
 
     private readonly NavigationCoordinator _navigationLoads = new();
@@ -1688,7 +1689,10 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         CurrentPath = path;
         // NEW (recent): going into a folder puts it on Windows' list of recent items, as File Explorer does.
         if (!force && !path.StartsWith("clearspace://", StringComparison.OrdinalIgnoreCase))
+        {
             RecentItems.RecordFolder(path);
+            ProductivityStore.RecordVisit(path); // NEW (productivity): counted for "Most visited"
+        }
         WatchFolderOnScreen(path); // NEW (live folder): the listing follows changes other programs make here
         RestoreFolderProfile(path);
         RestoreTileScale(path);
@@ -1728,6 +1732,15 @@ public sealed class MainViewModel : ObservableObject, IDisposable
                 path.Equals(NetworkPath, StringComparison.OrdinalIgnoreCase))
             {
                 await LoadVirtualDrivesAsync(path, stopwatch, token);
+                return;
+            }
+
+            // NEW (productivity): the page is drawn by the window (ProductivityView) over an empty list.
+            if (path.Equals(ProductivityPath, StringComparison.OrdinalIgnoreCase))
+            {
+                SetDirectoryItems([]);
+                StatusText = SearchCoordinator.DescribeBrowsing(path, []);
+                TimingText = string.Empty;
                 return;
             }
 
@@ -1979,6 +1992,9 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     // folder an item is in. The list is read again each time the page is opened, or with Refresh (F5).
 
     public bool IsRecentPage => CurrentPath.Equals(RecentPath, StringComparison.OrdinalIgnoreCase);
+
+    // NEW (productivity)
+    public bool IsProductivityPage => CurrentPath.Equals(ProductivityPath, StringComparison.OrdinalIgnoreCase);
 
     private async Task LoadRecentAsync(string path, Stopwatch stopwatch, CancellationToken token)
     {

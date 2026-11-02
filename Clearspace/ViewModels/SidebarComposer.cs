@@ -10,7 +10,8 @@ internal static class SidebarComposer
         IReadOnlyList<SidebarSectionInfo> sections,
         Func<string?, IReadOnlyList<KeyValuePair<string, string>>> getPins,
         IEnumerable<SidebarEntry> userFiles, IEnumerable<SidebarEntry> cloudFiles,
-        IEnumerable<SidebarEntry>? recentFolders = null) // NEW (recent sidebar)
+        IEnumerable<SidebarEntry>? recentFolders = null, // NEW (recent sidebar)
+        IEnumerable<SidebarEntry>? tabGroups = null)     // NEW (productivity)
     {
         foreach (var section in sections)
         {
@@ -28,6 +29,13 @@ internal static class SidebarComposer
                     yield return Section(section, RecentPath);
                     if (!section.IsCollapsed && recentFolders is not null)
                         foreach (var folder in recentFolders) yield return Child(folder);
+                    break;
+
+                // NEW (productivity): a place at the top of the sidebar; your saved tab groups under it.
+                case "productivity":
+                    yield return Section(section, ProductivityPath) with { IsPlace = true, Glyph = "\uE7C4" };
+                    if (!section.IsCollapsed && tabGroups is not null)
+                        foreach (var group in tabGroups) yield return Child(group);
                     break;
 
                 case "favorites":

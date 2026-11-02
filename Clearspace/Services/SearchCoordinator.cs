@@ -343,6 +343,9 @@ internal sealed class SearchCoordinator(ISearchSources sources, Action<SearchUpd
         if (path.Equals(ExplorerLocations.NetworkPath, StringComparison.OrdinalIgnoreCase))
             return count == 0 ? "No mapped network locations"
                 : $"{count:N0} network location{(count == 1 ? "" : "s")}";
+        // NEW (productivity): the page draws itself; the status line just names it.
+        if (path.Equals(ExplorerLocations.ProductivityPath, StringComparison.OrdinalIgnoreCase))
+            return "Productivity";
         // NEW (recent)
         if (path.Equals(ExplorerLocations.RecentPath, StringComparison.OrdinalIgnoreCase))
             return count == 0 ? "Nothing opened lately" : $"{count:N0} recent item{(count == 1 ? "" : "s")}";

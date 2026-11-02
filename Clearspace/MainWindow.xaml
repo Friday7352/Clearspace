@@ -676,6 +676,11 @@
         <DockPanel x:Name="TabRow" Grid.Row="0" LastChildFill="False" Margin="10,8,14,0" Background="Transparent">
             <!-- The tabs. TabStripPanel gives every tab the same width and narrows them as more are opened;
                  it keeps ReservedWidth free for the "new tab" button that follows. -->
+            <!-- NEW (productivity): the tab group open in this window, if any (MainWindow.Productivity.cs). Click
+                 for Edit, Keep up to date, and Stop using this group here. -->
+            <!-- REMOVED (group capsule): the one group label before the tabs (TabGroupLabel). Each group now has its
+                 name at the start of its own capsule, inside the tab strip (the template below). -->
+
             <ItemsControl x:Name="TabStrip"
                           DockPanel.Dock="Left"
                           ItemsSource="{Binding Tabs.Items}"
@@ -690,19 +695,95 @@
                         <controls:TabStripPanel ReservedWidth="40" />
                     </ItemsPanelTemplate>
                 </ItemsControl.ItemsPanel>
+                <!-- NEW (group capsule): room for a group's name before its first tab (Lead), a collapsed group's
+                     first tab showing only the name (LeadOnly), and its other tabs taking no room (Visibility). -->
+                <ItemsControl.ItemContainerStyle>
+                    <Style TargetType="ContentPresenter">
+                        <Setter Property="controls:TabStripPanel.Lead" Value="{Binding GroupLead}" />
+                        <Setter Property="controls:TabStripPanel.LeadOnly" Value="{Binding LeadOnly}" />
+                        <Setter Property="Visibility" Value="{Binding IsShown, Converter={StaticResource BoolToVisible}}" />
+                    </Style>
+                </ItemsControl.ItemContainerStyle>
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>
+                        <!-- CHANGED (group capsule): a tab in a group sits on the group's capsule (a soft tint of the
+                             group colour, rounded at the group's two ends), and the group's first tab carries the
+                             group's name before it. Tabs not in a group look as before. -->
+                        <Grid Height="34">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+
+                            <Border x:Name="Capsule"
+                                    Grid.ColumnSpan="2"
+                                    Background="{Binding GroupTint}"
+                                    CornerRadius="{Binding CapsuleCorners}"
+                                    Margin="{Binding CapsuleMargin}"
+                                    Visibility="{Binding HasGroup, Converter={StaticResource BoolToVisible}}" />
+
+                            <!-- The group's name: click to collapse or expand the group, right-click for its menu. -->
+                            <Border x:Name="GroupChip"
+                                    Grid.Column="0"
+                                    Width="{Binding ChipWidth}"
+                                    Height="28"
+                                    Margin="3,0,4,0"
+                                    CornerRadius="{DynamicResource R8}"
+                                    Background="Transparent"
+                                    Cursor="Hand"
+                                    ToolTip="{Binding GroupHint}"
+                                    AutomationProperties.Name="{Binding GroupName}"
+                                    Visibility="{Binding IsGroupStart, Converter={StaticResource BoolToVisible}}"
+                                    MouseLeftButtonUp="OnGroupChipClick"
+                                    MouseRightButtonUp="OnGroupChipRightClick">
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="8,0,0,0">
+                                    <TextBlock Text="{Binding ChipGlyph}"
+                                               FontFamily="{StaticResource IconFont}"
+                                               FontSize="9"
+                                               Margin="0,0,6,0"
+                                               VerticalAlignment="Center"
+                                               Foreground="{Binding GroupColor}" />
+                                    <TextBlock Text="{Binding GroupName}"
+                                               FontFamily="{DynamicResource UIFont}"
+                                               FontSize="12"
+                                               FontWeight="SemiBold"
+                                               MaxWidth="160"
+                                               TextTrimming="CharacterEllipsis"
+                                               VerticalAlignment="Center"
+                                               Foreground="{Binding GroupColor}" />
+                                    <Border MinWidth="18"
+                                            Height="18"
+                                            Margin="7,0,0,0"
+                                            Padding="5,0"
+                                            CornerRadius="9"
+                                            VerticalAlignment="Center"
+                                            Background="{Binding GroupColor}"
+                                            Visibility="{Binding GroupCollapsed, Converter={StaticResource BoolToVisible}}">
+                                        <TextBlock Text="{Binding GroupCount}"
+                                                   FontFamily="{DynamicResource UIFont}"
+                                                   FontSize="10.5"
+                                                   FontWeight="Bold"
+                                                   HorizontalAlignment="Center"
+                                                   VerticalAlignment="Center"
+                                                   Foreground="{DynamicResource Base}" />
+                                    </Border>
+                                </StackPanel>
+                            </Border>
+
                         <!-- One tab: symbol, name, close button. Click to switch, drag to reorder, middle-click
                              to close, right-click for the menu; files can be dragged onto it. -->
+                        <!-- CHANGED (group capsule): in column 1; its right margin leaves 3px of capsule after a group's last tab. -->
                         <Border x:Name="Tab"
+                                Grid.Column="1"
                                 Height="30"
-                                Margin="0,0,4,0"
+                                Margin="{Binding TabMargin}"
                                 Background="Transparent"
                                 BorderBrush="Transparent"
                                 BorderThickness="1"
                                 CornerRadius="{DynamicResource R8}"
                                 ToolTip="{Binding Hint}"
                                 AllowDrop="True"
+                                Visibility="{Binding ShowsTab, Converter={StaticResource BoolToVisible}}"
                                 MouseLeftButtonDown="OnTabMouseDown"
                                 MouseRightButtonUp="OnTabRightClick"
                                 DragEnter="OnTabDragOver"
@@ -747,9 +828,16 @@
                                 </Button>
                             </Grid>
                         </Border>
+                        </Grid>
                         <DataTemplate.Triggers>
+                            <!-- REMOVED (group capsule): the tint on each grouped tab and the line under it; the capsule
+                                 behind the group does that job now. -->
                             <Trigger SourceName="Tab" Property="IsMouseOver" Value="True">
                                 <Setter TargetName="Tab" Property="Background" Value="{DynamicResource Hover}" />
+                            </Trigger>
+                            <!-- NEW (group capsule): the group's name lights up under the pointer, like a tab. -->
+                            <Trigger SourceName="GroupChip" Property="IsMouseOver" Value="True">
+                                <Setter TargetName="GroupChip" Property="Background" Value="{DynamicResource Hover}" />
                             </Trigger>
                             <!-- The tab you are on looks like the address bar: raised from the window. Listed
                                  after the hover trigger so it wins while the pointer is over the tab. -->
@@ -1299,7 +1387,8 @@
                                         <Style TargetType="Button" BasedOn="{StaticResource SidebarHeaderButton}">
                                             <Setter Property="Visibility" Value="Collapsed" />
                                             <Style.Triggers>
-                                                <DataTrigger Binding="{Binding IsHeader}" Value="True">
+                                                <!-- CHANGED (productivity): IsPlainHeader (was IsHeader); a place heading has the row below. -->
+                                                <DataTrigger Binding="{Binding IsPlainHeader}" Value="True">
                                                     <Setter Property="Visibility" Value="Visible" />
                                                 </DataTrigger>
                                             </Style.Triggers>
@@ -1307,8 +1396,36 @@
                                     </Button.Style>
                                 </Button>
 
+                                <!-- NEW (productivity): a heading drawn as a place to go - icon and full-size name, like a
+                                     folder rather than a small label (Productivity, at the top of the sidebar). -->
+                                <Button Grid.Column="0"
+                                        Click="OnSidebarClick"
+                                        Padding="12,0"
+                                        ToolTip="Your tab groups, recent work and folders"
+                                        Visibility="{Binding IsPlace, Converter={StaticResource BoolToVisible}}">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="{Binding Glyph}"
+                                                   FontFamily="{StaticResource IconFont}"
+                                                   FontSize="14"
+                                                   Margin="0,0,10,0"
+                                                   VerticalAlignment="Center"
+                                                   Foreground="{DynamicResource Accent}" />
+                                        <TextBlock Text="{Binding Name}"
+                                                   FontSize="13.5"
+                                                   FontWeight="SemiBold"
+                                                   VerticalAlignment="Center"
+                                                   Foreground="{DynamicResource Ink}" />
+                                    </StackPanel>
+                                    <Button.Style>
+                                        <Style TargetType="Button" BasedOn="{StaticResource SidebarButton}">
+                                            <Setter Property="Height" Value="34" />
+                                        </Style>
+                                    </Button.Style>
+                                </Button>
+
+                                <!-- CHANGED (productivity): ToolTip is Hint (the path, or what a tab group does). -->
                                 <Button Tag="{Binding Name}"
-                                        ToolTip="{Binding Path}"
+                                        ToolTip="{Binding Hint}"
                                         Click="OnSidebarClick"
                                         AllowDrop="True"
                                         PreviewMouseLeftButtonDown="OnSidebarMouseDown"
@@ -1320,6 +1437,13 @@
                                         Drop="OnSidebarDrop">
                                     <Button.Content>
                                         <StackPanel Orientation="Horizontal">
+                                            <!-- NEW (productivity): a tab group's colour. -->
+                                            <Border Width="9" Height="9"
+                                                    CornerRadius="3"
+                                                    Margin="0,0,9,0"
+                                                    VerticalAlignment="Center"
+                                                    Background="{Binding Dot}"
+                                                    Visibility="{Binding HasDot, Converter={StaticResource BoolToVisible}}" />
                                             <TextBlock Text="{Binding DisplayName}"
                                                        VerticalAlignment="Center"
                                                        TextTrimming="CharacterEllipsis" />
@@ -1336,9 +1460,18 @@
                                     <Button.ContextMenu>
                                         <ContextMenu>
                                             <!-- NEW (tabs) -->
-                                            <MenuItem Header="Open in new tab" Click="OnSidebarOpenInNewTab" />
+                                            <MenuItem Header="Open in new tab" Click="OnSidebarOpenInNewTab"
+                                                      Visibility="{Binding IsNotTabGroup, Converter={StaticResource BoolToVisible}}" />
                                             <!-- NEW (new window) -->
-                                            <MenuItem Header="Open in new window" Click="OnSidebarOpenInNewWindow" />
+                                            <MenuItem Header="Open in new window" Click="OnSidebarOpenInNewWindow"
+                                                      Visibility="{Binding IsNotTabGroup, Converter={StaticResource BoolToVisible}}" />
+                                            <!-- NEW (productivity): on a saved tab group (MainWindow.Productivity.cs). -->
+                                            <MenuItem Header="Open (in place of my tabs)" Click="OnSidebarOpenTabGroup"
+                                                      Visibility="{Binding IsTabGroup, Converter={StaticResource BoolToVisible}}" />
+                                            <MenuItem Header="Open in new window" Click="OnSidebarOpenTabGroupInNewWindow"
+                                                      Visibility="{Binding IsTabGroup, Converter={StaticResource BoolToVisible}}" />
+                                            <MenuItem Header="Edit…" Click="OnSidebarEditTabGroup"
+                                                      Visibility="{Binding IsTabGroup, Converter={StaticResource BoolToVisible}}" />
                                             <!-- NEW (your files): only on folders you added to Your files. -->
                                             <MenuItem Header="Remove from Your files"
                                                       Click="OnRemoveSidebarLibrary"
@@ -1831,6 +1964,15 @@
 
                     <!-- CHANGED (complex themes): named, so a theme can hide it or put it above the list
                          (Services/ThemeExplorerLayout.cs), and given a fill and line of its own (Part.Status.*). -->
+                    <!-- NEW (productivity): the Productivity page, over the (empty) list while the tab is there. -->
+                    <ContentControl x:Name="ProductivityHost"
+                                    Grid.Row="0"
+                                    Grid.RowSpan="2"
+                                    Panel.ZIndex="5"
+                                    Visibility="Collapsed"
+                                    HorizontalContentAlignment="Stretch"
+                                    VerticalContentAlignment="Stretch" />
+
                     <Border x:Name="StatusBar"
                             Grid.Row="2"
                             Background="{DynamicResource Part.Status.Fill}"

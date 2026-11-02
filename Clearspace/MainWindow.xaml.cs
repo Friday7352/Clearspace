@@ -151,6 +151,7 @@ public partial class MainWindow : Window
         InitializeDownloads(); // NEW (downloads): the "Just arrived" strip of Downloads folders
         InitializeDragScroll(); // NEW (scroll while dragging): the edges of a list and the mouse wheel, during a drag
         InitializeBandSelect(); // NEW (drag to select): a rectangle dragged over the file list selects what it touches
+        InitializeProductivity(); // NEW (productivity): the Productivity page, tab groups, and saving the last session
         SearchTrace.WatchWindow(Dispatcher); // NEW (search trace): records when the window stops responding, and during what
         _viewModel.Context.NewLibraryFolder = CreateLibraryFolder; // NEW (your files): New folder on the Your files page
         // NEW (experimental themes): keeps the Zen theme's fading toolbar in step with the pointer and keyboard.
@@ -735,6 +736,13 @@ public partial class MainWindow : Window
     {
         if (sender is not Button { DataContext: SidebarEntry entry })
             return;
+
+        // NEW (productivity): a saved tab group opens in place of your tabs.
+        if (entry.TabGroupId is { } groupId)
+        {
+            OpenTabGroup(groupId);
+            return;
+        }
 
         if (string.IsNullOrEmpty(entry.Path))
             return;

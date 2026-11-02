@@ -61,6 +61,56 @@ public sealed class ExplorerTab : ObservableObject
     // has not shown anything yet, so it does not keep a visit-unlocked folder open (see LockAgent).
     internal bool WasShown { get; set; }
 
+    // ---- NEW (tab group look): the tab group this tab belongs to, if any, and how it is drawn ----
+    // GroupId is set when the tab was opened from a group, saved into one, or added to one. It stays with the
+    // tab wherever it goes (the group itself only changes when you edit or save it).
+    // CHANGED (group capsule): a group's tabs sit together in one tinted capsule, with the group's name at its
+    // start; clicking the name collapses the group to just the name and a count. The window works out how
+    // each tab is drawn (MainWindow.Productivity.cs) and hands it over as a GroupLook. Colours are text
+    // ("#D3A15F") so this file stays free of WPF; the tab strip's bindings turn them into brushes.
+
+    public string? GroupId { get; set; }
+
+    private GroupLook? _look;
+
+    /// <summary>Sets how the tab is drawn for its group (null: not in a group). Refreshes every binding.</summary>
+    internal void SetGroupLook(GroupLook? look)
+    {
+        if (Equals(_look, look))
+            return;
+        _look = look;
+        OnPropertyChanged(string.Empty); // every property below follows from the look
+    }
+
+    public bool HasGroup => _look is not null;
+    public string? GroupColor => _look?.Color;
+    public string? GroupName => _look?.Name;
+    public bool IsGroupStart => _look?.Start == true;
+    public bool GroupCollapsed => _look?.Collapsed == true;
+    public int GroupCount => _look?.Count ?? 0;
+
+    // The capsule behind the group: the group colour, faint.
+    public string? GroupTint => _look?.Color is { Length: 7 } color && color[0] == '#' ? "#26" + color[1..] : null;
+
+    // The name at the start of the group (the first tab carries it). ChipWidth is measured by the window, so the
+    // tab strip can give it room: GroupLead is the room before the tab itself.
+    public double ChipWidth => IsGroupStart ? _look!.ChipWidth : 0;
+    public double GroupLead => IsGroupStart ? _look!.ChipWidth + 7 : 0;
+    public string ChipGlyph => GroupCollapsed ? "\uE76C" : "\uE70D"; // chevron right / down
+    public string GroupHint => _look is null ? string.Empty
+        : $"{_look.Name} · {_look.Count} tab{(_look.Count == 1 ? "" : "s")} · click to {(GroupCollapsed ? "show" : "hide")} them, right-click for more";
+
+    // Collapsed: the first tab shows only the name; the others are not shown at all.
+    public bool LeadOnly => IsGroupStart && GroupCollapsed;
+    public bool ShowsTab => !LeadOnly;
+    public bool IsShown => !(HasGroup && GroupCollapsed && !IsGroupStart);
+
+    // The capsule's rounded ends, and the 3px of capsule left beside the last tab.
+    private bool CapsuleEnds => _look is { } look && (look.End || look.Collapsed);
+    public string CapsuleCorners => !HasGroup ? "0" : IsGroupStart && CapsuleEnds ? "12" : IsGroupStart ? "12,0,0,12" : CapsuleEnds ? "0,12,12,0" : "0";
+    public string CapsuleMargin => CapsuleEnds ? "0,0,4,0" : "0";
+    public string TabMargin => HasGroup && _look!.End ? "0,0,7,0" : "0,0,4,0";
+
     // ---- What the window puts aside while the tab is in the background ----
 
     public string SearchText { get; set; } = string.Empty;
@@ -101,6 +151,7 @@ public sealed class ExplorerTab : ObservableObject
         if (path.Equals(ExplorerLocations.PinnedPath, StringComparison.OrdinalIgnoreCase)) return "\uE734";    // Favorites
         if (path.Equals(ExplorerLocations.CloudPath, StringComparison.OrdinalIgnoreCase)) return "\uE753";     // Cloud
         if (path.Equals(ExplorerLocations.RecentPath, StringComparison.OrdinalIgnoreCase)) return "\uE81C";    // NEW (recent): History
+        if (path.Equals(ExplorerLocations.ProductivityPath, StringComparison.OrdinalIgnoreCase)) return "\uE7C4"; // NEW (productivity): Task view
         if (ArchiveLocation.Is(path)) return "\uE7B8";                                                         // NEW (zip folders): Package
         if (IsVirtual(path)) return FolderGlyph;
 
@@ -327,6 +378,60 @@ public sealed class ExplorerTabs
         }
     }
 
+    // ---- NEW (productivity): tab groups ----
+
+    /// <summary>
+    /// CHANGED (groups add, not replace): opens these places as tabs at the end of the strip, together, and
+    /// shows the one at <paramref name="active"/>. Tabs you already have stay open - except a tab showing
+    /// the same place as one of these, which makes way for it (it goes to "Reopen closed tab"), so a folder
+    /// is not open twice. Each new tab is marked with <paramref name="groupId"/> (null for none). Returns the
+    /// tab shown, or null (and nothing changed) when there is nothing to open or it could not be shown (a
+    /// locked folder whose password prompt was cancelled). Was ReplaceWith, which closed every open tab.
+    /// </summary>
+    public ExplorerTab? OpenTogether(IReadOnlyList<string> paths, int active = 0, string? groupId = null)
+    {
+        if (paths.Count == 0)
+            return null;
+
+        active = Math.Clamp(active, 0, paths.Count - 1);
+        var places = new HashSet<string>(paths, StringComparer.OrdinalIgnoreCase);
+        var sameAsNew = Items.Where(tab => places.Contains(tab.Location)).ToArray();
+
+        var shown = Insert(NavigationService.CreateHistory(paths[active]), Items.Count, activate: true);
+        if (shown is null)
+            return null;
+        shown.GroupId = groupId;
+
+        // The others, in order around the one shown.
+        for (var i = 0; i < paths.Count; i++)
+        {
+            if (i == active)
+                continue;
+            var tab = Insert(NavigationService.CreateHistory(paths[i]), Items.Count, activate: false);
+            if (tab is null)
+                continue;
+            tab.GroupId = groupId;
+            if (i < active)
+                Items.Move(Items.IndexOf(tab), Items.IndexOf(shown));
+        }
+
+        foreach (var tab in sameAsNew)
+        {
+            Remember(tab, Items.IndexOf(tab));
+            tab.IsActive = false;
+            Items.Remove(tab);
+        }
+
+        Changed?.Invoke(this, EventArgs.Empty);
+        return shown;
+    }
+
+    /// <summary>NEW (tab group look): the tabs marked with a group, left to right.</summary>
+    public IReadOnlyList<ExplorerTab> InGroup(string groupId) => [.. Items.Where(tab => tab.GroupId == groupId)];
+
+    /// <summary>The places of every tab, left to right (empty new tabs left out).</summary>
+    public IReadOnlyList<string> Locations => [.. Items.Select(tab => tab.Location).Where(location => location.Length > 0)];
+
     // ---- Reopening ----
 
     public bool CanReopen => _closed.Count > 0;
@@ -412,3 +517,6 @@ public sealed class ExplorerTabs
             ? parent
             : ExplorerLocations.MyPcPath;
 }
+
+/// <summary>NEW (group capsule): how one tab of a group is drawn. Start/End: first/last tab of the group's run.</summary>
+internal sealed record GroupLook(string Color, string Name, bool Start, bool End, bool Collapsed, int Count, double ChipWidth);
