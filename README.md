@@ -40,7 +40,7 @@ the one Windows opens folders with whenever you like.
 ## Contents
 
 - [Install](#install) · [Updating](#updating) · [Uninstalling](#uninstalling) · [Reporting a problem](#reporting-a-problem)
-- [What's new in 1.9.1](#whats-new-in-191) · [1.9.0](#whats-new-in-190) · [1.7.0](#whats-new-in-170)
+- [What's new in 1.10.0](#whats-new-in-1100) · [1.9.1](#whats-new-in-191) · [1.9.0](#whats-new-in-190) · [1.7.0](#whats-new-in-170)
 - [The basics](#the-basics) · [Keyboard shortcuts](#keyboard-shortcuts)
 - [Folder types](#folder-types) · [The Downloads folder](#the-downloads-folder)
 - [Search and indexing](#search-and-indexing) · [Tags and Favorites](#tags-and-favorites)
@@ -50,6 +50,7 @@ the one Windows opens folders with whenever you like.
 - [Backup and restore](#backup-and-restore) · [Settings and tags backup](#settings-and-tags-backup)
 - [Password locks](#password-locks)
 - [Photos and music](#photos-and-music)
+- [Productivity and tab groups](#productivity-and-tab-groups)
 - [Open folders with Clearspace](#open-folders-with-clearspace)
 - [Themes](#themes) · [The theme creator (beta)](#the-theme-creator-beta)
 - [Where Clearspace keeps its data](#where-clearspace-keeps-its-data) · [License](#license) · [Building Clearspace yourself](#building-clearspace-yourself)
@@ -125,9 +126,15 @@ Two small logs in `%APPDATA%\Clearspace` can help. They stay on your PC unless y
 
 ---
 
+## What's new in 1.10.0
+
+- **Productivity and tab groups.** Save the tabs you have open as a named, coloured group and open them all again in one click, beside the tabs you already have. A group stays exactly as you saved it until you edit it. On the tab bar each group sits in its own coloured capsule that folds down to just its name. [More below](#productivity-and-tab-groups).
+- **Productivity page.** At the top of the sidebar, in place of Recent: your tab groups, the files you opened lately, and the folders you visit most and last.
+- **Reopen last session** brings back the tabs you had open when Clearspace last closed, even after a crash.
+
 ## What's new in 1.9.1
 
-- **Recent.** Your last five folders sit under **Recent** in the sidebar, and its page lists the files and folders you opened lately, in Clearspace or any other program, newest first. Right-click one for **Open file location**.
+- **Recent.** Your last folders under **Recent** in the sidebar, and a page of the files and folders you opened lately.
 - **The toolbar fits any window.** In a narrow window the address bar stays, labels shorten, and buttons that don't fit move into a **More** (⋯) menu instead of being cut off.
 - **Fixed:** Clearspace 1.9.0 reported an older version number, so it could keep offering the 1.9.0 update after you installed it.
 
@@ -167,7 +174,7 @@ Everything you'd expect from a file manager works the way it does in File Explor
 - **Drives come and go live:** a USB stick or external drive appears in the sidebar and on This PC the moment you plug it in, and goes when you remove it.
 - **Network drives:** open **Network** in the sidebar and choose **Map network drive…** to give a shared folder (`\\server\share`) a drive letter. Windows asks for any password in its own sign-in box, so Clearspace never sees it. Right-click a mapped drive and choose **Disconnect** to remove it.
 - **Your files:** the sidebar's home for Desktop, Documents and the rest. Add folders of your own there.
-- **Recent:** the sidebar shows your last five folders under **Recent**, like File Explorer's Quick access. Click the heading for a page of the files and folders you opened lately, in Clearspace or any other program, newest first, with when you last opened each one and the folder it's in. Right-click one and choose **Open file location** to go to it. It's the same list File Explorer's Recent uses, so it's empty if **Show recently opened items** is off in Windows Settings > Personalization > Start.
+- **Productivity:** the row at the top of the sidebar, with your saved tab groups under it. Its page has your tab groups, the files you opened lately (in Clearspace or any other program) and your most and last visited folders. More in [Productivity and tab groups](#productivity-and-tab-groups).
 - **Views you keep:** each folder remembers its column order and widths and its tile size (**Ctrl+mouse wheel**). **Ctrl+Shift+V** switches between the list and tiles.
 
 ### Keyboard shortcuts
@@ -561,6 +568,26 @@ You can rotate a picture or crop it, saving in place where the format allows, or
 **Music player.** In a Music folder, play songs right in Clearspace, with artist, album, track number and length
 read from the files. Double-click still opens a song in its usual program.
 
+## Productivity and tab groups
+
+**Productivity** sits at the top of the sidebar. Its page has three parts:
+
+- **Tab groups:** a saved set of tabs, with a name and a colour. Click **Open** to add its tabs to the ones you have, or **New window** to open it on its own. Your other tabs stay open; a tab already showing one of the group's folders moves into the group, so nothing is open twice. Your groups are also listed under Productivity in the sidebar: click one to open it.
+- **Recently opened:** the files you opened lately, here or in any other program, by day. Click one to open it, or right-click for **Show in its folder**. **See all** shows the full list.
+- **Folders:** the ones you went into most over the last two weeks, and the ones you visited last. **Forget folder visits** clears these counts.
+
+**Saving a group:** press **Ctrl+Shift+G**, right-click a tab and choose **Save tabs as a group**, or use **Save open tabs as a group** on the page. Right-clicking a tab also has **Add this tab to a group** and **Open a tab group**.
+
+**Editing a group:** click **Edit** on its card (or right-click it in the sidebar and choose **Edit…**). You can rename it, pick a colour, see every tab, remove a tab, move one up or down, and add a folder or the folder you have on screen.
+
+**On the tab bar** a group's tabs sit together in a softly tinted capsule in the group's colour, with its name at the start. Click the name to fold the group down to just its name and a tab count, and again to show its tabs; right-click it for the group's options. Several groups can be open at once.
+
+**A group stays as you saved it.** Moving around in its tabs never changes it. It changes only when you edit it, use **Add this tab to a group** or **Remove from** in a tab's menu, or right-click the group's name on the tab bar and choose **Save these tabs to the group**. That menu also has **Close the group's tabs** and **Ungroup these tabs**.
+
+**Reopen last session** brings back the tabs you had open when Clearspace last closed, even if it closed unexpectedly.
+
+Your groups, the last session and folder visit counts are kept on this PC only, in `%AppData%\Clearspace\productivity.json`.
+
 ## Open folders with Clearspace
 
 Turn on **Settings > Open folders with Clearspace** and folders you open from the desktop, from other programs or
@@ -665,6 +692,7 @@ Prefer editing files by hand? A theme file is an ordinary zip with `theme.json` 
 | What | Where |
 |---|---|
 | Settings, tags, folder types, logs | `%APPDATA%\Clearspace` |
+| Tab groups, last session, folder visit counts | `%APPDATA%\Clearspace\productivity.json` |
 | The saved index, lock icons | `%LOCALAPPDATA%\Clearspace` |
 | Theme creator fonts, saved colors and kept cards | `%LOCALAPPDATA%\Clearspace\ThemeStudio` |
 | Themes | The **Themes** folder next to `Clearspace.exe` |

@@ -28,12 +28,12 @@ public sealed class SidebarViewModel : IDisposable
         RebuildSidebar();
         SettingsChanged += RebuildSidebar;
         DrivesChanged += ReloadDrives; // NEW (map network drive)
-        RecentItems.SidebarFoldersChanged += OnRecentFoldersChanged; // NEW (recent sidebar)
-        RecentItems.StartSidebar();
+        // CHANGED (productivity): the tab groups under Productivity (was: the Recent folders, read in the background).
+        ProductivityStore.GroupsChanged += OnTabGroupsChanged;
     }
 
-    // NEW (recent sidebar): the last few folders changed (read in the background).
-    private void OnRecentFoldersChanged() => _dispatcher.BeginInvoke(new Action(RebuildSidebar));
+    // NEW (productivity): a group was saved, renamed, recoloured or deleted (possibly in another window).
+    private void OnTabGroupsChanged() => _dispatcher.BeginInvoke(new Action(RebuildSidebar));
 
     // NEW (new window): a closed window's sidebar stops listening (called from MainViewModel.Dispose).
     // CHANGED (map network drive): to both kinds of news.
@@ -41,7 +41,7 @@ public sealed class SidebarViewModel : IDisposable
     {
         SettingsChanged -= RebuildSidebar;
         DrivesChanged -= ReloadDrives;
-        RecentItems.SidebarFoldersChanged -= OnRecentFoldersChanged; // NEW (recent sidebar)
+        ProductivityStore.GroupsChanged -= OnTabGroupsChanged; // CHANGED (productivity)
     }
 
     private static void RebuildEverySidebar() => SettingsChanged?.Invoke();
@@ -72,13 +72,11 @@ public sealed class SidebarViewModel : IDisposable
         RebuildSidebar();
     }
 
-    // NEW (recent sidebar): the folders under Recent, by name (a drive by its letter); the full path is the tooltip.
-    private static IEnumerable<SidebarEntry> RecentEntries()
-        => RecentItems.SidebarFolders.Select(path =>
-        {
-            var name = Path.GetFileName(Path.TrimEndingDirectorySeparator(path));
-            return new SidebarEntry(string.IsNullOrEmpty(name) ? path : name, path);
-        });
+    // NEW (productivity): the saved tab groups under Productivity. A click opens the group (MainWindow).
+    // REMOVED (productivity): RecentEntries, the folders that were listed under Recent.
+    private static IEnumerable<SidebarEntry> TabGroupEntries()
+        => ProductivityStore.Groups.Select(group =>
+            new SidebarEntry(group.Name, string.Empty, Dot: group.Color, TabGroupId: group.Id));
 
     private static SidebarEntry WithCloud(SidebarEntry entry)
         => entry.IsHeader || entry.CloudProvider is not null || !CloudStorageService.IsDiscovered
@@ -206,7 +204,7 @@ public sealed class SidebarViewModel : IDisposable
         Sidebar.Clear();
 
         foreach (var entry in SidebarComposer.Build(_driveEntries, SettingsService.GetSidebarSections(), SettingsService.GetPins,
-            LocationCatalog.BuildUserFileEntries(), LocationCatalog.BuildCloudEntries(), RecentEntries()).Select(WithCloud))
+            LocationCatalog.BuildUserFileEntries(), LocationCatalog.BuildCloudEntries(), null, TabGroupEntries()).Select(WithCloud))
             Sidebar.Add(entry);
     }
 

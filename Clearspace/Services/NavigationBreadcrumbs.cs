@@ -30,6 +30,9 @@ internal static class NavigationBreadcrumbs
         if (path.Equals(RecentPath, StringComparison.OrdinalIgnoreCase)) // NEW (recent)
             return [new Breadcrumb("Recent", RecentPath)];
 
+        if (path.Equals(ProductivityPath, StringComparison.OrdinalIgnoreCase)) // NEW (productivity)
+            return [new Breadcrumb("Productivity", ProductivityPath)];
+
         if (path.StartsWith(CategoryPathPrefix, StringComparison.OrdinalIgnoreCase))
         {
             var categoryId = path[CategoryPathPrefix.Length..];

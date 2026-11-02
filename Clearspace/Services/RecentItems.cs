@@ -191,10 +191,8 @@ internal static class RecentItems
             }
         });
 
-        // NEW (recent sidebar): the folder you went into goes to the top of the sidebar's Recent, a moment later
-        // (so going through several folders quickly is one update, not one each).
-        if (folder)
-            RefreshSidebarSoon(TimeSpan.FromSeconds(1.5));
+        // REMOVED (productivity): refreshing the sidebar's Recent folders here. The sidebar's Productivity row
+        // lists your tab groups instead; the page reads its folders from ProductivityStore.
     }
 
     private const uint SHARD_PATHW = 0x00000003;

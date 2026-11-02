@@ -259,8 +259,9 @@ public partial class MainWindow
 
         HideTabGhost();
 
+        // CHANGED (group capsule): IndexAt, since tabs no longer all have the same width (group names, collapsed groups).
         if (TabLayout is { TabWidth: > 0 } panel)
-            Tabs.Move(_tabDrag, (int)Math.Floor(position.X / panel.TabWidth));
+            Tabs.Move(_tabDrag, panel.IndexAt(position.X));
     }
 
     // NEW (tab to new window): the strip's own area plus a margin around it, so the whole row of tabs and
@@ -412,6 +413,8 @@ public partial class MainWindow
         var reopen = Entry("Reopen closed tab", "\uE7A7", () => Tabs.ReopenClosed(), "Ctrl+Shift+T");
         reopen.IsEnabled = Tabs.CanReopen;
         menu.Items.Add(reopen);
+
+        AddTabGroupEntries(menu, tab); // NEW (productivity): save / add to / open a tab group
 
         menu.IsOpen = true;
         e.Handled = true;
