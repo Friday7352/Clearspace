@@ -66,10 +66,11 @@ public sealed class DiskUsageTests
     public void InvalidHierarchyAndOverflowFailExplicitly()
     {
         var broken = Example();
-        broken.Entries[1].ParentIndex = 3;
+        broken.EntryAt(1).ParentIndex = 3;   // CHANGED (round 65): entries are chunked
         Assert.ThrowsException<InvalidDataException>(() => DiskUsageSnapshot.Build(broken, default));
+        // CHANGED (round 65): one size can no longer overflow (sizes are 48-bit), so many largest-possible files do.
         var overflow = Example();
-        overflow.Entries[4].Size = long.MaxValue;
+        for (var i = 0; i < 40_000; i++) overflow.Add(0, $"huge{i}.bin", IndexEntry.MaxSize, 0, 0, FileAttributes.Normal);
         Assert.ThrowsException<OverflowException>(() => DiskUsageSnapshot.Build(overflow, default));
         var empty = new VolumeIndex(@"C:\", 1);
         Assert.ThrowsException<InvalidDataException>(() => DiskUsageSnapshot.Build(empty, default));
@@ -179,7 +180,7 @@ public sealed class DiskUsageTests
         await missing.LoadAsync();
         Assert.IsTrue(missing.IsEmpty);
         StringAssert.Contains(missing.Status, "Refresh");
-        var broken = Example(); broken.Entries[2].ParentIndex = 2;
+        var broken = Example(); broken.EntryAt(2).ParentIndex = 2;   // CHANGED (round 65)
         using var invalid = new DiskUsageViewModel(() => [broken]);
         await invalid.LoadAsync();
         Assert.IsTrue(invalid.IsEmpty);

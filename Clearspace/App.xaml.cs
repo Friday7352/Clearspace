@@ -19,6 +19,13 @@ public partial class App : Application
     // a main window (only the password dialog shows).
     private Services.ShellCommand? _windowlessCommand;
 
+    // NEW (show in folder): while a folder is being opened for another program, the item it wants selected
+    // (Services/ShowInFolderCatcher.cs). Live = this process shows the window, so the item goes to LockAgent.
+    private Services.ShowInFolderCatcher? _showInFolder;
+    private readonly object _showInFolderGate = new();
+    private bool _showInFolderLive;
+    private int _showInFolderSent;
+
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
@@ -82,11 +89,23 @@ public partial class App : Application
             return;
         }
 
+        // NEW (show in folder): Windows opening a folder may be another program's "Show in folder". Listen
+        // for the item it wants selected while the folder opens (it does not wait for this).
+        if (e.Args.Length >= 2 && e.Args[0].Equals("--open-folder", StringComparison.OrdinalIgnoreCase) &&
+            Services.ShellCommands.Parse(e.Args) is { } opening && Directory.Exists(opening.Path))
+        {
+            _showInFolder = Services.ShowInFolderCatcher.Start(opening.Path, OnShowInFolder);
+        }
+
         // NEW (Explorer integration): a command from Explorer goes to the Clearspace that's already running.
         if (Services.ShellCommands.Parse(e.Args) is { } command)
         {
             if (Services.ShellCommands.TryForward(command))
             {
+                // NEW (show in folder): the running Clearspace has opened the folder. This process stays a few
+                // seconds longer (no window) in case the program says which item to select, and passes it on.
+                if (_showInFolder is { } catcher && catcher.Wait(Services.ShowInFolderCatcher.Window) && catcher.Caught is { } item)
+                    Services.ShellCommands.TryForward(new Services.ShellCommand(Services.ShellVerb.Select, item));
                 Shutdown(0);
                 return;
             }
@@ -165,6 +184,38 @@ public partial class App : Application
 
         // CHANGED (Explorer integration): replaces StartupUri="MainWindow.xaml".
         new MainWindow().Show();
+
+        // NEW (show in folder): from here an item that arrives is selected in this window (or one that came
+        // before now is).
+        if (_showInFolder is { } listening)
+        {
+            lock (_showInFolderGate)
+            {
+                _showInFolderLive = true;
+                if (listening.Caught is { } early)
+                    SendShowInFolder(early);
+            }
+        }
+    }
+
+    // NEW (show in folder): called on the catcher's thread when the item arrives.
+    private void OnShowInFolder(string path)
+    {
+        lock (_showInFolderGate)
+        {
+            if (_showInFolderLive)
+                SendShowInFolder(path);
+            // otherwise: read from Caught, by the forwarding code above or when the window has been made
+        }
+    }
+
+    private void SendShowInFolder(string path)
+    {
+        if (Interlocked.Exchange(ref _showInFolderSent, 1) != 0)
+            return;
+
+        // After the window's own start (ApplicationIdle, as for any command this process started with).
+        Dispatcher.BeginInvoke(() => LockAgent.Current.RunLater(new Services.ShellCommand(Services.ShellVerb.Select, path)));
     }
 
     protected override void OnExit(ExitEventArgs e)

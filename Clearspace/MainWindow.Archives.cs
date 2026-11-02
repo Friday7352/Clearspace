@@ -4,6 +4,8 @@
 //  - Extract to…: the same, into a folder you choose.
 //  - Compress to ZIP file: packs the selection into one new .zip in the folder you are in.
 // Each job shows ProgressWindow, which can stop it. The work itself is in Services/ArchiveService.cs.
+// NEW (rar and 7z): Extract to "name" and Extract to… also show for .7z, .rar and .tar files (IsArchiveItem),
+// as in File Explorer. Those are unpacked, not opened like a folder; only a ZIP file opens in the list.
 // CHANGED (zip folders): a ZIP file now opens in the list like a folder (double-click, or Enter), as in
 // File Explorer; it used to go to whichever program Windows uses for .zip files. This file has the window
 // side of being inside one (the reading is Services/ArchiveBrowser.cs):
@@ -39,7 +41,8 @@ public partial class MainWindow
     // A file or folder that is really on a disk (not a drive, and not an entry of a page such as This PC).
     private static bool IsOnDisk(FileSystemItem item) => !item.IsDriveRoot && Path.IsPathFullyQualified(item.FullPath);
 
-    private static bool IsArchiveItem(FileSystemItem item) => IsOnDisk(item) && !item.IsFolder && ArchiveService.IsArchive(item.FullPath);
+    // CHANGED (rar and 7z): any file Extract can unpack (was IsArchive: ZIP files only).
+    private static bool IsArchiveItem(FileSystemItem item) => IsOnDisk(item) && !item.IsFolder && ArchiveService.CanExtract(item.FullPath);
 
     // The files-and-folders menu is opening: show the archive entries that fit what is selected.
     private void OnItemMenuOpened(object sender, RoutedEventArgs e)
@@ -65,7 +68,7 @@ public partial class MainWindow
             return;
 
         // A menu reads "_" as "underline the next letter", so underscores in a file name are doubled.
-        var folderName = Path.GetFileNameWithoutExtension(selected[0].FullPath).Replace("_", "__");
+        var folderName = ArchiveService.StemOf(selected[0].FullPath).Replace("_", "__"); // CHANGED (rar and 7z): "Photos.tar.gz" -> "Photos"
         ExtractMenuItem.Header = selected.Count == 1
             ? $"Extract to \"{folderName}\""
             : "Extract each to its own folder";
@@ -91,7 +94,7 @@ public partial class MainWindow
 
             var what = insideZip
                 ? selected.Count == 1 ? selected[0].Name : $"{selected.Count:N0} items"
-                : selected.Count == 1 ? selected[0].Name : $"{selected.Count:N0} ZIP files";
+                : selected.Count == 1 ? selected[0].Name : $"{selected.Count:N0} archives"; // CHANGED (rar and 7z): was "ZIP files"
             if (ChooseExtractFolder($"Extract {what}") is not { } folder)
                 return;
 

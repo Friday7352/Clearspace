@@ -1,8 +1,6 @@
 # Clearspace file locking
 
-Implemented October 1, 2026 for CS 499 Milestone Four. This completes the file-lock
-storage portion of the original database plan and adds the corresponding lock and
-unlock feature originally proposed under software engineering.
+Implemented October 1, 2026.
 
 ## Using the feature
 

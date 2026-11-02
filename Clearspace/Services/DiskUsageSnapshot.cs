@@ -1,4 +1,5 @@
 using System.IO;
+using System.Numerics;
 
 namespace Clearspace.Services;
 
@@ -9,45 +10,56 @@ internal sealed record DiskUsageItem(int Id, string Name, long Bytes, long FileC
     public double Share { get; init; }
     public string ShareText => Share > 0 && Share < 0.1 ? "<0.1%" : $"{Share:0.#}%";
     public string ColorHex { get; init; } = "#615C54";
-    public string Glyph => Id < 0 ? "\uE8A9" : IsFolder ? "\uE8B7" : "\uE8A5";
+    public string Glyph => Id < 0 ? "" : IsFolder ? "" : "";
 }
 
 // Published indexes are immutable. Keep one version alive while the user explores it.
 // Parallel arrays avoid allocating an object and a child list for every indexed file.
 // CHANGED (round 39): also an IFlatSource, so the whole-drive flat layout can read it directly.
+// CHANGED (round 65, memory): totals are kept for folders only, and nothing else per entry but two bits.
+// It used to keep five arrays over every entry (bytes, files, first child, next sibling, excluded: 25 bytes
+// each, 280 MB for a drive of 11 million files, two drives kept warm). Now:
+//   * a file's size is read from the index itself;
+//   * children come from the index (VolumeIndex.Children), which needs no link arrays;
+//   * "is a folder" and "excluded" are one bit each, and a folder's place in the totals arrays is its rank
+//     among folders (a running count every 64 entries plus a bit count).
+// A file whose size changes after the snapshot shows its new size; folder totals stay as built until the
+// snapshot is refreshed, as before.
 internal sealed class DiskUsageSnapshot : IFlatSource
 {
     private readonly VolumeIndex _index;
-    private readonly long[] _bytes;
-    private readonly long[] _files;
-    private readonly int[] _firstChild;
-    private readonly int[] _nextSibling;
-    private readonly bool[] _excluded;
     private readonly int _count; // NEW: the live index keeps growing; a snapshot reads a fixed prefix
+    private readonly ulong[] _folderBits;    // NEW (round 65): 1 bit per entry - a folder
+    private readonly int[] _folderRank;      // NEW (round 65): folders before each 64-entry word
+    private readonly ulong[] _excludedBits;  // NEW (round 65): 1 bit per entry - left out of the totals
+    private long[] _folderBytes = [];        // NEW (round 65): by folder rank
+    private long[] _folderFiles = [];
 
     private DiskUsageSnapshot(VolumeIndex index)
     {
         _index = index;
         _count = index.Count;
-        _bytes = new long[_count];
-        _files = new long[_count];
-        _firstChild = new int[_count];
-        _nextSibling = new int[_count];
-        _excluded = new bool[_count];
-        Array.Fill(_firstChild, -1);
-        Array.Fill(_nextSibling, -1);
+        var words = (_count + 63) >> 6;
+        _folderBits = new ulong[words];
+        _folderRank = new int[words];
+        _excludedBits = new ulong[words];
     }
 
     public string Root => _index.Root;
     public DateTime BuiltUtc => _index.BuiltUtc;
     public int Count => _count;
 
-    // NEW (round 23): five parallel arrays of 8+8+4+4+1 bytes per indexed entry. Reported in the
-    // F3 readout so the map's own memory can be told apart from the index it is built on.
-    public long ApproximateBytes => (long)_count * 25;
+    // NEW (round 23): reported in the F3 readout so the map's own memory can be told apart from the index
+    // it is built on. CHANGED (round 65): two bit arrays and a rank word per 64 entries, plus 16 bytes a folder.
+    public long ApproximateBytes => (long)_folderBits.Length * 20 + (long)_folderBytes.Length * 16;
     public long SourceVersion { get; private init; } // NEW: index version this snapshot was built from
     internal VolumeIndex Source => _index;
-    public bool IsAvailable(int id) => id >= 0 && id < Count && !_excluded[id];
+    public bool IsAvailable(int id) => id >= 0 && id < Count && !IsExcluded(id);
+
+    private bool IsFolderId(int id) => (_folderBits[id >> 6] & (1UL << (id & 63))) != 0;
+    private bool IsExcluded(int id) => (_excludedBits[id >> 6] & (1UL << (id & 63))) != 0;
+    private void Exclude(int id) => _excludedBits[id >> 6] |= 1UL << (id & 63);
+    private int Rank(int id) => _folderRank[id >> 6] + BitOperations.PopCount(_folderBits[id >> 6] & ((1UL << (id & 63)) - 1));
 
     public static DiskUsageSnapshot Build(VolumeIndex index, CancellationToken token, IEnumerable<string>? excludedPaths = null)
     {
@@ -58,44 +70,59 @@ internal sealed class DiskUsageSnapshot : IFlatSource
             throw new InvalidDataException("The index contains no root folder.");
         for (var i = 0; i < result._count; i++)
         {
-            token.ThrowIfCancellationRequested();
-            var entry = index.Entry(i);
+            if ((i & 0xFFF) == 0) token.ThrowIfCancellationRequested();
+            ref readonly var entry = ref index.Entry(i);
             if (i == 0 ? entry.ParentIndex != -1 || !entry.IsFolder
                        : entry.ParentIndex < 0 || entry.ParentIndex >= i || !index.Entry(entry.ParentIndex).IsFolder)
                 throw new InvalidDataException("The index has an invalid folder hierarchy.");
-            if (entry.NameOffset < 0 || entry.NameOffset > index.PoolLength - entry.NameLength)
+            if (!index.HasValidName(i))
                 throw new InvalidDataException("The index contains an invalid file name.");
-            result._bytes[i] = entry.IsFolder ? 0 : Math.Max(0, entry.Size);
-            result._files[i] = entry.IsFolder ? 0 : 1;
+            if (entry.IsFolder) result._folderBits[i >> 6] |= 1UL << (i & 63);
             // NEW: entries deleted since the last full scan are excluded like confirmed deletions.
-            if ((entry.Attributes & VolumeIndex.RemovedFlag) != 0) result._excluded[i] = true;
-            if (i == 0) continue;
-            result._nextSibling[i] = result._firstChild[entry.ParentIndex];
-            result._firstChild[entry.ParentIndex] = i;
+            if ((entry.Attributes & VolumeIndex.RemovedFlag) != 0) result.Exclude(i);
         }
+
+        var folders = 0;
+        for (var word = 0; word < result._folderBits.Length; word++)
+        {
+            result._folderRank[word] = folders;
+            folders += BitOperations.PopCount(result._folderBits[word]);
+        }
+        result._folderBytes = new long[folders];
+        result._folderFiles = new long[folders];
 
         if (excludedPaths is not null)
             foreach (var path in excludedPaths)
             {
                 token.ThrowIfCancellationRequested();
                 var id = result.FindEntry(path, token);
-                if (id > 0) result._excluded[id] = true;
+                if (id > 0) result.Exclude(id);
             }
         for (var i = 1; i < result._count; i++)
         {
-            token.ThrowIfCancellationRequested();
-            result._excluded[i] |= result._excluded[index.Entry(i).ParentIndex];
-            if (result._excluded[i]) { result._bytes[i] = 0; result._files[i] = 0; }
+            if ((i & 0xFFF) == 0) token.ThrowIfCancellationRequested();
+            if (result.IsExcluded(index.Entry(i).ParentIndex)) result.Exclude(i);
         }
 
         // Parents precede children in the index. Reverse order is a bottom-up traversal:
         // each subtree contributes exactly once, without recursion or repeated disk reads.
         for (var i = result._count - 1; i > 0; i--)
         {
-            token.ThrowIfCancellationRequested();
-            var parent = index.Entry(i).ParentIndex;
-            result._bytes[parent] = checked(result._bytes[parent] + result._bytes[i]);
-            result._files[parent] += result._files[i];
+            if ((i & 0xFFF) == 0) token.ThrowIfCancellationRequested();
+            if (result.IsExcluded(i)) continue;
+            ref readonly var entry = ref index.Entry(i);
+            var parent = result.Rank(entry.ParentIndex);
+            if (result.IsFolderId(i))
+            {
+                var own = result.Rank(i);
+                result._folderBytes[parent] = checked(result._folderBytes[parent] + result._folderBytes[own]);
+                result._folderFiles[parent] += result._folderFiles[own];
+            }
+            else
+            {
+                result._folderBytes[parent] = checked(result._folderBytes[parent] + Math.Max(0, entry.Size));
+                result._folderFiles[parent]++;
+            }
         }
         return result;
     }
@@ -103,26 +130,34 @@ internal sealed class DiskUsageSnapshot : IFlatSource
     // NEW (round 39): direct reads for FlatTreemapLayout. Children() allocates a record and a name
     // string per child, which for a whole drive is the same million small objects the flat layout
     // exists to avoid.
-    public long BytesOf(int id) => _bytes[id];
-    public long FilesOf(int id) => _files[id];
-    public bool IsFolderEntry(int id) => _index.Entry(id).IsFolder;
+    public long BytesOf(int id)
+        => IsExcluded(id) ? 0 : IsFolderId(id) ? _folderBytes[Rank(id)] : Math.Max(0, _index.Entry(id).Size);
+
+    public long FilesOf(int id)
+        => IsExcluded(id) ? 0 : IsFolderId(id) ? _folderFiles[Rank(id)] : 1;
+
+    public bool IsFolderEntry(int id) => IsFolderId(id);
+
+    // CHANGED (round 65): valid until the fourth NameOf/NameSpan call after it on the same thread
+    // (VolumeIndex.NameSpan), which covers comparing two names.
     public ReadOnlySpan<char> NameOf(int id) => _index.NameSpan(id);
+
     public void ChildIds(int folder, List<int> into)
     {
-        for (var child = _firstChild[folder]; child >= 0; child = _nextSibling[child])
-            if (!_excluded[child]) into.Add(child);
+        foreach (var child in _index.Children(folder, _count))
+            if (!IsExcluded(child)) into.Add(child);
     }
 
-    public DiskUsageItem Item(int id) => new(id, _index.GetName(id), _bytes[id], _files[id], _index.Entry(id).IsFolder);
+    public DiskUsageItem Item(int id) => new(id, _index.GetName(id), BytesOf(id), FilesOf(id), IsFolderId(id));
     public int Parent(int id) => _index.Entry(id).ParentIndex;
 
     public IReadOnlyList<DiskUsageItem> Children(int id, CancellationToken token = default)
     {
         var children = new List<DiskUsageItem>();
-        for (var child = _firstChild[id]; child >= 0; child = _nextSibling[child])
+        foreach (var child in _index.Children(id, _count))
         {
             token.ThrowIfCancellationRequested();
-            if (_excluded[child]) continue;
+            if (IsExcluded(child)) continue;
             children.Add(Item(child));
         }
         children.Sort((a, b) =>
@@ -147,7 +182,7 @@ internal sealed class DiskUsageSnapshot : IFlatSource
     public int FindFolder(string path, CancellationToken token = default)
     {
         var id = FindEntry(path, token);
-        return id >= 0 && _index.Entry(id).IsFolder ? id : -1;
+        return id >= 0 && IsFolderId(id) ? id : -1;
     }
 
     private int FindEntry(string path, CancellationToken token)
@@ -160,10 +195,10 @@ internal sealed class DiskUsageSnapshot : IFlatSource
         foreach (var part in target[(root.Length + 1)..].Split(Path.DirectorySeparatorChar))
         {
             var match = -1;
-            for (var child = _firstChild[current]; child >= 0; child = _nextSibling[child])
+            foreach (var child in _index.Children(current, _count))
             {
                 token.ThrowIfCancellationRequested();
-                if (!_excluded[child] && _index.NameSpan(child).Equals(part, StringComparison.OrdinalIgnoreCase))
+                if (!IsExcluded(child) && _index.NameEquals(child, part))
                 { match = child; break; }
             }
             if (match < 0) return -1;

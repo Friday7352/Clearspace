@@ -186,6 +186,9 @@ internal static class ShellIntegration
     // File Explorer itself is not changed or removed: its own windows, the desktop and the file pickers
     // inside other programs keep working, and "Show in folder" in programs that ask Explorer by name
     // still opens Explorer.
+    // NEW (show in folder): "Show in folder" that goes through Windows (SHOpenFolderAndSelectItems, which
+    // most programs use) arrives here as --open-folder with only the folder; Services/ShowInFolderCatcher.cs
+    // picks up which item to select.
 
     private const string OpenerVerb = "Clearspace.OpenFolder";
     private const string PreviousDefault = "ClearspacePreviousDefault";

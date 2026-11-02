@@ -193,13 +193,13 @@ internal static class IndexingOverview
         if (parent < 0 || parent >= source.Count) throw new ArgumentOutOfRangeException(nameof(parent));
         if (limit <= 0 || offset < 0) throw new ArgumentOutOfRangeException(nameof(limit));
         var entries = new List<IndexedEntry>();
-        var count = source.Count;
         var matches = 0;
-        for (var id = 1; id < count; id++)
+        // CHANGED (round 65): the folder's own children (VolumeIndex.Children) instead of every entry on the drive.
+        foreach (var id in source.Children(parent))
         {
             token.ThrowIfCancellationRequested();
             var entry = source.Entry(id);
-            if (entry.ParentIndex != parent || (entry.Attributes & VolumeIndex.RemovedFlag) != 0) continue;
+            if ((entry.Attributes & VolumeIndex.RemovedFlag) != 0) continue;
             if (filter.Length > 0 && !source.NameSpan(id).Contains(filter, StringComparison.OrdinalIgnoreCase)) continue;
             matches++;
             if (matches > offset && entries.Count < limit) entries.Add(new(id, source.GetName(id), source.GetPath(id), entry.IsFolder, entry.Size));

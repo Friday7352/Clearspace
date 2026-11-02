@@ -200,6 +200,68 @@ public sealed class ArchiveTests
         Assert.AreEqual("not really a zip, but it is the user's file", File.ReadAllText(zip));
     }
 
+    // ---- NEW (rar and 7z)
+
+    [TestMethod]
+    public void OtherKindsAreKnownByTheirEndings()
+    {
+        Assert.IsTrue(ArchiveService.CanExtract(@"C:\x\Photos.7z"));
+        Assert.IsTrue(ArchiveService.CanExtract(@"C:\x\Photos.RAR"));
+        Assert.IsTrue(ArchiveService.CanExtract(@"C:\x\Photos.tar.gz"));
+        Assert.IsTrue(ArchiveService.CanExtract(@"C:\x\Photos.zip"));
+        Assert.IsFalse(ArchiveService.CanExtract(@"C:\x\Photos.gz"), "a lone .gz is one squeezed file, not an archive");
+        Assert.IsFalse(ArchiveService.CanExtract(@"C:\x\Photos.txt"));
+
+        Assert.IsTrue(ArchiveService.CanList(@"C:\x\Photos.7z"));
+        Assert.IsFalse(ArchiveService.CanList(@"C:\x\Photos.tar.gz"), "listing would mean reading all of it");
+
+        Assert.AreEqual("Photos", ArchiveService.StemOf(@"C:\x\Photos.tar.gz"));
+        Assert.AreEqual("v1.2", ArchiveService.StemOf(@"C:\x\v1.2.7z"));
+        Assert.AreEqual(At("Backup"), ArchiveService.FolderFor(At("Backup.tar.xz"), _root));
+    }
+
+    private string MakeWith(SharpCompress.Common.ArchiveType type, SharpCompress.Common.CompressionType compression, string name)
+    {
+        var path = At(name);
+        using var writer = SharpCompress.Writers.WriterFactory.OpenWriter(path, type, new SharpCompress.Writers.WriterOptions(compression));
+        using (var first = new MemoryStream("hello"u8.ToArray()))
+            writer.Write("Top/note.txt", first, new DateTime(2020, 5, 6, 7, 8, 9));
+        using (var second = new MemoryStream(new byte[100_000]))
+            writer.Write("Top/Inner/zeros.bin", second, null);
+        return path;
+    }
+
+    [TestMethod]
+    public void SevenZipAndTarFilesAreUnpacked()
+    {
+        var sevenZip = MakeWith(SharpCompress.Common.ArchiveType.SevenZip, SharpCompress.Common.CompressionType.LZMA2, "Seven.7z");
+        var tarGz = MakeWith(SharpCompress.Common.ArchiveType.Tar, SharpCompress.Common.CompressionType.GZip, "Tarred.tar.gz");
+
+        foreach (var (archive, folderName) in new[] { (sevenZip, "Seven"), (tarGz, "Tarred") })
+        {
+            var reports = new List<ArchiveProgress>();
+            var made = ArchiveService.ExtractAsync(archive, _root, new Recorder(reports), CancellationToken.None).GetAwaiter().GetResult();
+
+            Assert.AreEqual(At(folderName), made, archive);
+            Assert.AreEqual("hello", File.ReadAllText(Path.Combine(made, "Top", "note.txt")), archive);
+            Assert.AreEqual(100_000, new FileInfo(Path.Combine(made, "Top", "Inner", "zeros.bin")).Length, archive);
+        }
+
+        var listing = ArchiveService.List(sevenZip);
+        Assert.AreEqual(100_005, listing.TotalSize);
+        Assert.IsTrue(listing.Entries.Any(entry => entry.Name.Replace('\\', '/') == "Top/note.txt"));
+    }
+
+    [TestMethod]
+    public void ADamagedSevenZipFileSaysSoAndLeavesNothingBehind()
+    {
+        var broken = At("Broken.7z");
+        File.WriteAllBytes(broken, [0x37, 0x7A, 0xBC, 0xAF, 0x27, 0x1C, 1, 2, 3, 4, 5]);
+
+        Assert.ThrowsException<InvalidDataException>(() => ArchiveService.ExtractOther(broken, _root, null, CancellationToken.None));
+        Assert.IsFalse(Directory.Exists(At("Broken")), "the half-made folder is removed");
+    }
+
     private sealed class Recorder(List<ArchiveProgress> reports) : IProgress<ArchiveProgress>
     {
         public void Report(ArchiveProgress value) => reports.Add(value);

@@ -149,6 +149,9 @@ internal sealed class LockAgent
                 case ShellVerb.ChangePassword:
                     ChangePassword([path], attach: false);
                     break;
+                case ShellVerb.Select: // NEW (show in folder)
+                    ShowInFolder(path);
+                    break;
             }
         }
         finally
@@ -168,6 +171,27 @@ internal sealed class LockAgent
         }
         App.StartupPath = folder;
         new MainWindow().Show();
+    }
+
+    // NEW (show in folder): the folder the item is in, in a tab of its own (or the tab already there), with
+    // the item selected. With no main window yet, one is opened on that folder.
+    private void ShowInFolder(string path)
+    {
+        if (Window is { } window)
+        {
+            window.BringToFront();
+            window.ShowInFolder(path);
+            return;
+        }
+
+        var folder = Path.GetDirectoryName(Path.TrimEndingDirectorySeparator(path));
+        if (string.IsNullOrEmpty(folder))
+            return;
+
+        App.StartupPath = folder;
+        var opened = new MainWindow();
+        opened.Loaded += (_, _) => opened.ShowInFolder(path); // after its own Loaded has started the folder loading
+        opened.Show();
     }
 
     // ---- Dialogs ----

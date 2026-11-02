@@ -1,6 +1,6 @@
 # Human-centered search and fast indexing
 
-Design discussion · September 29, 2026 · Proposed work after Artifact 3
+Design discussion · September 29, 2026
 
 ## Status (September 29, 2026)
 
@@ -81,8 +81,7 @@ Recognize tags, file types, filenames, folder context, and words inside document
 Explicit filters remain available for precise refinement. Index new files and
 refresh changed files quickly while keeping typing and navigation responsive.
 
-This document proposes future behavior. It does not change the completed
-Artifact 3 implementation or claim that these features have been built.
+This document proposes future behavior. It does not claim that these features have been built.
 
 ## Search behavior
 
