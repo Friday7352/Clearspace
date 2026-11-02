@@ -5,7 +5,6 @@ using System.Windows.Input;
 namespace Clearspace.Commands;
 
 
-// CS499: Enhancement 1 can add lock and unlock actions without changing the command UI.
 public interface IAction
 {
     CommandCode Code { get; }

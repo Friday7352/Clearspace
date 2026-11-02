@@ -8,8 +8,7 @@ Status: built.
 September 23 update: indexing and fallback search now traverse without arbitrary
 depth caps. Search coverage and recovery are tracked per volume; a failed drive
 does not force a crawl of healthy drives. Loaded indexes receive a background
-catch-up scan before claiming live search coverage. See
-`../docs/CS499-Artifact-Two-Completion.md` for the current implementation and tests.
+catch-up scan before claiming live search coverage.
 The design discussion below also contains historical measurements and proposals.
 
 October 11 update (round 65, memory): the store below is the original design. It

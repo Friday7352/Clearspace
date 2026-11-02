@@ -72,7 +72,7 @@ Clearspace.IndexHelper/  Optional Windows service for instant indexing and fast 
 Clearspace.Tests/        Regression tests (run with dotnet test)
 docs/                    Design notes and the pictures used in the README
 installer/               Inno Setup installer definition
-output/                  Saved test reports and coursework packages
+output/                  Saved test reports
 dist/                    Local published build (generated)
 release/                 Installer output (generated)
 README.md                For the person installing and using Clearspace
@@ -87,8 +87,4 @@ VERSIONING.md            What each part of the version number means and when to 
 - [Clearspace/ARCHITECTURE.md](Clearspace/ARCHITECTURE.md): how the app is put together.
 - [Clearspace/INDEX-DESIGN.md](Clearspace/INDEX-DESIGN.md) and
   [docs/Search-and-Indexing-Plan.md](docs/Search-and-Indexing-Plan.md): the file index and search.
-- [Database notes](docs/CS499-Artifact-Three-Databases.md): how tags are stored, with migration, backup
-  and recovery details.
-- [File-locking notes](docs/CS499-File-Locking.md): the lock format, tests and recovery limitations.
-- [Algorithm notes](docs/CS499-Algorithms-Disk-Usage.md): the disk usage map's design decisions,
-  complexity, tests and limitations.
+- [File-locking notes](docs/File-Locking.md): the lock format, tests and recovery limitations.
