@@ -13,7 +13,9 @@ namespace Clearspace.Services;
 // RemoveLock = for good.
 // NEW (installer): Quit = Setup or Uninstall asks a running Clearspace to close (sent by "Clearspace.exe
 // --quit", never by Explorer; its path is just the sender's own location).
-internal enum ShellVerb { Open, Lock, Unlock, RemoveLock, ChangePassword, Quit } // + ChangePassword (change password), + Quit (installer)
+// NEW (show in folder): Select = go to the folder a file or folder is in and select it there ("Show in folder"
+// from another program, caught by ShowInFolderCatcher; or "Clearspace.exe --select <path>").
+internal enum ShellVerb { Open, Lock, Unlock, RemoveLock, ChangePassword, Quit, Select } // + ChangePassword (change password), + Quit (installer), + Select (show in folder)
 
 internal sealed record ShellCommand(ShellVerb Verb, string Path);
 
@@ -32,6 +34,7 @@ internal static class ShellCommands
             "--unlock" => ShellVerb.Unlock,
             "--remove-lock" => ShellVerb.RemoveLock, // NEW (unlock vs remove lock)
             "--change-password" => ShellVerb.ChangePassword, // NEW (change password)
+            "--select" => ShellVerb.Select, // NEW (show in folder)
             _ => null
         };
         var path = args[1].Trim().Trim('"');

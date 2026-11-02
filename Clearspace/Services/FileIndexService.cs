@@ -394,6 +394,14 @@ public static class FileIndexService
             if (loaded.Count > 0)
             {
                 Publish([.. loaded]);
+
+                // NEW (round 65, memory): an index saved by an older Clearspace was converted while loading.
+                // Save it in the new layout now, and give back the memory the conversion used.
+                if (FileIndexStore.LoadedLegacyFormat)
+                {
+                    FileIndexStore.Save(loaded);
+                    MemoryRelief.Release();
+                }
                 LoadJournalPositions(loaded); // NEW (journal catch-up)
                 // Changes while the app was closed were not observed. Serve other healthy
                 // volumes normally while each saved volume catches up in the background.
@@ -745,22 +753,22 @@ public static class FileIndexService
 
         try
         {
-            var (header, table) = IndexJournal.ScanVolume(root, token);
+            // CHANGED (round 65, memory): the helper's table is read straight into the compact index.
+            var (header, index, overBudget) = IndexJournal.ScanVolumeIndex(root, serial, budget, token);
 
-            if (table is null)
+            if (overBudget)
+            {
+                IndexActivity.Record(root, IndexEventKind.Problem, $"{header.Count:N0} entries exceed the index memory budget.");
+                return null;
+            }
+
+            if (index is null)
             {
                 IndexActivity.Record(root, header.Status == JournalProtocol.Unsupported ? IndexEventKind.Info : IndexEventKind.Problem,
                     $"File-table scan not used ({header.Message ?? header.Status}). Walking folders instead.");
                 return null;
             }
 
-            if (FileTableIndex.EstimatedBytes(table.Count, table.NameChars) > budget)
-            {
-                IndexActivity.Record(root, IndexEventKind.Problem, $"{table.Count:N0} entries exceed the index memory budget.");
-                return null;
-            }
-
-            var index = FileTableIndex.ToVolumeIndex(table, root, serial);
             summary = FileTableIndex.Summarize(index);
             IndexActivity.Record(root, IndexEventKind.FullScan,
                 $"Read the file table · {index.Count:N0} entries from {header.Records:N0} records in {DriveActivity.Seconds(started.Elapsed)}" +
@@ -801,11 +809,13 @@ public static class FileIndexService
             _maintenance = $"One-time check: comparing {root}'s file-table scan with a folder walk";
             IndexActivity.Record(root, IndexEventKind.Info,
                 "One-time check started: comparing the file-table scan with a normal folder walk. Searches already use the new index.");
-            VolumeIndex? walked;
+            FileTableIndex.Summary fromWalk;
 
             try
             {
-                walked = FileIndexBuilder.Build(root, job.Serial, job.Budget, null, token);
+                // CHANGED (round 65, memory): counts the walk instead of building a second whole index
+                // (hundreds of megabytes) only to count it.
+                fromWalk = FileIndexBuilder.Summarize(root, token);
             }
             catch (OperationCanceledException) { throw; }
             catch (Exception exception)
@@ -818,12 +828,7 @@ public static class FileIndexService
                 _maintenance = null;
             }
 
-            if (walked is null)
-                continue;
-
-            var fromWalk = FileTableIndex.Summarize(walked);
-            walked = null;               // NEW (memory): the walk was only needed for its totals
-            MemoryRelief.Release();
+            // REMOVED (round 65): the walked index, and the memory release after it - nothing is kept now.
 
             if (FileTableIndex.Agree(job.Summary, fromWalk, out var detail))
             {

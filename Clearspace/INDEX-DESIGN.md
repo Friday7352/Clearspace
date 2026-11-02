@@ -12,6 +12,27 @@ catch-up scan before claiming live search coverage. See
 `../docs/CS499-Artifact-Two-Completion.md` for the current implementation and tests.
 The design discussion below also contains historical measurements and proposals.
 
+October 11 update (round 65, memory): the store below is the original design. It
+now takes about half the memory:
+
+- `IndexEntry` is 28 bytes (it was 40). Sizes are 48-bit, and dates are stored
+  as seconds since 1970.
+- Names are one byte per character when they are pure ASCII, and UTF-16
+  otherwise, so no name is changed. Search matches plain ASCII words against
+  ASCII names as bytes before turning anything into characters.
+- Entries and names are kept in fixed-size chunks (64K entries, 1 MB of names),
+  so growing the index never copies all of it.
+- Entries are breadth-first (both the walk and the file-table scan add them in
+  that order). A folder's children are therefore next to each other and are
+  found with a binary search on `ParentIndex`. The child-link arrays (8 bytes
+  per entry) are gone. Only entries added live after a load are linked, in a
+  small table of their own, and a save writes everything back in
+  breadth-first order.
+- Disk-map snapshots keep totals for folders only, plus two bits per entry.
+- The one-time file-table check counts a walk instead of building a second
+  index, and the helper's file table is read straight into the compact index.
+- `index.db` is format 4. A format 3 file is converted when it is loaded.
+
 `Services/FileIndex.cs` (store), `FileIndexBuilder.cs` (background walk),
 `FileIndexStore.cs` (persistence), `FileIndexService.cs` (ownership and queries),
 `IndexOverlay.cs` (changes since the walk) and `FileIndexWatcher.cs` (watching).

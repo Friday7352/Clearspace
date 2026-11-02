@@ -38,6 +38,8 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.12" />
     <PackageReference Include="System.Data.OleDb" Version="9.0.0" />
+    <!-- NEW (rar and 7z): reads .7z, .rar and .tar files for Extract (Services/ArchiveService.cs). MIT licence. -->
+    <PackageReference Include="SharpCompress" Version="0.50.7" />
   </ItemGroup>
 
   <ItemGroup>

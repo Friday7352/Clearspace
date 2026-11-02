@@ -141,7 +141,7 @@ internal sealed class PreviewPane : Grid
                     return;
                 }
 
-                if (ArchiveService.IsArchive(path) && !item.IsOnlineOnly)
+                if (ArchiveService.CanList(path) && !item.IsOnlineOnly) // CHANGED (rar and 7z): .7z and .rar are listed too (was IsArchive: ZIP only)
                 {
                     var listing = await Task.Run(() => ListArchive(path));
                     if (request != _request)
@@ -205,7 +205,7 @@ internal sealed class PreviewPane : Grid
         }
         catch (Exception error) when (error is IOException or InvalidDataException or UnauthorizedAccessException or NotSupportedException)
         {
-            return null; // damaged, or not really a .zip: fall back to its icon
+            return null; // damaged, protected, or not really what its name says: fall back to its icon
         }
     }
 

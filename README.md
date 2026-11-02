@@ -361,7 +361,13 @@ all work inside it.
 - Right-click any files and choose **Compress to ZIP file** to pack them into a new `.zip`.
 
 The inside of a ZIP can be looked at and copied from, not changed: to change it, extract it, change it and
-compress it again. Password-protected ZIPs and other formats (7z, RAR) aren't supported yet.
+compress it again. Password-protected ZIPs aren't supported yet.
+
+**7z, RAR and TAR files** can be extracted too: right-click one for **Extract to "name"** or **Extract to…**, the same
+as a ZIP. This covers `.7z`, `.rar` (including sets split into `.part1.rar`, `.part2.rar`… — keep all the parts in
+one folder and extract the first), `.tar`, `.tar.gz`, `.tar.bz2`, `.tar.xz` and `.tar.zst`. The preview pane lists
+what's inside a `.7z` or `.rar`. These don't open like a folder the way a ZIP does, and password-protected ones
+aren't supported yet.
 
 ## Rename several items at once
 
@@ -549,7 +555,8 @@ with **Win+E** open in Clearspace instead of File Explorer, in a new tab of the 
 
 - It applies to your Windows account only and needs no administrator permission.
 - **File Explorer keeps working as it always has.** A folder you open inside an Explorer window stays in that window. To take a folder from Explorer into Clearspace, right-click it and choose **Clearspace > Open in Clearspace**.
-- The file pickers inside other programs don't change, and programs that ask for Explorer by name (many "Show in folder" commands) still get Explorer.
+- **Show in folder** in other programs (a browser's downloads list, an editor's "Reveal in File Explorer") opens the folder in Clearspace with the file selected.
+- The file pickers inside other programs don't change, and programs that start Explorer by name still get Explorer.
 - Untick the setting to switch back. Uninstalling switches back too.
 
 ---

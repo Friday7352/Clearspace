@@ -1,0 +1,172 @@
+[
+  {
+    "url": "https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html",
+    "status": 200,
+    "size": null
+  },
+  {
+    "url": "https://friday7352.github.io/",
+    "status": 200,
+    "size": "23722"
+  },
+  {
+    "url": "https://friday7352.github.io/artifact-one.html",
+    "status": 200,
+    "size": "7710"
+  },
+  {
+    "url": "https://friday7352.github.io/artifact-three.html",
+    "status": 200,
+    "size": "8908"
+  },
+  {
+    "url": "https://friday7352.github.io/artifact-two.html",
+    "status": 200,
+    "size": "6800"
+  },
+  {
+    "url": "https://friday7352.github.io/assets/algorithms/Payton_Castle_CS499_Milestone_Three_Narrative.docx",
+    "status": 200,
+    "size": "15769"
+  },
+  {
+    "url": "https://friday7352.github.io/assets/artifacts/Clearspace-ArtifactOne.zip",
+    "status": 200,
+    "size": "44899277"
+  },
+  {
+    "url": "https://friday7352.github.io/assets/artifacts/Clearspace-ArtifactThree.zip",
+    "status": 200,
+    "size": "78850774"
+  },
+  {
+    "url": "https://friday7352.github.io/assets/artifacts/Clearspace-ArtifactTwo.zip",
+    "status": 200,
+    "size": "62580997"
+  },
+  {
+    "url": "https://friday7352.github.io/assets/artifacts/Clearspace-before-enhancements.zip",
+    "status": 200,
+    "size": "155952"
+  },
+  {
+    "url": "https://friday7352.github.io/assets/databases/CS499-Artifact-Three-Databases.md",
+    "status": 200,
+    "size": "9344"
+  },
+  {
+    "url": "https://friday7352.github.io/assets/databases/CS499-File-Locking.md",
+    "status": 200,
+    "size": "7503"
+  },
+  {
+    "url": "https://friday7352.github.io/assets/databases/Payton_Castle_CS499_Milestone_Four_Narrative.docx",
+    "status": 200,
+    "size": "16751"
+  },
+  {
+    "url": "https://friday7352.github.io/assets/databases/milestone-four-final.trx",
+    "status": 200,
+    "size": "365270"
+  },
+  {
+    "url": "https://friday7352.github.io/assets/databases/milestone-four.trx",
+    "status": 200,
+    "size": "321779"
+  },
+  {
+    "url": "https://friday7352.github.io/assets/journals/Payton_Castle_Module_3_Journal_Updated.docx",
+    "status": 200,
+    "size": "39535"
+  },
+  {
+    "url": "https://friday7352.github.io/assets/journals/Payton_Castle_Module_5_Journal_Updated.docx",
+    "status": 200,
+    "size": "30913"
+  },
+  {
+    "url": "https://friday7352.github.io/assets/self-assessment/CS_499_Professional_Self_Assessment.docx",
+    "status": 200,
+    "size": "17698"
+  },
+  {
+    "url": "https://friday7352.github.io/assets/software-design/Payton_Castle_CS499_Milestone_Two_Narrative.docx",
+    "status": 200,
+    "size": "17555"
+  },
+  {
+    "url": "https://friday7352.github.io/career-reflection.html",
+    "status": 200,
+    "size": "8756"
+  },
+  {
+    "url": "https://friday7352.github.io/index.html",
+    "status": 200,
+    "size": "23722"
+  },
+  {
+    "url": "https://friday7352.github.io/module-five-journal.html",
+    "status": 200,
+    "size": "11114"
+  },
+  {
+    "url": "https://github.com/Friday7352/Clearspace",
+    "status": 200,
+    "size": null
+  },
+  {
+    "url": "https://github.com/Friday7352/Clearspace/blob/ArtifactOne/docs/CS499-Module-Two-Coding.md",
+    "status": 200,
+    "size": null
+  },
+  {
+    "url": "https://github.com/Friday7352/Clearspace/blob/ArtifactTwo/docs/CS499-Algorithms-Disk-Usage.md",
+    "status": 200,
+    "size": null
+  },
+  {
+    "url": "https://github.com/Friday7352/Clearspace/compare/03a7b023e24306a503c14177500ed0681d610181...ArtifactTwo",
+    "status": 200,
+    "size": null
+  },
+  {
+    "url": "https://github.com/Friday7352/Clearspace/tree/03a7b023e24306a503c14177500ed0681d610181",
+    "status": 200,
+    "size": null
+  },
+  {
+    "url": "https://github.com/Friday7352/Clearspace/tree/ArtifactOne",
+    "status": 200,
+    "size": null
+  },
+  {
+    "url": "https://github.com/Friday7352/Clearspace/tree/ArtifactTwo",
+    "status": 200,
+    "size": null
+  },
+  {
+    "url": "https://github.com/Friday7352/Clearspace/tree/before-enhancements",
+    "status": 200,
+    "size": null
+  },
+  {
+    "url": "https://github.com/Friday7352/Clearspace/tree/d810ca8304ae7294a80d7fc49777e4995e48435a",
+    "status": 200,
+    "size": null
+  },
+  {
+    "url": "https://learn.microsoft.com/en-us/dotnet/api/system.security.cryptography.aesgcm.encrypt",
+    "status": 200,
+    "size": "0"
+  },
+  {
+    "url": "https://learn.microsoft.com/en-us/windows/win32/api/dpapi/nf-dpapi-cryptprotectdata",
+    "status": 200,
+    "size": "58581"
+  },
+  {
+    "url": "https://youtu.be/47quO2t3r2U",
+    "status": 200,
+    "size": null
+  }
+]

@@ -7,8 +7,16 @@
 // are resolved to entry numbers once per search, and what the folders above an entry contribute is
 // computed once per folder and cached (FolderInfo). Scores come from the same SearchRanker pieces
 // SearchQuery.Relevance uses, so index hits and crawled/Windows hits rank consistently.
+//
+// CHANGED (round 65, memory): reads the compact index (chunked entries, one-byte ASCII names). When every
+// word can only be satisfied by the name itself (no tags, type words or folder types in play), an ASCII
+// name that contains none of the words is turned away before it is even read as characters - exactly the
+// entries the scorer would turn away anyway ("no word on the entry itself"), only sooner.
 
 using System.IO;
+using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
+using System.Text;
 using Clearspace.Models;
 
 namespace Clearspace.Services;
@@ -181,7 +189,7 @@ internal static class IndexSearch
         // Count first, then the arrays: entries below a published count are complete in any
         // array read afterwards (VolumeIndex.Add writes the entry before publishing the count).
         var count = volume.Count;
-        var scan = new Scanner(query, plan, volume.Entries, volume.Names, count, showHidden);
+        var scan = new Scanner(query, plan, volume.EntryChunks, volume.NameChunks, count, showHidden); // CHANGED (round 65)
         var best = new PriorityQueue<int, int>();
         var gate = new object();
         var threshold = int.MinValue;
@@ -273,8 +281,8 @@ internal static class IndexSearch
     private sealed class Scanner(
         SearchQuery query,
         Plan plan,
-        IndexEntry[] entries,
-        char[] names,
+        IndexEntry[][] entries,
+        byte[][] names,
         int count,
         bool showHidden)
     {
@@ -286,11 +294,68 @@ internal static class IndexSearch
         private readonly Plan _plan = plan;
         private readonly bool _hasTermTags = plan.TermTags.Count > 0;
         private readonly long _now = DateTime.UtcNow.ToFileTimeUtc();
+        private readonly byte[][]? _gate = GateFor(query.TermList, plan.TermTags.Count > 0); // NEW (round 65)
+
+        // NEW (round 65): entry i of the chunked index.
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private ref readonly IndexEntry Entry(int i) => ref entries[i >> VolumeIndex.EntryShift][i & VolumeIndex.EntryMask];
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private ReadOnlySpan<byte> NameBytes(in IndexEntry entry)
+            => names[entry.NameOffset >> VolumeIndex.NameShift].AsSpan(entry.NameOffset & VolumeIndex.NameMask, entry.NameBytes);
+
+        // NEW (round 65): the lower-cased words, when an entry can only match through its own name: no
+        // tags on this drive for any word, no type words, no folder types, all words plain ASCII.
+        private static byte[][]? GateFor(IReadOnlyList<SearchTerm> terms, bool hasTermTags)
+        {
+            if (terms.Count == 0 || hasTermTags)
+                return null;
+
+            var gate = new byte[terms.Count][];
+
+            for (var t = 0; t < terms.Count; t++)
+            {
+                var term = terms[t];
+
+                if (term.TypeExtensions is not null || term.Profiles.Count > 0 || term.Text.Length == 0 || !Ascii.IsValid(term.Text))
+                    return null;
+
+                gate[t] = Encoding.ASCII.GetBytes(term.Text.ToLowerInvariant());
+            }
+
+            return gate;
+        }
+
+        private static bool AnyWordIn(ReadOnlySpan<byte> name, byte[][] gate)
+        {
+            foreach (var word in gate)
+                if (VolumeIndex.ContainsAsciiIgnoreCase(name, word))
+                    return true;
+
+            return false;
+        }
+
+        // NEW (round 65): an ASCII name as characters, in a per-thread buffer. The entry being scored and the
+        // folders above it use different buffers, because the entry's name is still in use while they are read.
+        [ThreadStatic]
+        private static char[]? _entryChars;
+
+        [ThreadStatic]
+        private static char[]? _folderChars;
+
+        private static ReadOnlySpan<char> Widen(ReadOnlySpan<byte> ascii, ref char[]? buffer)
+        {
+            if (buffer is null || buffer.Length < ascii.Length)
+                buffer = new char[Math.Max(512, ascii.Length)];
+
+            Ascii.ToUtf16(ascii, buffer, out var written);
+            return buffer.AsSpan(0, written);
+        }
 
         public bool TryScore(int i, Dictionary<int, FolderInfo> cache, out int score)
         {
             score = 0;
-            ref readonly var entry = ref entries[i];
+            ref readonly var entry = ref Entry(i);
 
             if ((entry.Attributes & VolumeIndex.RemovedFlag) != 0)
                 return false;
@@ -299,7 +364,17 @@ internal static class IndexSearch
                 return false;
 
             var isFolder = entry.IsFolder;
-            var name = names.AsSpan(entry.NameOffset, entry.NameLength);
+            // CHANGED (round 65): UTF-16 names are read in place; ASCII names are checked against the words
+            // as bytes first, and only widened to characters if they could still match.
+            var raw = NameBytes(entry);
+            ReadOnlySpan<char> name;
+
+            if (entry.IsWideName)
+                name = MemoryMarshal.Cast<byte, char>(raw);
+            else if (_gate is { } gate && !AnyWordIn(raw, gate))
+                return false;
+            else
+                name = Widen(raw, ref _entryChars);
             var extension = isFolder ? ReadOnlySpan<char>.Empty : Path.GetExtension(name);
 
             // Strict filters first: they are the cheapest way to reject.
@@ -435,7 +510,7 @@ internal static class IndexSearch
                 chain = _chain!;
 
                 chain[depth++] = current;
-                current = entries[current].ParentIndex;
+                current = Entry(current).ParentIndex;
             }
 
             if (current < 0 || current >= count)
@@ -452,8 +527,9 @@ internal static class IndexSearch
 
         private FolderInfo Derive(FolderInfo parent, int folder)
         {
-            ref readonly var entry = ref entries[folder];
-            var name = names.AsSpan(entry.NameOffset, entry.NameLength);
+            ref readonly var entry = ref Entry(folder);
+            var raw = NameBytes(entry);
+            var name = entry.IsWideName ? MemoryMarshal.Cast<byte, char>(raw) : Widen(raw, ref _folderChars); // CHANGED (round 65)
             var info = parent;
 
             info.InScope = parent.InScope || _plan.ScopeRoots.Contains(folder);

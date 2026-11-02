@@ -167,8 +167,7 @@ public sealed class DiskUsageDeletionTests
         var refreshed = service.Reconcile(snapshot, request, default);
         Assert.AreEqual(-1, refreshed.Snapshot.FindFolder(@"C:\folder.with.dots"));
         Assert.IsTrue(refreshed.Snapshot.FindFolder(@"C:\folder.with.dots2") > 0);
-        var newer = new VolumeIndex(index.Root, index.SerialNumber, DateTime.UtcNow.AddSeconds(1),
-            index.Entries, index.Count, index.Names, index.PoolLength);
+        var newer = index.SharedCopy(DateTime.UtcNow.AddSeconds(1));   // CHANGED (round 65)
         Assert.AreEqual(0, service.ExclusionsFor(newer).Count);
     }
 }

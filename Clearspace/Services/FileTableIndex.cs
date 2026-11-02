@@ -7,6 +7,7 @@
 using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
+using System.Text;
 using System.Text.Json;
 using Clearspace.Journal;
 
@@ -14,31 +15,126 @@ namespace Clearspace.Services;
 
 internal static class FileTableIndex
 {
+    // CHANGED (round 65): the compact layout - 28-byte entries, about one byte per name character.
     public static long EstimatedBytes(int count, int nameChars)
-        => (long)count * Marshal.SizeOf<IndexEntry>() + (long)nameChars * sizeof(char);
+        => (long)count * VolumeIndex.EntrySize + nameChars;
 
+    // CHANGED (round 65): adds the scan's entries in their order (breadth-first, which is what the index
+    // keeps), then trims. Used when Clearspace itself reads the file table (elevated) and by tests.
     public static VolumeIndex ToVolumeIndex(FileTable table, string root, uint serial)
     {
-        var entries = new IndexEntry[table.Count];
+        var index = new VolumeIndex(root, serial);
         var offset = 0;
 
         for (var i = 0; i < table.Count; i++)
         {
-            entries[i] = new IndexEntry
-            {
-                Size = table.Size[i],
-                ModifiedTicks = table.Modified[i],
-                CreatedTicks = table.Created[i],
-                NameOffset = offset,
-                ParentIndex = table.Parent[i],
-                Attributes = (FileAttributes)(table.Attributes[i] & 0x7FFFFFFF),
-                NameLength = table.NameLength[i]
-            };
-            offset += table.NameLength[i];
+            var length = table.NameLength[i];
+            var name = table.Names.AsSpan(offset, length);
+            offset += length;
+
+            if (length > VolumeIndex.MaxNameChars)
+                throw new InvalidDataException("A name in the file table is too long.");
+
+            index.Add(table.Parent[i], name, table.Size[i], table.Modified[i], table.Created[i],
+                (FileAttributes)(table.Attributes[i] & 0x7FFFFFFF));
         }
 
-        var names = table.Names.Length == table.NameChars ? table.Names : table.Names[..table.NameChars];
-        return new VolumeIndex(root, serial, DateTime.UtcNow, entries, table.Count, names, table.NameChars);
+        index.Compact();
+        return index;
+    }
+
+    // NEW (round 65, memory): reads the helper's file table (FileTableTransfer's format) straight into a
+    // compact index, without a FileTable in between. The table used to be read whole (34 bytes an entry
+    // plus every name in UTF-16) and then copied into the index, so for a moment both were in memory.
+    public static VolumeIndex ReadIndex(Stream stream, int count, int nameChars, string root, uint serial, CancellationToken token)
+    {
+        if (count < 1 || nameChars < 0)
+            throw new InvalidDataException("The helper sent an empty file table.");
+
+        using var reader = new BinaryReader(new BufferedStream(stream, 1 << 20), Encoding.Unicode, leaveOpen: true);
+        var entries = new IndexEntry[(count + VolumeIndex.EntryMask) >> VolumeIndex.EntryShift][];
+        long total = 0;
+
+        for (var i = 0; i < count; i++)
+        {
+            if ((i & 0xFFFF) == 0) token.ThrowIfCancellationRequested();
+
+            var chunk = entries[i >> VolumeIndex.EntryShift] ??=
+                new IndexEntry[Math.Min(VolumeIndex.EntryChunk, count - (i & ~VolumeIndex.EntryMask))];
+            ref var entry = ref chunk[i & VolumeIndex.EntryMask];
+
+            var parent = reader.ReadInt32();
+            var attributes = reader.ReadUInt32();
+            entry.Size = reader.ReadInt64();
+            entry.ModifiedTicks = reader.ReadInt64();
+            entry.CreatedTicks = reader.ReadInt64();
+            var length = reader.ReadUInt16();
+
+            if (i == 0 ? parent != -1 : parent < 0 || parent >= i)
+                throw new InvalidDataException("The helper sent entries out of order.");
+
+            if (length > VolumeIndex.MaxNameChars)
+                throw new InvalidDataException("The helper sent a name that is too long.");
+
+            entry.ParentIndex = parent;
+            entry.Attributes = (FileAttributes)(attributes & 0x7FFFFFFF);
+            entry.SetName(0, length, false);   // the length in characters until the names arrive
+            total += length;
+        }
+
+        if (total != nameChars)
+            throw new InvalidDataException("The helper's names do not add up.");
+
+        // The names, one at a time, into the index's pool.
+        var names = new List<byte[]>();
+        var scratch = new byte[VolumeIndex.MaxNameChars * 2];
+        var position = 0;
+
+        for (var i = 0; i < count; i++)
+        {
+            if ((i & 0xFFFF) == 0) token.ThrowIfCancellationRequested();
+
+            ref var entry = ref entries[i >> VolumeIndex.EntryShift][i & VolumeIndex.EntryMask];
+            var length = entry.NameBytes;
+            var raw = scratch.AsSpan(0, length * 2);
+
+            for (var read = 0; read < raw.Length;)
+            {
+                var got = reader.Read(raw[read..]);
+                if (got <= 0) throw new EndOfStreamException("The helper stopped sending the file table.");
+                read += got;
+            }
+
+            var chars = MemoryMarshal.Cast<byte, char>(raw);
+            var wide = !Ascii.IsValid(chars);
+            var bytes = wide ? raw.Length : chars.Length;
+            position = VolumeIndex.PlaceName(position, bytes, wide);
+
+            var chunkIndex = position >> VolumeIndex.NameShift;
+            while (names.Count <= chunkIndex) names.Add(new byte[VolumeIndex.NameChunk]);
+            var target = names[chunkIndex].AsSpan(position & VolumeIndex.NameMask, bytes);
+
+            if (wide) raw.CopyTo(target);
+            else Ascii.FromUtf16(chars, target, out _);
+
+            entry.SetName(position, bytes, wide);
+            position += bytes;
+        }
+
+        // The last chunk, trimmed to what it holds.
+        if (position == 0)
+        {
+            names.Clear();
+            names.Add([]);
+        }
+        else
+        {
+            var used = ((position - 1) & VolumeIndex.NameMask) + 1;
+            var last = names[^1];
+            if (last.Length > used) names[^1] = last[..used];
+        }
+
+        return new VolumeIndex(root, serial, DateTime.UtcNow, entries, count, [.. names], position);
     }
 
     // What the one-time comparison looks at.

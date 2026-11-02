@@ -8,6 +8,11 @@
 //    junctions are not followed, so a folder that points back at itself cannot go round for ever.
 //  - Stopping, or a failure, removes what was half made: the new folder, or the unfinished .zip.
 // Only .zip (the format built into .NET). The windows that use this are in MainWindow.Archives.cs.
+// NEW (rar and 7z): Extract also unpacks .7z, .rar (including multi-part .part1.rar sets) and .tar files
+// (plain or .tar.gz / .tar.bz2 / .tar.xz / .tar.zst), the kinds File Explorer can unpack too. Those are read
+// with the SharpCompress library (ExtractOther). The same rules hold: a new folder named after the archive,
+// names that would leave it refused, and what was half made removed when it stops or fails. Only ZIP files
+// open like a folder in the list; the preview pane lists what is in a .7z or .rar as well.
 // NEW (zip folders): looking inside a ZIP file without unpacking it is Services/ArchiveBrowser.cs.
 using System.Diagnostics;
 using System.IO;
@@ -41,7 +46,35 @@ internal static class ArchiveService
     internal static CompressionLevel LevelFor(string path)
         => PackedAlready.Contains(Path.GetExtension(path)) ? CompressionLevel.NoCompression : CompressionLevel.Optimal;
 
+    // A ZIP file: one that opens like a folder in the list (ArchiveBrowser), as well as being unpacked.
     internal static bool IsArchive(string path) => Path.GetExtension(path).Equals(".zip", StringComparison.OrdinalIgnoreCase);
+
+    // NEW (rar and 7z): the other kinds Extract can unpack. Two-part endings come before the one-part
+    // ones, so "Photos.tar.gz" is known as ".tar.gz" and its folder is called "Photos", not "Photos.tar".
+    private static readonly string[] OtherEndings =
+    [
+        ".tar.gz", ".tar.bz2", ".tar.xz", ".tar.zst",
+        ".7z", ".rar", ".tar", ".tgz", ".tbz", ".tbz2", ".txz", ".tzst"
+    ];
+
+    private static string? OtherEnding(string path)
+        => OtherEndings.FirstOrDefault(ending => path.EndsWith(ending, StringComparison.OrdinalIgnoreCase));
+
+    // NEW (rar and 7z): anything "Extract" in the right-click menu can unpack.
+    internal static bool CanExtract(string path) => IsArchive(path) || OtherEnding(path) is not null;
+
+    // NEW (rar and 7z): the kinds whose contents the preview pane lists. A compressed .tar would have to
+    // be read from start to end just to be listed, so it is not.
+    internal static bool CanList(string path)
+        => IsArchive(path) || OtherEnding(path) is ".7z" or ".rar";
+
+    // NEW (rar and 7z): the name an archive's folder gets: its name without the ending ("Photos.tar.gz" -> "Photos").
+    internal static string StemOf(string archivePath)
+    {
+        var name = Path.GetFileName(archivePath);
+        var ending = OtherEnding(archivePath) ?? Path.GetExtension(name);
+        return name[..^ending.Length];
+    }
 
     // "Photos" -> "Photos (2)" -> "Photos (3)" ... until the name is free. A file keeps its ending.
     internal static string UniquePath(string desired)
@@ -64,7 +97,7 @@ internal static class ArchiveService
     // The folder an archive is unpacked into, inside `parent`.
     internal static string FolderFor(string archivePath, string parent)
     {
-        var name = Path.GetFileNameWithoutExtension(archivePath).TrimEnd(' ', '.');
+        var name = StemOf(archivePath).TrimEnd(' ', '.'); // CHANGED (rar and 7z): was GetFileNameWithoutExtension, which left "Photos.tar"
         if (name.Length == 0)
             name = "Archive";
 
@@ -122,6 +155,9 @@ internal static class ArchiveService
 
     internal static ArchiveListing List(string archivePath, int limit = 300)
     {
+        if (!IsArchive(archivePath))
+            return ListOther(archivePath, limit); // NEW (rar and 7z)
+
         using var archive = ZipFile.OpenRead(archivePath);
         var entries = new List<ArchiveEntryInfo>(Math.Min(limit, archive.Entries.Count));
         long size = 0;
@@ -141,9 +177,12 @@ internal static class ArchiveService
     // ---- Extract
 
     // Returns the folder that was made.
+    // CHANGED (rar and 7z): a .7z, .rar or .tar goes to ExtractOther; a ZIP file to Extract, as before.
     internal static Task<string> ExtractAsync(string archivePath, string parentFolder,
         IProgress<ArchiveProgress>? progress, CancellationToken token)
-        => Task.Run(() => Extract(archivePath, parentFolder, progress, token), token);
+        => Task.Run(() => IsArchive(archivePath)
+            ? Extract(archivePath, parentFolder, progress, token)
+            : ExtractOther(archivePath, parentFolder, progress, token), token);
 
     internal static string Extract(string archivePath, string parentFolder,
         IProgress<ArchiveProgress>? progress, CancellationToken token)
@@ -219,6 +258,223 @@ internal static class ArchiveService
         {
             TryDeleteFolder(target);
             throw;
+        }
+    }
+
+    // ---- NEW (rar and 7z): the other kinds, read with SharpCompress
+
+    private const string PasswordMessage = "This archive is protected with a password. Clearspace can't open those yet.";
+
+    // What SharpCompress throws is turned into the same InvalidDataException a damaged ZIP file gives, with
+    // words a person can act on. A missing part of a multi-part RAR set is the usual reason.
+    private static InvalidDataException Unreadable(string archivePath, Exception error)
+    {
+        if (error is SharpCompress.Common.CryptographicException)
+            return new InvalidDataException(PasswordMessage, error);
+
+        var name = Path.GetFileName(archivePath);
+        if (error is SharpCompress.Common.MultiVolumeExtractionException or SharpCompress.Common.IncompleteArchiveException)
+            return new InvalidDataException($"{name} is one part of a set, and a part of that set is missing. Keep all the parts in the same folder and extract the first one.", error);
+
+        return new InvalidDataException($"Clearspace couldn't read {name}. It may be damaged or not finished downloading. ({error.Message})", error);
+    }
+
+    // SharpCompress's own errors, and the plain ones it lets through for a file it can't make sense of.
+    private static bool IsLibraryError(Exception error)
+        => error is SharpCompress.Common.SharpCompressException or InvalidOperationException or NotSupportedException
+            or EndOfStreamException or ArgumentException or IndexOutOfRangeException or OverflowException;
+
+    // .7z and .rar have a table of contents to read; .tar (and a compressed one) is read from start to end.
+    private static bool HasContents(string archivePath) => OtherEnding(archivePath) is ".7z" or ".rar";
+
+    private static ArchiveListing ListOther(string archivePath, int limit)
+    {
+        if (!HasContents(archivePath))
+            throw new NotSupportedException("Only ZIP, 7z and RAR files are listed.");
+
+        try
+        {
+            // From the path, not a stream: a RAR set finds its other parts beside the first.
+            using var archive = SharpCompress.Archives.ArchiveFactory.OpenArchive(archivePath);
+            var entries = new List<ArchiveEntryInfo>();
+            long size = 0;
+            var count = 0;
+
+            foreach (var entry in archive.Entries)
+            {
+                count++;
+                if (!entry.IsDirectory)
+                    size += entry.Size;
+                if (entries.Count < limit)
+                    entries.Add(new ArchiveEntryInfo(entry.Key ?? string.Empty, entry.IsDirectory ? 0 : entry.Size, entry.IsDirectory));
+            }
+
+            return new ArchiveListing(entries, count, size);
+        }
+        catch (Exception error) when (IsLibraryError(error))
+        {
+            throw Unreadable(archivePath, error);
+        }
+    }
+
+    internal static string ExtractOther(string archivePath, string parentFolder,
+        IProgress<ArchiveProgress>? progress, CancellationToken token)
+    {
+        string? target = null;
+        try
+        {
+            if (HasContents(archivePath))
+            {
+                using var archive = SharpCompress.Archives.ArchiveFactory.OpenArchive(archivePath);
+
+                long total = 0;
+                foreach (var entry in archive.Entries)
+                {
+                    if (entry.IsDirectory)
+                        continue;
+                    if (entry.IsEncrypted)
+                        throw new InvalidDataException(PasswordMessage);
+                    total += entry.Size;
+                }
+
+                EnsureRoom(parentFolder, total);
+                target = FolderFor(archivePath, parentFolder);
+                Directory.CreateDirectory(target);
+                var writer = new EntryWriter(target, total, progress, token);
+
+                // A "solid" archive (most .7z files, some .rar) is one long stream: its files have to be read
+                // in order, which ExtractAllEntries does in one pass. Others can be read file by file.
+                if (archive.IsSolid || archive.Type == SharpCompress.Common.ArchiveType.SevenZip)
+                {
+                    using var reader = archive.ExtractAllEntries();
+                    while (reader.MoveToNextEntry())
+                        writer.Write(reader.Entry, reader.OpenEntryStream);
+                }
+                else
+                {
+                    foreach (var entry in archive.Entries)
+                        writer.Write(entry, entry.OpenEntryStream);
+                }
+
+                writer.Done();
+            }
+            else
+            {
+                // A .tar (plain or compressed) says how much it holds only as it is read, so the progress bar
+                // follows how far through the file it is, and the free-space check uses the file's own size.
+                using var file = new FileStream(archivePath, FileMode.Open, FileAccess.Read, FileShare.Read, BufferSize);
+                EnsureRoom(parentFolder, file.Length);
+                target = FolderFor(archivePath, parentFolder);
+                Directory.CreateDirectory(target);
+                var writer = new EntryWriter(target, 0, progress, token) { Through = file };
+
+                using var reader = SharpCompress.Readers.ReaderFactory.OpenReader(file, SharpCompress.Readers.ReaderOptions.ForExternalStream);
+                while (reader.MoveToNextEntry())
+                    writer.Write(reader.Entry, reader.OpenEntryStream);
+
+                writer.Done();
+            }
+
+            return target;
+        }
+        catch (Exception error)
+        {
+            if (target is not null)
+                TryDeleteFolder(target);
+
+            if (error is not OperationCanceledException && IsLibraryError(error))
+                throw Unreadable(archivePath, error);
+            throw;
+        }
+    }
+
+    // Writes the entries of a .7z, .rar or .tar into the new folder, one at a time, with the same checks
+    // Extract makes for a ZIP file.
+    private sealed class EntryWriter(string target, long total, IProgress<ArchiveProgress>? progress, CancellationToken token)
+    {
+        private readonly byte[] _buffer = new byte[BufferSize];
+        private readonly Stopwatch _clock = Stopwatch.StartNew();
+        private long _done;
+
+        // Set for a .tar: progress is how far through this file reading has got.
+        internal FileStream? Through { get; init; }
+
+        internal void Write(SharpCompress.Common.IEntry entry, Func<Stream> open)
+        {
+            token.ThrowIfCancellationRequested();
+
+            var name = entry.Key ?? string.Empty;
+            if (entry.IsDirectory)
+            {
+                // A .tar often starts with "./", which is the folder itself.
+                if (name.Trim('/', '\\', '.').Length > 0)
+                    Directory.CreateDirectory(DestinationFor(target, name));
+                return;
+            }
+
+            if (entry.IsEncrypted)
+                throw new InvalidDataException(PasswordMessage);
+
+            // A link inside a .tar or .rar is not made: it could point anywhere on the disk.
+            if (!string.IsNullOrEmpty(entry.LinkTarget))
+                return;
+
+            var destination = DestinationFor(target, name);
+            Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
+
+            using (var input = open())
+            using (var output = new FileStream(destination, FileMode.Create, FileAccess.Write, FileShare.None, BufferSize))
+            {
+                long written = 0;
+                int read;
+                while ((read = input.Read(_buffer, 0, _buffer.Length)) > 0)
+                {
+                    token.ThrowIfCancellationRequested();
+                    written += read;
+                    // As for a ZIP file: an entry that unpacks to more than it claimed is stopped. (A size of
+                    // 0 means the archive didn't say; the free-space check and the disk itself are the limit.)
+                    if (entry.Size > 0 && written > entry.Size)
+                        throw new InvalidDataException($"{name} is larger than the archive says it is.");
+
+                    output.Write(_buffer, 0, read);
+                    _done += read;
+                    if (_clock.ElapsedMilliseconds >= 100)
+                    {
+                        Report(name);
+                        _clock.Restart();
+                    }
+                }
+            }
+
+            if (entry.LastModifiedTime is { } stamp)
+            {
+                try { File.SetLastWriteTime(destination, stamp); }
+                catch (Exception error) when (error is IOException or ArgumentOutOfRangeException or UnauthorizedAccessException)
+                {
+                    // the file is unpacked; its date is not worth failing for
+                }
+            }
+        }
+
+        private void Report(string name)
+        {
+            if (Through is { } file)
+            {
+                long position;
+                try { position = file.Position; }
+                catch (ObjectDisposedException) { return; }
+                progress?.Report(new ArchiveProgress(position, file.Length, name));
+            }
+            else
+            {
+                progress?.Report(new ArchiveProgress(_done, total, name));
+            }
+        }
+
+        internal void Done()
+        {
+            var end = Through?.Length ?? total;
+            progress?.Report(new ArchiveProgress(end, end, string.Empty));
         }
     }
 

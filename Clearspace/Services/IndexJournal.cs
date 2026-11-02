@@ -141,14 +141,27 @@ internal static class IndexJournal
     }
 
     // NEW (file-table scan): the whole drive from its file table, through the helper (or directly when
-    // elevated). Null table with a message when it cannot be used; the caller then walks folders.
-    public static (JournalResponse Header, FileTable? Table) ScanVolume(string root, CancellationToken token)
+    // elevated). Null index with a message when it cannot be used; the caller then walks folders.
+    // CHANGED (round 65, memory): returns the compact index itself. The helper's table is read straight
+    // into it (FileTableIndex.ReadIndex) once its header shows it fits `budget`, instead of being read
+    // whole and then copied. The helper's side and the pipe format are unchanged.
+    public static (JournalResponse Header, VolumeIndex? Index, bool OverBudget) ScanVolumeIndex(string root, uint serial, long budget, CancellationToken token)
     {
         if (!UsnJournal.IsDriveRoot(root))
-            return (new JournalResponse { Status = JournalProtocol.Unsupported, Message = "Not a local drive." }, null);
+            return (new JournalResponse { Status = JournalProtocol.Unsupported, Message = "Not a local drive." }, null, false);
 
         if (ElevationService.IsElevated)
-            return JournalOperations.ScanVolume(root, null, token);
+        {
+            var (direct, table) = JournalOperations.ScanVolume(root, null, token);
+
+            if (table is null)
+                return (direct, null, false);
+
+            if (FileTableIndex.EstimatedBytes(table.Count, table.NameChars) > budget)
+                return (direct, null, true);
+
+            return (direct, FileTableIndex.ToVolumeIndex(table, root, serial), false);
+        }
 
         try
         {
@@ -177,18 +190,22 @@ internal static class IndexJournal
                          ?? new JournalResponse { Message = "The helper sent an empty answer." };
 
             if (header.Status != JournalProtocol.Ok || header.Count <= 0)
-                return (header, null);
+                return (header, null, false);
 
-            return (header, FileTableTransfer.Read(pipe, header.Count, header.NameChars, timeout.Token));
+            // NEW (round 65): known to be too large before a byte of it is read; closing the pipe ends it.
+            if (FileTableIndex.EstimatedBytes(header.Count, header.NameChars) > budget)
+                return (header, null, true);
+
+            return (header, FileTableIndex.ReadIndex(pipe, header.Count, header.NameChars, root, serial, timeout.Token), false);
         }
         catch (TimeoutException)
         {
-            return (new JournalResponse { Status = JournalProtocol.Denied, Message = "The index helper is not running." }, null);
+            return (new JournalResponse { Status = JournalProtocol.Denied, Message = "The index helper is not running." }, null, false);
         }
         catch (Exception exception) when (exception is IOException or JsonException or UnauthorizedAccessException or InvalidDataException or ObjectDisposedException)
         {
             token.ThrowIfCancellationRequested();
-            return (new JournalResponse { Message = $"The file-table scan did not complete: {exception.Message}" }, null);
+            return (new JournalResponse { Message = $"The file-table scan did not complete: {exception.Message}" }, null, false);
         }
     }
 

@@ -629,6 +629,43 @@ public partial class MainWindow
             _ = _viewModel.RefreshAsync();
     }
 
+    // NEW (show in folder): "Show in folder" from another program (LockAgent, ShellVerb.Select). The folder
+    // the item is in gets a tab like OpenFolder, and the item is selected there once the folder is listed
+    // (_revealPath, MainWindow.Duplicates.cs). A file that is not in the list yet (just saved, say) is
+    // looked for again after a refresh.
+    internal void ShowInFolder(string path)
+    {
+        var item = Path.TrimEndingDirectorySeparator(path);
+        var folder = Path.GetDirectoryName(item);
+        if (string.IsNullOrEmpty(folder))
+            return;
+
+        var target = NavigationService.Normalize(folder);
+        var existing = Tabs.Items.FirstOrDefault(tab => string.Equals(tab.Location, target, StringComparison.OrdinalIgnoreCase));
+        if (existing is null)
+            Tabs.Open(target);
+        else if (!Tabs.Activate(existing))
+            return; // a locked folder whose password prompt was cancelled
+
+        if (_viewModel.HasSearch)
+            _viewModel.SearchText = string.Empty; // a search would hide the item
+
+        var listed = _viewModel.Items.Any(row => string.Equals(row.FullPath, item, StringComparison.OrdinalIgnoreCase));
+        if (IsCurrentFolder(folder) && !_viewModel.IsLoading && listed)
+        {
+            SelectInList(item);
+            FileList.Focus();
+            return;
+        }
+
+        _revealPath = item;
+        if (!IsCurrentFolder(folder))
+            _viewModel.Navigation.Navigate(folder);
+        else if (!_viewModel.IsLoading)
+            _ = _viewModel.RefreshAsync();
+        // else: the folder is being listed now, and the item is selected when that finishes
+    }
+
     private static T? FindDescendant<T>(DependencyObject? root) where T : DependencyObject
     {
         if (root is null)
