@@ -9,7 +9,8 @@ internal static class SidebarComposer
     internal static IEnumerable<SidebarEntry> Build(IEnumerable<SidebarEntry> drives,
         IReadOnlyList<SidebarSectionInfo> sections,
         Func<string?, IReadOnlyList<KeyValuePair<string, string>>> getPins,
-        IEnumerable<SidebarEntry> userFiles, IEnumerable<SidebarEntry> cloudFiles)
+        IEnumerable<SidebarEntry> userFiles, IEnumerable<SidebarEntry> cloudFiles,
+        IEnumerable<SidebarEntry>? recentFolders = null) // NEW (recent sidebar)
     {
         foreach (var section in sections)
         {
@@ -19,6 +20,14 @@ internal static class SidebarComposer
                     yield return Section(section, YourFilesPath);
                     if (!section.IsCollapsed)
                         foreach (var location in userFiles) yield return Child(location);
+                    break;
+
+                // NEW (recent): the heading opens the Recent page.
+                // CHANGED (recent sidebar): your last few folders under it, like File Explorer's Quick access.
+                case "recent":
+                    yield return Section(section, RecentPath);
+                    if (!section.IsCollapsed && recentFolders is not null)
+                        foreach (var folder in recentFolders) yield return Child(folder);
                     break;
 
                 case "favorites":

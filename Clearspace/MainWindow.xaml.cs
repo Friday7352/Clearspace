@@ -520,16 +520,11 @@ public partial class MainWindow : Window
     }
 
     // NEW (toolbar groups): the words beside the toolbar's labelled buttons give way when the window gets narrow,
-    // so the address bar keeps its room. Tool names (Disk usage, Duplicates) go first; the search scope words
-    // (Everywhere, File contents) last, since those say which way a search is looking. Icons and tooltips stay.
-    private void OnToolbarSizeChanged(object sender, SizeChangedEventArgs e)
-    {
-        var width = e.NewSize.Width;
-        var tools = width >= 1180 ? Visibility.Visible : Visibility.Collapsed;
-        var scope = width >= 940 ? Visibility.Visible : Visibility.Collapsed;
-        DiskUsageLabel.Visibility = DuplicatesLabel.Visibility = tools;
-        SearchEverywhereLabel.Visibility = SearchContentsLabel.Visibility = scope;
-    }
+    // so the address bar keeps its room.
+    // CHANGED (toolbar fit): no longer two fixed widths (1180 / 940), which didn't count the buttons that come and
+    // go or a theme's font, so buttons were cut off and the address bar disappeared. The toolbar is now measured
+    // and gives up room step by step, down to a More menu (MainWindow.Toolbar.cs).
+    private void OnToolbarSizeChanged(object sender, SizeChangedEventArgs e) => QueueToolbarFit();
 
 
     private void OnPreviewKeyDown(object sender, KeyEventArgs e)
@@ -2155,6 +2150,8 @@ public partial class MainWindow : Window
             "Album" => SortColumn.Album,
             "Length" => SortColumn.Duration,
             "Track" => SortColumn.Track,
+            "Last opened" => SortColumn.LastOpened, // NEW (recent)
+            "Folder" => SortColumn.Location,        // NEW (recent)
             _ => SortColumn.Name
         };
 

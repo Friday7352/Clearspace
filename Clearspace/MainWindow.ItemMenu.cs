@@ -62,7 +62,8 @@ public partial class MainWindow
         Show(PlayMenuItem, fits.HasFlag(TypeActions.Play));
         Show(ViewPhotoMenuItem, fits.HasFlag(TypeActions.ViewPhoto));
         Show(RunAsAdminMenuItem, fits.HasFlag(TypeActions.RunAsAdministrator));
-        Show(OpenLocationMenuItem, fits.HasFlag(TypeActions.OpenLocation));
+        // CHANGED (recent): also on the Recent page, for any one item: goes to the folder it is in.
+        Show(OpenLocationMenuItem, fits.HasFlag(TypeActions.OpenLocation) || (_viewModel.IsRecentPage && OnlySelected() is not null));
         Show(OpenWithMenuItem, fits.HasFlag(TypeActions.OpenWith));
         Show(TerminalHereMenuItem, fits.HasFlag(TypeActions.Terminal));
         Show(CopyImageMenuItem, fits.HasFlag(TypeActions.CopyImage));
@@ -135,6 +136,13 @@ public partial class MainWindow
     {
         if (OnlySelected() is not { } item)
             return;
+
+        // NEW (recent): on the Recent page the item is the file itself; go to its folder and select it there.
+        if (_viewModel.IsRecentPage)
+        {
+            RevealFile(item.FullPath);
+            return;
+        }
 
         var target = ShellActions.ShortcutTarget(item.FullPath);
         if (target is null || (!File.Exists(target) && !Directory.Exists(target)))

@@ -403,6 +403,35 @@
         </GridViewColumn>
 
         <!-- NEW (folder types, step 3): the site a download came from (Downloads). -->
+        <!-- NEW (recent): when the item was last opened, and the folder it is in. Offered on the Recent page
+             (and Folder anywhere, which helps in search results). -->
+        <GridViewColumn x:Key="Col.LastOpened" x:Shared="False" Width="170" Header="Last opened">
+            <GridViewColumn.CellTemplate>
+                <DataTemplate>
+                    <TextBlock Text="{Binding LastOpenedText}"
+                               Foreground="{DynamicResource InkMuted}"
+                               Margin="10,0,0,0"
+                               HorizontalAlignment="Left"
+                               VerticalAlignment="Center"
+                               Typography.NumeralAlignment="Tabular" />
+                </DataTemplate>
+            </GridViewColumn.CellTemplate>
+        </GridViewColumn>
+
+        <GridViewColumn x:Key="Col.Location" x:Shared="False" Width="260" Header="Folder">
+            <GridViewColumn.CellTemplate>
+                <DataTemplate>
+                    <TextBlock Text="{Binding LocationText}"
+                               ToolTip="{Binding LocationText}"
+                               Foreground="{DynamicResource InkMuted}"
+                               Margin="10,0,0,0"
+                               HorizontalAlignment="Left"
+                               VerticalAlignment="Center"
+                               TextTrimming="CharacterEllipsis" />
+                </DataTemplate>
+            </GridViewColumn.CellTemplate>
+        </GridViewColumn>
+
         <GridViewColumn x:Key="Col.Source" x:Shared="False" Width="170" Header="Source">
             <GridViewColumn.CellTemplate>
                 <DataTemplate>
@@ -751,11 +780,14 @@
         <Grid x:Name="ToolbarRow" Grid.Row="1" Margin="10,6,14,8" Background="Transparent" SizeChanged="OnToolbarSizeChanged">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="*" />
+                <!-- CHANGED (toolbar fit): the address bar never shrinks to nothing (it was squeezed out completely
+                     in a narrow window). MainWindow.Toolbar.cs keeps the buttons on the right from needing more. -->
+                <ColumnDefinition Width="*" MinWidth="140" />
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
 
-            <StackPanel Grid.Column="0" Orientation="Horizontal">
+            <!-- CHANGED (toolbar fit): named, so its width can be measured (MainWindow.Toolbar.cs). -->
+            <StackPanel x:Name="NavButtons" Grid.Column="0" Orientation="Horizontal">
                 <Button Style="{StaticResource IconButton}" Content="&#xE72B;"
                         Command="{Binding BackCommand}" ToolTip="Back  ·  Alt+Left" />
                 <Button Style="{StaticResource IconButton}" Content="&#xE72A;"
@@ -820,9 +852,12 @@
                  search and where it looks, tools, this folder, how files are shown, new things, settings. The
                  search scope and the two tools carry a word beside their icon; when the window is too narrow
                  for the words, OnToolbarSizeChanged hides them and they go back to icons (tooltips unchanged). -->
-            <StackPanel x:Name="ToolbarActions" Grid.Column="2" Orientation="Horizontal">
+            <!-- CHANGED (toolbar fit): SizeChanged, so a button appearing (folder type, Git, Extract all) fits again. -->
+            <StackPanel x:Name="ToolbarActions" Grid.Column="2" Orientation="Horizontal" SizeChanged="OnToolbarActionsSizeChanged">
                 <!-- CHANGED (toolbar groups): 228 to 200 wide, to leave room for the labelled scope buttons. -->
-                <Border Width="200"
+                <!-- CHANGED (toolbar fit): named; it narrows to 150 when the window is narrow (MainWindow.Toolbar.cs). -->
+                <Border x:Name="SearchPill"
+                        Width="200"
                         Height="32"
                         Margin="0,0,9,0"
                         Background="{DynamicResource Surface}"
@@ -903,6 +938,9 @@
                 </ToggleButton>
                 <!-- REMOVED (toolbar tidy): the "Indexing" text button. The index status chip at the bottom right of
                      the file list opens the same page. -->
+                <!-- NEW (toolbar fit): each group that can move into the More menu sits in a panel of its own, so
+                     it can be hidden without touching the buttons' own Visibility bindings. -->
+                <StackPanel x:Name="ToolsGroup" Orientation="Horizontal">
                 <Border Style="{StaticResource ToolbarDivider}" />
                 <!-- CHANGED (toolbar groups): Disk usage and Find duplicates are the least familiar icons, so they
                      carry their names too. -->
@@ -925,6 +963,7 @@
                                    FontFamily="{DynamicResource UIFont}" FontSize="11.5" VerticalAlignment="Center" />
                     </StackPanel>
                 </Button>
+                </StackPanel> <!-- NEW (toolbar fit): end of ToolsGroup -->
                 <Border Style="{StaticResource ToolbarDivider}" />
                 <!-- NEW (folder types, step 2): Git branch and changed-file count in Code folders. -->
                 <TextBlock Text="{Binding FolderContextText}"
@@ -991,6 +1030,7 @@
                 <!-- REMOVED (toolbar): the tile size control (- 100% +) that appeared here in tile view. It made the
                      toolbar wider in Pictures and Videos folders, which squeezed the address bar and search box.
                      It now sits in the status bar at the bottom right, where there is room for it. -->
+                <StackPanel x:Name="ViewGroup" Orientation="Horizontal"> <!-- NEW (toolbar fit) -->
                 <Border Style="{StaticResource ToolbarDivider}" />
                 <Button x:Name="ColumnsButton"
                         Style="{StaticResource IconButton}"
@@ -1046,14 +1086,25 @@
                               Content="&#xE7B3;"
                               IsChecked="{Binding ShowHiddenItems}"
                               ToolTip="Show hidden items" />
+                </StackPanel> <!-- NEW (toolbar fit): end of ViewGroup -->
                 <!-- CHANGED (toolbar groups): New folder and Open in Terminal moved here, after the view buttons,
                      so the buttons that change how files are shown sit together. -->
+                <StackPanel x:Name="NewGroup" Orientation="Horizontal"> <!-- NEW (toolbar fit) -->
                 <Border Style="{StaticResource ToolbarDivider}" />
                 <Button Style="{StaticResource IconButton}" Content="&#xE8F4;"
                         Command="{Binding NewFolderCommand}" ToolTip="New folder  ·  Ctrl+Shift+N" />
                 <Button Style="{StaticResource IconButton}" Content="&#xE756;"
                         Command="{Binding TerminalCommand}" ToolTip="Open in Terminal  ·  Ctrl+`" />
+                </StackPanel> <!-- NEW (toolbar fit): end of NewGroup -->
                 <Border Style="{StaticResource ToolbarDivider}" />
+                <!-- NEW (toolbar fit): holds the groups there is no room for. Shown only while something is in it. -->
+                <Button x:Name="ToolbarMoreButton"
+                        Style="{StaticResource IconButton}"
+                        Content="&#xE712;"
+                        Click="OnToolbarMore"
+                        Visibility="Collapsed"
+                        ToolTip="More"
+                        AutomationProperties.Name="More" />
                 <!-- NEW (unlock vs remove lock): settings menu; file locking is its first section. -->
                 <Button x:Name="SettingsButton"
                         Style="{StaticResource IconButton}"
@@ -1166,7 +1217,8 @@
                                             <Setter Property="Margin" Value="0,0,8,0" />
                                             <Setter Property="Visibility" Value="Collapsed" />
                                             <Style.Triggers>
-                                                <DataTrigger Binding="{Binding IsSection}" Value="True">
+                                                <!-- CHANGED (recent): CanCollapse (was IsSection); Recent has nothing to fold. -->
+                                                <DataTrigger Binding="{Binding CanCollapse}" Value="True">
                                                     <Setter Property="Visibility" Value="Visible" />
                                                 </DataTrigger>
                                             </Style.Triggers>

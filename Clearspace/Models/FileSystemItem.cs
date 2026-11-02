@@ -382,6 +382,16 @@ public sealed class FileSystemItem : ObservableObject
         ? string.Empty
         : DateCreated.ToString("g");
 
+    // NEW (recent): when it was last opened, for the Recent page (Services/RecentItems.cs). Not known elsewhere.
+    public DateTime LastOpened { get; set; }
+
+    public string LastOpenedText => LastOpened == DateTime.MinValue
+        ? string.Empty
+        : LastOpened.ToString("g");
+
+    // NEW (recent): the folder it is in, for the Folder column.
+    public string LocationText => IsInArchive ? string.Empty : Path.GetDirectoryName(FullPath) ?? string.Empty;
+
     private string? _typeName;
     public string TypeName
     {

@@ -84,6 +84,7 @@ public sealed class OpenItemAction(ExplorerContext context) : IAction
                 FileName = path,
                 UseShellExecute = true
             })?.Dispose();
+            RecentItems.RecordFile(path); // NEW (recent): on Windows' recent list, as File Explorer does
             return true;
         }
         catch (Exception)

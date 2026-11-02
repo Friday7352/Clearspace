@@ -19,6 +19,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     public const string YourFilesPath = ExplorerLocations.YourFilesPath;
     public const string PinnedPath = ExplorerLocations.PinnedPath;
     public const string CloudPath = ExplorerLocations.CloudPath;
+    public const string RecentPath = ExplorerLocations.RecentPath; // NEW (recent)
     public const string CategoryPathPrefix = ExplorerLocations.CategoryPathPrefix;
 
     private readonly NavigationCoordinator _navigationLoads = new();
@@ -187,12 +188,18 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             ? null
             : SettingsService.GetFolderColumns(CurrentPath);
 
-        _visibleColumns = ColumnCatalog.Sanitise(saved ?? FolderTypes.DefaultColumns(type, IsCloudFolder));
+        // CHANGED (recent): the Recent page has columns of its own (Last opened, Folder).
+        var recent = IsRecentPage;
+        _visibleColumns = ColumnCatalog.Sanitise(saved ?? (recent ? ColumnCatalog.RecentDefault : FolderTypes.DefaultColumns(type, IsCloudFolder)));
 
         ColumnOptions.Clear();
 
         foreach (var info in ColumnCatalog.All)
         {
+            // NEW (recent): "Last opened" is only known on the Recent page, so it is only offered there.
+            if (!recent && info.Id == "lastopened")
+                continue;
+
             ColumnOptions.Add(new ColumnOption(
                 info,
                 _visibleColumns.Contains(info.Id, StringComparer.OrdinalIgnoreCase),
@@ -1679,6 +1686,9 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         }
 
         CurrentPath = path;
+        // NEW (recent): going into a folder puts it on Windows' list of recent items, as File Explorer does.
+        if (!force && !path.StartsWith("clearspace://", StringComparison.OrdinalIgnoreCase))
+            RecentItems.RecordFolder(path);
         WatchFolderOnScreen(path); // NEW (live folder): the listing follows changes other programs make here
         RestoreFolderProfile(path);
         RestoreTileScale(path);
@@ -1718,6 +1728,13 @@ public sealed class MainViewModel : ObservableObject, IDisposable
                 path.Equals(NetworkPath, StringComparison.OrdinalIgnoreCase))
             {
                 await LoadVirtualDrivesAsync(path, stopwatch, token);
+                return;
+            }
+
+            // NEW (recent)
+            if (path.Equals(RecentPath, StringComparison.OrdinalIgnoreCase))
+            {
+                await LoadRecentAsync(path, stopwatch, token);
                 return;
             }
 
@@ -1952,6 +1969,49 @@ public sealed class MainViewModel : ObservableObject, IDisposable
                 ? "Pin any file or folder from its right-click menu to keep it within reach."
                 // CHANGED (your files): says how to add your own.
                 : "Desktop, Documents, Downloads, Pictures, Music, and Videos—your everyday starting points. Right-click an empty area to add a folder of your own.");
+        TimingText = $"{stopwatch.ElapsedMilliseconds} ms";
+    }
+
+    // ------------------------------------------------------------------ NEW (recent)
+    // The Recent page: files and folders opened lately, here or in any other program, newest first
+    // (Services/RecentItems.cs). It is a list like a folder's: open, copy, drag, rename and delete work on the
+    // real files, sorting by a column works, and "Open file location" in the right-click menu goes to the
+    // folder an item is in. The list is read again each time the page is opened, or with Refresh (F5).
+
+    public bool IsRecentPage => CurrentPath.Equals(RecentPath, StringComparison.OrdinalIgnoreCase);
+
+    private async Task LoadRecentAsync(string path, Stopwatch stopwatch, CancellationToken token)
+    {
+        // FIXED (recent freeze): icons, type names, tile pictures and tags are worked out here in the background,
+        // as for a folder (NavigationCoordinator.Prepare). They used to be done on the UI thread after the list
+        // was read, and for items on a slow drive (a mapped network drive, a USB stick) that held up the window.
+        var items = await Task.Run(() =>
+        {
+            var list = RecentItems.Read(token);
+            IconService.Populate(list);
+            IconService.PopulateTypeNames(list);
+            ScalableIconService.PopulateGridPlaceholders(list);
+            var tags = TagService.Lookup();
+            foreach (var item in list) item.RefreshTags(tags);
+            return list;
+        }, token);
+        if (token.IsCancellationRequested)
+            return;
+
+        FolderSnapshotCache.Set(path, items);
+        SetDirectoryItems(items);
+        Layout = LayoutMode.Details;
+        stopwatch.Stop();
+        StatusText = SearchCoordinator.DescribeBrowsing(path, items);
+        UpdateSearchStatus();
+
+        var off = items.Count == 0 && RecentItems.IsOffInWindows();
+        SetHubInfo(
+            "Recent",
+            items.Count == 0 ? "Nothing yet" : $"{items.Count:N0} item{(items.Count == 1 ? string.Empty : "s")}",
+            off
+                ? "Windows isn't keeping a list of recent items. Turn on \"Show recently opened items in Start, Jump Lists, and File Explorer\" in Windows Settings > Personalization > Start."
+                : "Files and folders you opened lately, here or in any other program. Newest first.");
         TimingText = $"{stopwatch.ElapsedMilliseconds} ms";
     }
 

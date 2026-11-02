@@ -27,6 +27,9 @@ internal static class NavigationBreadcrumbs
         if (path.Equals(CloudPath, StringComparison.OrdinalIgnoreCase))
             return [new Breadcrumb("Cloud", CloudPath)];
 
+        if (path.Equals(RecentPath, StringComparison.OrdinalIgnoreCase)) // NEW (recent)
+            return [new Breadcrumb("Recent", RecentPath)];
+
         if (path.StartsWith(CategoryPathPrefix, StringComparison.OrdinalIgnoreCase))
         {
             var categoryId = path[CategoryPathPrefix.Length..];

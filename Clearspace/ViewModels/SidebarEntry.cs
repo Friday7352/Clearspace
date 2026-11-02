@@ -20,6 +20,10 @@ public sealed record SidebarEntry(
     public string DisplayName => Name;
     public string CollapseGlyph => IsCollapsed ? "\uE76C" : "\uE70D";
     public bool HasHub => IsSection && !string.IsNullOrWhiteSpace(Path);
+
+    // NEW (recent): headings that can be folded away show the collapse arrow.
+    // CHANGED (recent sidebar): all of them again, Recent included, now that it lists your last folders.
+    public bool CanCollapse => IsSection;
     public bool IsNestedPin => IsPinned;
 
     // NEW (map network drive): the This PC and Network headings have "Map network drive…" in their menu.

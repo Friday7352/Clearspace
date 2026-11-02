@@ -40,7 +40,7 @@ the one Windows opens folders with whenever you like.
 ## Contents
 
 - [Install](#install) · [Updating](#updating) · [Uninstalling](#uninstalling) · [Reporting a problem](#reporting-a-problem)
-- [What's new in 1.7.0](#whats-new-in-170)
+- [What's new in 1.9.1](#whats-new-in-191) · [1.9.0](#whats-new-in-190) · [1.7.0](#whats-new-in-170)
 - [The basics](#the-basics) · [Keyboard shortcuts](#keyboard-shortcuts)
 - [Folder types](#folder-types) · [The Downloads folder](#the-downloads-folder)
 - [Search and indexing](#search-and-indexing) · [Tags and Favorites](#tags-and-favorites)
@@ -125,6 +125,18 @@ Two small logs in `%APPDATA%\Clearspace` can help. They stay on your PC unless y
 
 ---
 
+## What's new in 1.9.1
+
+- **Recent.** Your last five folders sit under **Recent** in the sidebar, and its page lists the files and folders you opened lately, in Clearspace or any other program, newest first. Right-click one for **Open file location**.
+- **The toolbar fits any window.** In a narrow window the address bar stays, labels shorten, and buttons that don't fit move into a **More** (⋯) menu instead of being cut off.
+- **Fixed:** Clearspace 1.9.0 reported an older version number, so it could keep offering the 1.9.0 update after you installed it.
+
+## What's new in 1.9.0
+
+- **Extract 7z, RAR and TAR files**, the same way as a ZIP: right-click and choose **Extract to "name"** or **Extract to…**. Split RAR sets (`.part1.rar`, `.part2.rar`…) work too. The preview pane shows what's inside a 7z or RAR.
+- **"Show in folder" selects the file.** With **Open folders with Clearspace** on, a program's "Show in folder" opens the folder in Clearspace with the file selected.
+- **Uses much less memory.** The search index takes about half the memory it did, and the disk usage map far less. Your index is converted automatically the first time 1.9.0 starts.
+
 ## What's new in 1.7.0
 
 - **Theme creator (beta).** Make your own theme on the Clearspace window itself, with your own files in it. Restyle any part, move parts around, add patterns, gradients, stickers and effects, and share your theme as a code or a file. [More below](#the-theme-creator-beta). *It is still in beta, so expect bugs.*
@@ -155,6 +167,7 @@ Everything you'd expect from a file manager works the way it does in File Explor
 - **Drives come and go live:** a USB stick or external drive appears in the sidebar and on This PC the moment you plug it in, and goes when you remove it.
 - **Network drives:** open **Network** in the sidebar and choose **Map network drive…** to give a shared folder (`\\server\share`) a drive letter. Windows asks for any password in its own sign-in box, so Clearspace never sees it. Right-click a mapped drive and choose **Disconnect** to remove it.
 - **Your files:** the sidebar's home for Desktop, Documents and the rest. Add folders of your own there.
+- **Recent:** the sidebar shows your last five folders under **Recent**, like File Explorer's Quick access. Click the heading for a page of the files and folders you opened lately, in Clearspace or any other program, newest first, with when you last opened each one and the folder it's in. Right-click one and choose **Open file location** to go to it. It's the same list File Explorer's Recent uses, so it's empty if **Show recently opened items** is off in Windows Settings > Personalization > Start.
 - **Views you keep:** each folder remembers its column order and widths and its tile size (**Ctrl+mouse wheel**). **Ctrl+Shift+V** switches between the list and tiles.
 
 ### Keyboard shortcuts

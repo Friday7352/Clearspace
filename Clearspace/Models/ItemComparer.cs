@@ -15,7 +15,9 @@ public enum SortColumn
     Artist,
     Album,
     Duration,
-    Track
+    Track,
+    LastOpened, // NEW (recent); added at the end, so sort orders saved before keep their meaning
+    Location    // NEW (recent)
 }
 
 public sealed class ItemComparer : IComparer<FileSystemItem>
@@ -50,6 +52,8 @@ public sealed class ItemComparer : IComparer<FileSystemItem>
             SortColumn.Artist => string.Compare(x.Artist, y.Artist, StringComparison.OrdinalIgnoreCase),
             SortColumn.Duration => x.Duration.CompareTo(y.Duration),
             SortColumn.Track => x.TrackNumber.CompareTo(y.TrackNumber),
+            SortColumn.LastOpened => x.LastOpened.CompareTo(y.LastOpened), // NEW (recent)
+            SortColumn.Location => NativeMethods.StrCmpLogicalW(x.LocationText, y.LocationText), // NEW (recent)
 
             SortColumn.Album => AlbumThenTrack(x, y),
             _ => 0

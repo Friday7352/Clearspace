@@ -166,6 +166,23 @@ public sealed class NavigationAndSidebarTests
         Assert.IsTrue(entries[1].IsChild && entries[3].IsChild);
     }
 
+    // NEW (recent), CHANGED (recent sidebar): the heading opens the Recent page; the last folders sit under it.
+    [TestMethod]
+    public void RecentHeadingOpensThePageAndListsTheLastFolders()
+    {
+        SidebarSectionInfo[] sections = [new("files", "Your files", false, false), new("recent", "Recent", false, false)];
+        var entries = SidebarComposer.Build([], sections, _ => [], [new("Desktop", @"C:\Users\x\Desktop")], [],
+            [new("Clearspace", @"E:\GithubRepos\Clearspace")]).ToArray();
+        CollectionAssert.AreEqual(new[] { "Your files", "Desktop", "Recent", "Clearspace" }, entries.Select(e => e.Name).ToArray());
+        Assert.AreEqual(ExplorerLocations.RecentPath, entries[2].Path);
+        Assert.IsTrue(entries[2].IsSection && entries[2].HasHub && entries[2].CanCollapse);
+        Assert.IsTrue(entries[3].IsChild);
+        Assert.AreEqual("Recent", NavigationBreadcrumbs.BuildBreadcrumbs(ExplorerLocations.RecentPath).Single().Name);
+
+        SidebarSectionInfo[] folded = [new("recent", "Recent", true, false)];
+        Assert.AreEqual(1, SidebarComposer.Build([], folded, _ => [], [], [], [new("Clearspace", @"E:\x")]).Count(), "folded away");
+    }
+
     [TestMethod]
     public void CollapsedCategoryDoesNotLoadItsChildren()
     {

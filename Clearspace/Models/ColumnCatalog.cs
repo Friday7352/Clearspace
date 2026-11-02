@@ -25,6 +25,8 @@ public static class ColumnCatalog
         new("length",       "Length",        "Col.Length"),
         new("datemodified", "Date modified", "Col.DateModified"),
         new("datecreated",  "Date created",  "Col.DateCreated"),
+        new("lastopened",   "Last opened",   "Col.LastOpened"),   // NEW (recent): Recent page only
+        new("location",     "Folder",        "Col.Location"),     // NEW (recent)
         new("tags",         "Tags",          "Col.Tags"),
         new("git",          "Git",           "Col.Git"),          // NEW (step 2): Code
         new("dimensions",   "Dimensions",    "Col.Dimensions"),   // NEW (step 2): Photos, Videos, Screenshots, Design & 3D
@@ -46,6 +48,9 @@ public static class ColumnCatalog
     private static readonly string[] MusicDefault = ["play", "name", "artist", "album", "length", "datemodified"];
 
     private static readonly string[] CloudDefault = ["name", "status", "datemodified", "type"];
+
+    // NEW (recent): the Recent page.
+    public static readonly IReadOnlyList<string> RecentDefault = ["name", "lastopened", "location", "type"];
 
     // CHANGED (step 3)
     private static readonly string[] PhotosDefault = ["name", "datemodified", "dimensions", "type", "size"];

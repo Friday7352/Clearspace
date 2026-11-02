@@ -100,6 +100,7 @@ public sealed class ExplorerTab : ObservableObject
         if (path.Equals(ExplorerLocations.YourFilesPath, StringComparison.OrdinalIgnoreCase)) return "\uE80F"; // Home
         if (path.Equals(ExplorerLocations.PinnedPath, StringComparison.OrdinalIgnoreCase)) return "\uE734";    // Favorites
         if (path.Equals(ExplorerLocations.CloudPath, StringComparison.OrdinalIgnoreCase)) return "\uE753";     // Cloud
+        if (path.Equals(ExplorerLocations.RecentPath, StringComparison.OrdinalIgnoreCase)) return "\uE81C";    // NEW (recent): History
         if (ArchiveLocation.Is(path)) return "\uE7B8";                                                         // NEW (zip folders): Package
         if (IsVirtual(path)) return FolderGlyph;
 

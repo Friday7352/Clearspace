@@ -20,12 +20,20 @@ public sealed class SidebarViewModel : IDisposable
     private List<SidebarEntry> _driveEntries = [];
     public ObservableCollection<SidebarEntry> Sidebar { get; } = [];
 
+    // NEW (recent sidebar): where the sidebar lives, so news from a background thread reaches it.
+    private readonly System.Windows.Threading.Dispatcher _dispatcher = System.Windows.Threading.Dispatcher.CurrentDispatcher;
+
     public SidebarViewModel()
     {
         RebuildSidebar();
         SettingsChanged += RebuildSidebar;
         DrivesChanged += ReloadDrives; // NEW (map network drive)
+        RecentItems.SidebarFoldersChanged += OnRecentFoldersChanged; // NEW (recent sidebar)
+        RecentItems.StartSidebar();
     }
+
+    // NEW (recent sidebar): the last few folders changed (read in the background).
+    private void OnRecentFoldersChanged() => _dispatcher.BeginInvoke(new Action(RebuildSidebar));
 
     // NEW (new window): a closed window's sidebar stops listening (called from MainViewModel.Dispose).
     // CHANGED (map network drive): to both kinds of news.
@@ -33,6 +41,7 @@ public sealed class SidebarViewModel : IDisposable
     {
         SettingsChanged -= RebuildSidebar;
         DrivesChanged -= ReloadDrives;
+        RecentItems.SidebarFoldersChanged -= OnRecentFoldersChanged; // NEW (recent sidebar)
     }
 
     private static void RebuildEverySidebar() => SettingsChanged?.Invoke();
@@ -62,6 +71,14 @@ public sealed class SidebarViewModel : IDisposable
         _driveEntries = drives;
         RebuildSidebar();
     }
+
+    // NEW (recent sidebar): the folders under Recent, by name (a drive by its letter); the full path is the tooltip.
+    private static IEnumerable<SidebarEntry> RecentEntries()
+        => RecentItems.SidebarFolders.Select(path =>
+        {
+            var name = Path.GetFileName(Path.TrimEndingDirectorySeparator(path));
+            return new SidebarEntry(string.IsNullOrEmpty(name) ? path : name, path);
+        });
 
     private static SidebarEntry WithCloud(SidebarEntry entry)
         => entry.IsHeader || entry.CloudProvider is not null || !CloudStorageService.IsDiscovered
@@ -189,7 +206,7 @@ public sealed class SidebarViewModel : IDisposable
         Sidebar.Clear();
 
         foreach (var entry in SidebarComposer.Build(_driveEntries, SettingsService.GetSidebarSections(), SettingsService.GetPins,
-            LocationCatalog.BuildUserFileEntries(), LocationCatalog.BuildCloudEntries()).Select(WithCloud))
+            LocationCatalog.BuildUserFileEntries(), LocationCatalog.BuildCloudEntries(), RecentEntries()).Select(WithCloud))
             Sidebar.Add(entry);
     }
 
